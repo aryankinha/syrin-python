@@ -926,20 +926,6 @@ IMPORTANT: Return ONLY valid JSON, no other text."""
 
         return agents
 
-    def _parse_and_execute_agents(
-        self, agents_spec: str, mode: str = "parallel"
-    ) -> tuple[str, float, TokenUsage]:
-        """Parse and execute agents based on specification."""
-        agents_to_spawn = self._parse_agents_spec(agents_spec)
-
-        if not agents_to_spawn:
-            return ("No agents to spawn", 0.0, TokenUsage())
-
-        if mode == "sequential":
-            return self._execute_sequential(agents_to_spawn)
-        else:
-            return self._execute_parallel(agents_to_spawn)
-
     def _execute_parallel(self, agents_spec: list[dict[str, Any]]) -> tuple[str, float, TokenUsage]:
         """Execute agents in parallel."""
 
@@ -1091,16 +1077,7 @@ __all__ = [
     "PipelineBuilder",
     "PipelineRun",
     "AgentTeam",
-    "parallel",
-    "sequential",
     "DynamicPipeline",
-]
-
-
-__all__ = [
-    "Pipeline",
-    "PipelineRun",
-    "AgentTeam",
     "parallel",
     "sequential",
 ]

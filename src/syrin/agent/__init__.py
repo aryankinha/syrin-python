@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import time
 from collections.abc import AsyncIterator, Iterator
@@ -33,7 +32,7 @@ from syrin.enums import (
 from syrin.events import EventContext, Events
 from syrin.exceptions import BudgetExceededError, BudgetThresholdError, ToolExecutionError
 from syrin.guardrails import Guardrail, GuardrailChain, GuardrailResult
-from syrin.loop import Loop, ReactLoop
+from syrin.loop import Loop, LoopStrategyMapping, ReactLoop
 from syrin.memory import ConversationMemory
 from syrin.memory.backends import InMemoryBackend, get_backend
 from syrin.memory.config import Memory as MemoryConfig
@@ -59,7 +58,6 @@ from syrin.response import (
     Response,
     StreamChunk,
     StructuredOutput,
-    TraceStep,
 )
 from syrin.types import CostInfo, Message, ModelConfig, ProviderResponse, TokenUsage, ToolSpec
 
@@ -119,12 +117,37 @@ def _get_provider(provider_name: str) -> Provider:
 
 
 class Agent:
-    """
-    Base agent: model, system_prompt, optional tools, optional budget.
-    Subclasses can set class-level model, system_prompt, tools, budget; child
-    overrides parent for prompt/model/budget; tools are merged along MRO.
-    response(input) runs the completion and a tool-call loop. When budget is set,
-    cost is tracked and thresholds (e.g. switch model, stop) are applied.
+    """AI agent that runs completions, tools, memory, and budget control.
+
+    An Agent is the main interface for talking to an LLM, executing tools, remembering
+    facts, and controlling costs. You provide a model (LLM) and optionally tools,
+    budget, memory, guardrails, and more.
+
+    Why use an Agent?
+        - Run multi-turn conversations with automatic tool-call loops (REACT by default).
+        - Keep costs under control with per-run and per-period budgets.
+        - Remember facts across sessions with persistent memory.
+        - Validate input/output with guardrails.
+        - Trace and debug with events and spans.
+
+    How to create one:
+        - Pass everything at construction: ``Agent(model=..., system_prompt=...)``
+        - Or subclass and set class attributes: ``model = Model.OpenAI(...)``
+        - Child classes override parent for model/prompt/budget; tools are merged.
+
+    Attributes:
+        events: Lifecycle hooks (before/on/after). Use agent.events.on(Hook.LLM_REQUEST_END, fn).
+
+    Example:
+        >>> from syrin import Agent
+        >>> from syrin.model import Model
+        >>> agent = Agent(
+        ...     model=Model.OpenAI("gpt-4o-mini"),
+        ...     system_prompt="You are a helpful assistant.",
+        ... )
+        >>> r = agent.response("What is 2+2?")
+        >>> print(r.content)
+        2 + 2 equals 4.
     """
 
     _Syrin_default_model: Model | ModelConfig | None = None
@@ -170,6 +193,50 @@ class Agent:
         debug: bool = False,
         tracer: Any = None,
     ) -> None:
+        """Create an agent with model, prompt, tools, and optional config.
+
+        Args:
+            model: LLM to use (required). Use Model.OpenAI, Model.Anthropic, etc.
+                Why: The brain of your agent. Required.
+            system_prompt: Instructions that define behavior. Sent with every request.
+                Why: Shapes personality and constraints. Default: empty.
+            tools: List of @tool-decorated functions the agent can call.
+                Why: Gives the agent abilities (search, calculate, etc.).
+            budget: Cost limits (per run, per period) and threshold actions.
+                Why: Prevents runaway spending. Use Budget(run=1.0) for $1/run.
+            output: Structured output config (Pydantic model). Validates responses.
+                Why: Get typed, validated output instead of raw text.
+            max_tool_iterations: Max tool-call loops per response (default 10).
+                Why: Stops infinite tool loops. Increase for complex workflows.
+            budget_store: Persist budget across runs (e.g. FileBudgetStore).
+                Why: Track spend across restarts. Requires budget_store_key.
+            budget_store_key: Key for budget persistence (default "default").
+                Why: Isolate budgets per user/session when using budget_store.
+            memory: Conversation memory (BufferMemory) or persistent MemoryConfig.
+                Why: Enables remember/recall/forget or session history.
+            loop_strategy: Execution strategy (REACT, SINGLE_SHOT, etc.).
+                Why: REACT = tool loop; SINGLE_SHOT = one LLM call, no tools.
+            loop: Custom Loop instance. Overrides loop_strategy if set.
+            guardrails: List of Guardrail or GuardrailChain. Validate input/output.
+                Why: Block harmful content, PII, or policy violations.
+            context: Context config for token limits and compaction.
+            rate_limit: APIRateLimit to enforce RPM/TPM.
+                Why: Avoid 429 errors from provider rate limits.
+            checkpoint: CheckpointConfig for save/restore state.
+                Why: Resume after crashes or save progress in long runs.
+            debug: If True, print lifecycle events to console.
+                Why: Quick visibility into agent behavior.
+            tracer: Custom tracer for observability.
+
+        Example:
+            >>> agent = Agent(
+            ...     model=Model.OpenAI("gpt-4o-mini"),
+            ...     system_prompt="You are concise.",
+            ...     tools=[search, calculate],
+            ...     budget=Budget(run=0.50),
+            ...     memory=MemoryConfig(top_k=5),
+            ... )
+        """
         cls = self.__class__
         if model is _UNSET:
             model = getattr(cls, "_Syrin_default_model", None)
@@ -226,7 +293,6 @@ class Agent:
             self._budget_tracker = BudgetTracker()
         self._provider = _get_provider(self._model_config.provider)
         self._agent_name = self.__class__.__name__
-        self._loop_strategy = loop_strategy
 
         loop_instance: Loop
         if loop is not None:
@@ -235,9 +301,11 @@ class Agent:
             elif hasattr(loop, "run") and callable(loop.run):
                 loop_instance = loop  # type: ignore[assignment]
             else:
-                loop_instance = ReactLoop()
+                loop_instance = ReactLoop(max_iterations=max_tool_iterations)
         else:
-            loop_instance = ReactLoop()
+            loop_instance = LoopStrategyMapping.create_loop(
+                loop_strategy, max_iterations=max_tool_iterations
+            )
         self._loop = loop_instance
 
         # Guardrails setup
@@ -324,21 +392,34 @@ class Agent:
                 self._checkpointer = None
 
     def save_checkpoint(self, name: str | None = None, reason: str | None = None) -> str | None:
-        """Save a checkpoint of the agent's current state.
+        """Save a snapshot of the agent's current state for later restore.
+
+        Why: Resumes after crashes, saves progress in long runs, or recovers when
+        budget is near limit. Essential for production reliability.
+
+        What it saves: Iteration, messages, memory_data, budget_state, reason.
+
+        How to tweak: Pass name to group checkpoints; pass reason for debugging.
+        Requires checkpoint=CheckpointConfig(...) at construction.
 
         Args:
-            name: Optional name for the checkpoint. If not provided, uses the agent name.
-            reason: Optional reason for the checkpoint (e.g., 'step', 'tool', 'budget', 'error').
+            name: Optional label. Default: agent class name.
+            reason: Why saved (e.g. 'step', 'tool', 'budget', 'error').
 
         Returns:
-            The checkpoint ID, or None if checkpointing is not enabled.
+            Checkpoint ID (str) for load_checkpoint, or None if disabled.
+
+        Example:
+            >>> agent = Agent(model=m, checkpoint=CheckpointConfig(storage="memory"))
+            >>> cid = agent.save_checkpoint(reason="before_expensive_step")
+            >>> agent.load_checkpoint(cid)
         """
         if self._checkpointer is None:
             return None
 
         agent_name = name or self._agent_name
         state = {
-            "iteration": self._run_report.context.final_tokens,
+            "iteration": self._run_report.tokens.total_tokens,
             "messages": [],  # Could include conversation history
             "memory_data": {},
             "budget_state": {"remaining": self._budget.remaining, "spent": self._budget._spent}
@@ -372,13 +453,20 @@ class Agent:
             self.save_checkpoint(reason=reason)
 
     def load_checkpoint(self, checkpoint_id: str) -> bool:
-        """Load a checkpoint to restore agent state.
+        """Restore agent state from a previously saved checkpoint.
+
+        Why: Resume after failure, replay from a point, or restore budget/memory state.
 
         Args:
-            checkpoint_id: The checkpoint ID to load.
+            checkpoint_id: ID returned by save_checkpoint or from list_checkpoints.
 
         Returns:
-            True if checkpoint was loaded successfully, False otherwise.
+            True if loaded; False if ID not found or checkpointing disabled.
+
+        Example:
+            >>> ids = agent.list_checkpoints()
+            >>> if ids:
+            ...     agent.load_checkpoint(ids[-1])
         """
         if self._checkpointer is None:
             return False
@@ -392,13 +480,19 @@ class Agent:
         return True
 
     def list_checkpoints(self, name: str | None = None) -> list[str]:
-        """List available checkpoints for this agent.
+        """List checkpoint IDs for this agent, optionally filtered by name.
+
+        Why: Find which checkpoints exist before loading one.
 
         Args:
-            name: Optional name to filter checkpoints. If not provided, uses the agent name.
+            name: Filter by label. Default: agent class name.
 
         Returns:
-            List of checkpoint IDs.
+            List of checkpoint IDs (most recent typically last).
+
+        Example:
+            >>> ids = agent.list_checkpoints(name="my_agent")
+            >>> print(ids)  # ['ckpt_abc123', 'ckpt_def456']
         """
         if self._checkpointer is None:
             return []
@@ -407,10 +501,17 @@ class Agent:
         return self._checkpointer.list_checkpoints(agent_name)
 
     def get_checkpoint_report(self) -> AgentReport:
-        """Get the checkpoint operations report for the last response() call.
+        """Get the full agent report including checkpoint stats.
+
+        Why: Inspect saves/loads and all other run metrics (guardrails, budget, etc.).
 
         Returns:
-            AgentReport with checkpoint statistics.
+            AgentReport with report.checkpoints (saves, loads) and other sections.
+
+        Example:
+            >>> agent.response("Hello")
+            >>> r = agent.get_checkpoint_report()
+            >>> print(r.checkpoints.saves, r.checkpoints.loads)
         """
         return self._run_report
 
@@ -515,7 +616,22 @@ class Agent:
         print()
 
     def switch_model(self, model: Model | ModelConfig) -> None:
-        """Change the active model mid-execution (e.g. when a budget threshold triggers)."""
+        """Change the LLM used by the agent at runtime.
+
+        Why: Switch to a cheaper model when approaching budget, or to a fallback when
+        rate limits are hit. Often triggered automatically by BudgetThreshold or
+        RateLimitThreshold, or called manually.
+
+        How to tweak: Pass Model.OpenAI("gpt-4o-mini") for cheaper; Model.OpenAI("gpt-4o")
+        for higher quality. Use with BudgetThreshold action:
+        ``BudgetThreshold(at=80, action=lambda ctx: ctx.parent.switch_model(Model(...)))``
+
+        Args:
+            model: New Model or ModelConfig. Must be same provider type.
+
+        Example:
+            >>> agent.switch_model(Model.OpenAI("gpt-4o-mini"))
+        """
         if isinstance(model, Model):
             self._model = model
             self._model_config = model.to_config()
@@ -526,34 +642,77 @@ class Agent:
 
     @property
     def budget_summary(self) -> dict[str, Any]:
-        """Current budget state (run cost, hourly/daily/weekly/monthly, entries count)."""
+        """Current budget usage across run and rolling windows.
+
+        Why: Monitor spend before/after runs, log for auditing, or show users.
+
+        Returns:
+            Dict with current_run_cost, hourly_cost, daily_cost, weekly_cost,
+            monthly_cost, entries_count. All costs in USD.
+
+        Example:
+            >>> agent.response("Hello")
+            >>> print(agent.budget_summary)
+            {'current_run_cost': 0.0012, 'hourly_cost': 0.05, ...}
+        """
         return self._budget_tracker.get_summary().to_dict()
 
     @property
     def memory(self) -> ConversationMemory | MemoryConfig | None:
-        """Memory configuration (conversation or persistent)."""
+        """Active memory: conversation (session) or persistent (remember/recall).
+
+        Why: Inspect what memory type is in use. Use conversation_memory or
+        persistent_memory for specific type.
+
+        Returns:
+            ConversationMemory if session history; MemoryConfig if persistent.
+        """
         return self._persistent_memory or self._conversation_memory
 
     @property
     def conversation_memory(self) -> ConversationMemory | None:
-        """Conversation memory for current session."""
+        """Session-only message history (user/assistant turns).
+
+        Why: Set when you pass BufferMemory or WindowMemory as memory=.
+        Used to keep multi-turn context without persistent storage.
+
+        Returns:
+            The ConversationMemory instance, or None if using persistent memory.
+        """
         return self._conversation_memory
 
     @property
     def persistent_memory(self) -> MemoryConfig | None:
-        """Persistent memory configuration."""
+        """Persistent memory config (remember/recall/forget).
+
+        Why: Check top_k, types, backend when using persistent memory.
+        Enables remember(), recall(), forget().
+
+        Returns:
+            MemoryConfig if persistent memory enabled; None otherwise.
+        """
         return self._persistent_memory
 
     @property
     def context(self) -> Context:
-        """Context configuration for this agent."""
+        """Context config (token limits, compaction, thresholds).
+
+        Why: Adjust max_tokens, auto_compact_at for long conversations.
+        Prevents context window overflow and controls cost.
+
+        Returns:
+            Context instance with max_tokens, auto_compact_at, thresholds.
+        """
         if hasattr(self._context, "context"):
             return self._context.context
         return Context()
 
     @property
     def context_stats(self) -> ContextStats:
-        """Context stats from last call."""
+        """Token usage and compaction stats from the last run.
+
+        Why: Debug context size, see if compaction ran, track token growth.
+        """
         if hasattr(self._context, "stats"):
             return self._context.stats
         return ContextStats()
@@ -565,14 +724,20 @@ class Agent:
 
     @property
     def rate_limit(self) -> APIRateLimit | None:
-        """Rate limit configuration for this agent."""
+        """Rate limit config (RPM, TPM, thresholds).
+
+        Why: Inspect limits and thresholds. None if rate_limit not set.
+        """
         if self._rate_limit_manager and hasattr(self._rate_limit_manager, "config"):
             return cast(APIRateLimit, self._rate_limit_manager.config)
         return None
 
     @property
     def rate_limit_stats(self) -> RateLimitStats:
-        """Rate limit stats from last call."""
+        """Current rate limit usage (RPM/TPM used vs limit).
+
+        Why: Monitor proximity to limits, log for debugging.
+        """
         if self._rate_limit_manager and hasattr(self._rate_limit_manager, "stats"):
             return cast(RateLimitStats, self._rate_limit_manager.stats)
         return RateLimitStats()
@@ -584,21 +749,25 @@ class Agent:
 
     @property
     def report(self) -> AgentReport:
-        """Get the aggregated report of all agent operations.
+        """Aggregated report of the last run: guardrails, memory, budget, tokens, etc.
 
-        Includes guardrail results, context usage, memory operations,
-        budget status, token usage, output validation, rate limits, and checkpoints.
+        Why: Debug failures, log metrics, inspect guardrail/validation results.
+        Reset at the start of each response() or arun().
+
+        Sections:
+            report.guardrail  - Input/output guardrail results
+            report.context    - Token and compaction stats
+            report.memory     - Stores, recalls, forgets
+            report.budget     - Budget status
+            report.tokens     - Input/output token counts and cost
+            report.output     - Structured output validation
+            report.ratelimits - Rate limit checks and throttles
+            report.checkpoints - Saves and loads
 
         Example:
-            agent.response("Hello")
-            agent.report.guardrail       # GuardrailReport
-            agent.report.context         # ContextReport
-            agent.report.memory         # MemoryReport
-            agent.report.budget         # BudgetStatus
-            agent.report.tokens         # TokenReport
-            agent.report.output         # OutputReport
-            agent.report.ratelimits     # RateLimitReport
-            agent.report.checkpoints    # CheckpointReport
+            >>> agent.response("Hello")
+            >>> print(agent.report.guardrail.input_passed)
+            >>> print(agent.report.tokens.total_tokens)
         """
         return self._run_report
 
@@ -609,16 +778,29 @@ class Agent:
         importance: float = 1.0,
         **metadata: Any,
     ) -> str:
-        """Store a memory in persistent storage.
+        """Store a fact in persistent memory for later recall.
+
+        Why: Let the agent remember user preferences, past events, or learned facts
+        across sessions. Recalled automatically before each request based on relevance.
+
+        Memory types: CORE (identity/prefs), EPISODIC (events), SEMANTIC (facts),
+        PROCEDURAL (patterns). Importance 0.0–1.0 affects recall ranking.
+
+        Requires persistent memory (MemoryConfig). Use memory=False to disable.
 
         Args:
-            content: The memory content to store
-            memory_type: Type of memory (CORE, EPISODIC, SEMANTIC, PROCEDURAL)
-            importance: Importance score (0.0-1.0)
-            **metadata: Additional metadata to store with the memory
+            content: Text to store (e.g. "User prefers dark mode").
+            memory_type: CORE, EPISODIC, SEMANTIC, or PROCEDURAL. Default EPISODIC.
+            importance: 0.0–1.0. Higher = more likely to be recalled.
+            **metadata: Optional fields (user_id, session_id, etc.).
 
         Returns:
-            Memory ID
+            Memory ID (str) for forget(memory_id=...).
+
+        Example:
+            >>> agent.remember("User name is Alice", memory_type=MemoryType.CORE)
+            'uuid-abc-123'
+            >>> agent.response("What's my name?")  # Recalls automatically
         """
         import uuid
 
@@ -662,15 +844,23 @@ class Agent:
         memory_type: MemoryType | None = None,
         limit: int = 10,
     ) -> list[MemoryEntry]:
-        """Retrieve memories from persistent storage.
+        """Retrieve memories by query or type. Used by agent internally; also call manually.
+
+        Why: Inspect what the agent has stored, or manually fetch before custom logic.
+        The agent auto-recalls before each request using the user input as query.
 
         Args:
-            query: Optional search query
-            memory_type: Filter by memory type
-            limit: Maximum number of memories to return
+            query: Search text (e.g. "user preferences"). None = list all.
+            memory_type: Filter to CORE, EPISODIC, SEMANTIC, or PROCEDURAL.
+            limit: Max results. Default 10.
 
         Returns:
-            List of MemoryEntry objects
+            List of MemoryEntry (id, content, type, importance, metadata).
+
+        Example:
+            >>> entries = agent.recall("name", memory_type=MemoryType.CORE)
+            >>> print([e.content for e in entries])
+            ['User name is Alice']
         """
         if self._memory_backend is None:
             raise RuntimeError("No persistent memory configured")
@@ -713,15 +903,27 @@ class Agent:
         query: str | None = None,
         memory_type: MemoryType | None = None,
     ) -> int:
-        """Remove memories from persistent storage.
+        """Delete one or more memories. Use when user requests "forget X" or for GDPR.
+
+        Why: Compliance, correcting wrong facts, clearing obsolete data.
+
+        Provide exactly one of: memory_id, query, or memory_type. memory_id is
+        most precise. query deletes entries containing the text. memory_type
+        deletes all of that type.
 
         Args:
-            memory_id: Specific memory ID to delete
-            query: Delete all memories matching query
-            memory_type: Delete all memories of this type
+            memory_id: ID from remember() return value.
+            query: Delete entries whose content contains this text.
+            memory_type: Delete all entries of this type.
 
         Returns:
-            Number of memories deleted
+            Number of memories deleted.
+
+        Example:
+            >>> agent.forget(memory_id="uuid-abc-123")
+            1
+            >>> agent.forget(query="obsolete")
+            3
         """
         if self._memory_backend is None:
             raise RuntimeError("No persistent memory configured")
@@ -845,16 +1047,26 @@ class Agent:
         transfer_context: bool = True,
         transfer_budget: bool = False,
     ) -> Response[str]:
-        """Hand off control to another agent.
+        """Delegate a task to another agent and return its response.
+
+        Why: Route to specialized agents (e.g. research vs support). Transfers
+        memory and optionally budget so the target has full context.
+
+        transfer_context: Copy persistent memories to target so it knows what
+        this agent knew. transfer_budget: Share remaining budget with target.
 
         Args:
-            target_agent: The agent class to hand off to
-            task: The task description for the target agent
-            transfer_context: Whether to transfer persistent memories to target
-            transfer_budget: Whether to transfer remaining budget to target
+            target_agent: Agent class (e.g. ResearchAgent). Instantiated internally.
+            task: Task description for the target.
+            transfer_context: Copy memories to target. Default True.
+            transfer_budget: Give target remaining budget. Default False.
 
         Returns:
-            Response from the target agent
+            Response from target_agent.response(task).
+
+        Example:
+            >>> r = agent.handoff(SupportAgent, "User needs refund help")
+            >>> print(r.content)
         """
         target = target_agent()
 
@@ -892,21 +1104,26 @@ class Agent:
         budget: Budget | None = None,
         max_children: int | None = None,
     ) -> Agent | Response[str]:
-        """Spawn a sub-agent to execute a task.
+        """Create a child agent. Optionally run a task and return its response.
 
-        Budget Inheritance Rules:
-        1. If parent has shared budget (shared=True), child borrows from parent's budget
-        2. If child has its own budget (pocket money), it must not exceed parent's remaining
-        3. Child's spending is tracked and deducted from parent's budget
+        Why: Break work into sub-agents (specialists). Budget flows from parent:
+        - Parent has shared budget: child borrows from it.
+        - Child gets budget: "pocket money" up to parent's remaining.
+        - Child spend is deducted from parent.
 
         Args:
-            agent_class: The agent class to spawn
-            task: Optional task to run immediately
-            budget: Optional budget for the sub-agent (pocket money)
-            max_children: Maximum number of child agents (enforces limit)
+            agent_class: Agent class to spawn (e.g. ResearchAgent).
+            task: If set, run task and return Response. Else return agent instance.
+            budget: Child's budget (pocket money). Must not exceed parent remaining.
+            max_children: Cap on concurrent children. Default from _max_children or 10.
 
         Returns:
-            If task provided, returns Response; otherwise returns the spawned agent instance
+            Response if task given; else the spawned Agent instance.
+
+        Example:
+            >>> r = agent.spawn(ResearchAgent, task="Find papers on X")
+            >>> child = agent.spawn(ResearchAgent)  # No task
+            >>> child.response("Another task")
         """
         use_instance_limit = max_children is None
         _max_children = getattr(self, "_max_children", 10) if use_instance_limit else max_children
@@ -985,13 +1202,22 @@ class Agent:
         self,
         agents: list[tuple[type[Agent], str]],
     ) -> list[Response[str]]:
-        """Spawn multiple sub-agents in parallel.
+        """Run multiple agents in parallel, each with its own task.
+
+        Why: Fan-out work (e.g. research + summarization + fact-check in parallel).
+        Uses asyncio.gather. Each agent runs independently.
 
         Args:
-            agents: List of (agent_class, task) tuples
+            agents: [(AgentClass, task), ...] e.g. [(ResearchAgent, "X"), (Summarizer, "Y")].
 
         Returns:
-            List of responses from all spawned agents
+            List of Response, one per (agent_class, task), in same order.
+
+        Example:
+            >>> results = agent.spawn_parallel([
+            ...     (ResearchAgent, "Topic A"),
+            ...     (ResearchAgent, "Topic B"),
+            ... ])
         """
         import asyncio
 
@@ -1202,7 +1428,21 @@ class Agent:
         raise ToolExecutionError(f"Unknown tool: {name!r}")
 
     async def execute_tool(self, name: str, arguments: dict[str, Any]) -> str:
-        """Execute a tool. Used by custom loops."""
+        """Run a tool by name with the given arguments. For custom loops.
+
+        Why: Built-in loops call this automatically. Use when implementing a
+        custom Loop to execute tool calls.
+
+        Args:
+            name: Tool name (must match a @tool-decorated function).
+            arguments: Dict of parameter names to values.
+
+        Returns:
+            Tool result as string. Raises ToolExecutionError on failure.
+
+        Example:
+            >>> result = await agent.execute_tool("search", {"query": "syrin"})
+        """
         return self._execute_tool(name, arguments)
 
     def _check_and_apply_budget(self) -> None:
@@ -1355,442 +1595,22 @@ class Agent:
     async def complete(
         self, messages: list[Message], tools: list[ToolSpec] | None = None
     ) -> ProviderResponse:
-        """Public method to call the LLM. Used by custom loops."""
+        """Call the LLM with messages and optional tools. For custom loops.
+
+        Why: Built-in loops use this internally. Override or use in a custom Loop
+        when you need full control over the LLM call (e.g. custom batching).
+
+        Args:
+            messages: List of Message (role, content).
+            tools: Optional tool specs. None = no tools.
+
+        Returns:
+            ProviderResponse (content, tool_calls, token_usage, etc.).
+        """
         return await self._complete_async(messages, tools)
 
-    def _run_response_async(self, user_input: str) -> Response[str]:
-        """Run response synchronously using a persistent event loop."""
-        loop = _get_agent_loop()
-        return loop.run_until_complete(self._run_response(user_input))
-
-    async def _run_response(self, user_input: str) -> Response[str]:
-        with self._tracer.span(
-            f"{self._agent_name}.response",
-            kind=SpanKind.AGENT,
-            attributes={
-                SemanticAttributes.AGENT_NAME: self._agent_name,
-                SemanticAttributes.AGENT_CLASS: self.__class__.__name__,
-                "input": user_input if not self._debug else user_input[:1000],
-                SemanticAttributes.LLM_MODEL: self._model_config.model_id,
-                SemanticAttributes.LLM_PROVIDER: self._model_config.provider,
-            },
-        ) as agent_span:
-            messages = self._build_messages(user_input)
-            tools = self._tools if self._tools else None
-            iteration = 0
-            response = None
-            trace: list[TraceStep] = []
-            total_input = 0
-            total_output = 0
-            total_cost_usd = 0.0
-            run_start = time.perf_counter()
-
-            self._emit_event(
-                Hook.AGENT_RUN_START,
-                EventContext(
-                    input=user_input,
-                    model=self._model_config.model_id,
-                    iteration=0,
-                ),
-            )
-
-            # Input guardrails
-            input_guardrail = self._run_guardrails(user_input, GuardrailStage.INPUT)
-            if not input_guardrail.passed:
-                return Response(
-                    content="",
-                    raw="",
-                    cost=0.0,
-                    tokens=TokenUsage(input_tokens=0, output_tokens=0, total_tokens=0),
-                    model=self._model_config.model_id,
-                    duration=0.0,
-                    trace=[],
-                    tool_calls=[],
-                    stop_reason=StopReason.GUARDRAIL,
-                    budget_remaining=self._budget.remaining if self._budget else None,
-                    budget_used=0.0,
-                    structured=None,
-                    report=self._run_report,
-                )
-
-            while iteration < self._max_tool_iterations:
-                iteration += 1
-                agent_span.set_attribute(SemanticAttributes.AGENT_ITERATION, iteration)
-                self._check_and_apply_budget()
-                self._check_and_apply_rate_limit()
-                step_start = time.perf_counter()
-
-                self._emit_event(
-                    Hook.LLM_REQUEST_START,
-                    EventContext(
-                        messages=messages,
-                        tools=[t.name for t in tools] if tools else [],
-                        iteration=iteration,
-                    ),
-                )
-
-                with self._tracer.span(
-                    f"llm.iteration_{iteration}",
-                    kind=SpanKind.LLM,
-                    attributes={
-                        SemanticAttributes.LLM_MODEL: self._model_config.model_id,
-                        SemanticAttributes.LLM_PROVIDER: self._model_config.provider,
-                        "iteration": iteration,
-                    },
-                ) as llm_span:
-                    if self._debug:
-                        llm_span.set_attribute(
-                            SemanticAttributes.LLM_PROMPT,
-                            json.dumps([m.model_dump() for m in messages], default=str)[:5000],
-                        )
-
-                    response = await self._provider.complete(
-                        messages=messages,
-                        model=self._model_config,
-                        tools=tools,
-                    )
-
-                    step_ms = (time.perf_counter() - step_start) * 1000
-                    u = response.token_usage
-                    total_input += u.input_tokens
-                    total_output += u.output_tokens
-                    pricing = getattr(self._model, "pricing", None) if self._model else None
-                    cost_usd = calculate_cost(
-                        self._model_config.model_id, u, pricing_override=pricing
-                    )
-                    total_cost_usd += cost_usd
-
-                    llm_span.set_attributes(
-                        {
-                            SemanticAttributes.LLM_TOKENS_INPUT: u.input_tokens,
-                            SemanticAttributes.LLM_TOKENS_OUTPUT: u.output_tokens,
-                            SemanticAttributes.LLM_TOKENS_TOTAL: u.total_tokens,
-                            SemanticAttributes.LLM_COST: cost_usd,
-                            SemanticAttributes.LLM_STOP_REASON: response.stop_reason
-                            if response.stop_reason
-                            else "end_turn",
-                        }
-                    )
-
-                    if self._debug:
-                        llm_span.set_attribute(
-                            SemanticAttributes.LLM_COMPLETION,
-                            response.content[:2000] if response.content else "",
-                        )
-
-                trace.append(
-                    TraceStep(
-                        step_type="llm",
-                        timestamp=time.time(),
-                        model=self._model_config.model_id,
-                        tokens=u.total_tokens,
-                        cost_usd=cost_usd,
-                        latency_ms=step_ms,
-                    )
-                )
-
-                stop_reason_val = getattr(response, "stop_reason", None)
-                if stop_reason_val is None or not isinstance(stop_reason_val, StopReason):
-                    stop_reason_val = StopReason.END_TURN
-
-                self._emit_event(
-                    Hook.LLM_REQUEST_END,
-                    EventContext(
-                        content=response.content,
-                        tokens=u.total_tokens,
-                        cost=cost_usd,
-                        tool_calls=[tc.model_dump() for tc in response.tool_calls],
-                        stop_reason=stop_reason_val.value
-                        if hasattr(stop_reason_val, "value")
-                        else str(stop_reason_val),
-                        latency_ms=step_ms,
-                        iteration=iteration,
-                    ),
-                )
-
-                # Output guardrails (only on final response, not tool calls)
-                if not response.tool_calls:
-                    output_guardrail = self._run_guardrails(
-                        response.content or "", GuardrailStage.OUTPUT
-                    )
-                    if not output_guardrail.passed:
-                        latency_ms = (time.perf_counter() - run_start) * 1000
-                        return Response(
-                            content="",
-                            raw="",
-                            cost=round(total_cost_usd, 6),
-                            tokens=TokenUsage(
-                                input_tokens=total_input,
-                                output_tokens=total_output,
-                                total_tokens=total_input + total_output,
-                            ),
-                            model=self._model_config.model_id,
-                            duration=latency_ms / 1000,
-                            trace=trace,
-                            tool_calls=[],
-                            stop_reason=StopReason.GUARDRAIL,
-                            budget_remaining=self._budget.remaining if self._budget else None,
-                            budget_used=total_cost_usd if self._budget else None,
-                            structured=None,
-                            report=self._run_report,
-                        )
-
-                if self._budget is not None:
-                    self._record_cost(u, self._model_config.model_id)
-                if self._rate_limit_manager is not None:
-                    self._record_rate_limit_usage(u)
-                if not response.tool_calls:
-                    latency_ms = (time.perf_counter() - run_start) * 1000
-                    if self._conversation_memory is not None:
-                        # Memory store span
-                        with self._tracer.span(
-                            "memory.store",
-                            kind=SpanKind.MEMORY,
-                            attributes={
-                                SemanticAttributes.MEMORY_OPERATION: "store",
-                                SemanticAttributes.MEMORY_RESULTS_COUNT: 2,
-                            },
-                        ):
-                            self._conversation_memory.add(
-                                Message(role=MessageRole.USER, content=user_input)
-                            )
-                            self._conversation_memory.add(
-                                Message(role=MessageRole.ASSISTANT, content=response.content or "")
-                            )
-                    output = self._build_output(
-                        response.content or "",
-                        validation_retries=self._validation_retries,
-                        validation_context=self._validation_context,
-                        validator=getattr(self, "_output_validator", None),
-                    )
-
-                    self._emit_event(
-                        Hook.AGENT_RUN_END,
-                        EventContext(
-                            content=response.content,
-                            cost=total_cost_usd,
-                            tokens=u.total_tokens,
-                            duration=latency_ms / 1000,
-                            stop_reason=stop_reason_val.value
-                            if hasattr(stop_reason_val, "value")
-                            else str(stop_reason_val),
-                            iteration=iteration,
-                        ),
-                    )
-
-                    agent_span.set_attributes(
-                        {
-                            "output": response.content[:500] if response.content else "",
-                            "iterations": iteration,
-                            SemanticAttributes.BUDGET_USED: total_cost_usd,
-                            SemanticAttributes.BUDGET_REMAINING: self._budget.remaining
-                            if self._budget
-                            else None,
-                        }
-                    )
-                    agent_span.set_status(SpanStatus.OK)
-
-                    return Response(
-                        content=response.content or "",
-                        raw=response.content or "",
-                        cost=round(total_cost_usd, 6),
-                        tokens=TokenUsage(
-                            input_tokens=total_input,
-                            output_tokens=total_output,
-                            total_tokens=total_input + total_output,
-                        ),
-                        model=self._model_config.model_id,
-                        duration=latency_ms / 1000,
-                        trace=trace,
-                        tool_calls=[],
-                        stop_reason=stop_reason_val,
-                        budget_remaining=self._budget.remaining if self._budget else None,
-                        budget_used=total_cost_usd if self._budget else None,
-                        structured=output,
-                        report=self._run_report,
-                    )
-            assert response is not None, "Provider returned None response"
-            messages.append(
-                Message(
-                    role=MessageRole.ASSISTANT,
-                    content=response.content or "",
-                    tool_calls=response.tool_calls,
-                )
-            )
-            for tc in response.tool_calls:
-                tool_start = time.perf_counter()
-                with self._tracer.span(
-                    f"tool.{tc.name}",
-                    kind=SpanKind.TOOL,
-                    attributes={
-                        SemanticAttributes.TOOL_NAME: tc.name,
-                        SemanticAttributes.TOOL_INPUT: json.dumps(tc.arguments, default=str)[:500],
-                        "iteration": iteration,
-                    },
-                ) as tool_span:
-                    try:
-                        result = self._execute_tool(tc.name, tc.arguments)
-                        tool_duration = time.perf_counter() - tool_start
-
-                        tool_span.set_attributes(
-                            {
-                                SemanticAttributes.TOOL_OUTPUT: str(result)[:500],
-                                SemanticAttributes.TOOL_DURATION_MS: tool_duration * 1000,
-                            }
-                        )
-                        tool_span.set_status(SpanStatus.OK)
-                    except Exception as e:
-                        tool_span.record_exception(e)
-                        tool_span.set_status(SpanStatus.ERROR, str(e))
-                        self._emit_event(
-                            Hook.TOOL_ERROR,
-                            EventContext(
-                                error=str(e),
-                                tool_name=tc.name,
-                                tool_input=tc.arguments,
-                                iteration=iteration,
-                            ),
-                        )
-                        raise
-
-                tool_duration = time.perf_counter() - tool_start
-
-                self._emit_event(
-                    Hook.TOOL_CALL_END,
-                    EventContext(
-                        name=tc.name,
-                        input=tc.arguments,
-                        output=result,
-                        duration=tool_duration,
-                        iteration=iteration,
-                    ),
-                )
-
-                messages.append(
-                    Message(
-                        role=MessageRole.TOOL,
-                        content=result,
-                        tool_call_id=tc.id,
-                    )
-                )
-        latency_ms = (time.perf_counter() - run_start) * 1000
-        content = response.content if response and response.content else ""
-        if self._conversation_memory is not None:
-            self._conversation_memory.add(Message(role=MessageRole.USER, content=user_input))
-            self._conversation_memory.add(Message(role=MessageRole.ASSISTANT, content=content))
-        output = self._build_output(
-            content,
-            validation_retries=self._validation_retries,
-            validation_context=self._validation_context,
-            validator=getattr(self, "_output_validator", None),
-        )
-
-        self._emit_event(
-            Hook.AGENT_RUN_END,
-            EventContext(
-                content=content,
-                cost=total_cost_usd,
-                tokens=total_input + total_output,
-                duration=latency_ms / 1000,
-                stop_reason="max_iterations",
-                iteration=iteration,
-            ),
-        )
-
-        # Auto-store conversation if enabled
-        if self._persistent_memory is not None and self._persistent_memory.auto_store:
-            self.remember(
-                content=f"User: {user_input}",
-                memory_type=MemoryType.EPISODIC,
-                importance=0.5,
-            )
-            self.remember(
-                content=f"Agent: {content}",
-                memory_type=MemoryType.EPISODIC,
-                importance=0.5,
-            )
-
-        # Populate report with final data
-        self._run_report.budget_remaining = self._budget.remaining if self._budget else None
-        self._run_report.budget_used = total_cost_usd if self._budget else None
-        self._run_report.tokens.input_tokens = total_input
-        self._run_report.tokens.output_tokens = total_output
-        self._run_report.tokens.total_tokens = total_input + total_output
-        self._run_report.tokens.cost_usd = round(total_cost_usd, 6)
-
-        return Response(
-            content=content,
-            raw=content,
-            cost=round(total_cost_usd, 6),
-            tokens=TokenUsage(
-                input_tokens=total_input,
-                output_tokens=total_output,
-                total_tokens=total_input + total_output,
-            ),
-            model=self._model_config.model_id,
-            duration=latency_ms / 1000,
-            trace=trace,
-            tool_calls=[tc.model_dump() for tc in response.tool_calls] if response else [],
-            stop_reason=StopReason.END_TURN,
-            budget_remaining=self._budget.remaining if self._budget else None,
-            budget_used=total_cost_usd if self._budget else None,
-            structured=output if output else None,
-            report=self._run_report,
-        )
-
-    def _stream_response(self, user_input: str) -> Iterator[StreamChunk]:
-        """Stream response chunks synchronously. Returns StreamChunk with accumulated text."""
-        messages = self._build_messages(user_input)
-        tools = self._tools if self._tools else None
-        accumulated = ""
-        total_cost = 0.0
-        total_tokens = TokenUsage()
-
-        try:
-            for chunk in self._provider.stream_sync(messages, self._model_config, tools):
-                content = chunk.content or ""
-                accumulated += content
-                total_cost += chunk.cost_usd if hasattr(chunk, "cost_usd") else 0.0
-                total_tokens = TokenUsage(
-                    input_tokens=total_tokens.input_tokens
-                    + (chunk.token_usage.input_tokens if hasattr(chunk, "token_usage") else 0),
-                    output_tokens=total_tokens.output_tokens
-                    + (chunk.token_usage.output_tokens if hasattr(chunk, "token_usage") else 0),
-                    total_tokens=total_tokens.total_tokens
-                    + (chunk.token_usage.total_tokens if hasattr(chunk, "token_usage") else 0),
-                )
-                yield StreamChunk(
-                    text=content,
-                    accumulated_text=accumulated,
-                    cost_so_far=total_cost,
-                    tokens_so_far=total_tokens,
-                )
-        except Exception as e:
-            raise ToolExecutionError(f"Streaming failed: {e}") from e
-
-    def response(self, user_input: str) -> Response[str]:
-        """
-        Run completion and tool-call loop. Returns Response with content, cost, trace.
-        str(response) returns response.content. When budget is set, checks limits
-        and records cost; threshold actions (switch model, stop, warn) are applied.
-        """
-        # Reset report for new run
-        self._run_report = AgentReport()
-        if self._budget is not None:
-            self._budget_tracker.reset_run()
-        try:
-            return self._run_loop_response(user_input)
-        except (BudgetThresholdError, BudgetExceededError):
-            # Checkpoint before re-raising budget errors
-            self._maybe_checkpoint("budget")
-            raise
-        except Exception:
-            # Checkpoint on error
-            self._maybe_checkpoint("error")
-            raise
-
-    def _run_loop_response(self, user_input: str) -> Response[str]:
-        """Run using the configured loop strategy with full observability."""
+    async def _run_loop_response_async(self, user_input: str) -> Response[str]:
+        """Run using the configured loop strategy with full observability (async)."""
         from syrin.observability import SemanticAttributes, SpanKind
         from syrin.response import Response as ResponseClass
         from syrin.types import TokenUsage
@@ -1825,14 +1645,7 @@ class Agent:
                     report=self._run_report,
                 )
 
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_closed():
-                    loop = asyncio.new_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-
-            result = loop.run_until_complete(self._loop.run(self, user_input))
+            result = await self._loop.run(self, user_input)
 
             # Auto-checkpoint after step completion
             self._maybe_checkpoint("step")
@@ -1923,16 +1736,12 @@ class Agent:
                 report=self._run_report,
             )
 
-    async def arun(self, user_input: str) -> Response[str]:
-        """Async version of response(). Returns Response with content, cost, trace."""
-        if self._budget is not None:
-            self._budget_tracker.reset_run()
-        return await self._run_response(user_input)
+    def _run_loop_response(self, user_input: str) -> Response[str]:
+        """Run using the configured loop strategy (sync wrapper)."""
+        return _get_agent_loop().run_until_complete(self._run_loop_response_async(user_input))
 
-    def stream(self, user_input: str) -> Iterator[StreamChunk]:
-        """Stream response chunks synchronously."""
-        if self._budget is not None:
-            self._budget_tracker.reset_run()
+    def _stream_response(self, user_input: str) -> Iterator[StreamChunk]:
+        """Stream response chunks synchronously. Returns StreamChunk with accumulated text."""
         messages = self._build_messages(user_input)
         tools = self._tools if self._tools else None
         accumulated = ""
@@ -1961,8 +1770,92 @@ class Agent:
         except Exception as e:
             raise ToolExecutionError(f"Streaming failed: {e}") from e
 
+    def response(self, user_input: str) -> Response[str]:
+        """Run the agent: LLM completion + tool loop. Synchronous.
+
+        Why: Main entry point for getting a reply. Runs the configured loop
+        (REACT by default), runs guardrails, records cost, applies budget/rate
+        limits. Blocks until complete.
+
+        Returns:
+            Response with content, cost, tokens, model, stop_reason, structured
+            output (if output= set), and report.
+
+        Example:
+            >>> r = agent.response("What is 2+2?")
+            >>> print(r.content)
+            4
+            >>> print(r.cost)
+            0.0012
+            >>> print(r.stop_reason)
+            StopReason.END_TURN
+        """
+        # Reset report for new run
+        self._run_report = AgentReport()
+        if self._budget is not None:
+            self._budget_tracker.reset_run()
+        try:
+            return self._run_loop_response(user_input)
+        except (BudgetThresholdError, BudgetExceededError):
+            # Checkpoint before re-raising budget errors
+            self._maybe_checkpoint("budget")
+            raise
+        except Exception:
+            # Checkpoint on error
+            self._maybe_checkpoint("error")
+            raise
+
+    async def arun(self, user_input: str) -> Response[str]:
+        """Run the agent asynchronously. Same as response() but non-blocking.
+
+        Why: Use in async apps to avoid blocking the event loop. Same behavior
+        as response() (guardrails, budget, tools, etc.).
+
+        Returns:
+            Response (same as response()).
+
+        Example:
+            >>> r = await agent.arun("Summarize this")
+        """
+        self._run_report = AgentReport()
+        if self._budget is not None:
+            self._budget_tracker.reset_run()
+        try:
+            return await self._run_loop_response_async(user_input)
+        except (BudgetThresholdError, BudgetExceededError):
+            self._maybe_checkpoint("budget")
+            raise
+        except Exception:
+            self._maybe_checkpoint("error")
+            raise
+
+    def stream(self, user_input: str) -> Iterator[StreamChunk]:
+        """Stream response text as it arrives. Synchronous iterator.
+
+        Why: Show tokens in real time (e.g. ChatGPT-style UI). No tool-call loop;
+        single completion only.
+
+        Yields:
+            StreamChunk with text (delta), accumulated_text, cost_so_far,
+            tokens_so_far.
+
+        Example:
+            >>> for chunk in agent.stream("Write a poem"):
+            ...     print(chunk.text, end="")
+        """
+        if self._budget is not None:
+            self._budget_tracker.reset_run()
+        yield from self._stream_response(user_input)
+
     async def astream(self, user_input: str) -> AsyncIterator[StreamChunk]:
-        """Stream response chunks asynchronously."""
+        """Stream response text as it arrives. Async iterator.
+
+        Why: Non-blocking streaming for async apps. Same chunks as stream().
+
+        Example:
+            >>> async for chunk in agent.astream("Write a poem"):
+            ...     print(chunk.text, end="")
+        """
         if self._budget is not None:
             self._budget_tracker.reset_run()
         messages = self._build_messages(user_input)

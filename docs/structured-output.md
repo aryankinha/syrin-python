@@ -2,6 +2,8 @@
 
 Syrin provides comprehensive structured output validation that ensures LLM responses conform to your expected schema, with automatic retries, error visibility, and custom validation logic.
 
+> **Agent integration:** For the agent `output=` param and `response.structured`, see [Agent: Structured Output](agent/structured-output.md).
+
 ## Installation
 
 No additional dependencies required. Structured output validation is built into Syrin.

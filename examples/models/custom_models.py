@@ -93,7 +93,9 @@ class MyCustomModel(Model):
     """Custom model adapter for any LLM API."""
 
     def __init__(self, model_name: str = "my-model", *, api_key: str | None = None, **kwargs):
-        super().__init__(model_id=f"custom/{model_name}", provider="custom", api_key=api_key, **kwargs)
+        super().__init__(
+            model_id=f"custom/{model_name}", provider="custom", api_key=api_key, **kwargs
+        )
         self._api_key = api_key
 
     def complete(

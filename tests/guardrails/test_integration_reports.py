@@ -638,21 +638,24 @@ class TestGuardrailEdgeCases:
         agent = TestAgent()
 
         # Mock the second guardrail
-        with patch.object(
-            agent._guardrails._guardrails[1],
-            "evaluate",
-            return_value=GuardrailDecision(passed=True),
-        ), patch.object(
-            agent._loop,
-            "run",
-            return_value=Mock(
-                content="Hello",
-                cost_usd=0.001,
-                token_usage={"input": 10, "output": 5, "total": 15},
-                tool_calls=[],
-                stop_reason="end_turn",
-                iterations=1,
-                latency_ms=100,
+        with (
+            patch.object(
+                agent._guardrails._guardrails[1],
+                "evaluate",
+                return_value=GuardrailDecision(passed=True),
+            ),
+            patch.object(
+                agent._loop,
+                "run",
+                return_value=Mock(
+                    content="Hello",
+                    cost_usd=0.001,
+                    token_usage={"input": 10, "output": 5, "total": 15},
+                    tool_calls=[],
+                    stop_reason="end_turn",
+                    iterations=1,
+                    latency_ms=100,
+                ),
             ),
         ):
             result = agent.response("Test input")

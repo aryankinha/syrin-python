@@ -2,6 +2,8 @@
 
 Complete reference for all Syrin features. Use this as a lookup when building agents.
 
+> **Agent vs standalone:** See [Architecture](ARCHITECTURE.md) to understand which components require an Agent and which work independently.
+
 ## Core Components
 
 ### Agent

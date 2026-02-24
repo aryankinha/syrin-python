@@ -290,13 +290,16 @@ class TestInheritanceEdgeCases:
 
         agent = Child()
         # Should inherit budget settings
-        with patch.object(
-            agent._provider,
-            "complete",
-            new_callable=AsyncMock,
-            return_value=ProviderResponse(
-                content="test",
-                token_usage=TokenUsage(input_tokens=1000, output_tokens=500),
+        with (
+            patch.object(
+                agent._provider,
+                "complete",
+                new_callable=AsyncMock,
+                return_value=ProviderResponse(
+                    content="test",
+                    token_usage=TokenUsage(input_tokens=1000, output_tokens=500),
+                ),
             ),
-        ), pytest.raises(BudgetExceededError):
+            pytest.raises(BudgetExceededError),
+        ):
             agent.response("test")

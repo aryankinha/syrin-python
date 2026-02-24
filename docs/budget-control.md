@@ -1,5 +1,7 @@
 # Use Case 4: Budget Control & Cost Management
 
+> **Agent integration:** For the agent `budget=` constructor param and `budget_summary`, see [Agent: Budget](agent/budget.md).
+
 ## What You'll Learn
 
 How to **keep your AI costs under control**. Perfect for:

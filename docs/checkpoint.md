@@ -2,6 +2,8 @@
 
 Syrin provides a checkpoint system for saving and restoring agent state. This is essential for:
 
+> **Agent integration:** For `save_checkpoint()`, `load_checkpoint()`, and the agent `checkpoint=` param, see [Agent: Checkpointing](agent/checkpointing.md).
+
 - **Failure recovery**: Resume from the last checkpoint after crashes
 - **Long-running tasks**: Save progress during multi-step workflows  
 - **Budget management**: Prevent losing progress when approaching budget limits

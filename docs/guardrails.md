@@ -43,6 +43,8 @@ Unlike traditional output filtering, Syrin Guardrails provides **structural auth
 - **Observable** - Full tracing, metrics, and hooks for every decision
 - **Composable** - Chain and combine guardrails flexibly
 
+> **Agent integration:** For the agent `guardrails=` constructor param, see [Agent: Guardrails](agent/guardrails.md).
+
 ### Design Principles
 
 1. **Separate intelligence from authority** - Agents can be smart but can't act beyond permissions

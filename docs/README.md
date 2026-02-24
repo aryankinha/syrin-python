@@ -48,6 +48,8 @@ Learn by doing! Pick a use case that matches what you want to build:
 
 ## 📖 Reference
 
+**[Architecture](ARCHITECTURE.md)** - Agent-only vs standalone components (what works with/without Agent)
+
 **[Models Guide](models.md)** - Complete guide to models
 - Built-in models (OpenAI, Anthropic, Google, Ollama, LiteLLM)
 - Model.Custom for third-party APIs
@@ -140,6 +142,7 @@ Trace and debug agent execution with spans and sessions.
 - 🌐 **Web Apps** → [Use Case 6: Streaming](streaming.md)
 
 ### By Feature
+- **Agents** → [Agent Documentation](agent/README.md) — complete agent reference
 - **Models** → [Models Guide](models.md) — built-in, custom, inheritance
 - **Tools** → [Use Case 2](research-agent-with-tools.md)
 - **Memory** → [Use Case 3](agent-with-memory.md)
@@ -147,6 +150,12 @@ Trace and debug agent execution with spans and sessions.
 - **Streaming** → [Use Case 6](streaming.md)
 - **Hooks & Observability** → [Advanced Topics](advanced-topics.md)
 - **API Reference** → [Feature Reference](reference.md)
+
+### By Component Type
+- **[Architecture](ARCHITECTURE.md)** — Agent-only vs standalone components
+- **Agent-only** — [Agent docs](agent/README.md), loops, hooks, handoff, checkpoint API
+- **Standalone** — [Models](models.md), [Guardrails](guardrails.md), [Observability](observability.md), [BudgetStore](budget-control.md)
+- **Shared** — Budget, Memory, Guardrails, Checkpoint, Structured output, Rate limit (see [ARCHITECTURE](ARCHITECTURE.md) for doc mapping)
 
 ## 🆘 Help & Support
 

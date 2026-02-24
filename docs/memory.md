@@ -2,6 +2,8 @@
 
 Syrin provides a first-class persistent memory system for AI agents. Memories are stored separately from the conversation context, allowing agents to remember information across sessions and retrieve relevant knowledge when needed.
 
+> **Agent integration:** For the agent API (`remember()`, `recall()`, `forget()`, constructor `memory=` param), see [Agent: Memory](agent/memory.md).
+
 ## Installation
 
 No additional dependencies required. The memory system is built into Syrin.

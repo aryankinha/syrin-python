@@ -1,6 +1,5 @@
 """Tests for global configuration and run() function."""
 
-
 import syrin
 from syrin.config import GlobalConfig, get_config
 

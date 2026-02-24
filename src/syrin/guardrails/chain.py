@@ -129,25 +129,26 @@ class GuardrailChain:
 
         # Run async evaluate in sync context
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If we're already in an async context, create a new loop
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop is not None:
+            # We're inside a running loop - run in a separate thread
+            import concurrent.futures
+
+            def run_in_thread() -> Any:
                 new_loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(new_loop)
                 try:
-                    result = new_loop.run_until_complete(self.evaluate(context))
+                    return new_loop.run_until_complete(self.evaluate(context))
                 finally:
                     new_loop.close()
-                    asyncio.set_event_loop(loop)
-            else:
-                result = loop.run_until_complete(self.evaluate(context))
-        except RuntimeError:
-            # No event loop running, create one
-            loop = asyncio.new_event_loop()
-            try:
-                result = loop.run_until_complete(self.evaluate(context))
-            finally:
-                loop.close()
+
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                result = pool.submit(run_in_thread).result()
+        else:
+            # No running loop - use asyncio.run for clean lifecycle
+            result = asyncio.run(self.evaluate(context))
 
         # Convert EvaluationResult to LegacyGuardrailResult
         first_failure = next((d for d in result.decisions if not d.passed), None)

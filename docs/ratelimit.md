@@ -2,6 +2,8 @@
 
 Syrin provides a comprehensive API rate limiting system that proactively manages provider rate limits with threshold actions. It tracks RPM (requests per minute), TPM (tokens per minute), and RPD (requests per day), and can automatically switch models, warn, or stop when limits are approached.
 
+> **Agent integration:** For the agent `rate_limit=` param and `rate_limit_stats`, see [Agent: Rate Limiting](agent/rate-limiting.md).
+
 ## Installation
 
 No additional dependencies required. The rate limiting system is built into Syrin.

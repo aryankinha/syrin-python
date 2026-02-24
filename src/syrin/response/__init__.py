@@ -131,7 +131,17 @@ class TraceStep:
 
 @dataclass
 class StreamChunk:
-    """One chunk from a streaming response."""
+    """One chunk from agent.stream() or agent.astream().
+
+    Why: Build real-time UIs. text is the delta; accumulated_text is full so far.
+    cost_so_far and tokens_so_far update as the stream progresses.
+
+    Fields:
+        text: New text in this chunk (delta).
+        accumulated_text: Full text received so far.
+        cost_so_far: Total cost up to this chunk (USD).
+        tokens_so_far: TokenUsage (input/output/total) so far.
+    """
 
     text: str = ""
     accumulated_text: str = ""
@@ -280,20 +290,30 @@ class AgentReport:
 
 @dataclass
 class Response(Generic[T]):
-    """
-    Result of agent.response(). Has content, token_usage, cost, model, trace, latency_ms.
-    str(response) returns response.content for ergonomic use.
+    """Result returned by agent.response(), agent.arun().
 
-    For structured outputs:
-        result.raw           # Raw JSON string
-        result.data         # Parsed dictionary of fields
-        result.structured   # Full StructuredOutput object with raw, parsed, fields
+    Why: Single object for content, cost, tokens, model, and full report. Use
+    str(response) for quick printing (returns content).
+
+    Key fields:
+        content: Main reply text (or parsed type if output= set).
+        cost: USD cost of this run.
+        tokens: TokenUsage (input_tokens, output_tokens, total_tokens).
+        model: Model ID used.
+        stop_reason: Why the run ended (END_TURN, BUDGET, MAX_ITERATIONS, etc.).
+        structured: StructuredOutput if output= configured; else None.
+        report: Full AgentReport (guardrails, memory, budget, etc.).
+
+    For structured output (output=Output(MyModel)):
+        result.data           # Parsed dict
+        result.structured.parsed  # Pydantic instance
+        result.structured.is_valid  # Validation succeeded
 
     Example:
-        result = agent.response("What is 2+2?", output=MathResult)
-        result.data.result  # Access parsed field directly
-        result.raw          # Raw JSON string
-        result.structured.parsed  # Full parsed Pydantic model
+        >>> r = agent.response("What is 2+2?")
+        >>> print(r.content)
+        4
+        >>> print(r.cost, r.tokens.total_tokens)
     """
 
     content: T

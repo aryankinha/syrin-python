@@ -90,7 +90,10 @@ class SingleShotLoop(Loop):
             ),
         )
 
+        agent._check_and_apply_rate_limit()
         response = await agent.complete(messages)
+        if agent._rate_limit_manager_internal is not None:
+            agent._record_rate_limit_usage(response.token_usage)
 
         latency_ms = (time.perf_counter() - run_start) * 1000
         content = response.content or ""
@@ -178,10 +181,14 @@ class ReactLoop(Loop):
         while iteration < self.max_iterations:
             iteration += 1
             agent._check_and_apply_budget()
+            agent._check_and_apply_rate_limit()
 
             agent._emit_event(Hook.LLM_REQUEST_START, EventContext(iteration=iteration))
 
             response = await agent.complete(messages, tools)
+
+            if agent._rate_limit_manager_internal is not None:
+                agent._record_rate_limit_usage(response.token_usage)
 
             # Check budget AFTER the LLM call to capture cost and trigger thresholds
             agent._check_and_apply_budget()
@@ -352,8 +359,12 @@ class HumanInTheLoop(Loop):
 
         while iteration < self.max_iterations:
             iteration += 1
+            agent._check_and_apply_rate_limit()
 
             response = await agent.complete(messages, tools)
+
+            if agent._rate_limit_manager_internal is not None:
+                agent._record_rate_limit_usage(response.token_usage)
 
             if not response.tool_calls:
                 break
@@ -515,9 +526,13 @@ class PlanExecuteLoop(Loop):
 
         while plan_iteration < self.max_plan_iterations:
             plan_iteration += 1
+            agent._check_and_apply_rate_limit()
             agent._emit_event(Hook.LLM_REQUEST_START, EventContext(iteration=plan_iteration))
 
             response = await agent.complete(messages, tools)
+
+            if agent._rate_limit_manager_internal is not None:
+                agent._record_rate_limit_usage(response.token_usage)
 
             u = response.token_usage
             total_input += u.input_tokens
@@ -563,11 +578,15 @@ class PlanExecuteLoop(Loop):
         while exec_iteration < self.max_execution_iterations:
             exec_iteration += 1
             agent._check_and_apply_budget()
+            agent._check_and_apply_rate_limit()
             agent._emit_event(
                 Hook.LLM_REQUEST_START, EventContext(iteration=plan_iteration + exec_iteration)
             )
 
             response = await agent.complete(messages, tools)
+
+            if agent._rate_limit_manager_internal is not None:
+                agent._record_rate_limit_usage(response.token_usage)
 
             u = response.token_usage
             total_input += u.input_tokens
@@ -699,9 +718,13 @@ class CodeActionLoop(Loop):
         while iteration < self.max_iterations:
             iteration += 1
             agent._check_and_apply_budget()
+            agent._check_and_apply_rate_limit()
             agent._emit_event(Hook.LLM_REQUEST_START, EventContext(iteration=iteration))
 
             response = await agent.complete(messages, tools)
+
+            if agent._rate_limit_manager_internal is not None:
+                agent._record_rate_limit_usage(response.token_usage)
 
             u = response.token_usage
             total_input += u.input_tokens
@@ -817,11 +840,15 @@ class LoopStrategyMapping:
         return cls._MAPPING.get(strategy, ReactLoop)
 
     @classmethod
-    def create_loop(cls, strategy: LoopStrategy | str) -> Loop:
+    def create_loop(cls, strategy: LoopStrategy | str, max_iterations: int = 10) -> Loop:
         """Create loop instance from strategy."""
         if isinstance(strategy, str):
             strategy = LoopStrategy(strategy)
         loop_class = cls.get_loop(strategy)
+        if loop_class in (ReactLoop, HumanInTheLoop, CodeActionLoop):
+            return loop_class(max_iterations=max_iterations)  # type: ignore[call-arg]
+        if loop_class is PlanExecuteLoop:
+            return loop_class(max_execution_iterations=max_iterations)  # type: ignore[call-arg]
         return loop_class()
 
 

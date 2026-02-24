@@ -2,6 +2,8 @@
 
 Complete guide to using and creating models in Syrin — from built-in providers to custom implementations.
 
+> **Agent integration:** For the agent `model` param, `switch_model()`, and integration with budget/rate limits, see [Agent: Model](agent/model.md).
+
 ## Overview
 
 Syrin models are the LLM backends your agents use. You can:
