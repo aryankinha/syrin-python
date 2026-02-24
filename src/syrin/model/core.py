@@ -122,6 +122,7 @@ class ModelSettings:
         self,
         context_window: int | None = None,
         max_output_tokens: int | None = None,
+        default_reserve_tokens: int | None = None,
         temperature: float | None = None,
         top_p: float | None = None,
         top_k: int | None = None,
@@ -130,6 +131,7 @@ class ModelSettings:
     ) -> None:
         self.context_window = context_window
         self.max_output_tokens = max_output_tokens
+        self.default_reserve_tokens = default_reserve_tokens
         self.temperature = temperature
         self.top_p = top_p
         self.top_k = top_k
@@ -538,6 +540,7 @@ class Model:
         api_key: str | None = None,
         api_base: str | None = None,
         context_window: int | None = None,
+        default_reserve_tokens: int | None = None,
         pricing: ModelPricing | None = None,
         input_price: float | None = None,
         output_price: float | None = None,
@@ -594,6 +597,7 @@ class Model:
         self._settings = ModelSettings(
             context_window=context_window,
             max_output_tokens=max_output_tokens or max_tokens,
+            default_reserve_tokens=default_reserve_tokens,
             temperature=temperature,
             top_p=top_p,
             top_k=top_k,
@@ -779,6 +783,7 @@ class Model:
         temperature: float | None = None,
         max_tokens: int | None = None,
         max_output_tokens: int | None = None,
+        default_reserve_tokens: int | None = None,
         top_p: float | None = None,
         top_k: int | None = None,
         stop: list[str] | None = None,
@@ -811,6 +816,9 @@ class Model:
             context_window=context_window
             if context_window is not None
             else self._settings.context_window,
+            default_reserve_tokens=default_reserve_tokens
+            if default_reserve_tokens is not None
+            else self._settings.default_reserve_tokens,
             pricing=self._pricing,
             transformer=self._transformer,
             _internal=True,

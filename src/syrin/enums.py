@@ -31,20 +31,6 @@ class ContextStrategy(StrEnum):
     SUMMARIZE = "summarize"
 
 
-class ContextAction(StrEnum):
-    """Actions triggered at context thresholds."""
-
-    SUMMARIZE_OLDEST = "summarize_oldest"
-    COMPRESS = "compress"
-    DROP_LOW_PRIORITY = "drop_low_priority"
-    DROP_MEDIUM_PRIORITY = "drop_medium_priority"
-    SWITCH_MODEL = "switch_model"
-    STOP = "stop"
-    ERROR = "error"
-    WARN = "warn"
-    CUSTOM = "custom"
-
-
 class TracingBackend(StrEnum):
     """Built-in tracing output destinations."""
 
@@ -125,10 +111,10 @@ class RateWindow(StrEnum):
 
 
 class ThresholdWindow(StrEnum):
-    """Window for thresholds: run (per execution) or time-based (hour/day/week/month).
+    """Window for thresholds: run (per execution), time-based (hour/day/week/month), or context (max_tokens).
 
-    Reusable for budget thresholds, rate-limit thresholds, and other threshold types
-    that need a run or time window.
+    Reusable for budget thresholds, rate-limit thresholds, and context thresholds.
+    Context thresholds use MAX_TOKENS only (current context window).
     """
 
     RUN = "run"
@@ -136,6 +122,7 @@ class ThresholdWindow(StrEnum):
     DAY = "day"
     WEEK = "week"
     MONTH = "month"
+    MAX_TOKENS = "max_tokens"  # Context: current context window (no time window)
 
 
 class BudgetLimitType(StrEnum):

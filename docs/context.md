@@ -1,480 +1,785 @@
 # Context Management
 
-Syrin provides a comprehensive context management system that automatically handles token limits, compaction, and optimization. It's designed to prevent "context rot" - the degradation of LLM performance as conversation history grows.
+Syrin’s context system manages **token limits**, **on-demand compaction**, and **token usage caps** for agent conversations. It runs on every request when the agent uses the default context manager: messages are counted, thresholds evaluated, and compaction runs only when you request it (e.g. from a threshold action).
 
-## Installation
+---
 
-No additional dependencies required. The context system is built into Syrin and **enabled by default** on all agents.
+## Table of contents
 
-## Quick Start
+- [Overview](#overview)
+- [Quick start](#quick-start)
+- [Concepts](#concepts)
+- [Configuration](#configuration)
+- [ContextThreshold and ThresholdContext](#contextthreshold-and-thresholdcontext)
+- [Compaction](#compaction)
+- [ContextBudget (token caps)](#contextbudget-token-caps)
+- [Agent API](#agent-api)
+- [Events](#events)
+- [Token counting](#token-counting)
+- [Custom context manager](#custom-context-manager)
+- [Compactors](#compactors)
+- [Observability](#observability)
+- [Integration with memory and budget](#integration-with-memory-and-budget)
+- [API reference](#api-reference)
+- [Troubleshooting](#troubleshooting)
+- [Limitations](#limitations)
+  - [More limitations (with examples)](#more-limitations-with-examples)
+- [Complete examples](#complete-examples)
+
+---
+
+## Overview
+
+**What the context system does:**
+
+- **Counts tokens** for messages, system prompt, and tools on each request.
+- **Applies a context budget** from `Context` (max tokens, optional reserve for response). Utilization is computed as used tokens vs. available budget.
+- **Evaluates thresholds** (e.g. at 50%, 75%, 100% utilization) and runs your **action** callables. No automatic compaction; you trigger it by calling **`ctx.compact()`** (or **`agent.context.compact()`**) from an action.
+- **Optional token caps** via **`Context.budget`** (run and/or per-hour/day/week/month). Enforced by the budget tracker; separate from cost (Budget).
+- **Emits events** (`context.compact`, `context.threshold`) and exposes **stats** after each call.
+
+**When it runs:** On every `agent.response()` (and streaming) when the agent uses the default context manager. You can pass a **`Context`** config or a custom **`ContextManager`** to the agent.
+
+**Default behavior:** If you don’t pass `context`, the agent gets `Context()` with `max_tokens=None` (resolved from the model or 128k), no thresholds, and no budget. Compaction never runs unless a threshold action calls **`ctx.compact()`**.
+
+### What to use when
+
+| Goal | Use | Notes |
+|------|-----|--------|
+| Limit **cost** (USD) per run or per period | **Budget** | `Agent(budget=Budget(run=10.0, per=RateLimit(day=50)))` |
+| Limit **tokens** per run or per period | **Context.budget** (ContextBudget / TokenLimits) | Same field names as Budget: run, per, on_exceeded |
+| Set **context window** size and reserve | **Context** (max_tokens, reserve) | reserve = tokens reserved for model output |
+| React at utilization (e.g. compact at 75%) | **Context.thresholds** + **ContextThreshold** + **compact_if_available** | Action receives **ThresholdContext** or **ThresholdEvent**; call **evt.compact()** to compact |
+| Per-call stats (tokens, utilization, compact_count) | **result.context_stats** or **agent.context_stats** | **result.context** = Context used for that call (overrides agent's when passed) |
+
+**Budget vs token caps:** **Budget** = cost limits in USD. **Context.budget** (ContextBudget) = token caps (run and/or per period). Same field names (run, per, on_exceeded) for consistency.
+
+---
+
+## Quick start
 
 ```python
-from Syrin import Agent, Model
+from syrin import Agent, Model
 
-# Context is automatically enabled with smart defaults
+# Default context (no thresholds, no compaction)
 agent = Agent(
     model=Model("openai/gpt-4o"),
     system_prompt="You are a helpful assistant.",
 )
-
-# Context is automatically managed
-result = agent.response("Hello! Ask me anything.")
+result = agent.response("Hello!")
+print(agent.context_stats.total_tokens)  # e.g. 45
+print(agent.context_stats.utilization)  # e.g. 0.00035
 ```
 
-That's it! The context system:
-- Counts tokens automatically
-- Compacts context when approaching limits (75% by default)
-- Emits events for observability
-- Tracks statistics you can inspect
-
----
-
-## Why Context Management Matters
-
-LLMs have limited context windows (typically 8K-200K tokens). As conversations grow:
-
-1. **Performance degrades** - "Context rot" causes LLM quality to drop
-2. **Costs increase** - More tokens = more money
-3. **Quality varies** - Start/end of context remembered better than middle
-
-Syrin handles this automatically so you don't have to think about it.
-
----
-
-## Basic Usage
-
-### Default Context
+With a limit and compaction at 75%:
 
 ```python
-from Syrin import Agent, Model
+from syrin import Agent, Context, Model
+from syrin.threshold import ContextThreshold
 
 agent = Agent(
     model=Model("openai/gpt-4o"),
-    system_prompt="You are a helpful assistant.",
-)
-
-# Access context configuration
-print(agent.context)
-# Context(max_tokens=None, auto_compact_at=0.75, thresholds=[])
-
-# After running, check statistics
-result = agent.response("What is Python?")
-print(agent.context_stats)
-# ContextStats(total_tokens=45, max_tokens=128000, utilization=0.04%, ...)
-```
-
-### Custom Context
-
-```python
-from Syrin import Agent, Model
-from Syrin.context import Context
-
-agent = Agent(
-    model=Model("openai/gpt-4o"),
-    system_prompt="You are a helpful assistant.",
+    system_prompt="You are helpful.",
     context=Context(
-        max_tokens=80000,      # Set context window limit
-        auto_compact_at=0.75,  # Trigger compaction at 75%
+        max_tokens=80000,
+        thresholds=[
+            ContextThreshold(at=75, action=lambda evt: evt.compact()),
+        ],
     ),
 )
+result = agent.response("Long conversation...")
 ```
 
 ---
 
-## Configuration Options
+## Concepts
+
+- **Context window** – The maximum tokens allowed for the current request’s context. Set by **`Context.max_tokens`** or inferred from the model (or 128k).
+- **Context window budget** – Internal **ContextWindowBudget**: `available = max_tokens - reserve` (default reserve 2000, or model’s **default_reserve_tokens** when set). Utilization = used tokens / available, capped at 1.0 when at or over budget. You don’t construct this; it’s built from **Context** during prepare.
+- **Thresholds** – **ContextThreshold** instances: at a given utilization (e.g. `at=75` or `at_range=(70, 75)`), an **action** callable is run. The callable receives **ThresholdContext** (alias **ThresholdEvent**) with `percentage`, `current_value`, `limit_value`, and **`compact()`** (context only).
+- **Compaction** – Reducing message list size (e.g. middle-out truncation or summarization). Happens **only** when something calls **`ctx.compact()`** or **`agent.context.compact()`** during **prepare** (typically from a threshold action). There is no automatic compaction at a fixed percentage.
+- **ContextBudget** – Optional token caps on **Context** via **`Context.budget`**: **run** (max tokens per run), **per** (hour/day/week/month), **on_exceeded** (callback). Same field names as **Budget** (run, per, on_exceeded). Enforced by the budget tracker; separate from cost (Budget).
+
+---
+
+## Configuration
 
 ### Context
 
-```python
-from Syrin.context import Context
+**`Context`** is the main configuration object. Pass it to the agent as **`context=Context(...)`**. It controls the context window, reserves, thresholds, token caps, encoding, and compactor.
 
-context = Context(
-    max_tokens=80000,           # Max tokens in context (None = auto-detect from model)
-    auto_compact_at=0.75,       # Threshold (0-1) to trigger auto-compaction
-    thresholds=[...],           # List of ContextThreshold (see below)
+#### Context fields (why, what, how)
+
+| Field | Why | What | How |
+|-------|-----|------|-----|
+| **max_tokens** | Cap total context size so you don’t exceed the model’s window or your own limit. | Max tokens for the context window. If `None`, resolved from the model’s **context_window** or 128k. Must be **> 0** when set. | Set explicitly (e.g. `80000`) or leave `None` to use model/default. |
+| **reserve** | Leave room for the model’s reply; otherwise utilization is based on input only. | Tokens subtracted from **max_tokens** to get “available” for input. Default 2000. **≥ 0**. Can be overridden by the model’s **default_reserve_tokens**. | Set on **Context** or on the model via **Model(..., default_reserve_tokens=8000)**. |
+| **thresholds** | React when utilization hits a percentage (e.g. compact at 75%, raise at 100%). | List of **ContextThreshold** (at/at_range, action). Only context thresholds are allowed. | Add **ContextThreshold(at=75, action=lambda ctx: ctx.compact() if ctx.compact else None)**. |
+| **budget** | Cap token usage per run and/or per period (separate from USD Budget). | Optional **ContextBudget**: **run**, **per**, **on_exceeded**. Same names as **Budget**. | **Context(budget=ContextBudget(run=50_000, on_exceeded=raise_on_exceeded))** or with **per=TokenRateLimit(...)**. |
+| **encoding** | Token counting must use the same encoding as the model (e.g. cl100k_base for OpenAI). | TokenCounter encoding string. Default **"cl100k_base"**. | Set if you use a model with a different tokenizer; the default context manager uses it. |
+| **compactor** | Use a custom compaction strategy (e.g. summarizer) instead of the default middle-out truncation. | Optional **ContextCompactorProtocol**: **compact(messages, budget) -> CompactionResult**. | **Context(compactor=MyCompactor())**; default manager calls it during prepare when compaction runs. |
+
+Example:
+
+```python
+from syrin import Context, ContextBudget, TokenRateLimit
+
+ctx = Context(
+    max_tokens=80000,
+    reserve=2000,
+    encoding="cl100k_base",
+    thresholds=[...],        # see ContextThreshold section
+    budget=ContextBudget(run=50_000, per=TokenRateLimit(hour=100_000)),
 )
 ```
 
-### ContextThreshold
+### Resolving max_tokens
 
-Define actions at specific token percentages:
+- If **`Context.max_tokens`** is set, that value is used.
+- If it is **`None`** and the agent has a **model** with **ModelSettings.context_window**, that is used.
+- Otherwise **128000** is used.
+
+### ContextWindowBudget (internal)
+
+The default context manager builds a **ContextWindowBudget** from **Context** (and optional model). You don’t construct it in normal use; it’s the internal “window” budget (max tokens, reserve, utilization) used during **prepare**.
+
+- **max_tokens** – From **Context** (or model / default).
+- **reserve** – Reserved for the model’s reply. From **Context.reserve** unless the model has **default_reserve_tokens** set (see [reserve and model](#4-reserve-and-model-hint)).
+- **available** – `max(0, max_tokens - reserve)`.
+- **used_tokens** – Set during **prepare**.
+- **utilization** – `used_tokens / available`, capped at **1.0** when at or over budget (or when **available** ≤ 0 and **used_tokens** > 0).
+- **percent** – 0–100.
+
+**Context.get_budget(model)** returns a **ContextWindowBudget** for the current config. When **model** is provided, the model’s **default_reserve_tokens** (if set) is used for **reserve**.
+
+---
+
+## ContextThreshold and ThresholdContext
+
+**ContextThreshold** has the same shape as **BudgetThreshold**: **at**, **at_range**, **action**, **metric**, **window**. For context, **metric** is always tokens and **window** is always **ThresholdWindow.MAX_TOKENS** (current context window).
+
+### ContextThreshold parameters
+
+| Parameter   | Type | Description |
+|------------|------|-------------|
+| **at**     | `int` (0–100) | Trigger when utilization **≥** this percentage. Ignored if **at_range** is set. |
+| **at_range** | `tuple[int, int] \| None` | Trigger only when utilization is in **[min, max]** (e.g. `(70, 75)`). |
+| **action** | `Callable[[ThresholdContext], None]` | Required. Called when the threshold triggers. |
+| **metric** | (fixed) | **ThresholdMetric.TOKENS**. |
+| **window** | (fixed) | **ThresholdWindow.MAX_TOKENS**. You don’t set it; other windows are invalid for context. |
+
+Only one of **at** or **at_range** should be used. **action** is required.
+
+### ThresholdContext (passed to your action)
+
+Your **action** receives a **ThresholdContext** with:
+
+| Attribute        | Type   | Description |
+|------------------|--------|-------------|
+| **percentage**   | `int`  | Utilization percentage (0–100) that triggered the threshold. |
+| **metric**       |        | **ThresholdMetric.TOKENS**. |
+| **current_value**| `float`| Current token count (same as used_tokens). |
+| **limit_value**  | `float`| Max tokens (context window). |
+| **budget_run**   | `float`| Alias for limit_value. |
+| **parent**       |        | Parent object (e.g. agent). |
+| **metadata**     | `dict` | Extra data. |
+| **compact**      | `Callable[[], None] \| None` | **Call this to run compaction** during the action. Only set during **prepare**; may be `None` if not in that path. |
+
+**Important:** Call **`ctx.compact()`** inside the action to compact the current message list. You can also call **`agent.context.compact()`** from the action (e.g. via **`ctx.parent.context.compact()`**) when **parent** is the agent.
+
+### Examples
+
+**Warn at 50%, compact at 75%, raise at 100%:**
 
 ```python
-from Syrin.context import ContextThreshold
-from Syrin.enums import ContextAction
+from syrin import Context
+from syrin.threshold import ContextThreshold
 
-context = Context(
+def raise_on_full(ctx):
+    raise ValueError("Context full")
+
+Context(
     max_tokens=80000,
     thresholds=[
-        # At 50% - warn developers
-        ContextThreshold(at=50, action=ContextAction.WARN),
-        
-        # At 70% - summarize oldest messages
-        ContextThreshold(at=70, action=ContextAction.SUMMARIZE_OLDEST),
-        
-        # At 85% - compress context
-        ContextThreshold(at=85, action=ContextAction.COMPRESS),
-        
-        # At 100% - raise error
-        ContextThreshold(at=100, action=ContextAction.ERROR),
+        ContextThreshold(at=50, action=lambda ctx: print(f"Tokens at {ctx.percentage}%")),
+        ContextThreshold(at=75, action=lambda ctx: ctx.compact() if ctx.compact else None),
+        ContextThreshold(at=100, action=raise_on_full),
     ],
 )
 ```
 
-### ContextAction Options
+**Trigger only in a band (e.g. 70–75%):**
 
-| Action | Description |
-|--------|-------------|
-| `WARN` | Emit warning event |
-| `SUMMARIZE_OLDEST` | Summarize oldest messages |
-| `COMPRESS` | Compress context |
-| `DROP_LOW_PRIORITY` | Drop lowest priority sections |
-| `DROP_MEDIUM_PRIORITY` | Drop medium priority sections |
-| `SWITCH_MODEL` | Switch to a different model |
-| `STOP` | Stop execution |
-| `ERROR` | Raise an error |
-| `CUSTOM` | Call custom handler |
+```python
+ContextThreshold(at_range=(70, 75), action=lambda ctx: ctx.compact() if ctx.compact else None)
+```
+
+**Switch model when nearing limit (concept):**
+
+```python
+ContextThreshold(
+    at=85,
+    action=lambda ctx: ctx.parent.switch_model(Model("openai/gpt-4o-mini")) if getattr(ctx.parent, "switch_model", None) else None,
+)
+```
 
 ---
 
-## Context Properties
+## Compaction
+
+Compaction **only runs when something calls** **`ctx.compact()`** or **`agent.context.compact()`** while the default context manager is inside **prepare** (e.g. from a threshold action). There is no automatic compaction at a fixed percentage.
+
+- **When:** Only during **prepare**, and only when the manager has set the compact callback (e.g. when checking thresholds). Calling **compact()** outside that is a no-op.
+- **What it does:** The default **ContextCompactor** first tries middle-out truncation; if overage is large, it may summarize then truncate. The current message list is replaced in place so the rest of **prepare** uses the compacted list.
+- **Events:** After compaction, a **context.compact** event is emitted (see [Events](#events)).
+- **Stats:** **ContextStats.compacted**, **compact_count** (this run only), **compact_method** reflect the last run. Use **result.context_stats** for per-call stats.
+
+**Compact from a threshold:**
+
+```python
+# Preferred: use the helper so you don't need to guard ctx.compact
+from syrin.threshold import ContextThreshold, compact_if_available
+ContextThreshold(at=75, action=compact_if_available)
+
+# Or explicitly:
+ContextThreshold(at=75, action=lambda ctx: ctx.compact() if ctx.compact else None)
+```
+
+**Compact from agent (e.g. inside the same action):**
+
+```python
+# Inside an action, ctx.parent is the agent:
+ctx.parent.context.compact()
+```
+
+**CompactionResult** (internal) has **messages**, **method** (`"none"`, `"middle_out_truncate"`, `"summarize"`), **tokens_before**, **tokens_after**.
+
+---
+
+## ContextBudget (token caps)
+
+**ContextBudget** is the token-cap configuration you set on **Context.budget**. It uses the same field names as **Budget** (USD): **run**, **per**, **on_exceeded**.
+
+**Why:** Cap token usage (input + output) per run and/or per time window without mixing with cost. Budget = USD only; token caps live on Context.
+
+**What:** Optional **run** (max tokens per request run), optional **per** (TokenRateLimit: hour/day/week/month), and **on_exceeded** (callback when a limit is hit). When set, the agent’s budget tracker enforces these after each LLM call.
+
+**How:** Pass **Context(budget=ContextBudget(run=..., per=..., on_exceeded=...))** to the agent. Use **raise_on_exceeded**, **warn_on_exceeded**, or a custom callable.
+
+### ContextBudget fields
+
+| Field           | Type | Description |
+|-----------------|------|-------------|
+| **run**         | `int \| None` | Max tokens per run (one request/response cycle, input + output). Same name as **Budget.run** (which is USD). |
+| **per**         | **TokenRateLimit \| None** | Token caps per hour/day/week/month. Same name as **Budget.per** (which is USD rate limits). |
+| **on_exceeded** | `Callable[[BudgetExceededContext], None] \| None` | Called when a token limit is exceeded. Raise to stop the run; return to continue (e.g. warn). Same as **Budget.on_exceeded**. |
+
+### TokenRateLimit fields
+
+| Field             | Type | Description |
+|-------------------|------|-------------|
+| **hour**          | `int \| None` | Max tokens in the current hour (rolling). |
+| **day**           | `int \| None` | Max tokens in the current day (rolling). |
+| **week**          | `int \| None` | Max tokens in the current week (rolling). |
+| **month**         | `int \| None` | Max tokens in the month window (see **month_days**). |
+| **month_days**    | `int` | Number of days for the month window (default 30). Ignored if **calendar_month** is True. |
+| **calendar_month**| `bool` | If True, month = current calendar month; else last **month_days** days. |
+
+### Example with output
+
+```python
+from syrin import Agent, Context, ContextBudget, Model, TokenRateLimit
+from syrin.budget import raise_on_exceeded
+
+agent = Agent(
+    model=Model("openai/gpt-4o"),
+    context=Context(
+        budget=ContextBudget(
+            run=50_000,
+            per=TokenRateLimit(hour=100_000, day=400_000),
+            on_exceeded=raise_on_exceeded,
+        ),
+    ),
+)
+result = agent.response("Explain quantum computing briefly.")
+print(result.context_stats.total_tokens)  # e.g. 412
+print(agent.budget_summary.current_run_tokens)  # same run's token count
+# If run or per limit is exceeded, on_exceeded is called (here: raises).
+```
+
+**Output (example):**
+```
+412
+412
+```
+
+---
+
+## Agent API
+
+### Per-call context
+
+**response**, **arun**, **stream**, and **astream** accept an optional **context**. When set, it overrides the agent's default context for that call:
+
+- **response(user_input, context=None)**  
+- **arun(user_input, context=None)**  
+- **stream(user_input, context=None)**  
+- **astream(user_input, context=None)**
+
+When **context** is a **Context** instance, that run uses its **max_tokens**, **reserve**, **thresholds**, **budget**, **encoding**, and **compactor** instead of the agent’s default context. Useful for one-off limits or different thresholds without building a new agent.
+
+```python
+from syrin import Agent, Context, Model
+
+agent = Agent(model=Model("openai/gpt-4o"), context=Context(max_tokens=128000))
+# This call uses a smaller window and no thresholds:
+result = agent.response("Summarize this", context=Context(max_tokens=4000))
+```
+
+### result.context_stats and result.context
+
+Every **Response** from **response()** or **arun()** includes **context_stats** and **context** for that call:
+
+- **result.context_stats** – **ContextStats** for this run (total_tokens, utilization, compact_count for this prepare, etc.). Use this instead of **agent.context_stats** when you need stats for a specific call (e.g. with concurrent or multiple runs).
+- **result.context** – The **Context** used for this call. When you pass **context=** to **response()** / **arun()**, it overrides the agent's default for that call; otherwise the agent's default (the **context** if one was passed, otherwise the agent’s default context).
+
+**Note:** **stream()** and **astream()** yield chunks and do not return a **Response**, so they do not set **context_stats** or **context** on a result. Use **agent.context_stats** after the stream if you need stats for that run.
+
+```python
+r = agent.response("Hello", context=Context(max_tokens=4000))
+print(r.context.max_tokens)    # 4000
+print(r.context_stats.total_tokens) # tokens for this call
+```
 
 ### agent.context
 
-Returns the `Context` configuration:
-
-```python
-agent = Agent(model=Model("openai/gpt-4o"), context=Context(max_tokens=80000))
-
-print(agent.context.max_tokens)      # 80000
-print(agent.context.auto_compact_at) # 0.75
-```
+- **With default context manager:** Returns a facade that exposes **Context** config (e.g. **max_tokens**, **thresholds**, **budget**) and **compact()**. So you can read **agent.context.max_tokens** and call **agent.context.compact()** (valid only during **prepare**, e.g. from a threshold action).
+- **compact()** – Requests compaction of the current context. No-op if not inside **prepare**.
 
 ### agent.context_stats
 
-Returns `ContextStats` from the last call:
+**ContextStats** for the last **prepare** (e.g. last **response**):
+
+| Field                    | Type     | Description |
+|--------------------------|----------|-------------|
+| **total_tokens**         | `int`    | Tokens used in that run. |
+| **max_tokens**           | `int`    | Context window used. |
+| **utilization**          | `float`  | 0–1. |
+| **compacted**            | `bool`   | Whether compaction ran. |
+| **compact_count**    | `int`    | Compactions in this run (this prepare) only. |
+| **compact_method**   | `str \| None` | e.g. `"middle_out_truncate"`, `"summarize"`, or `None`. |
+| **thresholds_triggered**| `list[str]` | Metric names of triggered thresholds. |
+
+**Why:** Inspect token usage and compaction after each run. **What:** Snapshot from the last **prepare** (or use **result.context_stats** for that call). **How:** Read **agent.context_stats** or **result.context_stats** after **response()** / **arun()**.
+
+Example:
 
 ```python
-agent = Agent(model=Model("openai/gpt-4o"), context=Context(max_tokens=80000))
 result = agent.response("Hello!")
-
-stats = agent.context_stats
-print(stats.total_tokens)          # Tokens used in last call
-print(stats.max_tokens)           # Max context window
-print(stats.utilization)          # Fraction (0-1)
-print(stats.utilization_percent)  # Percentage (0-100)
-print(stats.compacted)            # Was context compacted?
-print(stats.compaction_count)     # How many times compacted
-print(stats.compaction_method)    # Method used: "middle_out_truncate", "summarize", etc.
-print(stats.thresholds_triggered)  # List of triggered threshold actions
+print(agent.context_stats.total_tokens)
+print(agent.context_stats.utilization)
+print(agent.context_stats.compacted)
+# Per-call stats (same run):
+print(result.context_stats.total_tokens, result.context.max_tokens)
 ```
 
 ---
 
 ## Events
 
-The context system emits events you can listen to:
+Subscribe with **agent.events.on(event_name, handler)**. The handler receives a single payload dict.
 
 ### context.compact
 
-Emitted when context is compacted:
+Emitted when compaction runs (after a **compact()** call during **prepare**).
+
+**Payload:** **method**, **tokens_before**, **tokens_after**, **messages_before**, **messages_after**.
 
 ```python
-from Syrin import Agent, Model
-from Syrin.context import Context
-
-agent = Agent(
-    model=Model("openai/gpt-4o"),
-    context=Context(max_tokens=5000),  # Small limit to force compaction
-)
-
-def on_compact(ctx):
-    print(f"Context compacted!")
-    print(f"  Method: {ctx['method']}")
-    print(f"  Tokens: {ctx['tokens_before']} -> {ctx['tokens_after']}")
-    print(f"  Messages: {ctx['messages_before']} -> {ctx['messages_after']}")
-
-agent.events.on("context.compact", on_compact)
+agent.events.on("context.compact", lambda e: print(e["method"], e["tokens_before"], e["tokens_after"]))
 ```
 
 ### context.threshold
 
-Emitted when a threshold is crossed:
+Emitted when a context threshold triggers.
+
+**Payload:** **at**, **at_range**, **percent**, **metric**, **tokens**, **max_tokens**.
 
 ```python
-from Syrin.context import ContextThreshold
-from Syrin.enums import ContextAction
-
-agent = Agent(
-    model=Model("openai/gpt-4o"),
-    context=Context(
-        max_tokens=5000,
-        thresholds=[
-            ContextThreshold(at=50, action=ContextAction.WARN),
-            ContextThreshold(at=100, action=ContextAction.ERROR),
-        ],
-    ),
-)
-
-def on_threshold(ctx):
-    print(f"Threshold reached: {ctx['at']}%")
-    print(f"  Action: {ctx['action']}")
-    print(f"  Tokens: {ctx['tokens']}/{ctx['max_tokens']}")
-
-agent.events.on("context.threshold", on_threshold)
+agent.events.on("context.threshold", lambda e: print(f"Threshold {e['percent']}%"))
 ```
 
 ---
 
-## Observability
+## Token counting
 
-Context operations are automatically traced when debug mode is enabled:
+**TokenCounter** – Counts tokens for text, message lists, and tool definitions. Uses **tiktoken** when available (encoding **cl100k_base** by default), with an estimation fallback.
+
+**From syrin.context:** **TokenCounter**, **TokenCount**, **get_counter**.
+
+### count(text: str) -> int
+
+Count tokens in a string.
+
+### count_messages(messages, system_prompt="") -> TokenCount
+
+**TokenCount** has **total**, **system**, **messages** (and optionally **tools**, **memory**). Counts role overhead (e.g. 4 tokens per message).
+
+### count_tools(tools: list[dict]) -> int
+
+Approximate tokens for tool definitions.
+
+### get_counter() -> TokenCounter
+
+Returns the default **TokenCounter** singleton.
+
+Example:
 
 ```python
-agent = Agent(
-    model=Model("openai/gpt-4o"),
-    context=Context(max_tokens=80000),
-    debug=True,  # Enables trace output
-)
-```
+from syrin.context import TokenCounter, get_counter
 
-Output shows:
-- `context.prepare` spans with token counts
-- Compaction events
-- Threshold triggers
+counter = get_counter()
+n = counter.count("Hello, world!")
+counts = counter.count_messages([{"role": "user", "content": "Hi"}])
+print(counts.total)
+```
 
 ---
 
-## Custom Context Manager
+## Custom context manager
 
-For advanced use cases, implement the `ContextManager` Protocol:
+Implement the **ContextManager** protocol and pass an instance as **context=** to the agent.
+
+**Protocol:**
+
+- **prepare(messages, system_prompt, tools, memory_context, budget, context=None) -> ContextPayload**  
+  Return a **ContextPayload** with **messages**, **system_prompt**, **tools**, **tokens**. **context** is optional; when the agent passes a **Context** override for the run, it is provided here (custom managers may ignore it). Implementations should accept **context** in the signature for protocol compatibility.
+- **on_compact(event: CompactionResult) -> None**  
+  Optional; called after compaction if your implementation does it.
+
+**ContextPayload** is a dataclass: **messages**, **system_prompt**, **tools**, **tokens**.
+
+Example (keep only last N messages):
 
 ```python
-from Syrin import Agent, Model
-from Syrin.context import ContextManager, ContextBudget, ContextPayload
-from Syrin.context.counter import TokenCounter
 from typing import Any
+from syrin.context import ContextManager, ContextBudget, ContextPayload
+from syrin.context.counter import get_counter
 
-class MyContextManager(ContextManager):
-    """Custom context strategy - keeps only recent messages."""
-    
+class RecentOnlyManager:
+    def __init__(self, keep: int = 10):
+        self._keep = keep
+        self._counter = get_counter()
+
     def prepare(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[dict],
         system_prompt: str,
-        tools: list[dict[str, Any]],
+        tools: list[dict],
         memory_context: str,
         budget: ContextBudget,
+        context: Any = None,
     ) -> ContextPayload:
-        counter = TokenCounter()
-        
-        # Keep only last 5 messages
-        recent = messages[-5:] if len(messages) > 5 else messages
-        
-        tokens = counter.count_messages(recent).total
-        
+        recent = messages[-self._keep:] if len(messages) > self._keep else messages
+        tokens = self._counter.count_messages(recent, system_prompt).total
         return ContextPayload(
             messages=recent,
             system_prompt=system_prompt,
             tools=tools,
             tokens=tokens,
         )
-    
-    def on_compact(self, event: Any) -> None:
-        print(f"Compacted: {event.method}")
 
-# Use custom manager
-agent = Agent(
-    model=Model("openai/gpt-4o"),
-    context=MyContextManager(),
-)
+    def on_compact(self, event) -> None:
+        pass
+
+agent = Agent(model=model, context=RecentOnlyManager(keep=20))
 ```
+
+**create_context_manager(context=None, emit_fn=None, tracer=None)** returns a **DefaultContextManager** for a given **Context** and optional emit/tracer.
 
 ---
 
-## Compaction Methods
+## Compactors
 
-Syrin uses smart default compaction strategies:
+The default manager uses **ContextCompactor**, which combines truncation and summarization.
 
-### Middle-Out Truncate
+### MiddleOutTruncator
 
-Keeps the beginning and end of conversation (LLMs have better recall at start/end):
+Keeps the start and end of the conversation and truncates the middle (primacy/recency). **compact(messages, budget, counter=None)** returns **CompactionResult** (**messages**, **method**, **tokens_before**, **tokens_after**). If tokens already fit, **method** is **"none"**.
 
-```
-Before: [S][M1][M2][M3][M4][M5][M6][M7][M8]
-                 ↓
-After:  [S][M1][M2][M7][M8]
-```
+### Summarizer
 
-### Summarize
+**summarize(messages, counter=None)** – Placeholder that keeps system + last few messages and adds a summary placeholder. Can be extended with a custom **summarize_fn** for LLM-based summarization.
 
-For significant overages, summarizes older messages into a summary message.
+### ContextCompactor
 
----
+**compact(messages, budget)** (no counter arg; uses internal counter):
 
-## Token Counting
+1. If within budget, return as-is (**method="none"**).
+2. If overage &lt; 1.5×, use **MiddleOutTruncator**.
+3. Otherwise summarize, then truncate if still over.
 
-The context system uses `tiktoken` for accurate token counting:
-
-```python
-from Syrin.context import TokenCounter
-
-counter = TokenCounter()
-
-# Count tokens in text
-tokens = counter.count("Hello, world!")
-print(tokens)  # 4
-
-# Count tokens in messages
-messages = [
-    {"role": "system", "content": "You are helpful."},
-    {"role": "user", "content": "Hello!"},
-]
-result = counter.count_messages(messages)
-print(result.total)      # Total tokens
-print(result.system)    # System prompt tokens
-print(result.messages)  # Message tokens
-
-# Count tool definitions
-tools = [{"type": "function", "name": "search", "description": "Search the web"}]
-tool_tokens = counter.count_tools(tools)
-```
+You can replace the compactor in a custom manager or extend **DefaultContextManager** with a different compactor. Custom compactors must implement **ContextCompactorProtocol** (``compact(messages, budget) -> CompactionResult``); the default is **ContextCompactor**.
 
 ---
 
-## Integration with Memory
+## Observability
 
-Context works seamlessly with Syrin memory:
-
-```python
-from Syrin import Agent, Model
-from Syrin.context import Context
-from Syrin.memory import Memory
-from Syrin.enums import MemoryType
-
-# Memory is auto-injected into context
-agent = Agent(
-    model=Model("openai/gpt-4o"),
-    memory=Memory(types=[MemoryType.CORE, MemoryType.EPISODIC]),
-    context=Context(max_tokens=80000),
-)
-
-# Memories are automatically retrieved and injected
-result = agent.response("What do you know about me?")
-
-# Check memory usage in context stats
-print(agent.context_stats.thresholds_triggered)
-```
+- **Tracing:** When a tracer is set on the context manager (e.g. via the agent), **context.prepare** spans are created with attributes such as **context.max_tokens**, **context.available**, **context.tokens**, **context.utilization**, **context.compacted**, **context.compact_method**, **context.thresholds_triggered**.
+- **Debug:** **Agent(..., debug=True)** enables console trace output so you can see context and compaction in logs.
 
 ---
 
-## Complete Example
+## Integration with memory and budget
 
-```python
-from Syrin import Agent, Model
-from Syrin.context import Context, ContextThreshold
-from Syrin.enums import ContextAction
-from Syrin.memory import Memory, MemoryType
-
-# Create agent with full context configuration
-agent = Agent(
-    model=Model("openai/gpt-4o"),
-    system_prompt="You are a helpful assistant with long-term memory.",
-    memory=Memory(types=[MemoryType.CORE, MemoryType.EPISODIC]),
-    context=Context(
-        max_tokens=128000,
-        auto_compact_at=0.75,
-        thresholds=[
-            ContextThreshold(at=50, action=ContextAction.WARN),
-            ContextThreshold(at=70, action=ContextAction.SUMMARIZE_OLDEST),
-            ContextThreshold(at=100, action=ContextAction.ERROR),
-        ],
-    ),
-)
-
-# Listen to events
-def on_compact(ctx):
-    print(f"Context compacted: {ctx['method']}")
-
-def on_threshold(ctx):
-    print(f"Threshold: {ctx['at']}% -> {ctx['action']}")
-
-agent.events.on("context.compact", on_compact)
-agent.events.on("context.threshold", on_threshold)
-
-# Run conversation
-result = agent.response("Hello! I'm John.")
-print(result.content)
-
-# Store some memories
-agent.remember("User's name is John", memory_type=MemoryType.CORE)
-agent.remember("We discussed Python programming", memory_type=MemoryType.EPISODIC)
-
-# Continue conversation - memories are auto-injected
-result = agent.response("What is my name?")
-
-# Check context stats
-print(f"Tokens used: {agent.context_stats.total_tokens}")
-print(f"Utilization: {agent.context_stats.utilization:.1%}")
-print(f"Compacted: {agent.context_stats.compacted}")
-print(f"Compaction count: {agent.context_stats.compaction_count}")
-```
+- **Memory:** Persistent memory (e.g. **MemoryConfig**, **Memory**) is recalled and formatted as **memory_context**. The default context manager injects it as a system message (**[Memory]\n...**) when **memory_context** is non-empty. So context stats and compaction apply to the full message list including memory.
+- **Budget:** Cost limits are **Budget** (USD). Token usage caps are **Context.budget** (**ContextBudget**). You can use both: **Agent(budget=Budget(...), context=Context(budget=ContextBudget(...)))**.
 
 ---
 
-## API Reference
+## API reference
 
-### Classes
-
-| Class | Description |
-|-------|-------------|
-| `Context` | Main configuration for context management |
-| `ContextStats` | Statistics from last context preparation |
-| `ContextBudget` | Internal budget tracking |
-| `ContextThreshold` | Threshold + action definition |
-| `TokenCounter` | Token counting with tiktoken |
-| `ContextCompactor` | Default compaction implementation |
-| `MiddleOutTruncator` | Keep start/end of conversation |
-| `DefaultContextManager` | Default context manager |
-
-### ContextManager Protocol
-
-```python
-class ContextManager(Protocol):
-    def prepare(
-        self,
-        messages: list[dict[str, Any]],
-        system_prompt: str,
-        tools: list[dict[str, Any]],
-        memory_context: str,
-        budget: ContextBudget,
-    ) -> ContextPayload:
-        ...
-    
-    def on_compact(self, event: CompactionResult) -> None:
-        ...
-```
+| Class / type | Description |
+|--------------|-------------|
+| **Context** | Config: max_tokens, reserve, thresholds, budget, encoding, compactor. **get_budget(model)**. |
+| **ContextStats** | total_tokens, max_tokens, utilization, compacted, compact_count (this run only), compact_method, thresholds_triggered. |
+| **ContextBudget** | Token caps: **run**, **per** (TokenRateLimit), **on_exceeded**. Use on **Context.budget**. |
+| **ContextWindowBudget** (alias **WindowCapacity**) | Internal: max_tokens, reserve, available, used_tokens, utilization, percent, reset(). |
+| **ContextThreshold** | at, at_range, action, metric=TOKENS, window=MAX_TOKENS. **should_trigger(percent, metric)**. |
+| **ThresholdContext** (alias **ThresholdEvent**) | percentage, metric, current_value, limit_value, budget_run, parent, metadata, **compact**. |
+| **TokenBudget** | Alias for ContextBudget (backward compat). Prefer **ContextBudget**. |
+| **ContextPayload** | messages, system_prompt, tools, tokens. |
+| **ContextManager** | Protocol: prepare(), on_compact(). |
+| **DefaultContextManager** | context, prepare(), stats, current_tokens, **compact()**, set_emit_fn(), set_tracer(). |
+| **TokenCounter** | count(), count_messages(), count_tools(). **TokenCount**: total, system, messages, tools, memory. |
+| **get_counter()** | Default TokenCounter. |
+| **CompactionResult** | messages, method, tokens_before, tokens_after. |
+| **Compactor** | Base: compact(messages, budget, counter). |
+| **MiddleOutTruncator** | Compactor: middle-out truncation. |
+| **Summarizer** | summarize(messages, counter). |
+| **ContextCompactor** | compact(messages, budget): truncate and/or summarize. |
+| **ContextCompactorProtocol** | Protocol for custom compactors: **compact(messages, budget) -> CompactionResult**. Use for **Context.compactor** type. |
+| **create_context_manager(context, emit_fn, tracer)** | Build DefaultContextManager. |
+| **Response** (from agent) | **context_stats**, **context** – per-call context stats and effective Context for that run. |
+| **ContextBudget** | Token caps on Context: **run**, **per** (TokenRateLimit), **on_exceeded**. Same field names as Budget. |
+| **ContextWindowBudget** | Internal: max_tokens, reserve, available, used_tokens, utilization (used during prepare). |
 
 ---
 
 ## Troubleshooting
 
-### Context not being compacted
+**Context never compacts**  
+Compaction runs only when **evt.compact()** (or **agent.context.compact()**) is called during **prepare**. Add a **ContextThreshold** (e.g. at 75%) whose **action** calls **evt.compact()** or use **compact_if_available**.
 
-- Check `agent.context_stats.utilization` - compaction only triggers when utilization exceeds `auto_compact_at`
-- Ensure messages are actually exceeding the budget
+**Utilization always 0 or very low**  
+Check **agent.context_stats.total_tokens** and **max_tokens**. If the model’s context window is large and conversations are short, utilization will be low.
 
-### Tokens still too high
+**Threshold action not called**  
+Ensure utilization actually reaches the threshold (e.g. use many or long messages). For a band, use **at_range=(min, max)**. The action must be a callable that accepts one argument (**ThresholdContext**).
 
-- Reduce `max_tokens` in Context
-- Lower `auto_compact_at` to trigger compaction earlier
+**Want to raise when context is full**  
+Use a threshold at 100% with an action that raises, e.g. **ContextThreshold(at=100, action=lambda ctx: (_ for _ in ()).throw(ValueError("Context full")))** or a named function that raises.
 
-### Custom handler not called
+**Token caps not enforced**  
+Set **Context.budget** (**run** and/or **per=TokenRateLimit(...)**). The agent’s budget tracker must be present (it is when the agent has a **Budget** or **context.budget**).
 
-- Ensure threshold action is `ContextAction.CUSTOM`
-- Pass handler function to `ContextThreshold`
+---
 
-### Memory not being injected
+## Limitations
 
-- Check that `memory` is configured on Agent
-- Verify memory backend is working
+- **compact() only during prepare** – **ctx.compact()** / **agent.context.compact()** only take effect when the default context manager is inside **prepare** (e.g. from a threshold action). Calling **compact()** outside that path is a no-op.
+- **Stats not persisted** – **ContextStats** (total_tokens, utilization, compact_count, etc.) reflect the last run only; they are not persisted across process restarts. **compact_count** is per run (this prepare only). For per-call stats use **result.context_stats** on the **Response**.
+- **Custom manager and budget** – If you pass a custom **ContextManager** as **context=**, it may ignore **Context** (and thus **budget**, **encoding**, **compactor**). The default manager respects all **Context** options.
+- **Context validation** – **max_tokens** must be **> 0** when set; **reserve** must be **≥ 0**. **get_budget()** also validates **max_tokens** when resolved from the model.
+
+### More limitations (with examples)
+
+**1. Tools can consume the whole budget — compaction cannot free space**
+
+If `tools` are so large that `available_for_messages = max_tokens - reserve - tools_tokens <= 0`, there is no room for message compaction. Thresholds **still run** (at 100% utilization) and **stats are updated** for that call. Compaction is a no-op because there is no message budget. You can still use a 100% threshold to e.g. raise or switch model.
+
+```python
+# Many/large tools leave no room for messages
+agent = Agent(
+    model=Model("openai/gpt-4o"),
+    context=Context(max_tokens=4000, reserve=500, thresholds=[
+        ContextThreshold(at=100, action=lambda ctx: (_ for _ in ()).throw(ValueError("Context full"))),
+    ]),
+    tools=[huge_tool_spec] * 50,  # e.g. 4000+ tokens
+)
+# Thresholds run; stats updated; compaction cannot help
+agent.response("Hello")
+```
+
+**Mitigation:** Use a larger **max_tokens** or fewer/smaller tools so that `available_for_messages > 0` if you want compaction to be able to free space.
+
+---
+
+**2. Compaction only shrinks messages, not tools**
+
+The default compactor only compacts the **message** list. Tool definitions are not trimmed. If system + tools + minimal messages already exceed the window, compaction cannot fix it.
+
+```python
+# Compaction won't remove tool tokens
+agent = Agent(
+    model=Model("openai/gpt-4o"),
+    context=Context(max_tokens=8000, thresholds=[
+        ContextThreshold(at=80, action=lambda ctx: ctx.compact() if ctx.compact else None),
+    ]),
+    tools=dozens_of_large_tools,  # e.g. 6000 tokens
+)
+# Even after compact(), tools still use 6000 tokens; you may still be over budget
+```
+
+**Mitigation:** Reduce the number or size of tools, or use a custom context manager that trims/selects tools.
+
+---
+
+**3. agent.context does not reflect per-call context**
+
+**agent.context** still exposes the agent’s default **Context** config. For the config and stats **actually used** on a given call, use **result.context** and **result.context_stats** (set on every **Response** from **response()** / **arun()**).
+
+```python
+agent = Agent(model=Model("openai/gpt-4o"), context=Context(max_tokens=128000))
+result = agent.response("Summarize this", context=Context(max_tokens=4000))
+# Default context (unchanged):
+print(agent.context.max_tokens)  # 128000
+# What was used for this call:
+print(result.context.max_tokens)   # 4000
+print(result.context_stats.total_tokens)
+```
+
+---
+
+**4. reserve and model hint**
+
+**Context** uses **reserve** (default 2000). You can make it model-aware by setting **default_reserve_tokens** on the model; **Context.get_budget(model)** then uses that when building the budget.
+
+```python
+# Per-model reserve via Model constructor or with_params
+model = Model("openai/gpt-4o", default_reserve_tokens=8000)
+agent = Agent(model=model, context=Context(max_tokens=128000))
+# Budget for this agent uses reserve 8000 from the model
+```
+
+When the model has **default_reserve_tokens** set, that value is used for **reserve** when **get_budget(model)** is called; otherwise **Context.reserve** is used.
+
+---
+
+**5. Threshold actions are synchronous only**
+
+**ContextThreshold**’s **action** is **Callable[[ThresholdContext], None]**. You cannot await or run async work inside it. If you need to call an API or do async work before deciding to compact, you must do it outside the action (e.g. schedule compact on next prepare or use a sync stub).
+
+```python
+# This cannot be async
+ContextThreshold(
+    at=75,
+    action=lambda ctx: ctx.compact() if ctx.compact else None,  # sync only
+)
+# If you needed: async def my_action(ctx): ... await fetch_something(); ctx.compact()
+# you'd need a different design (e.g. sync wrapper that schedules compact)
+```
+
+---
+
+**6. Stats overwritten on concurrent use**
+
+**agent.context_stats** is the manager’s last **ContextStats**. With concurrent calls, use **result.context_stats** for per-call stats (each **Response** carries the stats for that run).
+
+```python
+import asyncio
+async def run():
+    t1 = asyncio.create_task(agent.arun("First"))
+    t2 = asyncio.create_task(agent.arun("Second"))
+    r1, r2 = await t1, await t2
+    print(r1.context_stats.total_tokens)  # stats for "First"
+    print(r2.context_stats.total_tokens)  # stats for "Second"
+```
+
+---
+
+## Complete examples
+
+### Minimal (default context)
+
+```python
+from syrin import Agent, Model
+
+agent = Agent(model=Model("openai/gpt-4o"), system_prompt="You are helpful.")
+result = agent.response("Hello!")
+print(agent.context_stats.total_tokens, agent.context_stats.utilization)
+```
+
+### With thresholds and compaction
+
+```python
+from syrin import Agent, Context, Model
+from syrin.threshold import ContextThreshold
+
+def on_full(ctx):
+    raise ValueError("Context full")
+
+agent = Agent(
+    model=Model("openai/gpt-4o"),
+    system_prompt="You are helpful.",
+    context=Context(
+        max_tokens=80000,
+        thresholds=[
+            ContextThreshold(at=50, action=lambda ctx: print(f"Tokens at {ctx.percentage}%")),
+            ContextThreshold(at=75, action=lambda ctx: ctx.compact() if ctx.compact else None),
+            ContextThreshold(at=100, action=on_full),
+        ],
+    ),
+)
+agent.events.on("context.compact", lambda e: print("Compacted:", e["method"]))
+result = agent.response("A long message...")
+```
+
+### With budget (ContextBudget)
+
+```python
+from syrin import Agent, Context, ContextBudget, Model, TokenRateLimit
+from syrin.budget import warn_on_exceeded
+
+agent = Agent(
+    model=Model("openai/gpt-4o"),
+    context=Context(
+        max_tokens=128000,
+        budget=ContextBudget(
+            run=30_000,
+            per=TokenRateLimit(hour=100_000),
+            on_exceeded=warn_on_exceeded,
+        ),
+    ),
+)
+```
+
+### With memory and full config
+
+```python
+from syrin import Agent, Context, Model
+from syrin.threshold import ContextThreshold
+from syrin.memory import Memory
+from syrin.enums import MemoryType
+
+def on_full(ctx):
+    raise ValueError("Context full")
+
+agent = Agent(
+    model=Model("openai/gpt-4o"),
+    system_prompt="You are helpful.",
+    memory=Memory(types=[MemoryType.CORE, MemoryType.EPISODIC]),
+    context=Context(
+        max_tokens=128000,
+        thresholds=[
+            ContextThreshold(at=50, action=lambda ctx: print(f"Tokens at {ctx.percentage}%")),
+            ContextThreshold(at=75, action=lambda ctx: ctx.compact() if ctx.compact else None),
+            ContextThreshold(at=100, action=on_full),
+        ],
+    ),
+)
+agent.events.on("context.compact", lambda e: print("Compacted:", e["method"]))
+agent.events.on("context.threshold", lambda e: print("Threshold:", e["percent"]))
+result = agent.response("Hello!")
+print(agent.context_stats.total_tokens, agent.context_stats.compacted)
+```

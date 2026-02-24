@@ -12,7 +12,7 @@ Example:
     >>>
     >>> agent = Agent(
     ...     model=Model("openai/gpt-4o"),
-    ...     context=Context(max_tokens=80000, auto_compact_at=0.75)
+    ...     context=Context(max_tokens=80000)
     ... )
     >>> result = agent.run("Hello")
     >>> print(agent.context.stats)
@@ -28,10 +28,18 @@ from syrin.context.compactors import (
     CompactionResult,
     Compactor,
     ContextCompactor,
+    ContextCompactorProtocol,
     MiddleOutTruncator,
     Summarizer,
 )
-from syrin.context.config import Context, ContextBudget, ContextStats
+from syrin.context.config import (
+    Context,
+    ContextBudget,
+    ContextStats,
+    ContextWindowBudget,
+    TokenBudget,
+    WindowCapacity,
+)
 from syrin.context.counter import TokenCount, TokenCounter, get_counter
 from syrin.threshold import Threshold
 
@@ -40,6 +48,9 @@ __all__ = [
     "Context",
     "ContextStats",
     "ContextBudget",
+    "ContextWindowBudget",
+    "WindowCapacity",
+    "TokenBudget",
     "Threshold",
     # Counter
     "TokenCounter",
@@ -49,6 +60,7 @@ __all__ = [
     "Compactor",
     "CompactionResult",
     "ContextCompactor",
+    "ContextCompactorProtocol",
     "MiddleOutTruncator",
     "Summarizer",
     # Manager

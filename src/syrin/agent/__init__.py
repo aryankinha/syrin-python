@@ -15,12 +15,28 @@ from syrin.budget import (
     BudgetStatus,
     BudgetTracker,
     CheckBudgetResult,
-    TokenLimits,
 )
 from syrin.budget_store import BudgetStore
 from syrin.checkpoint import CheckpointConfig, Checkpointer
 from syrin.context import Context, DefaultContextManager
 from syrin.context.config import ContextStats
+
+
+class _ContextFacade:
+    """Facade for agent.context: config attributes + compact() during prepare."""
+
+    def __init__(self, config: Context, manager: DefaultContextManager) -> None:
+        self._config = config
+        self._manager = manager
+
+    def compact(self) -> None:
+        """Request context compaction (valid during prepare, e.g. from threshold action)."""
+        self._manager.compact()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._config, name)
+
+
 from syrin.cost import calculate_cost, estimate_cost_for_call
 from syrin.enums import (
     GuardrailStage,
@@ -186,7 +202,6 @@ class Agent:
         max_tool_iterations: int = DEFAULT_MAX_TOOL_ITERATIONS,
         budget_store: BudgetStore | None = None,
         budget_store_key: str = "default",
-        token_limits: TokenLimits | None = None,
         memory: ConversationMemory | MemoryConfig | None = None,
         loop_strategy: LoopStrategy = LoopStrategy.REACT,
         loop: Loop | type[Loop] | None = None,
@@ -216,8 +231,6 @@ class Agent:
                 Why: Track spend across restarts. Requires budget_store_key.
             budget_store_key: Key for budget persistence (default "default").
                 Why: Isolate budgets per user/session when using budget_store.
-            token_limits: Optional token usage caps (separate from Budget). Use for run_tokens
-                and per-period token caps. Budget = real money (USD); token_limits = usage.
             memory: Conversation memory (BufferMemory) or persistent MemoryConfig.
                 Why: Enables remember/recall/forget or session history.
             loop_strategy: Execution strategy (REACT, SINGLE_SHOT, etc.).
@@ -225,7 +238,8 @@ class Agent:
             loop: Custom Loop instance. Overrides loop_strategy if set.
             guardrails: List of Guardrail or GuardrailChain. Validate input/output.
                 Why: Block harmful content, PII, or policy violations.
-            context: Context config for token limits and compaction.
+            context: Context config (max_tokens, thresholds, budget). Token caps
+                go in context.budget (ContextBudget / TokenLimits).
             rate_limit: APIRateLimit to enforce RPM/TPM.
                 Why: Avoid 429 errors from provider rate limits.
             checkpoint: CheckpointConfig for save/restore state.
@@ -274,13 +288,23 @@ class Agent:
         self._budget = budget
         self._budget_store = budget_store
         self._budget_store_key = budget_store_key
-        self._token_limits = token_limits
+        self._token_limits = None
         self._conversation_memory: ConversationMemory | None = None
         self._persistent_memory: MemoryConfig | None = None
         self._memory_backend: InMemoryBackend | None = None
         self._parent_agent: Agent | None = None
         self._budget_tracker_shared: bool = False
         self._provider: Provider
+
+        # Context (and budget from context) set early for budget_store load
+        if context is None:
+            self._context = DefaultContextManager(Context())
+        elif isinstance(context, Context):
+            self._context = DefaultContextManager(context)
+        else:
+            self._context = context
+        ctx_config = getattr(self._context, "context", None)
+        self._token_limits = getattr(ctx_config, "budget", None) if ctx_config else None
 
         if memory is None:
             # Default: enable persistent memory with sensible defaults
@@ -294,7 +318,7 @@ class Agent:
             self._memory_backend = get_backend(memory.backend, path=memory.path)
         else:
             self._conversation_memory = memory
-        if (budget or token_limits) and budget_store and budget:
+        if (budget is not None or self._token_limits is not None) and budget_store and budget:
             loaded = budget_store.load(budget_store_key)
             self._budget_tracker = loaded if loaded is not None else BudgetTracker()
         else:
@@ -348,14 +372,6 @@ class Agent:
             self._tracer.add_exporter(ConsoleExporter())
         if debug:
             self._tracer.set_debug_mode(True)
-
-        # Context management setup
-        if context is None:
-            self._context = DefaultContextManager(Context())
-        elif isinstance(context, Context):
-            self._context = DefaultContextManager(context)
-        else:
-            self._context = context
 
         # Connect context to events and observability
         if hasattr(self._context, "set_emit_fn"):
@@ -756,15 +772,14 @@ class Agent:
         return self._persistent_memory
 
     @property
-    def context(self) -> Context:
-        """Context config (token limits, compaction, thresholds).
+    def context(self) -> Context | _ContextFacade:
+        """Context config (max_tokens, thresholds) and compact().
 
-        Why: Adjust max_tokens, auto_compact_at for long conversations.
-        Prevents context window overflow and controls cost.
-
-        Returns:
-            Context instance with max_tokens, auto_compact_at, thresholds.
+        Use ctx.compact() in a ContextThreshold action, or agent.context.compact()
+        during prepare, to compact context on demand (no auto_compact_at).
         """
+        if hasattr(self._context, "context") and hasattr(self._context, "compact"):
+            return _ContextFacade(self._context.context, self._context)
         if hasattr(self._context, "context"):
             return self._context.context
         return Context()
@@ -1374,12 +1389,14 @@ class Agent:
 
         # Use context manager to prepare context
         model_for_context = self._model if self._model is not None else None
+        call_context = getattr(self, "_call_context", None)
 
-        # Get budget - handle both DefaultContextManager and custom managers
-        if hasattr(self._context, "context"):
+        # Get budget - call context (override), then manager's context, else default
+        if call_context is not None:
+            budget = call_context.get_budget(model_for_context)
+        elif hasattr(self._context, "context"):
             budget = self._context.context.get_budget(model_for_context)
         else:
-            # Custom context manager - create default budget
             budget = Context().get_budget(model_for_context)
 
         payload = self._context.prepare(
@@ -1388,6 +1405,7 @@ class Agent:
             tools=tool_dicts,
             memory_context=memory_context,
             budget=budget,
+            context=call_context,
         )
 
         # Rebuild messages from payload
@@ -1623,7 +1641,7 @@ class Agent:
             msg = f"Budget exceeded: run cost ${current:.4f} >= ${limit:.4f}"
         elif limit_key == BudgetLimitType.RUN_TOKENS:
             current = self._budget_tracker.current_run_tokens
-            run_tok = self._token_limits.run_tokens if self._token_limits is not None else None
+            run_tok = self._token_limits.run if self._token_limits is not None else None
             limit = float(run_tok or 0)
             msg = f"Budget exceeded: run tokens {current} >= {int(limit)}"
         elif limit_key in (
@@ -1823,6 +1841,14 @@ class Agent:
         """
         return await self._complete_async(messages, tools)
 
+    def _with_context_on_response(self, r: Response[str]) -> Response[str]:
+        """Attach per-call context_stats and context to a Response."""
+        r.context_stats = getattr(self._context, "stats", None)
+        r.context = getattr(self, "_call_context", None) or (
+            getattr(self._context, "context", None) if hasattr(self._context, "context") else None
+        )
+        return r
+
     async def _run_loop_response_async(self, user_input: str) -> Response[str]:
         """Run using the configured loop strategy with full observability (async)."""
         from syrin.observability import SemanticAttributes, SpanKind
@@ -1843,20 +1869,22 @@ class Agent:
             # Input guardrails check
             input_guardrail = self._run_guardrails(user_input, GuardrailStage.INPUT)
             if not input_guardrail.passed:
-                return ResponseClass(
-                    content="",
-                    raw="",
-                    cost=0.0,
-                    tokens=TokenUsage(input_tokens=0, output_tokens=0, total_tokens=0),
-                    model=self._model_config.model_id,
-                    duration=0.0,
-                    trace=[],
-                    tool_calls=[],
-                    stop_reason=StopReason.GUARDRAIL,
-                    budget_remaining=self._budget.remaining if self._budget else None,
-                    budget_used=0.0,
-                    structured=None,
-                    report=self._run_report,
+                return self._with_context_on_response(
+                    ResponseClass(
+                        content="",
+                        raw="",
+                        cost=0.0,
+                        tokens=TokenUsage(input_tokens=0, output_tokens=0, total_tokens=0),
+                        model=self._model_config.model_id,
+                        duration=0.0,
+                        trace=[],
+                        tool_calls=[],
+                        stop_reason=StopReason.GUARDRAIL,
+                        budget_remaining=self._budget.remaining if self._budget else None,
+                        budget_used=0.0,
+                        structured=None,
+                        report=self._run_report,
+                    )
                 )
 
             result = await self._loop.run(self, user_input)
@@ -1900,20 +1928,22 @@ class Agent:
             if not result.tool_calls:
                 output_guardrail = self._run_guardrails(result.content or "", GuardrailStage.OUTPUT)
                 if not output_guardrail.passed:
-                    return ResponseClass(
-                        content="",
-                        raw="",
-                        cost=result.cost_usd,
-                        tokens=tokens,
-                        model=self._model_config.model_id,
-                        duration=result.latency_ms / 1000,
-                        trace=[],
-                        tool_calls=tool_calls_list,
-                        stop_reason=StopReason.GUARDRAIL,
-                        budget_remaining=self._budget.remaining if self._budget else None,
-                        budget_used=self._budget._spent if self._budget else 0.0,
-                        structured=None,
-                        report=self._run_report,
+                    return self._with_context_on_response(
+                        ResponseClass(
+                            content="",
+                            raw="",
+                            cost=result.cost_usd,
+                            tokens=tokens,
+                            model=self._model_config.model_id,
+                            duration=result.latency_ms / 1000,
+                            trace=[],
+                            tool_calls=tool_calls_list,
+                            stop_reason=StopReason.GUARDRAIL,
+                            budget_remaining=self._budget.remaining if self._budget else None,
+                            budget_used=self._budget._spent if self._budget else 0.0,
+                            structured=None,
+                            report=self._run_report,
+                        )
                     )
 
             # Build structured output with validation
@@ -1932,21 +1962,23 @@ class Agent:
             self._run_report.tokens.total_tokens = tokens.total_tokens
             self._run_report.tokens.cost_usd = result.cost_usd
 
-            return ResponseClass(
-                content=result.content,
-                cost=result.cost_usd,
-                tokens=tokens,
-                model=self._model_config.model_id,
-                duration=result.latency_ms / 1000,
-                tool_calls=tool_calls_list,
-                stop_reason=StopReason(result.stop_reason)
-                if isinstance(result.stop_reason, str)
-                else result.stop_reason,
-                budget_remaining=self._budget.remaining if self._budget else None,
-                budget_used=self._budget._spent if self._budget else 0.0,
-                iterations=result.iterations,
-                structured=structured,
-                report=self._run_report,
+            return self._with_context_on_response(
+                ResponseClass(
+                    content=result.content,
+                    cost=result.cost_usd,
+                    tokens=tokens,
+                    model=self._model_config.model_id,
+                    duration=result.latency_ms / 1000,
+                    tool_calls=tool_calls_list,
+                    stop_reason=StopReason(result.stop_reason)
+                    if isinstance(result.stop_reason, str)
+                    else result.stop_reason,
+                    budget_remaining=self._budget.remaining if self._budget else None,
+                    budget_used=self._budget._spent if self._budget else 0.0,
+                    iterations=result.iterations,
+                    structured=structured,
+                    report=self._run_report,
+                )
             )
 
     def _run_loop_response(self, user_input: str) -> Response[str]:
@@ -2009,12 +2041,18 @@ class Agent:
         except Exception as e:
             raise ToolExecutionError(f"Streaming failed: {e}") from e
 
-    def response(self, user_input: str) -> Response[str]:
+    def response(self, user_input: str, context: Context | None = None) -> Response[str]:
         """Run the agent: LLM completion + tool loop. Synchronous.
 
         Why: Main entry point for getting a reply. Runs the configured loop
         (REACT by default), runs guardrails, records cost, applies budget/rate
         limits. Blocks until complete.
+
+        Args:
+            user_input: User message.
+            context: Optional Context for this call only. When set, overrides the agent's
+                default context (max_tokens, reserve, thresholds, budget). The Context
+                used for this call is on ``result.context``; per-call stats on ``result.context_stats``.
 
         Returns:
             Response with content, cost, tokens, model, stop_reason, structured
@@ -2022,35 +2060,37 @@ class Agent:
 
         Example:
             >>> r = agent.response("What is 2+2?")
-            >>> print(r.content)
-            4
-            >>> print(r.cost)
-            0.0012
-            >>> print(r.stop_reason)
-            StopReason.END_TURN
+            >>> r = agent.response("Long task...", context=Context(max_tokens=4000))
         """
-        # Reset report for new run
-        self._run_report = AgentReport()
-        if self._budget is not None or self._token_limits is not None:
-            self._budget_tracker.reset_run()
-            if self._budget is not None:
-                self._budget._set_spent(0)
+        self._call_context = context
         try:
-            return self._run_loop_response(user_input)
-        except (BudgetThresholdError, BudgetExceededError):
-            # Checkpoint before re-raising budget errors
-            self._maybe_checkpoint("budget")
-            raise
-        except Exception:
-            # Checkpoint on error
-            self._maybe_checkpoint("error")
-            raise
+            self._run_report = AgentReport()
+            if self._budget is not None or self._token_limits is not None:
+                self._budget_tracker.reset_run()
+                if self._budget is not None:
+                    self._budget._set_spent(0)
+            try:
+                return self._run_loop_response(user_input)
+            except (BudgetThresholdError, BudgetExceededError):
+                self._maybe_checkpoint("budget")
+                raise
+            except Exception:
+                self._maybe_checkpoint("error")
+                raise
+        finally:
+            self._call_context = None
 
-    async def arun(self, user_input: str) -> Response[str]:
+    async def arun(self, user_input: str, context: Context | None = None) -> Response[str]:
         """Run the agent asynchronously. Same as response() but non-blocking.
 
         Why: Use in async apps to avoid blocking the event loop. Same behavior
         as response() (guardrails, budget, tools, etc.).
+
+        Args:
+            user_input: User message.
+            context: Optional Context for this call only (see response()). Overrides
+                the agent's context for this call. Used context is on ``result.context``;
+                per-call stats on ``result.context_stats``.
 
         Returns:
             Response (same as response()).
@@ -2058,103 +2098,135 @@ class Agent:
         Example:
             >>> r = await agent.arun("Summarize this")
         """
-        self._run_report = AgentReport()
-        if self._budget is not None or self._token_limits is not None:
-            self._budget_tracker.reset_run()
-            if self._budget is not None:
-                self._budget._set_spent(0)
+        self._call_context = context
         try:
-            return await self._run_loop_response_async(user_input)
-        except (BudgetThresholdError, BudgetExceededError):
-            self._maybe_checkpoint("budget")
-            raise
-        except Exception:
-            self._maybe_checkpoint("error")
-            raise
+            self._run_report = AgentReport()
+            if self._budget is not None or self._token_limits is not None:
+                self._budget_tracker.reset_run()
+                if self._budget is not None:
+                    self._budget._set_spent(0)
+            try:
+                return await self._run_loop_response_async(user_input)
+            except (BudgetThresholdError, BudgetExceededError):
+                self._maybe_checkpoint("budget")
+                raise
+            except Exception:
+                self._maybe_checkpoint("error")
+                raise
+        finally:
+            self._call_context = None
 
-    def stream(self, user_input: str) -> Iterator[StreamChunk]:
+    def stream(self, user_input: str, context: Context | None = None) -> Iterator[StreamChunk]:
         """Stream response text as it arrives. Synchronous iterator.
 
         Why: Show tokens in real time (e.g. ChatGPT-style UI). No tool-call loop;
         single completion only.
 
+        Args:
+            user_input: User message.
+            context: Optional Context for this call only (see response()). Overrides agent's context.
+
         Yields:
             StreamChunk with text (delta), accumulated_text, cost_so_far,
             tokens_so_far.
+
+        Note:
+            Stream does not return a Response; for context stats for this run,
+            read ``agent.context_stats`` after the stream completes.
 
         Example:
             >>> for chunk in agent.stream("Write a poem"):
             ...     print(chunk.text, end="")
         """
-        if self._budget is not None or self._token_limits is not None:
-            self._budget_tracker.reset_run()
-            if self._budget is not None:
-                self._budget._set_spent(0)
-        yield from self._stream_response(user_input)
+        self._call_context = context
+        try:
+            if self._budget is not None or self._token_limits is not None:
+                self._budget_tracker.reset_run()
+                if self._budget is not None:
+                    self._budget._set_spent(0)
+            yield from self._stream_response(user_input)
+        finally:
+            self._call_context = None
 
-    async def astream(self, user_input: str) -> AsyncIterator[StreamChunk]:
+    async def astream(
+        self, user_input: str, context: Context | None = None
+    ) -> AsyncIterator[StreamChunk]:
         """Stream response text as it arrives. Async iterator.
 
         Why: Non-blocking streaming for async apps. Same chunks as stream().
+
+        Args:
+            user_input: User message.
+            context: Optional Context for this call only (see response()). Overrides agent's context.
+
+        Note:
+            Astream does not return a Response; for context stats for this run,
+            read ``agent.context_stats`` after the stream completes.
 
         Example:
             >>> async for chunk in agent.astream("Write a poem"):
             ...     print(chunk.text, end="")
         """
-        if self._budget is not None or self._token_limits is not None:
-            self._budget_tracker.reset_run()
-            if self._budget is not None:
-                self._budget._set_spent(0)
-        messages = self._build_messages(user_input)
-        tools = self._tools if self._tools else None
-        accumulated = ""
-        total_cost = 0.0
-        total_tokens = TokenUsage()
-        prev_cost = 0.0
-        prev_tokens = TokenUsage()
-
+        self._call_context = context
         try:
-            async for chunk in self._provider.stream(messages, self._model_config, tools):
-                content = chunk.content or ""
-                accumulated += content
-                total_cost += chunk.cost_usd if hasattr(chunk, "cost_usd") else 0.0
-                total_tokens = TokenUsage(
-                    input_tokens=total_tokens.input_tokens
-                    + (chunk.token_usage.input_tokens if hasattr(chunk, "token_usage") else 0),
-                    output_tokens=total_tokens.output_tokens
-                    + (chunk.token_usage.output_tokens if hasattr(chunk, "token_usage") else 0),
-                    total_tokens=total_tokens.total_tokens
-                    + (chunk.token_usage.total_tokens if hasattr(chunk, "token_usage") else 0),
-                )
-                if self._budget is not None or self._token_limits is not None:
-                    delta_cost = total_cost - prev_cost
-                    delta_tokens = TokenUsage(
-                        input_tokens=total_tokens.input_tokens - prev_tokens.input_tokens,
-                        output_tokens=total_tokens.output_tokens - prev_tokens.output_tokens,
-                        total_tokens=total_tokens.total_tokens - prev_tokens.total_tokens,
+            if self._budget is not None or self._token_limits is not None:
+                self._budget_tracker.reset_run()
+                if self._budget is not None:
+                    self._budget._set_spent(0)
+            messages = self._build_messages(user_input)
+            tools = self._tools if self._tools else None
+            accumulated = ""
+            total_cost = 0.0
+            total_tokens = TokenUsage()
+            prev_cost = 0.0
+            prev_tokens = TokenUsage()
+
+            try:
+                async for chunk in self._provider.stream(messages, self._model_config, tools):
+                    content = chunk.content or ""
+                    accumulated += content
+                    total_cost += chunk.cost_usd if hasattr(chunk, "cost_usd") else 0.0
+                    total_tokens = TokenUsage(
+                        input_tokens=total_tokens.input_tokens
+                        + (chunk.token_usage.input_tokens if hasattr(chunk, "token_usage") else 0),
+                        output_tokens=total_tokens.output_tokens
+                        + (chunk.token_usage.output_tokens if hasattr(chunk, "token_usage") else 0),
+                        total_tokens=total_tokens.total_tokens
+                        + (chunk.token_usage.total_tokens if hasattr(chunk, "token_usage") else 0),
                     )
-                    if delta_cost > 0 or delta_tokens.total_tokens > 0:
-                        cost_info = CostInfo(
-                            cost_usd=delta_cost,
-                            token_usage=delta_tokens,
-                            model_name=self._model_config.model_id,
+                    if self._budget is not None or self._token_limits is not None:
+                        delta_cost = total_cost - prev_cost
+                        delta_tokens = TokenUsage(
+                            input_tokens=total_tokens.input_tokens - prev_tokens.input_tokens,
+                            output_tokens=total_tokens.output_tokens - prev_tokens.output_tokens,
+                            total_tokens=total_tokens.total_tokens - prev_tokens.total_tokens,
                         )
-                        self._budget_tracker.record(cost_info)
-                        if self._budget is not None:
-                            self._budget._set_spent(self._budget_tracker.current_run_cost)
-                        if self._budget_store is not None:
-                            self._budget_store.save(self._budget_store_key, self._budget_tracker)
-                yield StreamChunk(
-                    text=content,
-                    accumulated_text=accumulated,
-                    cost_so_far=total_cost,
-                    tokens_so_far=total_tokens,
-                )
-                if self._budget is not None or self._token_limits is not None:
-                    self._check_and_apply_budget()
-                prev_cost = total_cost
-                prev_tokens = total_tokens
-        except (BudgetExceededError, BudgetThresholdError):
-            raise
-        except Exception as e:
-            raise ToolExecutionError(f"Streaming failed: {e}") from e
+                        if delta_cost > 0 or delta_tokens.total_tokens > 0:
+                            cost_info = CostInfo(
+                                cost_usd=delta_cost,
+                                token_usage=delta_tokens,
+                                model_name=self._model_config.model_id,
+                            )
+                            self._budget_tracker.record(cost_info)
+                            if self._budget is not None:
+                                self._budget._set_spent(self._budget_tracker.current_run_cost)
+                            if self._budget_store is not None:
+                                self._budget_store.save(
+                                    self._budget_store_key, self._budget_tracker
+                                )
+                    yield StreamChunk(
+                        text=content,
+                        accumulated_text=accumulated,
+                        cost_so_far=total_cost,
+                        tokens_so_far=total_tokens,
+                    )
+                    if self._budget is not None or self._token_limits is not None:
+                        self._check_and_apply_budget()
+                    prev_cost = total_cost
+                    prev_tokens = total_tokens
+            except (BudgetExceededError, BudgetThresholdError):
+                raise
+            except Exception as e:
+                raise ToolExecutionError(f"Streaming failed: {e}") from e
+        finally:
+            self._call_context = None

@@ -20,9 +20,10 @@ from dotenv import load_dotenv
 from syrin import (
     Agent,
     Budget,
+    Context,
+    ContextBudget,
     Model,
     RateLimit,
-    TokenLimits,
     TokenRateLimit,
     raise_on_exceeded,
     warn_on_exceeded,
@@ -47,13 +48,15 @@ def example_budget_plus_token_limits() -> None:
         model=Model(MODEL_ID),
         system_prompt="You are concise. Answer in one short paragraph.",
         budget=Budget(run=0.05, on_exceeded=warn_on_exceeded),
-        token_limits=TokenLimits(
-            run_tokens=15_000,
-            per=TokenRateLimit(hour=50_000, day=200_000),
-            on_exceeded=warn_on_exceeded,
+        context=Context(
+            budget=ContextBudget(
+                run=15_000,
+                per=TokenRateLimit(hour=50_000, day=200_000),
+                on_exceeded=warn_on_exceeded,
+            )
         ),
     )
-    print("1. Budget: run=$0.05 (USD only). TokenLimits: run=15k, hour=50k, day=200k tokens.")
+    print("1. Budget: run=$0.05 (USD only). Context.budget: run=15k, hour=50k, day=200k tokens.")
     result = agent.response("What is machine learning in one paragraph?")
     print(f"\n2. Response cost: ${result.cost:.6f}, tokens: {result.tokens.total_tokens}")
     print(f"   Summary: {agent.budget_summary}")
@@ -73,14 +76,16 @@ def example_rate_limits_plus_token_limits() -> None:
             per=RateLimit(hour=2.00, day=10.00, month=100.00, month_days=30),
             on_exceeded=warn_on_exceeded,
         ),
-        token_limits=TokenLimits(
-            run_tokens=15_000,
-            per=TokenRateLimit(hour=50_000, day=200_000),
-            on_exceeded=warn_on_exceeded,
+        context=Context(
+            budget=ContextBudget(
+                run=15_000,
+                per=TokenRateLimit(hour=50_000, day=200_000),
+                on_exceeded=warn_on_exceeded,
+            )
         ),
     )
     print("1. Budget: run=$0.05, per hour=$2, day=$10, month=$100 (USD)")
-    print("   TokenLimits: run=15k, hour=50k, day=200k tokens")
+    print("   Context.budget: run=15k, hour=50k, day=200k tokens")
     print("   (Rate limits are in-memory; pass budget_store to persist across restarts)")
 
     result = agent.response("What is machine learning in one paragraph?")

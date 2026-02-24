@@ -12,7 +12,7 @@ How to **keep your AI costs under control**. Perfect for:
 
 AI API calls cost money. Syrin helps you manage and monitor every dollar.
 
-**Budget = real money (USD).** All limits and thresholds here are about **spend**. Token usage caps are a **separate** feature: use **TokenLimits** (and pass `token_limits=` on the agent), so Budget stays strictly about dollars.
+**Budget = real money (USD).** All limits and thresholds here are about **spend**. Token usage caps live on **Context**: use **ContextBudget** (run, per, on_exceeded) and pass `context=Context(budget=ContextBudget(...))` on the agent, so Budget stays strictly about dollars.
 
 ## The Idea
 
@@ -177,25 +177,25 @@ self.budget = Budget(
 
 ### 5. Token limits (separate from Budget)
 
-**Budget = real money (USD) only.** Token usage caps are a **separate** entity: **TokenLimits**. Use `token_limits=TokenLimits(...)` on the agent so you don't mix spend and usage.
+**Budget = real money (USD) only.** Token usage caps are on **Context**: **ContextBudget**. Use `context=Context(budget=ContextBudget(...))` on the agent so you don't mix spend and usage.
 
 ```python
-from syrin import Agent, Budget, Model, TokenLimits, TokenRateLimit, raise_on_exceeded
+from syrin import Agent, Budget, Context, ContextBudget, Model, TokenRateLimit, raise_on_exceeded
 
 agent = Agent(
     model=Model("openai/gpt-4o-mini"),
     budget=Budget(run=0.10, on_exceeded=raise_on_exceeded),  # USD only
-    token_limits=TokenLimits(
-        run_tokens=10_000,
+    context=Context(budget=ContextBudget(
+        run=10_000,
         per=TokenRateLimit(hour=50_000, day=200_000),
         on_exceeded=raise_on_exceeded,
-    ),
+    )),
 )
 ```
 
-When a token limit is exceeded, the callback receives `BudgetExceededContext` with `budget_type` (e.g. `BudgetLimitType.HOUR_TOKENS`). You can use **Budget only** (USD), **TokenLimits only** (usage), or **both**.
+When a token limit is exceeded, the callback receives `BudgetExceededContext` with `budget_type` (e.g. `BudgetLimitType.HOUR_TOKENS`). You can use **Budget only** (USD), **Context.budget only** (usage), or **both**.
 
-**Example:** Run `python -m examples.core.budget_rate_limits_and_tokens` — the first example (`example_budget_plus_token_limits`) uses Budget + TokenLimits.
+**Example:** Run `python -m examples.core.budget_rate_limits_and_tokens` — the first example uses Budget + Context.budget.
 
 ### 6. All Combined
 
@@ -601,7 +601,7 @@ A: Yes. Pass `pricing_override` (a `ModelPricing` instance) when constructing yo
 
 ## Streaming and budget
 
-When you use `agent.stream()` or `agent.astream()`, cost is recorded **per chunk** and the budget (and token limits, if `token_limits` is set) is checked after each chunk. If the run limit or a token limit is exceeded mid-stream, the stream stops and `BudgetExceededError` is raised so you get partial output and accurate cost so far.
+When you use `agent.stream()` or `agent.astream()`, cost is recorded **per chunk** and the budget (and token limits, if `context.budget` is set) is checked after each chunk. If the run limit or a token limit is exceeded mid-stream, the stream stops and `BudgetExceededError` is raised so you get partial output and accurate cost so far.
 
 ## FileBudgetStore and concurrency
 
@@ -616,7 +616,7 @@ When you use `agent.stream()` or `agent.astream()`, cost is recorded **per chunk
 **Reservation and rollback:** When the agent has a budget or token_limits, use the tracker to reserve before a call and commit actual cost or roll back on failure:
 
 ```python
-tracker = agent.get_budget_tracker()  # None if agent has neither budget nor token_limits
+tracker = agent.get_budget_tracker()  # None if agent has neither budget nor context.budget
 if tracker:
     token = tracker.reserve(estimated_cost)
     try:
@@ -656,13 +656,13 @@ Example: `Agent(..., budget_store=FileBudgetStore("/data/budget.json"), budget_s
 
 ## Budget reference (what’s available)
 
-**Budget** = spend in USD. **Token caps** are usage limits and are separate from Budget; use **TokenLimits** and pass `token_limits=` on the agent.
+**Budget** = spend in USD. **Token caps** are usage limits on Context; use **ContextBudget** and pass `context=Context(budget=...)` on the agent.
 
 | Feature | Where | Description |
 |--------|--------|--------------|
 | **Run limit** | `Budget(run=..., reserve=...)` | Max **USD** per request; effective limit is `run - reserve`. |
 | **Rate limits (spend)** | `Budget(per=RateLimit(...))` | Max **USD** per period: `hour`, `day`, `week`, `month`. |
-| **Token limits (separate)** | `Agent(..., token_limits=TokenLimits(...))` | Token caps are **not** part of Budget. Use `TokenLimits(run_tokens=..., per=TokenRateLimit(hour=..., day=..., ...))` and pass to the agent. |
+| **Token limits (Context)** | `Agent(..., context=Context(budget=ContextBudget(...)))` | Token caps live on Context. Use `ContextBudget(run=..., per=TokenRateLimit(...))` on Context. |
 | **month_days** | `RateLimit(month=..., month_days=N)` | Month = last N days (1–31). Default 30. |
 | **calendar_month** | `RateLimit(month=..., calendar_month=True)` | Month = current calendar month only (e.g. 1–30 Nov). |
 | **on_exceeded** | `Budget(on_exceeded=...)` | Callback when a limit is exceeded; receives `BudgetExceededContext` with `budget_type` (`BudgetLimitType`). |
@@ -671,14 +671,14 @@ Example: `Agent(..., budget_store=FileBudgetStore("/data/budget.json"), budget_s
 | **ThresholdWindow** | `syrin.enums` | `RUN`, `HOUR`, `DAY`, `WEEK`, `MONTH` — use for `window=` (no free strings). |
 | **ThresholdMetric** | `syrin.enums` | `COST` (default) or `TOKENS` for threshold metric. |
 | **BudgetSummary** | `agent.budget_summary` | `current_run_cost`, `current_run_tokens`, `hourly_cost`, `daily_cost`, `weekly_cost`, `monthly_cost`, `hourly_tokens`, `daily_tokens`, `weekly_tokens`, `monthly_tokens`, `entries_count`. |
-| **get_budget_tracker()** | `agent.get_budget_tracker()` | Returns the tracker when the agent has a budget or token_limits; otherwise `None`. Use for reservation or inspection. |
+| **get_budget_tracker()** | `agent.get_budget_tracker()` | Returns the tracker when the agent has a budget or context.budget; otherwise `None`. Use for reservation or inspection. |
 | **Reservation** | `tracker.reserve(amount)` | Returns a token; call `token.commit(actual_cost, token_usage)` or `token.rollback()`. |
 | **Pre-call estimate** | `agent.estimate_call_cost(messages, max_output_tokens=...)` | Best-effort cost estimate; used by built-in loops to skip calls that would exceed run limit. |
 | **State** | `tracker.get_state()` / `tracker.load_state(state)` | State includes `version`, `cost_history`, `run_start`, `month_days`, `use_calendar_month`. Backward compatible with state without `version`. |
 | **BudgetStore** | `Agent(..., budget_store=..., budget_store_key=...)` | Persist tracker across restarts (e.g. `FileBudgetStore`). |
 | **Thread safety** | BudgetTracker | All public tracker methods are thread-safe (internal lock). |
-| **Streaming** | `agent.stream()` / `agent.astream()` | Cost recorded per chunk; run limit (and token limits if `token_limits` set) checked after each chunk; can raise `BudgetExceededError` mid-stream. |
-| **Response** | `response.cost`, `response.budget_remaining`, `response.budget_used`, `response.budget` | Cost in USD and budget status. With TokenLimits only (no Budget), `budget_remaining` and `budget_used` may be `None`. |
+| **Streaming** | `agent.stream()` / `agent.astream()` | Cost recorded per chunk; run limit (and token limits if context.budget set) checked after each chunk; can raise `BudgetExceededError` mid-stream. |
+| **Response** | `response.cost`, `response.budget_remaining`, `response.budget_used`, `response.budget` | Cost in USD and budget status. With context.budget only (no Budget), `budget_remaining` and `budget_used` may be `None`. |
 
 ## Limitations
 

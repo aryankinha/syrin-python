@@ -2,9 +2,24 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 from syrin.context.counter import TokenCounter, get_counter
+
+
+class ContextCompactorProtocol(Protocol):
+    """Protocol for compactors used by DefaultContextManager.
+
+    Context.compactor can be any object implementing this interface.
+    """
+
+    def compact(
+        self,
+        messages: list[dict[str, Any]],
+        budget: int,
+    ) -> "CompactionResult":
+        """Return compacted messages and metadata. budget is available token count (int)."""
+        ...
 
 
 @dataclass
@@ -204,4 +219,11 @@ class ContextCompactor:
         )
 
 
-__all__ = ["Compactor", "CompactionResult", "MiddleOutTruncator", "Summarizer", "ContextCompactor"]
+__all__ = [
+    "Compactor",
+    "CompactionResult",
+    "ContextCompactor",
+    "ContextCompactorProtocol",
+    "MiddleOutTruncator",
+    "Summarizer",
+]

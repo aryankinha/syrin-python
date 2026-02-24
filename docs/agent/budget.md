@@ -86,25 +86,28 @@ if tracker:
         token.rollback()
 ```
 
-## Token limits (separate from Budget)
+## Token limits (on Context)
 
-Budget is **USD only**. To cap **token usage** (e.g. per run or per hour), use **TokenLimits** and pass `token_limits=` on the agent:
+Budget is **USD only**. To cap **token usage** (e.g. per run or per hour), use **ContextBudget** on **Context** and pass `context=Context(budget=...)` on the agent:
 
 ```python
-from syrin import Agent, Budget, TokenLimits, TokenRateLimit
+from syrin import Agent, Budget, Context, ContextBudget, TokenRateLimit
+from syrin.budget import raise_on_exceeded
 
 agent = Agent(
     model=model,
     budget=Budget(run=1.0),
-    token_limits=TokenLimits(
-        run_tokens=10_000,
-        per=TokenRateLimit(hour=50_000, day=200_000),
-        on_exceeded=raise_on_exceeded,
+    context=Context(
+        budget=ContextBudget(
+            run=10_000,
+            per=TokenRateLimit(hour=50_000, day=200_000),
+            on_exceeded=raise_on_exceeded,
+        )
     ),
 )
 ```
 
-You can use **Budget only**, **TokenLimits only**, or **both**. Full details: [Budget Control](../budget-control.md). Runnable example: `python -m examples.core.budget_rate_limits_and_tokens` (see `example_budget_plus_token_limits`).
+You can use **Budget only**, **Context.budget only**, or **both**. Full details: [Budget Control](../budget-control.md). Runnable example: `python -m examples.core.budget_rate_limits_and_tokens` (see `example_budget_plus_token_limits`).
 
 For type-safe limit checks in callbacks, use **`BudgetLimitType`** and **`ThresholdWindow`**. See [Budget Control](../budget-control.md).
 

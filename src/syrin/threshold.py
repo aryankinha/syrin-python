@@ -16,33 +16,60 @@ Example:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, TypeVar
 
 from syrin.enums import ThresholdMetric, ThresholdWindow
 
 
+def _noop_compact() -> None:
+    """No-op compactor when not inside context prepare."""
+    pass
+
+
+def compact_if_available(ctx: ThresholdContext) -> None:
+    """Threshold action: run context compaction when triggered (e.g. during prepare). No-op otherwise.
+
+    Use as the action for ContextThreshold when you want to compact at a utilization percentage
+    without writing a lambda. Only has effect when the context manager is inside prepare (when
+    the threshold is evaluated); otherwise ctx.compact() is a no-op.
+
+    Example:
+        >>> from syrin.threshold import ContextThreshold, compact_if_available
+        >>> ContextThreshold(at=75, action=compact_if_available)
+    """
+    ctx.compact()
+
+
 @dataclass
 class ThresholdContext:
-    """Context passed to threshold actions.
+    """Event object passed to threshold actions (Budget, Context, RateLimit).
 
-    Attributes:
-        percentage: The percentage (0-100) that triggered this threshold
-        metric: The metric being tracked (ThresholdMetric enum)
-        current_value: Current value of the metric
-        limit_value: The limit/threshold value
-        budget_run: The run budget limit (alias for limit_value for COST metric)
-        parent: Reference to the parent object (Agent, Budget, etc.)
-        metadata: Additional context-specific data
+    Use when you need to react at a utilization percentage (e.g. compact at 75%).
+    For context thresholds, call **compact()** to run compaction. Alias: **ThresholdEvent**.
     """
 
     percentage: int
+    """Utilization percentage (0-100) that triggered this threshold."""
     metric: Any  # ThresholdMetric
+    """Metric being tracked (e.g. ThresholdMetric.TOKENS, ThresholdMetric.COST)."""
     current_value: float
+    """Current value (e.g. tokens used, cost so far)."""
     limit_value: float
-    budget_run: float = 0.0  # Alias for limit_value
+    """Limit or cap (e.g. max_tokens, run budget)."""
+    budget_run: float = 0.0
+    """Alias for limit_value (for COST metric)."""
     parent: Any = None
+    """Parent object (e.g. Agent, Budget) when available."""
     metadata: dict[str, Any] = field(default_factory=dict)
+    """Extra key-value data."""
+    compact: Callable[[], None] = field(default=_noop_compact)
+    """(Context only.) Call to compact; no-op when not inside prepare."""
+
+
+# Alias: event passed to threshold action (avoids confusion with Context config).
+ThresholdEvent = ThresholdContext
 
 
 # Type alias for threshold action handlers
@@ -103,7 +130,7 @@ class BudgetThreshold(BaseThreshold):
         action: Function to call when threshold is crossed. Receives ThresholdContext.
         metric: ThresholdMetric.COST (default) or ThresholdMetric.TOKENS.
         window: ThresholdWindow.RUN (default), HOUR, DAY, WEEK, or MONTH.
-            For TOKENS, limits come from TokenLimits (run_tokens and per=TokenRateLimit).
+            For TOKENS, limits come from TokenLimits (run and per=TokenRateLimit).
 
     Example:
         >>> BudgetThreshold(at=80, action=lambda ctx: print(f"At {ctx.percentage}%"))
@@ -133,24 +160,36 @@ class BudgetThreshold(BaseThreshold):
 
 @dataclass
 class ContextThreshold(BaseThreshold):
-    """Threshold for Context (tracks token usage).
+    """Threshold for Context (tracks token usage vs max_tokens).
 
-    Automatically uses ThresholdMetric.TOKENS.
+    Same shape as BudgetThreshold for consistency: at, at_range, action, metric, window.
+    Context only supports window=MAX_TOKENS (current context window).
 
     Args:
-        at: Percentage (0-100) at which to trigger
+        at: Percentage (0-100) at which to trigger (use when pct >= at).
+        at_range: Optional (min, max): trigger only when min <= pct <= max.
         action: Function to call when threshold is crossed. Receives ThresholdContext.
+            Use ctx.compact() inside the action to compact context when triggered.
+        metric: ThresholdMetric.TOKENS (fixed for context).
+        window: ThresholdWindow.MAX_TOKENS only (current context window).
 
     Example:
-        >>> from syrin.threshold import ContextThreshold
-        >>>
+        >>> from syrin.threshold import ContextThreshold, compact_if_available
         >>> ContextThreshold(at=80, action=lambda ctx: print(f"At {ctx.percentage}%"))
+        >>> ContextThreshold(at=75, action=compact_if_available)
+        >>> ContextThreshold(at_range=(70, 75), action=warn)
     """
 
     metric: Any = ThresholdMetric.TOKENS
+    window: Any = ThresholdWindow.MAX_TOKENS
 
     def __post_init__(self) -> None:
         super().__post_init__()
+        w = self.window if hasattr(self.window, "value") else ThresholdWindow(str(self.window))
+        if w != ThresholdWindow.MAX_TOKENS:
+            raise ValueError(
+                f"ContextThreshold window must be ThresholdWindow.MAX_TOKENS, got {self.window!r}"
+            )
 
 
 @dataclass
@@ -190,6 +229,7 @@ Threshold = BudgetThreshold
 
 __all__ = [
     "ThresholdContext",
+    "ThresholdEvent",
     "ThresholdAction",
     "BaseThreshold",
     "BudgetThreshold",
@@ -197,4 +237,5 @@ __all__ = [
     "ContextThreshold",
     "RateLimitThreshold",
     "Threshold",  # backwards compat - same as BudgetThreshold
+    "compact_if_available",
 ]

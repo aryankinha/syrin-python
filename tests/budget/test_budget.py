@@ -117,7 +117,7 @@ def test_budget_tracker_check_budget_exceeded_limit_run_tokens() -> None:
     )
     result = tracker.check_budget(
         Budget(run=10.0),
-        token_limits=TokenLimits(run_tokens=100),
+        token_limits=TokenLimits(run=100),
     )
     assert (
         result.status == BudgetStatus.EXCEEDED
@@ -545,7 +545,7 @@ def test_budget_tracker_check_budget_run_tokens_exceeded() -> None:
     assert (
         tracker.check_budget(
             Budget(run=10.0),
-            token_limits=TokenLimits(run_tokens=10000),
+            token_limits=TokenLimits(run=10000),
         )
         == BudgetStatus.EXCEEDED
     )
@@ -563,7 +563,7 @@ def test_budget_tracker_check_budget_run_tokens_ok() -> None:
     assert (
         tracker.check_budget(
             Budget(run=10.0),
-            token_limits=TokenLimits(run_tokens=10000),
+            token_limits=TokenLimits(run=10000),
         )
         == BudgetStatus.OK
     )

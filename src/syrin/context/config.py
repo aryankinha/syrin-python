@@ -8,36 +8,60 @@ from syrin.threshold import ContextThreshold
 if TYPE_CHECKING:
     from syrin.model import Model
 
+from syrin.budget import TokenLimits
+from syrin.context.compactors import ContextCompactorProtocol
+
+# User-facing token caps on Context (run, per, on_exceeded) — same field names as Budget
+ContextBudget = TokenLimits
+TokenBudget = TokenLimits  # backward-compat alias
+
 
 @dataclass
 class ContextStats:
-    """Statistics about context usage after an LLM call."""
+    """Statistics about context usage after an LLM call.
+
+    All fields reflect the last prepare (or the call when using result.context_stats).
+    """
 
     total_tokens: int = 0
+    """Total tokens used in the last run (messages + system + tools)."""
     max_tokens: int = 0
+    """Context window size (max_tokens) used for that run."""
     utilization: float = 0.0
+    """Used tokens / available (0.0-1.0). Capped at 1.0 when over budget."""
     compacted: bool = False
-    compaction_count: int = 0
-    compaction_method: str | None = None
+    """True if compaction ran during this prepare."""
+    compact_count: int = 0
+    """Number of compactions in this run (this prepare) only."""
+    compact_method: str | None = None
+    """Method used (e.g. 'middle_out_truncate', 'summarize') or None if no compaction."""
     thresholds_triggered: list[str] = field(default_factory=list)
+    """List of threshold metric names that fired (e.g. ['tokens'])."""
 
 
 @dataclass
-class ContextBudget:
-    """Internal budget tracking for context management."""
+class ContextWindowBudget:
+    """Internal window capacity used during context prepare (max tokens, reserve, utilization).
+
+    Not for end users: use Context and ContextBudget (token caps) instead.
+    Compaction is not automatic; use ctx.compact() in a ContextThreshold action
+    or agent.context.compact() during prepare (e.g. from a threshold action).
+    """
 
     max_tokens: int
-    reserve_for_response: int = 2000
-    auto_compact_at: float = 0.75
+    """Maximum context window size (tokens)."""
+    reserve: int = 2000
+    """Tokens reserved for model output; subtracted from max_tokens to get available."""
     _used_tokens: int = 0
 
     @property
     def available(self) -> int:
         """Tokens available for context (excluding response reserve)."""
-        return max(0, self.max_tokens - self.reserve_for_response)
+        return max(0, self.max_tokens - self.reserve)
 
     @property
     def used_tokens(self) -> int:
+        """Tokens used in this prepare (set by manager)."""
         return self._used_tokens
 
     @used_tokens.setter
@@ -46,19 +70,14 @@ class ContextBudget:
 
     @property
     def utilization(self) -> float:
-        """Current utilization as a fraction (0-1)."""
+        """Current utilization as a fraction (0-1). Capped at 1.0 when over budget."""
         if self.available <= 0:
-            return 0.0
-        return self._used_tokens / self.available
+            return 1.0 if self._used_tokens > 0 else 0.0
+        return min(1.0, self._used_tokens / self.available)
 
     @property
-    def should_compact(self) -> bool:
-        """Whether compaction should be triggered."""
-        return self.utilization >= self.auto_compact_at
-
-    @property
-    def utilization_percent(self) -> int:
-        """Current utilization as percentage (0-100)."""
+    def percent(self) -> int:
+        """Utilization as percentage (0-100)."""
         return int(self.utilization * 100)
 
     def reset(self) -> None:
@@ -66,41 +85,52 @@ class ContextBudget:
         self._used_tokens = 0
 
 
+# Alias: use-case name for "window capacity" (internal).
+WindowCapacity = ContextWindowBudget
+
+
 @dataclass
 class Context:
-    """Context management configuration.
+    """Context window configuration: limits, compaction triggers, and token caps.
 
-    Provides intelligent context window management with automatic
-    compaction when approaching token limits.
+    Provides context window management. Compaction is on-demand: call
+    ctx.compact() from a ContextThreshold action (e.g. at 75% to compact).
 
-    Args:
-        max_tokens: Maximum tokens in context window. Auto-detected from model if not specified.
-        auto_compact_at: Threshold (0-1) at which to trigger automatic compaction.
-                        Default 0.75 (75%).
-        thresholds: List of ContextThreshold (only ContextThreshold allowed)
+    **Budget vs token caps:** ``Budget`` = cost limits (USD). ``budget`` (ContextBudget) =
+    context's token caps (run and/or per period). Same field names (run, per, on_exceeded) for consistency.
 
     Example:
         >>> from syrin import Agent, Model, Context
-        >>> from syrin.threshold import ContextThreshold
+        >>> from syrin.threshold import ContextThreshold, compact_if_available
         >>>
         >>> agent = Agent(
         ...     model=Model("openai/gpt-4o"),
         ...     context=Context(
         ...         max_tokens=80000,
-        ...         thresholds=[
-        ...             ContextThreshold(at=80, action=lambda ctx: print(f"Tokens at {ctx.percentage}%"))
-        ...         ]
+        ...         reserve=2000,
+        ...         thresholds=[ContextThreshold(at=75, action=compact_if_available)],
         ...     )
         ... )
     """
 
     max_tokens: int | None = None
-    auto_compact_at: float = 0.75
+    """Max tokens in context window. None = use model's context_window or 128k."""
+    reserve: int = 2000
+    """Tokens reserved for model output; subtracted from max_tokens to get available. ≥ 0."""
     thresholds: list[ContextThreshold] = field(default_factory=list)
+    """When utilization hits these percentages, actions run (e.g. compact at 75%)."""
+    budget: ContextBudget | None = None
+    """Context's token caps (run and/or per period). Same names as Budget: run, per, on_exceeded."""
+    encoding: str = "cl100k_base"
+    """TokenCounter encoding. Default context manager uses it for counting."""
+    compactor: ContextCompactorProtocol | None = None
+    """Custom compactor (compact(messages, budget) -> CompactionResult). Default: ContextCompactor."""
 
     def __post_init__(self) -> None:
-        if self.auto_compact_at < 0 or self.auto_compact_at > 1:
-            raise ValueError("auto_compact_at must be between 0 and 1")
+        if self.reserve < 0:
+            raise ValueError(f"Context reserve must be >= 0, got {self.reserve}")
+        if self.max_tokens is not None and self.max_tokens <= 0:
+            raise ValueError(f"Context max_tokens must be > 0 when set, got {self.max_tokens}")
         self._validate_thresholds()
 
     def _validate_thresholds(self) -> None:
@@ -111,14 +141,14 @@ class Context:
                     f"Context thresholds only accept ContextThreshold, got {type(th).__name__}"
                 )
 
-    def get_budget(self, model: "Model | None" = None) -> ContextBudget:
-        """Get a ContextBudget for this configuration.
+    def get_budget(self, model: "Model | None" = None) -> ContextWindowBudget:
+        """Get a ContextWindowBudget for this configuration.
 
         Args:
             model: Optional model to auto-detect context window from.
 
         Returns:
-            ContextBudget configured for this context.
+            ContextWindowBudget configured for this context.
         """
         max_tokens = self.max_tokens
 
@@ -134,10 +164,27 @@ class Context:
         if max_tokens is None:
             max_tokens = 128000
 
-        return ContextBudget(
-            max_tokens=max_tokens,
-            auto_compact_at=self.auto_compact_at,
-        )
+        if max_tokens <= 0:
+            raise ValueError(f"Resolved max_tokens must be > 0, got {max_tokens}")
+
+        reserve_val = self.reserve
+        if model is not None:
+            from syrin.model.core import ModelSettings
+
+            model_settings = getattr(model, "settings", None)
+            if isinstance(model_settings, ModelSettings):
+                default_reserve = getattr(model_settings, "default_reserve_tokens", None)
+                if default_reserve is not None:
+                    reserve_val = default_reserve
+
+        return ContextWindowBudget(max_tokens=max_tokens, reserve=reserve_val)
 
 
-__all__ = ["Context", "ContextStats", "ContextBudget"]
+__all__ = [
+    "Context",
+    "ContextStats",
+    "ContextBudget",
+    "ContextWindowBudget",
+    "WindowCapacity",
+    "TokenBudget",
+]

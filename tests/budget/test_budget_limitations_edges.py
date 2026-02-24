@@ -72,7 +72,7 @@ def test_run_tokens_exactly_at_limit_exceeded() -> None:
     tracker.record(CostInfo(cost_usd=0.0, token_usage=TokenUsage(total_tokens=100)))
     result = tracker.check_budget(
         Budget(run=10.0),
-        token_limits=TokenLimits(run_tokens=100),
+        token_limits=TokenLimits(run=100),
     )
     assert result.status == BudgetStatus.EXCEEDED
     assert result.exceeded_limit == BudgetLimitType.RUN_TOKENS
@@ -84,7 +84,7 @@ def test_run_tokens_just_under_limit_ok() -> None:
     tracker.record(CostInfo(cost_usd=0.0, token_usage=TokenUsage(total_tokens=99)))
     result = tracker.check_budget(
         Budget(run=10.0),
-        token_limits=TokenLimits(run_tokens=100),
+        token_limits=TokenLimits(run=100),
     )
     assert result.status == BudgetStatus.OK
     assert result.exceeded_limit is None

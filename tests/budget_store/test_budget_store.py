@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -74,10 +75,17 @@ def test_file_store_concurrent_save_single_file() -> None:
         t1.join()
         t2.join()
         assert not errors, errors
-        la = store.load("a")
-        lb = store.load("b")
-        assert la is not None and la.current_run_cost == 1.0
-        assert lb is not None and lb.current_run_cost == 2.0
+        # Retry loads briefly; concurrent writes can delay visibility on some platforms.
+        for _ in range(5):
+            la = store.load("a")
+            lb = store.load("b")
+            if la is not None and lb is not None:
+                break
+            time.sleep(0.05)
+        assert la is not None, "load('a') failed after retries"
+        assert lb is not None, "load('b') failed after retries"
+        assert la.current_run_cost == 1.0
+        assert lb.current_run_cost == 2.0
 
 
 def test_file_store_save_invalid_key_raises_or_succeeds() -> None:

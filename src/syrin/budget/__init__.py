@@ -119,39 +119,82 @@ class RateLimit(BaseModel):
 
 
 class TokenRateLimit(BaseModel):
-    """Token caps per time window. Use with TokenLimits; separate from Budget (which is USD)."""
+    """Token caps per time window (hour/day/week/month).
 
-    hour: int | None = Field(default=None, ge=0, description="Max tokens per hour")
-    day: int | None = Field(default=None, ge=0, description="Max tokens per day")
-    week: int | None = Field(default=None, ge=0, description="Max tokens per week")
-    month: int | None = Field(default=None, ge=0, description="Max tokens per month")
+    **Why:** Cap token usage over rolling windows so you don't exceed provider
+    or internal quotas. Separate from Budget (USD).
+
+    **What:** Optional limits per hour, day, week, month. Same shape as RateLimit
+    (cost) but in tokens.
+
+    **How:** Pass as ContextBudget.per (or TokenLimits.per). The budget tracker
+    enforces these after each LLM call.
+
+    Example:
+        >>> from syrin import Context, ContextBudget, Model
+        >>> Context(budget=ContextBudget(per=TokenRateLimit(hour=100_000, day=400_000)))
+    """
+
+    hour: int | None = Field(
+        default=None, ge=0, description="Max tokens in the current hour (rolling)."
+    )
+    day: int | None = Field(
+        default=None, ge=0, description="Max tokens in the current day (rolling)."
+    )
+    week: int | None = Field(
+        default=None, ge=0, description="Max tokens in the current week (rolling)."
+    )
+    month: int | None = Field(
+        default=None, ge=0, description="Max tokens in the month window (see month_days)."
+    )
     month_days: int = Field(
-        default=30, ge=1, le=31, description="Days for month window (default 30)"
+        default=30,
+        ge=1,
+        le=31,
+        description="Number of days for the month window (default 30). Ignored if calendar_month=True.",
     )
     calendar_month: bool = Field(
         default=False,
-        description="If True, month = current calendar month; else last month_days.",
+        description="If True, month = current calendar month; else last month_days days.",
     )
 
 
 class TokenLimits(BaseModel):
-    """Token usage caps — separate from Budget (which is real money in USD).
+    """Token usage caps — run and/or per-window. Same field names as Budget: run, per, on_exceeded.
 
-    Use Agent(..., budget=Budget(...), token_limits=TokenLimits(...)) when you want
-    both spend limits and token caps. Budget = dollars; TokenLimits = usage.
+    **Why:** Cap token usage (input+output) per run and/or per hour/day/week/month
+    without mixing with cost (Budget is USD only).
+
+    **What:** Optional run cap (max tokens per request run) and optional per-window
+    caps (TokenRateLimit). When a limit is exceeded, on_exceeded is called; raise
+    to stop the run, return to continue.
+
+    **How:** Use as Context.budget: Context(budget=ContextBudget(run=50_000, ...)).
+    The agent's budget tracker enforces limits after each LLM call.
+
+    Example:
+        >>> from syrin import Agent, Context, ContextBudget, Model
+        >>> from syrin.budget import TokenRateLimit, raise_on_exceeded
+        >>> agent = Agent(
+        ...     model=Model("openai/gpt-4o"),
+        ...     context=Context(budget=ContextBudget(run=50_000, on_exceeded=raise_on_exceeded)),
+        ... )
     """
 
     model_config = {"arbitrary_types_allowed": True}
 
-    run_tokens: int | None = Field(
-        default=None, ge=0, description="Max tokens per run (input+output)"
+    run: int | None = Field(
+        default=None,
+        ge=0,
+        description="Max tokens per run (input + output). One request/response cycle. Same name as Budget.run (which is USD).",
     )
     per: TokenRateLimit | None = Field(
-        default=None, description="Token caps per hour/day/week/month"
+        default=None,
+        description="Token caps per hour/day/week/month. Same name as Budget.per (which is USD rate limits).",
     )
     on_exceeded: Callable[[BudgetExceededContext], None] | None = Field(
         default=None,
-        description="Called when a token limit is exceeded. Raise to stop; return to continue.",
+        description="Called when a token limit is exceeded. Raise to stop the run; return to continue (e.g. warn). Same as Budget.on_exceeded.",
     )
 
 
@@ -567,7 +610,7 @@ class BudgetTracker:
         """
         Returns OK, THRESHOLD, or EXCEEDED. EXCEEDED if any limit is over.
         THRESHOLD if a threshold is crossed but limits not exceeded.
-        When EXCEEDED, exceeded_limit indicates which limit: run, run_tokens,
+        When EXCEEDED, exceeded_limit indicates which limit: run, run (tokens),
         hour, day, week, month, hour_tokens, day_tokens, week_tokens, month_tokens.
 
         Args:
@@ -596,8 +639,8 @@ class BudgetTracker:
         # Token limits: only from token_limits (Budget is USD only)
         if (
             token_limits is not None
-            and token_limits.run_tokens is not None
-            and self.current_run_tokens >= token_limits.run_tokens
+            and token_limits.run is not None
+            and self.current_run_tokens >= token_limits.run
         ):
             return CheckBudgetResult(BudgetStatus.EXCEEDED, BudgetLimitType.RUN_TOKENS)
         if per is not None:
@@ -635,7 +678,7 @@ class BudgetTracker:
         is_tokens = getattr(th.metric, "value", th.metric) == ThresholdMetric.TOKENS.value
         if window == ThresholdWindow.RUN:
             if is_tokens:
-                run_tok = token_limits.run_tokens if token_limits is not None else None
+                run_tok = token_limits.run if token_limits is not None else None
                 if run_tok is None or run_tok <= 0:
                     return None
                 return float(self.current_run_tokens), float(run_tok)

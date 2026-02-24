@@ -69,14 +69,10 @@ def example_custom_context() -> None:
     agent = Agent(
         model=Model(MODEL_ID),
         system_prompt="You are a helpful assistant.",
-        context=Context(
-            max_tokens=80000,
-            auto_compact_at=0.75,
-        ),
+        context=Context(max_tokens=80000),
     )
 
     print(f"Max tokens: {agent.context.max_tokens}")
-    print(f"Auto compact at: {agent.context.auto_compact_at:.0%}")
 
     messages = agent._build_messages("What is Python?")
     print(f"Messages built: {len(messages)}")
@@ -101,8 +97,8 @@ def example_context_stats() -> None:
     print(f"Max context window: {stats.max_tokens}")
     print(f"Utilization: {stats.utilization:.4%}")
     print(f"Was compacted: {stats.compacted}")
-    print(f"Compaction count: {stats.compaction_count}")
-    print(f"Compaction method: {stats.compaction_method}")
+    print(f"Compaction count: {stats.compact_count}")
+    print(f"Compaction method: {stats.compact_method}")
 
 
 def example_compaction() -> None:
@@ -356,7 +352,6 @@ def example_budget_detection() -> None:
     budget = agent.context.get_budget(agent._model)
     print(f"Auto-detected max tokens: {budget.max_tokens}")
     print(f"Available for messages: {budget.available}")
-    print(f"Auto-compact at: {budget.auto_compact_at:.0%}")
 
 
 def example_long_conversation() -> None:

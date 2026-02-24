@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
+
+if TYPE_CHECKING:
+    from syrin.context import Context, ContextStats
 
 from syrin.enums import StopReason
 from syrin.types import TokenUsage
@@ -330,6 +333,8 @@ class Response(Generic[T]):
     structured: StructuredOutput | None = None
     iterations: int = 1
     report: AgentReport = field(default_factory=AgentReport)
+    context_stats: ContextStats | None = None  # per-call context stats
+    context: Context | None = None  # Context used for this call (overrides agent's when passed)
 
     @property
     def data(self) -> dict[str, Any] | None:

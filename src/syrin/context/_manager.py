@@ -4,10 +4,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from syrin.context.compactors import CompactionResult, ContextCompactor
-from syrin.context.config import Context, ContextBudget, ContextStats
+from syrin.context.compactors import CompactionResult, ContextCompactor, ContextCompactorProtocol
+from syrin.context.config import Context, ContextStats, ContextWindowBudget
 from syrin.context.counter import TokenCounter, get_counter
-from syrin.enums import Hook
+from syrin.enums import Hook, ThresholdMetric
 from syrin.threshold import ThresholdContext
 
 
@@ -66,6 +66,7 @@ class ContextManager(Protocol):
     """Protocol for custom context management strategies.
 
     Implement this protocol to create custom context management strategies.
+    prepare() may accept context for per-call override; ignore if not used.
     """
 
     def prepare(
@@ -74,7 +75,8 @@ class ContextManager(Protocol):
         system_prompt: str,
         tools: list[dict[str, Any]],
         memory_context: str,
-        budget: ContextBudget,
+        budget: ContextWindowBudget,
+        context: Context | None = None,
     ) -> ContextPayload:
         """Prepare context for LLM call."""
         ...
@@ -86,23 +88,36 @@ class ContextManager(Protocol):
 
 @dataclass
 class DefaultContextManager:
-    """Default context manager with automatic compaction.
+    """Default context manager with on-demand compaction.
 
     Features:
-    - Automatic token counting
-    - Middle-out truncation (keep start/end of conversation)
-    - Auto-compaction at threshold
+    - Automatic token counting (encoding from Context.encoding)
+    - Compaction via ctx.compact() in threshold actions
+    - Pluggable compactor (Context.compactor or default ContextCompactor)
     - Full observability via events and spans
-    - Lifecycle integration
     """
 
     context: Context = field(default_factory=Context)
     _counter: TokenCounter = field(default_factory=get_counter)
-    _compactor: ContextCompactor = field(default_factory=ContextCompactor)
+    _compactor: ContextCompactorProtocol = field(default_factory=ContextCompactor)
     _stats: ContextStats = field(default_factory=ContextStats)
     _compaction_count: int = 0
     _emit_fn: Callable[[str, dict[str, Any]], None] | None = field(default=None, repr=False)
     _tracer: Any = field(default=None, repr=False)
+    _current_messages: list[dict[str, Any]] | None = field(default=None, repr=False)
+    _current_available: int = 0
+    _did_compact: bool = False
+    _last_compaction_method: str | None = field(default=None, repr=False)
+    _current_compact_fn: Callable[[], None] | None = field(default=None, repr=False)
+    _run_compaction_count: int = field(default=0, repr=False)
+
+    def __post_init__(self) -> None:
+        """Apply Context.encoding and Context.compactor when set."""
+        if getattr(self.context, "encoding", None) is not None:
+            self._counter = TokenCounter(encoding=self.context.encoding)
+        compactor = self.context.compactor
+        if compactor is not None:
+            self._compactor = compactor
 
     def _emit(self, event: Hook | str, ctx: dict[str, Any]) -> None:
         """Emit an event if emit_fn is configured."""
@@ -130,7 +145,8 @@ class DefaultContextManager:
         system_prompt: str,
         tools: list[dict[str, Any]],
         memory_context: str = "",
-        budget: ContextBudget | None = None,
+        budget: ContextWindowBudget | None = None,
+        context: Context | None = None,
     ) -> ContextPayload:
         """Prepare context for LLM call with automatic management.
 
@@ -140,11 +156,14 @@ class DefaultContextManager:
             tools: Tool definitions
             memory_context: Injected memory context
             budget: Context budget (auto-created if not provided)
+            context: Optional Context for this call only (overrides agent's context; budget and thresholds).
+                When set, use its get_budget() if budget not provided, and its thresholds.
 
         Returns:
             ContextPayload ready for LLM call
         """
-        budget = budget or self.context.get_budget()
+        effective_context = context if context is not None else self.context
+        budget = budget or effective_context.get_budget()
 
         with self._span("context.prepare") as span:
             if span:
@@ -169,114 +188,140 @@ class DefaultContextManager:
 
             all_messages = final_messages
             if system_msg:
-                all_messages = [system_msg] + all_messages
+                first = final_messages[0] if final_messages else {}
+                if first.get("role") != "system" or first.get("content") != system_msg.get(
+                    "content"
+                ):
+                    all_messages = [system_msg] + all_messages
 
             tokens_before = self._counter.count_messages(all_messages).total
             tools_tokens = self._counter.count_tools(tools)
-            available_for_messages = budget.available - tools_tokens
+            available_for_messages = max(0, budget.available - tools_tokens)
 
-            if available_for_messages <= 0:
-                return ContextPayload(
-                    messages=final_messages,
-                    system_prompt=system_prompt,
-                    tools=tools,
-                    tokens=budget.available,
+            # Always run thresholds and set stats (no early return when over budget)
+            budget.used_tokens = tokens_before + tools_tokens
+            self._current_messages = all_messages
+            self._current_available = available_for_messages
+            self._did_compact = False
+            self._run_compaction_count = 0
+
+            def _compact_fn() -> None:
+                if self._current_messages is None or self._current_available <= 0:
+                    return
+                result = self._compactor.compact(
+                    list(self._current_messages),
+                    self._current_available,
                 )
-
-            result = self._compactor.compact(all_messages, available_for_messages)
-
-            tokens_after = self._counter.count_messages(result.messages).total
-
-            if result.method != "none":
+                self._current_messages.clear()
+                self._current_messages.extend(result.messages)
+                self._did_compact = True
+                self._last_compaction_method = result.method
                 self._compaction_count += 1
-
+                self._run_compaction_count += 1
                 compact_event = {
                     "method": result.method,
-                    "tokens_before": tokens_before,
-                    "tokens_after": tokens_after,
+                    "tokens_before": result.tokens_before,
+                    "tokens_after": result.tokens_after,
                     "messages_before": len(all_messages),
                     "messages_after": len(result.messages),
                 }
                 self._emit("context.compact", compact_event)
-
                 if span:
                     span.set_attribute("context.compacted", True)
                     span.set_attribute("context.compaction_method", result.method)
-                    span.set_attribute("context.tokens_saved", tokens_before - tokens_after)
+                    span.set_attribute(
+                        "context.tokens_saved", result.tokens_before - result.tokens_after
+                    )
 
-            final_msgs = result.messages
+            self._current_compact_fn = _compact_fn
+            try:
+                thresholds_triggered = self._check_thresholds(
+                    budget, _compact_fn, thresholds=effective_context.thresholds
+                )
+                final_msgs = all_messages
+                if system_msg and system_msg not in final_msgs:
+                    final_msgs = [system_msg] + final_msgs
 
-            if system_msg and system_msg not in final_msgs:
-                final_msgs = [system_msg] + final_msgs
+                tokens_used = (
+                    self._counter.count_messages(
+                        [m for m in final_msgs if m.get("role") != "system"],
+                        system_prompt,
+                    ).total
+                    + tools_tokens
+                )
 
-            tokens_used = (
-                self._counter.count_messages(
-                    [m for m in final_msgs if m.get("role") != "system"],
-                    system_prompt,
-                ).total
-                + tools_tokens
-            )
+                budget.used_tokens = tokens_used
 
-            budget.used_tokens = tokens_used
+                self._stats = ContextStats(
+                    total_tokens=tokens_used,
+                    max_tokens=budget.max_tokens,
+                    utilization=budget.utilization,
+                    compacted=self._did_compact,
+                    compact_count=self._run_compaction_count,
+                    compact_method=self._last_compaction_method if self._did_compact else None,
+                    thresholds_triggered=thresholds_triggered,
+                )
 
-            thresholds_triggered = self._check_thresholds(budget)
+                if span:
+                    span.set_attribute("context.tokens", tokens_used)
+                    span.set_attribute("context.utilization", budget.utilization)
+                    if thresholds_triggered:
+                        span.set_attribute("context.thresholds_triggered", thresholds_triggered)
 
-            self._stats = ContextStats(
-                total_tokens=tokens_used,
-                max_tokens=budget.max_tokens,
-                utilization=budget.utilization,
-                compacted=result.method != "none",
-                compaction_count=self._compaction_count,
-                compaction_method=result.method if result.method != "none" else None,
-                thresholds_triggered=thresholds_triggered,
-            )
-
-            if span:
-                span.set_attribute("context.tokens", tokens_used)
-                span.set_attribute("context.utilization", budget.utilization)
-                if thresholds_triggered:
-                    span.set_attribute("context.thresholds_triggered", thresholds_triggered)
-
-            return ContextPayload(
-                messages=final_msgs if memory_msg else final_messages,
-                system_prompt=system_prompt,
-                tools=tools,
-                tokens=tokens_used,
-            )
+                return ContextPayload(
+                    messages=final_msgs,
+                    system_prompt=system_prompt,
+                    tools=tools,
+                    tokens=tokens_used,
+                )
+            finally:
+                self._current_compact_fn = None
+                self._current_messages = None
 
     def on_compact(self, _event: CompactionResult) -> None:
-        """Hook called after compaction."""
-        self._compaction_count += 1
+        """Hook called after compaction (e.g. by lifecycle). Count is updated in _compact_fn only."""
 
-    def _check_thresholds(self, budget: ContextBudget) -> list[str]:
-        """Check and trigger thresholds.
+    def _check_thresholds(
+        self,
+        budget: ContextWindowBudget,
+        compact_fn: Callable[[], None] | None = None,
+        thresholds: list[Any] | None = None,
+    ) -> list[str]:
+        """Check and trigger thresholds using should_trigger (supports at_range).
 
         Returns list of triggered threshold metrics.
         """
-        triggered = []
-        percent = budget.utilization_percent
+        triggered: list[str] = []
+        percent = budget.percent
+        metric = ThresholdMetric.TOKENS
+        th_list = thresholds if thresholds is not None else self.context.thresholds
 
-        for threshold in self.context.thresholds:
-            if percent >= threshold.at:
-                triggered.append(threshold.metric)
-
-                threshold_event = {
-                    "at": threshold.at,
-                    "percent": percent,
-                    "metric": threshold.metric,
-                    "tokens": budget.used_tokens,
-                    "max_tokens": budget.max_tokens,
-                }
-                self._emit("context.threshold", threshold_event)
-
-                # Execute the threshold action with context
-                ctx = ThresholdContext(
-                    percentage=percent,
-                    metric=threshold.metric,
-                    current_value=float(budget.used_tokens),
-                    limit_value=float(budget.max_tokens),
-                )
-                threshold.execute(ctx)
+        for threshold in th_list:
+            if not threshold.should_trigger(percent, metric):
+                continue
+            triggered.append(
+                threshold.metric.value
+                if hasattr(threshold.metric, "value")
+                else str(threshold.metric)
+            )
+            threshold_event = {
+                "at": getattr(threshold, "at", None),
+                "at_range": getattr(threshold, "at_range", None),
+                "percent": percent,
+                "metric": threshold.metric,
+                "tokens": budget.used_tokens,
+                "max_tokens": budget.max_tokens,
+            }
+            self._emit("context.threshold", threshold_event)
+            compact = compact_fn if compact_fn is not None else (lambda: None)
+            ctx = ThresholdContext(
+                percentage=percent,
+                metric=threshold.metric,
+                current_value=float(budget.used_tokens),
+                limit_value=float(budget.max_tokens),
+                compact=compact,
+            )
+            threshold.execute(ctx)
 
         return triggered
 
@@ -289,6 +334,15 @@ class DefaultContextManager:
     def current_tokens(self) -> int:
         """Get current token count."""
         return self._stats.total_tokens
+
+    def compact(self) -> None:
+        """Request compaction of current context (only valid during prepare, e.g. from threshold action).
+
+        Call from a ContextThreshold action via ctx.compact() or agent.context.compact().
+        No-op if not currently inside prepare().
+        """
+        if self._current_compact_fn is not None:
+            self._current_compact_fn()
 
 
 def create_context_manager(

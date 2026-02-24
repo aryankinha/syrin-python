@@ -79,7 +79,9 @@ from syrin.context import (
     ContextManager,
     ContextStats,
     DefaultContextManager,
+    TokenBudget,
     TokenCounter,
+    WindowCapacity,
 )
 from syrin.enums import (
     AuditBackend,
@@ -87,7 +89,6 @@ from syrin.enums import (
     CheckpointStrategy,
     CircuitState,
     ContentType,
-    ContextAction,
     ContextStrategy,
     DecayStrategy,
     DocFormat,
@@ -220,6 +221,8 @@ from syrin.threshold import (
     ContextThreshold,
     RateLimitThreshold,
     ThresholdContext,
+    ThresholdEvent,
+    compact_if_available,
 )
 from syrin.tool import tool
 from syrin.validation import ValidationPipeline, validate_output
@@ -341,8 +344,10 @@ __all__ = [
     # Threshold
     # =============================================================================
     "ThresholdContext",
+    "ThresholdEvent",
     "BudgetThreshold",
     "ContextThreshold",
+    "compact_if_available",
     "RateLimitThreshold",
     # =============================================================================
     # Memory
@@ -359,9 +364,11 @@ __all__ = [
     "Context",
     "ContextStats",
     "ContextBudget",
+    "TokenBudget",
     "ContextManager",
     "DefaultContextManager",
     "TokenCounter",
+    "WindowCapacity",
     # =============================================================================
     # Pipeline
     # =============================================================================
@@ -404,7 +411,6 @@ __all__ = [
     "StopReason",
     "LoopStrategy",
     "ContextStrategy",
-    "ContextAction",
     "TracingBackend",
     "TraceLevel",
     "MessageRole",

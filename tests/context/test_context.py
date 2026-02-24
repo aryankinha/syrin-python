@@ -6,13 +6,14 @@ import pytest
 
 from syrin.context import (
     Context,
-    ContextBudget,
     ContextCompactor,
     ContextStats,
+    ContextWindowBudget,
     DefaultContextManager,
     MiddleOutTruncator,
     TokenCounter,
 )
+from syrin.enums import ThresholdWindow
 from syrin.threshold import ContextThreshold
 
 
@@ -22,13 +23,11 @@ class TestContext:
     def test_default_context(self) -> None:
         ctx = Context()
         assert ctx.max_tokens is None
-        assert ctx.auto_compact_at == 0.75
         assert ctx.thresholds == []
 
     def test_custom_context(self) -> None:
-        ctx = Context(max_tokens=80000, auto_compact_at=0.8)
+        ctx = Context(max_tokens=80000)
         assert ctx.max_tokens == 80000
-        assert ctx.auto_compact_at == 0.8
 
     def test_context_with_thresholds(self) -> None:
         """Test using ContextThreshold with Context."""
@@ -41,10 +40,6 @@ class TestContext:
         assert ctx.thresholds[0].at == 50
         assert callable(ctx.thresholds[1].action)
 
-    def test_invalid_auto_compact_at(self) -> None:
-        with pytest.raises(ValueError, match="auto_compact_at must be between"):
-            Context(auto_compact_at=1.5)
-
     def test_invalid_threshold_at(self) -> None:
         with pytest.raises(ValueError, match="Threshold 'at' must be between"):
             ContextThreshold(at=150, action=lambda _: None)
@@ -53,35 +48,24 @@ class TestContext:
         ctx = Context()
         budget = ctx.get_budget()
         assert budget.max_tokens == 128000
-        assert budget.auto_compact_at == 0.75
 
 
 class TestContextBudget:
-    """Tests for ContextBudget."""
+    """Tests for ContextWindowBudget (internal window budget)."""
 
     def test_available_tokens(self) -> None:
-        budget = ContextBudget(max_tokens=10000, reserve_for_response=2000)
+        budget = ContextWindowBudget(max_tokens=10000, reserve=2000)
         assert budget.available == 8000
 
     def test_utilization(self) -> None:
-        budget = ContextBudget(max_tokens=10000, reserve_for_response=2000)
+        budget = ContextWindowBudget(max_tokens=10000, reserve=2000)
         budget.used_tokens = 4000
         assert budget.utilization == 0.5
 
     def test_utilization_percent(self) -> None:
-        budget = ContextBudget(max_tokens=10000, reserve_for_response=2000)
+        budget = ContextWindowBudget(max_tokens=10000, reserve=2000)
         budget.used_tokens = 4000
-        assert budget.utilization_percent == 50
-
-    def test_should_compact(self) -> None:
-        budget = ContextBudget(max_tokens=10000, reserve_for_response=2000, auto_compact_at=0.75)
-        budget.used_tokens = 7000
-        assert budget.should_compact is True
-
-    def test_should_not_compact(self) -> None:
-        budget = ContextBudget(max_tokens=10000, reserve_for_response=2000, auto_compact_at=0.75)
-        budget.used_tokens = 4000
-        assert budget.should_compact is False
+        assert budget.percent == 50
 
 
 class TestTokenCounter:
@@ -204,12 +188,18 @@ class TestDefaultContextManager:
         assert stats.max_tokens == 80000
 
     def test_compaction_events(self) -> None:
+        """Compaction only runs when a threshold action calls ctx.compact()."""
         events = []
 
         def emit_fn(event, ctx):
             events.append((event, ctx))
 
-        manager = DefaultContextManager(Context(max_tokens=3000))
+        def compact_on_threshold(ctx):
+            if ctx.compact:
+                ctx.compact()
+
+        thresholds = [ContextThreshold(at=50, action=compact_on_threshold)]
+        manager = DefaultContextManager(Context(max_tokens=3000, thresholds=thresholds))
         manager.set_emit_fn(emit_fn)
 
         messages = [{"role": "system", "content": "System"}]
@@ -266,7 +256,7 @@ class TestContextStats:
         stats = ContextStats()
         assert stats.total_tokens == 0
         assert stats.compacted is False
-        assert stats.compaction_count == 0
+        assert stats.compact_count == 0
         assert stats.thresholds_triggered == []
 
     def test_stats_with_values(self) -> None:
@@ -275,13 +265,13 @@ class TestContextStats:
             max_tokens=80000,
             utilization=0.0625,
             compacted=True,
-            compaction_count=2,
-            compaction_method="middle_out_truncate",
+            compact_count=2,
+            compact_method="middle_out_truncate",
             thresholds_triggered=["warn", "summarize"],
         )
         assert stats.total_tokens == 5000
         assert stats.compacted is True
-        assert stats.compaction_count == 2
+        assert stats.compact_count == 2
         assert len(stats.thresholds_triggered) == 2
 
 
@@ -293,31 +283,26 @@ class TestContextStats:
 class TestContextEdgeCases:
     """Edge cases for context management."""
 
-    def test_context_with_zero_auto_compact(self):
-        """Context with auto_compact_at=0."""
-        ctx = Context(auto_compact_at=0.0)
-        assert ctx.auto_compact_at == 0.0
-
     def test_context_with_max_tokens_zero(self):
-        """Context with max_tokens=0."""
-        ctx = Context(max_tokens=0)
-        assert ctx.max_tokens == 0
+        """Context with max_tokens=0 raises ValueError (must be > 0 when set)."""
+        with pytest.raises(ValueError, match="max_tokens must be > 0 when set"):
+            Context(max_tokens=0)
 
     def test_context_budget_with_zero_max(self):
-        """ContextBudget with zero max tokens."""
-        budget = ContextBudget(max_tokens=0, reserve_for_response=0)
+        """ContextWindowBudget with zero max tokens."""
+        budget = ContextWindowBudget(max_tokens=0, reserve=0)
         assert budget.available == 0
 
     def test_context_budget_utilization_zero(self):
-        """ContextBudget utilization at zero."""
-        budget = ContextBudget(max_tokens=1000, reserve_for_response=0)
+        """ContextWindowBudget utilization at zero."""
+        budget = ContextWindowBudget(max_tokens=1000, reserve=0)
         assert budget.utilization == 0.0
 
     def test_context_budget_utilization_100_percent(self):
-        """ContextBudget at 100% utilization."""
-        budget = ContextBudget(max_tokens=1000, reserve_for_response=0)
+        """ContextWindowBudget at 100% utilization."""
+        budget = ContextWindowBudget(max_tokens=1000, reserve=0)
         budget.used_tokens = 1000
-        assert budget.utilization_percent == 100
+        assert budget.percent == 100
 
     def test_token_counter_empty_string(self):
         """TokenCounter with empty string."""
@@ -455,3 +440,15 @@ class TestContextThresholdValidation:
 
         with pytest.raises(ValueError, match="Threshold 'action' is required"):
             ContextThreshold(at=80, action=None)  # type: ignore
+
+    def test_context_threshold_window_is_max_tokens(self):
+        """ContextThreshold defaults to window=MAX_TOKENS."""
+        threshold = ContextThreshold(at=50, action=lambda _: None)
+        assert threshold.window == ThresholdWindow.MAX_TOKENS
+
+    def test_context_threshold_invalid_window_rejected(self):
+        """ContextThreshold rejects window other than MAX_TOKENS."""
+        with pytest.raises(
+            ValueError, match="ContextThreshold window must be ThresholdWindow.MAX_TOKENS"
+        ):
+            ContextThreshold(at=50, action=lambda _: None, window=ThresholdWindow.RUN)

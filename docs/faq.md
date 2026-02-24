@@ -265,13 +265,16 @@ It prevents "context rot" - when LLM quality drops because too much history accu
 ### How do I configure context?
 
 ```python
-from Syrin.context import Context
+from syrin import Context
+from syrin.threshold import ContextThreshold
 
 agent = Agent(
     model=Model.OpenAI("gpt-4o"),
     context=Context(
-        max_tokens=80000,      # Limit context
-        auto_compact_at=0.75, # Compact at 75%
+        max_tokens=80000,
+        thresholds=[
+            ContextThreshold(at=75, action=lambda ctx: ctx.compact() if ctx.compact else None),
+        ],
     ),
 )
 ```
@@ -500,17 +503,25 @@ print(agent.memory.store)  # Check what's stored
 
 ### Context is getting too long
 
-1. Lower compaction threshold:
-```python
-context = Context(auto_compact_at=0.5)  # Compact at 50%
-```
-
-2. Add hard limits:
+1. Trigger compaction earlier via a threshold action:
 ```python
 context = Context(
     max_tokens=80000,
     thresholds=[
-        ContextThreshold(at=100, action=ContextAction.ERROR),
+        ContextThreshold(at=50, action=lambda ctx: ctx.compact() if ctx.compact else None),
+    ],
+)
+```
+
+2. Add hard limits (e.g. raise when full):
+```python
+def raise_on_full(ctx):
+    raise ValueError("Context full")
+
+context = Context(
+    max_tokens=80000,
+    thresholds=[
+        ContextThreshold(at=100, action=raise_on_full),
     ],
 )
 ```
