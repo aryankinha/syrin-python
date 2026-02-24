@@ -158,14 +158,14 @@ agent = Agent(model=Model.OpenAI("gpt-4o-mini"), budget=budget)
 
 ### What happens when budget runs out?
 
-Configure with `on_exceeded`:
+Configure with `on_exceeded` (a callback):
 
 ```python
+from syrin import raise_on_exceeded, warn_on_exceeded
+
 budget = Budget(
-    total_limit=10.0,
-    on_exceeded="error",    # Raise exception
-    # or "warn" - just log warning
-    # or "stop" - stop gracefully
+    run=10.0,
+    on_exceeded=raise_on_exceeded,  # Raise exception; or warn_on_exceeded to log and continue
 )
 ```
 
@@ -472,7 +472,8 @@ print(agent.model)  # Which model?
 
 2. Enable budget alerts:
 ```python
-budget = Budget(total_limit=10.0, on_exceeded="warn")
+from syrin import warn_on_exceeded
+budget = Budget(run=10.0, on_exceeded=warn_on_exceeded)
 ```
 
 3. Check token counts:

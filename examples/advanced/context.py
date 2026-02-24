@@ -19,7 +19,6 @@ from typing import Any
 from dotenv import load_dotenv
 
 from syrin import Agent, Model
-from syrin.enums import Hook
 from syrin.context import (
     Context,
     ContextBudget,
@@ -29,6 +28,7 @@ from syrin.context import (
     MiddleOutTruncator,
 )
 from syrin.context.counter import TokenCounter
+from syrin.enums import Hook
 from syrin.threshold import ContextThreshold
 
 logging.basicConfig(level=logging.ERROR)

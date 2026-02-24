@@ -23,22 +23,22 @@ check_command() {
 # Run ruff check (linting)
 run_ruff_check() {
     echo -e "${YELLOW}Running ruff (linting)...${NC}"
-    ruff check src/ --output-format=concise
+    ruff check src/ tests/ examples/ --output-format=concise
     echo -e "${GREEN}✓ Ruff check passed${NC}"
 }
 
 # Run ruff format (formatting)
 run_ruff_format() {
     echo -e "${YELLOW}Running ruff (formatting check)...${NC}"
-    ruff format --check src/
+    ruff format --check src/ tests/ examples/
     echo -e "${GREEN}✓ Ruff format check passed${NC}"
 }
 
-# Run mypy (type checking)
+# Run mypy (type checking) — src/ only; tests/examples have relaxed typing in pyproject.toml
 run_mypy() {
     echo -e "${YELLOW}Running mypy (type checking)...${NC}"
     rm -rf .mypy_cache
-    python -m mypy --strict src/syrin
+    python -m mypy --strict src/
     echo -e "${GREEN}✓ Mypy check passed${NC}"
 }
 

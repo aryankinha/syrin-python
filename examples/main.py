@@ -22,8 +22,8 @@ def main() -> None:
 
         # Core examples
         print("\n### CORE EXAMPLES ###")
-        from examples.core.basic_agent import example_basic_agent
         from examples.core.agent_with_budget import example_agent_with_budget, example_shared_budget
+        from examples.core.basic_agent import example_basic_agent
         from examples.core.prompt_decorator import example_prompt_decorator
 
         try:
@@ -64,9 +64,9 @@ def main() -> None:
         print("\n### MULTI-AGENT EXAMPLES ###")
         from examples.multi_agent.handoff import example_handoff, example_handoff_with_context
         from examples.multi_agent.pipeline import (
-            example_sequential_pipeline,
             example_parallel_pipeline,
             example_pipeline_with_budget,
+            example_sequential_pipeline,
         )
         from examples.multi_agent.team import example_team, example_team_selection
 
@@ -107,11 +107,11 @@ def main() -> None:
 
         # Advanced examples
         print("\n### ADVANCED EXAMPLES ###")
-        from examples.advanced.inheritance import example_inheritance
         from examples.advanced.async_agent import (
             example_sync_response,
             example_sync_wrapper,
         )
+        from examples.advanced.inheritance import example_inheritance
 
         try:
             example_inheritance()
@@ -135,11 +135,11 @@ def main() -> None:
         module = sys.argv[1]
 
         if module == "core":
-            from examples.core.basic_agent import example_basic_agent
             from examples.core.agent_with_budget import (
                 example_agent_with_budget,
                 example_shared_budget,
             )
+            from examples.core.basic_agent import example_basic_agent
             from examples.core.prompt_decorator import example_prompt_decorator
 
             example_basic_agent()
@@ -156,9 +156,9 @@ def main() -> None:
         elif module == "multi_agent":
             from examples.multi_agent.handoff import example_handoff, example_handoff_with_context
             from examples.multi_agent.pipeline import (
-                example_sequential_pipeline,
                 example_parallel_pipeline,
                 example_pipeline_with_budget,
+                example_sequential_pipeline,
             )
             from examples.multi_agent.team import example_team, example_team_selection
 

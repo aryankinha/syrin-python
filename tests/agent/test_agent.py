@@ -8,7 +8,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from syrin.agent import Agent
+from syrin.cost import ModelPricing
 from syrin.enums import MessageRole
+from syrin.exceptions import BudgetExceededError
 from syrin.model import Model
 from syrin.types import ModelConfig, ProviderResponse, TokenUsage, ToolCall
 
@@ -129,7 +131,9 @@ def test_agent_budget_exceeded_raises() -> None:
     from syrin.exceptions import BudgetExceededError
 
     model = Model("openai/gpt-4")
-    budget = Budget(run=0.0, on_exceeded="error")
+    from syrin.budget import raise_on_exceeded
+
+    budget = Budget(run=0.0, on_exceeded=raise_on_exceeded)
     agent = Agent(model=model, budget=budget)
     with patch.object(
         agent._provider,
@@ -143,6 +147,211 @@ def test_agent_budget_exceeded_raises() -> None:
         with pytest.raises(BudgetExceededError) as exc_info:
             agent.response("Hello")
         assert exc_info.value.budget_type == "run"
+        assert "run cost" in str(exc_info.value).lower()
+
+
+def test_agent_budget_exceeded_run_tokens_raises_with_correct_message_and_type() -> None:
+    """When token_limits.run_tokens exceeded, BudgetExceededError has budget_type 'run_tokens' and message."""
+    from syrin.budget import Budget, TokenLimits, raise_on_exceeded
+    from syrin.exceptions import BudgetExceededError
+
+    model = Model("openai/gpt-4")
+    agent = Agent(
+        model=model,
+        budget=Budget(run=10.0, on_exceeded=raise_on_exceeded),
+        token_limits=TokenLimits(run_tokens=50, on_exceeded=raise_on_exceeded),
+    )
+    with patch.object(
+        agent._provider,
+        "complete",
+        new_callable=AsyncMock,
+        return_value=_mock_provider_response(
+            content="Hi",
+            token_usage=TokenUsage(
+                input_tokens=30,
+                output_tokens=30,
+                total_tokens=60,
+            ),
+        ),
+    ):
+        with pytest.raises(BudgetExceededError) as exc_info:
+            agent.response("Hello")
+        assert exc_info.value.budget_type == "run_tokens"
+        assert (
+            "run tokens" in str(exc_info.value).lower() or "tokens" in str(exc_info.value).lower()
+        )
+        assert exc_info.value.current_cost == 60
+        assert exc_info.value.limit == 50.0
+
+
+def test_agent_budget_exceeded_hour_rate_raises_with_correct_message_and_type() -> None:
+    """When hourly rate exceeded, BudgetExceededError has budget_type 'hour'."""
+    from syrin import RateLimit
+    from syrin.budget import Budget, raise_on_exceeded
+    from syrin.exceptions import BudgetExceededError
+
+    model = Model("openai/gpt-4")
+    agent = Agent(
+        model=model,
+        budget=Budget(
+            run=100.0,
+            per=RateLimit(hour=0.001),
+            on_exceeded=raise_on_exceeded,
+        ),
+    )
+    with patch.object(
+        agent._provider,
+        "complete",
+        new_callable=AsyncMock,
+        return_value=_mock_provider_response(
+            content="Hi",
+            token_usage=TokenUsage(input_tokens=1000, output_tokens=500),
+        ),
+    ):
+        with pytest.raises(BudgetExceededError) as exc_info:
+            agent.response("Hello")
+        assert exc_info.value.budget_type == "hour"
+        assert "hour" in str(exc_info.value).lower()
+
+
+def test_agent_budget_exceeded_context_passed_to_on_exceeded_callback() -> None:
+    """When budget is exceeded, on_exceeded receives BudgetExceededContext with correct fields."""
+    from syrin.budget import Budget, BudgetExceededContext, BudgetLimitType
+    from syrin.exceptions import BudgetExceededError
+
+    contexts: list[BudgetExceededContext] = []
+
+    def capture_and_raise(ctx: BudgetExceededContext) -> None:
+        contexts.append(ctx)
+        raise BudgetExceededError(
+            ctx.message,
+            current_cost=ctx.current_cost,
+            limit=ctx.limit,
+            budget_type=ctx.budget_type,
+        )
+
+    model = Model("openai/gpt-4")
+    agent = Agent(
+        model=model,
+        budget=Budget(run=0.0, on_exceeded=capture_and_raise),
+    )
+    with (
+        patch.object(
+            agent._provider,
+            "complete",
+            new_callable=AsyncMock,
+            return_value=_mock_provider_response(
+                content="Hi",
+                token_usage=TokenUsage(input_tokens=100, output_tokens=50),
+            ),
+        ),
+        pytest.raises(BudgetExceededError),
+    ):
+        agent.response("Hello")
+    assert len(contexts) == 1
+    ctx = contexts[0]
+    assert ctx.current_cost >= 0
+    assert ctx.limit == 0.0
+    assert ctx.budget_type == BudgetLimitType.RUN
+    assert "run cost" in ctx.message.lower() or "budget" in ctx.message.lower()
+
+
+def test_agent_budget_uses_cost_from_pricing_override() -> None:
+    """Budget check uses cost computed from model's pricing (custom pricing)."""
+    from syrin.budget import Budget, raise_on_exceeded
+    from syrin.exceptions import BudgetExceededError
+
+    # Pricing that makes 1000 input + 500 output tokens = $1.0 (over run=0.5)
+    model = Model(
+        "openai/gpt-4",
+        input_price=666.67,
+        output_price=666.67,
+    )
+    agent = Agent(
+        model=model,
+        budget=Budget(run=0.5, on_exceeded=raise_on_exceeded),
+    )
+    with (
+        patch.object(
+            agent._provider,
+            "complete",
+            new_callable=AsyncMock,
+            return_value=_mock_provider_response(
+                content="Hi",
+                token_usage=TokenUsage(input_tokens=1000, output_tokens=500),
+            ),
+        ),
+        pytest.raises(BudgetExceededError) as exc_info,
+    ):
+        agent.response("Hello")
+    assert exc_info.value.budget_type == "run"
+    assert exc_info.value.current_cost >= 0.5
+
+
+def test_agent_budget_exceeded_hour_tokens_raises_with_correct_type_and_message() -> None:
+    """When token_limits.per.hour exceeded, BudgetExceededError has budget_type 'hour_tokens' and message."""
+    from syrin import RateLimit
+    from syrin.budget import Budget, TokenLimits, TokenRateLimit, raise_on_exceeded
+    from syrin.exceptions import BudgetExceededError
+
+    model = Model("openai/gpt-4")
+    agent = Agent(
+        model=model,
+        budget=Budget(
+            run=100.0,
+            per=RateLimit(hour=100.0),
+            on_exceeded=raise_on_exceeded,
+        ),
+        token_limits=TokenLimits(
+            per=TokenRateLimit(hour=50),
+            on_exceeded=raise_on_exceeded,
+        ),
+    )
+    with (
+        patch.object(
+            agent._provider,
+            "complete",
+            new_callable=AsyncMock,
+            return_value=_mock_provider_response(
+                content="Hi",
+                token_usage=TokenUsage(input_tokens=30, output_tokens=30, total_tokens=60),
+            ),
+        ),
+        pytest.raises(BudgetExceededError) as exc_info,
+    ):
+        agent.response("Hello")
+    assert exc_info.value.budget_type == "hour_tokens"
+    assert "hour_tokens" in str(exc_info.value).lower() or "60" in str(exc_info.value)
+
+
+def test_agent_warns_when_per_set_without_budget_store(caplog: pytest.LogCaptureFixture) -> None:
+    """Agent logs warning when budget.per is set and budget_store is None."""
+    from syrin.budget import Budget, RateLimit
+
+    model = Model("openai/gpt-4")
+    with caplog.at_level("WARNING"):
+        Agent(
+            model=model,
+            budget=Budget(run=10.0, per=RateLimit(hour=5.0)),
+            budget_store=None,
+        )
+    assert any("in-memory only" in rec.message for rec in caplog.records)
+    assert any("budget_store" in rec.message for rec in caplog.records)
+
+
+def test_agent_warns_when_budget_set_and_model_has_no_pricing(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Agent logs warning when budget is set and model has no pricing."""
+    from syrin.budget import Budget
+
+    model = Model("unknown/no-pricing-model")
+    with caplog.at_level("WARNING"):
+        Agent(model=model, budget=Budget(run=1.0))
+    assert any("no pricing" in rec.message.lower() for rec in caplog.records)
+    assert any(
+        "budget" in rec.message.lower() or "cost" in rec.message.lower() for rec in caplog.records
+    )
 
 
 def test_agent_response_tool_loop() -> None:
@@ -266,11 +475,10 @@ def test_agent_with_concurrent_responses() -> None:
 
 def test_agent_budget_exceeded_with_warning_continues() -> None:
     """Test that WARN on exceeded doesn't crash."""
-    from syrin.budget import Budget
-    from syrin.enums import OnExceeded
+    from syrin.budget import Budget, warn_on_exceeded
 
     model = Model("openai/gpt-4")
-    budget = Budget(run=0.0, on_exceeded=OnExceeded.WARN)
+    budget = Budget(run=0.0, on_exceeded=warn_on_exceeded)
     agent = Agent(model=model, budget=budget)
 
     with patch.object(
@@ -285,6 +493,47 @@ def test_agent_budget_exceeded_with_warning_continues() -> None:
         # Should NOT raise, just warn
         out = agent.response("Hello")
         assert out.content == "Hi"
+
+
+def test_agent_pre_call_budget_blocks_when_estimate_exceeds_run_limit() -> None:
+    """Pre-call estimate skips LLM call when run limit would be exceeded."""
+    from syrin.budget import Budget, raise_on_exceeded
+
+    # Very low run limit so estimated cost for "Hello" exceeds it
+    model = Model("openai/gpt-4", pricing=ModelPricing(input_per_1m=10.0, output_per_1m=30.0))
+    budget = Budget(run=0.0001, on_exceeded=raise_on_exceeded)
+    agent = Agent(model=model, budget=budget)
+
+    complete_calls: list[tuple] = []
+
+    async def capture_complete(*args: object, **kwargs: object) -> ProviderResponse:
+        complete_calls.append((args, kwargs))
+        return _mock_provider_response(
+            content="Hi", token_usage=TokenUsage(input_tokens=10, output_tokens=5)
+        )
+
+    with patch.object(
+        agent._provider, "complete", new_callable=AsyncMock, side_effect=capture_complete
+    ):
+        with pytest.raises(BudgetExceededError) as exc_info:
+            agent.response("Hello world " * 50)
+        assert (
+            "pre-call" in str(exc_info.value).lower()
+            or "would be exceeded" in str(exc_info.value).lower()
+        )
+    assert len(complete_calls) == 0
+
+
+def test_agent_estimate_call_cost_returns_float() -> None:
+    """estimate_call_cost returns a non-negative float."""
+    from syrin.types import Message
+
+    model = Model("openai/gpt-4o-mini", pricing=ModelPricing(input_per_1m=0.15, output_per_1m=0.60))
+    agent = Agent(model=model)
+    messages = [Message(role=MessageRole.USER, content="Hi")]
+    est = agent.estimate_call_cost(messages, max_output_tokens=100)
+    assert isinstance(est, float)
+    assert est >= 0.0
 
 
 def test_agent_response_with_tool_execution_error() -> None:
@@ -397,11 +646,10 @@ def test_agent_gemini_response_structure() -> None:
 
 def test_agent_budget_tracking_with_mocked_api() -> None:
     """Verify budget tracking works with mocked API."""
-    from syrin.budget import Budget
-    from syrin.enums import OnExceeded
+    from syrin.budget import Budget, warn_on_exceeded
 
     model = Model("openai/gpt-4o-mini")
-    budget = Budget(run=10.0, on_exceeded=OnExceeded.WARN)
+    budget = Budget(run=10.0, on_exceeded=warn_on_exceeded)
     agent = Agent(model=model, budget=budget)
 
     with patch.object(
@@ -417,6 +665,110 @@ def test_agent_budget_tracking_with_mocked_api() -> None:
 
     summary = agent.budget_summary
     assert summary["current_run_cost"] >= 0
+
+
+def test_agent_stream_records_cost_to_budget_when_done() -> None:
+    """Streaming records accumulated cost to budget tracker when stream completes."""
+    from unittest.mock import MagicMock
+
+    from syrin.budget import Budget
+
+    model = Model("openai/gpt-4o-mini")
+    agent = Agent(model=model, budget=Budget(run=10.0))
+
+    mock_chunk = MagicMock()
+    mock_chunk.content = "Hi"
+    mock_chunk.cost_usd = 0.25
+    mock_chunk.token_usage = TokenUsage(input_tokens=10, output_tokens=5, total_tokens=15)
+
+    with patch.object(
+        agent._provider,
+        "stream_sync",
+        return_value=iter([mock_chunk]),
+    ):
+        chunks = list(agent.stream("Hello"))
+    assert len(chunks) == 1
+    assert agent._budget_tracker.current_run_cost == 0.25
+    assert agent._budget._spent == 0.25
+
+
+def test_agent_stream_stops_and_raises_when_budget_exceeded_mid_stream() -> None:
+    """When budget is exceeded during streaming, stream stops and raises BudgetExceededError."""
+    from unittest.mock import MagicMock
+
+    from syrin.budget import Budget, raise_on_exceeded
+    from syrin.exceptions import BudgetExceededError
+
+    model = Model("openai/gpt-4o-mini")
+    agent = Agent(model=model, budget=Budget(run=0.10, on_exceeded=raise_on_exceeded))
+
+    c1 = MagicMock()
+    c1.content = "A"
+    c1.cost_usd = 0.05
+    c1.token_usage = TokenUsage(input_tokens=5, output_tokens=5, total_tokens=10)
+    c2 = MagicMock()
+    c2.content = "B"
+    c2.cost_usd = 0.05
+    c2.token_usage = TokenUsage(input_tokens=5, output_tokens=5, total_tokens=10)
+    c3 = MagicMock()
+    c3.content = "C"
+    c3.cost_usd = 0.05
+    c3.token_usage = TokenUsage(input_tokens=5, output_tokens=5, total_tokens=10)
+
+    with patch.object(
+        agent._provider,
+        "stream_sync",
+        return_value=iter([c1, c2, c3]),
+    ):
+        chunks: list = []
+        with pytest.raises(BudgetExceededError) as exc_info:
+            for chunk in agent.stream("Hello"):
+                chunks.append(chunk)
+        assert exc_info.value.budget_type == "run"
+    assert len(chunks) == 2
+    assert agent._budget_tracker.current_run_cost == 0.10
+    assert chunks[0].cost_so_far == 0.05 and chunks[1].cost_so_far == 0.10
+
+
+def test_agent_stream_completes_when_under_budget() -> None:
+    """Stream yields all chunks when budget is not exceeded."""
+    from unittest.mock import MagicMock
+
+    from syrin.budget import Budget
+
+    model = Model("openai/gpt-4o-mini")
+    agent = Agent(model=model, budget=Budget(run=1.0))
+
+    chunks_mock = [
+        MagicMock(content="a", cost_usd=0.1, token_usage=TokenUsage(total_tokens=10)),
+        MagicMock(content="b", cost_usd=0.1, token_usage=TokenUsage(total_tokens=10)),
+    ]
+    with patch.object(
+        agent._provider,
+        "stream_sync",
+        return_value=iter(chunks_mock),
+    ):
+        result = list(agent.stream("Hi"))
+    assert len(result) == 2
+    assert agent._budget_tracker.current_run_cost == 0.2
+
+
+def test_agent_budget_consume_callback_updates_tracker() -> None:
+    """Budget.consume() (e.g. from BudgetEnforcer) updates tracker when callback set."""
+    from syrin.budget import Budget
+
+    model = Model("openai/gpt-4o-mini")
+    agent = Agent(model=model, budget=Budget(run=10.0))
+    assert agent._budget._consume_callback is not None
+
+    agent._budget.consume(0.5)
+    assert agent._budget_tracker.current_run_cost == 0.5
+    assert agent._budget._spent == 0.5
+    assert agent._budget.remaining == 9.5
+
+    agent._budget.consume(1.0)
+    assert agent._budget_tracker.current_run_cost == 1.5
+    assert agent._budget._spent == 1.5
 
 
 def test_agent_with_tools_mocked() -> None:

@@ -7,7 +7,7 @@ This module demonstrates how to use the checkpoint system for:
 - Automatic checkpoint triggers
 """
 
-from syrin import Agent, Model, CheckpointConfig, CheckpointTrigger
+from syrin import Agent, CheckpointConfig, CheckpointTrigger, Model
 
 
 def example_basic_checkpointing():

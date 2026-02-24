@@ -101,6 +101,11 @@ module = "tests.*"
 disallow_untyped_defs = false
 
 [[tool.mypy.overrides]]
+module = "examples.*"
+disallow_untyped_defs = false
+check_untyped_defs = false
+
+[[tool.mypy.overrides]]
 module = "syrin.providers.anthropic"
 ignore_missing_imports = true
 

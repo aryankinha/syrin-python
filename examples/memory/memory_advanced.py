@@ -100,7 +100,7 @@ def example_recall_with_query() -> None:
 
     # Recall with query
     results = assistant.recall(query="programming work")
-    print(f"Recall results for 'programming work':")
+    print("Recall results for 'programming work':")
     for r in results:
         print(f"  - {r.content[:50]}...")
 

@@ -5,14 +5,14 @@ Tests that RateLimitReport is properly populated during agent execution.
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import Mock, patch
 
-from syrin import Agent, Model
-from syrin.response import RateLimitReport
-from syrin.ratelimit import APIRateLimit, RateLimitThreshold
-from syrin.enums import ThresholdMetric, RateLimitAction
+import pytest
 
+from syrin import Agent, Model
+from syrin.enums import RateLimitAction, ThresholdMetric
+from syrin.ratelimit import APIRateLimit, RateLimitThreshold
+from syrin.response import RateLimitReport
 
 # =============================================================================
 # TESTS FOR RATE LIMIT REPORT

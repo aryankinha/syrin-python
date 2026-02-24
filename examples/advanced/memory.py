@@ -22,6 +22,7 @@ from dotenv import load_dotenv
 from syrin import Agent, Model
 from syrin.enums import DecayStrategy, MemoryBackend, MemoryType
 from syrin.memory import (
+    BACKENDS,
     CoreMemory,
     Decay,
     EpisodicMemory,
@@ -33,7 +34,6 @@ from syrin.memory import (
     SemanticMemory,
     create_memory,
     get_backend,
-    BACKENDS,
 )
 from syrin.observability import set_debug
 
@@ -165,12 +165,12 @@ def example_memory_budget():
     """Example 4: Memory budget awareness."""
     print("\n=== Example 4: Memory Budget ===\n")
 
-    from syrin.enums import OnExceeded
+    from syrin.budget import warn_on_exceeded
 
     # Create budget with warn on exceed
     budget = MemoryBudget(
         extraction_budget=0.001,  # Very small
-        on_exceeded=OnExceeded.WARN,
+        on_exceeded=warn_on_exceeded,
     )
 
     store = MemoryStore(budget=budget)

@@ -11,12 +11,11 @@ Run: python -m examples.core.basic_agent
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Model
+from syrin import Agent
 
 logging.basicConfig(level=logging.ERROR)
 # Suppress httpx async cleanup warnings
@@ -43,7 +42,7 @@ def example_basic_agent() -> None:
 
     result = assistant.response("What is 2 + 2?")
 
-    print(f"Question: What is 2 + 2?")
+    print("Question: What is 2 + 2?")
     print(f"Answer: {result.content}")
     print(f"Cost: ${result.cost:.6f}")
     print(f"Tokens: {result.tokens.total_tokens}")

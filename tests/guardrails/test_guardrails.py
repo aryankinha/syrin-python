@@ -6,11 +6,9 @@ Test Driven Development approach - all tests written before implementation.
 from __future__ import annotations
 
 import asyncio
-import pytest
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import Mock
 
+import pytest
 
 # =============================================================================
 # TESTS FOR GUARDRAIL CONTEXT
@@ -35,8 +33,8 @@ class TestGuardrailContext:
 
     def test_context_creation_full(self):
         """Test creating context with all fields."""
-        from syrin.guardrails.context import GuardrailContext
         from syrin.enums import GuardrailStage
+        from syrin.guardrails.context import GuardrailContext
 
         mock_conversation = Mock()
         mock_user = Mock()
@@ -88,8 +86,8 @@ class TestGuardrailContext:
 
     def test_context_to_dict(self):
         """Test converting context to dictionary."""
-        from syrin.guardrails.context import GuardrailContext
         from syrin.enums import GuardrailStage
+        from syrin.guardrails.context import GuardrailContext
 
         context = GuardrailContext(
             text="Test", stage=GuardrailStage.INPUT, metadata={"key": "value"}
@@ -113,8 +111,8 @@ class TestGuardrailDecision:
 
     def test_decision_creation_passed(self):
         """Test creating a passed decision."""
-        from syrin.guardrails.decision import GuardrailDecision
         from syrin.enums import DecisionAction
+        from syrin.guardrails.decision import GuardrailDecision
 
         decision = GuardrailDecision(passed=True, rule="content_check", confidence=0.95)
 
@@ -125,8 +123,8 @@ class TestGuardrailDecision:
 
     def test_decision_creation_blocked(self):
         """Test creating a blocked decision."""
-        from syrin.guardrails.decision import GuardrailDecision
         from syrin.enums import DecisionAction
+        from syrin.guardrails.decision import GuardrailDecision
 
         decision = GuardrailDecision(
             passed=False,
@@ -147,8 +145,8 @@ class TestGuardrailDecision:
 
     def test_decision_default_action(self):
         """Test that default action is derived from passed status."""
-        from syrin.guardrails.decision import GuardrailDecision
         from syrin.enums import DecisionAction
+        from syrin.guardrails.decision import GuardrailDecision
 
         pass_decision = GuardrailDecision(passed=True)
         assert pass_decision.action == DecisionAction.PASS
@@ -205,7 +203,7 @@ class TestGuardrailBase:
             pass
 
         with pytest.raises(TypeError):
-            guardrail = IncompleteGuardrail()
+            IncompleteGuardrail()
 
     @pytest.mark.asyncio
     async def test_guardrail_evaluate_returns_decision(self, mock_context):
@@ -504,8 +502,9 @@ class TestParallelEvaluationEngine:
         self, mock_context, slow_passing_guardrail
     ):
         """Test that guardrails run in parallel (not sequentially)."""
-        from syrin.guardrails.engine import ParallelEvaluationEngine
         import time
+
+        from syrin.guardrails.engine import ParallelEvaluationEngine
 
         engine = ParallelEvaluationEngine()
         guardrails = [slow_passing_guardrail, slow_passing_guardrail, slow_passing_guardrail]
@@ -522,9 +521,9 @@ class TestParallelEvaluationEngine:
     @pytest.mark.asyncio
     async def test_parallel_evaluation_timeout(self, mock_context):
         """Test timeout handling for slow guardrails."""
-        from syrin.guardrails.engine import ParallelEvaluationEngine
         from syrin.guardrails.base import Guardrail
         from syrin.guardrails.decision import GuardrailDecision
+        from syrin.guardrails.engine import ParallelEvaluationEngine
 
         class VerySlowGuardrail(Guardrail):
             async def evaluate(self, context):
@@ -585,13 +584,12 @@ class TestBudgetAwareness:
         """Test that expensive guardrail fails when budget exhausted."""
         from syrin.guardrails.built_in.content import ContentFilter
         from syrin.guardrails.context import GuardrailContext
-        from syrin.guardrails.decision import GuardrailDecision
 
         mock_budget = Mock()
         mock_budget.remaining = 0.0  # No budget
 
-        guardrail = ContentFilter(blocked_words=["bad"])
-        context = GuardrailContext(text="Some text", budget=mock_budget)
+        ContentFilter(blocked_words=["bad"])
+        GuardrailContext(text="Some text", budget=mock_budget)
 
         # In real implementation, should check budget before evaluation
         # and fail if insufficient
@@ -624,8 +622,8 @@ class TestGuardrailChain:
     @pytest.mark.asyncio
     async def test_chain_stops_on_first_failure(self, mock_context):
         """Test chain stops evaluating after first failure."""
-        from syrin.guardrails.chain import GuardrailChain
         from syrin.guardrails.base import Guardrail
+        from syrin.guardrails.chain import GuardrailChain
         from syrin.guardrails.decision import GuardrailDecision
 
         call_count = 0
@@ -666,8 +664,6 @@ class TestAgentIntegration:
     @pytest.mark.asyncio
     async def test_agent_with_guardrails_in_input_stage(self):
         """Test guardrails run on user input."""
-        from syrin import Agent, Model
-        from syrin.guardrails.built_in.content import ContentFilter
 
         # This will test that guardrails are called during agent.run()
         # Implementation will mock the LLM call
@@ -800,10 +796,10 @@ class TestIntegration:
     @pytest.mark.asyncio
     async def test_full_guardrail_pipeline(self):
         """Test complete pipeline from input to output."""
-        from syrin.guardrails.engine import ParallelEvaluationEngine
         from syrin.guardrails.built_in.content import ContentFilter
         from syrin.guardrails.built_in.pii import PIIScanner
         from syrin.guardrails.context import GuardrailContext
+        from syrin.guardrails.engine import ParallelEvaluationEngine
 
         engine = ParallelEvaluationEngine()
 
@@ -822,9 +818,9 @@ class TestIntegration:
     @pytest.mark.asyncio
     async def test_blocked_input_stops_pipeline(self):
         """Test that blocked input stops further processing."""
-        from syrin.guardrails.engine import ParallelEvaluationEngine
         from syrin.guardrails.built_in.content import ContentFilter
         from syrin.guardrails.context import GuardrailContext
+        from syrin.guardrails.engine import ParallelEvaluationEngine
 
         engine = ParallelEvaluationEngine()
         guardrails = [ContentFilter(blocked_words=["blocked"])]

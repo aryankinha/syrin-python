@@ -16,7 +16,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from syrin import Agent, Model
-from syrin.events import E
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
@@ -84,7 +83,6 @@ def example_tool_tracking():
         )
 
     from syrin import tool
-    from syrin.types import ToolSpec
 
     @tool
     def calculate(a: float, b: float) -> str:
@@ -123,7 +121,7 @@ def example_on_all_events():
 
     agent.events.on_all(log_all)
 
-    result = agent.response("Hi!")
+    agent.response("Hi!")
 
     print(f"\nEvents received: {events_logged}")
 

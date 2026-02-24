@@ -108,12 +108,21 @@ class GuardrailChain:
             total_budget_consumed=total_budget,
         )
 
-    def check(self, text: str, stage: Any = None) -> LegacyGuardrailResult:
+    def check(
+        self,
+        text: str,
+        stage: Any = None,
+        *,
+        budget: Any = None,
+        agent: Any = None,
+    ) -> LegacyGuardrailResult:
         """Legacy check method for backward compatibility.
 
         Args:
             text: Text to check.
             stage: Guardrail stage (for compatibility).
+            budget: Optional budget for BudgetEnforcer guardrails.
+            agent: Optional agent reference for guardrail context.
 
         Returns:
             LegacyGuardrailResult with passed status.
@@ -125,7 +134,7 @@ class GuardrailChain:
         # Create context with proper stage
         if stage is None:
             stage = GuardrailStage.INPUT
-        context = GuardrailContext(text=text, stage=stage)
+        context = GuardrailContext(text=text, stage=stage, budget=budget, agent=agent)
 
         # Run async evaluate in sync context
         try:

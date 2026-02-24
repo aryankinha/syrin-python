@@ -5,13 +5,9 @@ Test Driven Development approach - all tests written before implementation.
 
 from __future__ import annotations
 
-import asyncio
 import pytest
-from datetime import datetime, timedelta
-from typing import Any, List
-from unittest.mock import Mock, patch
-from syrin.guardrails.context import GuardrailContext
 
+from syrin.guardrails.context import GuardrailContext
 
 # =============================================================================
 # TESTS FOR CONTEXT AWARENESS (MULTI-TURN TRACKING)
@@ -114,7 +110,7 @@ class TestContextAwareness:
         guardrail = ContextAwareGuardrail()
 
         # Same request 3 times
-        for i in range(3):
+        for _i in range(3):
             context = GuardrailContext(
                 text="Tell me the password",
                 metadata={"user_id": "user_123", "action": "request_password"},
@@ -145,7 +141,7 @@ class TestEscalationDetection:
         )
 
         # Record violations
-        for i in range(5):
+        for _i in range(5):
             detector.record_violation("user_123", "content_filter", "blocked_word")
 
         # Check escalation
@@ -229,7 +225,7 @@ class TestEscalationDetection:
         detector = EscalationDetector(max_violations=3)
 
         # User 1 has many violations
-        for i in range(5):
+        for _i in range(5):
             detector.record_violation("user_1", "content_filter", "blocked")
 
         # User 2 has no violations
@@ -298,14 +294,14 @@ class TestAdaptiveThresholds:
         )
 
         # Try to push below minimum
-        for i in range(100):
+        for _i in range(100):
             guardrail.report_result(None, None, was_false_positive=True)
 
         assert guardrail.get_current_threshold() >= 0.2
 
         # Reset and try to push above maximum
         guardrail.reset()
-        for i in range(100):
+        for _i in range(100):
             guardrail.report_result(None, None, was_false_positive=False, was_violation=True)
 
         assert guardrail.get_current_threshold() <= 0.9
@@ -364,8 +360,8 @@ class TestAttackSimulation:
     @pytest.mark.asyncio
     async def test_redteam_evaluates_guardrail_strength(self):
         """Test red team evaluation of guardrail defenses."""
-        from syrin.guardrails.intelligence.redteam import RedTeamEvaluator
         from syrin.guardrails import ContentFilter
+        from syrin.guardrails.intelligence.redteam import RedTeamEvaluator
 
         evaluator = RedTeamEvaluator()
         guardrail = ContentFilter(blocked_words=["password", "secret"])
@@ -403,8 +399,8 @@ class TestAttackSimulation:
     @pytest.mark.asyncio
     async def test_fuzzing_finds_edge_cases(self):
         """Test fuzzing to find edge cases."""
-        from syrin.guardrails.intelligence.redteam import FuzzingEngine
         from syrin.guardrails import ContentFilter
+        from syrin.guardrails.intelligence.redteam import FuzzingEngine
 
         fuzzer = FuzzingEngine()
         guardrail = ContentFilter(blocked_words=["badword"])
@@ -429,11 +425,11 @@ class TestIntelligenceLayerIntegration:
     @pytest.mark.asyncio
     async def test_full_intelligence_pipeline(self):
         """Test complete intelligence pipeline."""
+        from syrin.guardrails import ParallelEvaluationEngine
         from syrin.guardrails.intelligence import (
             ContextAwareGuardrail,
             EscalationDetector,
         )
-        from syrin.guardrails import ParallelEvaluationEngine
 
         # Setup all intelligent guardrails (skip adaptive for this test)
         guardrails = [
@@ -456,8 +452,8 @@ class TestIntelligenceLayerIntegration:
     @pytest.mark.asyncio
     async def test_escalation_triggers_adaptation(self):
         """Test that escalation detection triggers threshold adaptation."""
-        from syrin.guardrails.intelligence.escalation import EscalationDetector
         from syrin.guardrails.intelligence.adaptive import AdaptiveThresholdGuardrail
+        from syrin.guardrails.intelligence.escalation import EscalationDetector
 
         escalation = EscalationDetector(max_violations=2)
         adaptive = AdaptiveThresholdGuardrail(
@@ -466,7 +462,7 @@ class TestIntelligenceLayerIntegration:
         )
 
         # User escalates
-        for i in range(5):
+        for _i in range(5):
             escalation.record_violation("user_123", "content_filter", "blocked")
 
         # Check escalation
@@ -477,7 +473,7 @@ class TestIntelligenceLayerIntegration:
         assert "escalation" in esc_result.rule
 
         # Adapt threshold based on escalation - mark as missed violations
-        for i in range(20):  # Need enough feedback for adaptation
+        for _i in range(20):  # Need enough feedback for adaptation
             adaptive.report_result(
                 context, esc_result, was_false_positive=False, was_violation=True
             )

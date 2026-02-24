@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 from syrin.types import TokenUsage
 
 # USD per 1M tokens (input, output). Keys: model_id or prefix pattern (first match wins).
@@ -65,9 +68,20 @@ def calculate_cost(
     model_id: str,
     token_usage: TokenUsage,
     pricing_override: Pricing | None = None,
+    pricing_resolver: Callable[[str], tuple[float, float]] | None = None,
 ) -> float:
-    """Compute cost in USD for the given token usage and model."""
-    if pricing_override is not None:
+    """Compute cost in USD for the given token usage and model.
+
+    Args:
+        model_id: Model identifier (e.g. openai/gpt-4o-mini).
+        token_usage: Input/output token counts.
+        pricing_override: Per-call fixed pricing (ModelPricing); overridden by resolver.
+        pricing_resolver: Optional callable(model_id) -> (input_per_1m, output_per_1m).
+            When provided, used instead of pricing_override and MODEL_PRICING.
+    """
+    if pricing_resolver is not None:
+        inp_p, out_p = pricing_resolver(model_id)
+    elif pricing_override is not None:
         inp_p, out_p = pricing_override.input_per_1m, pricing_override.output_per_1m
     else:
         inp_p, out_p = _resolve_pricing(model_id)
@@ -108,10 +122,49 @@ def _estimate_tokens(text: str) -> int:
     return max(0, (len(text) + 3) // 4)
 
 
+def estimate_cost_for_call(
+    model_id: str,
+    messages: list[Any],
+    max_output_tokens: int | None = 1024,
+    pricing_override: Pricing | None = None,
+    pricing_resolver: Callable[[str], tuple[float, float]] | None = None,
+) -> float:
+    """Estimate cost in USD for a single LLM call (best-effort).
+
+    Counts input tokens from message contents via count_tokens; uses max_output_tokens
+    for output. Actual cost may differ. Use for pre-call budget checks.
+
+    Args:
+        model_id: Model identifier (e.g. openai/gpt-4o-mini).
+        messages: List of message-like objects with .content (str).
+        max_output_tokens: Assumed max completion tokens (default 1024).
+        pricing_override: Optional ModelPricing.
+        pricing_resolver: Optional callable(model_id) -> (input_per_1m, output_per_1m).
+    """
+    out_tokens = 1024 if max_output_tokens is None else max_output_tokens
+    input_tokens = 0
+    for m in messages:
+        content = getattr(m, "content", None) or ""
+        if isinstance(content, str):
+            input_tokens += count_tokens(content, model_id)
+    usage = TokenUsage(
+        input_tokens=input_tokens,
+        output_tokens=out_tokens,
+        total_tokens=input_tokens + out_tokens,
+    )
+    return calculate_cost(
+        model_id,
+        usage,
+        pricing_override=pricing_override,
+        pricing_resolver=pricing_resolver,
+    )
+
+
 __all__ = [
     "ModelPricing",
     "Pricing",
     "MODEL_PRICING",
     "calculate_cost",
     "count_tokens",
+    "estimate_cost_for_call",
 ]

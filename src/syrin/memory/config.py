@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
+from syrin.budget import BudgetExceededContext
 from syrin.enums import (
     DecayStrategy,
     InjectionStrategy,
     MemoryBackend,
     MemoryScope,
     MemoryType,
-    OnExceeded,
 )
 
 if TYPE_CHECKING:
@@ -73,11 +74,17 @@ class MemoryBudget(BaseModel):
     """Budget constraints for memory operations.
 
     When budget is low, memory ops degrade gracefully.
+    on_exceeded: If set, called when budget would be exceeded. Raise to reject the op; return to allow.
     """
+
+    model_config = {"arbitrary_types_allowed": True}
 
     extraction_budget: float | None = Field(None, gt=0)
     consolidation_budget: float | None = Field(None, gt=0)
-    on_exceeded: OnExceeded = OnExceeded.WARN
+    on_exceeded: Callable[[BudgetExceededContext], None] | None = Field(
+        default=None,
+        description="Called when memory budget exceeded. Raise to reject store; return to allow.",
+    )
 
 
 class Consolidation(BaseModel):

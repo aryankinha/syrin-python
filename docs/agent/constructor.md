@@ -98,11 +98,11 @@ Cost limits and behavior when limits are exceeded.
 **Default:** `None` or class `budget`
 
 ```python
-from syrin import Budget
+from syrin import Budget, stop_on_exceeded
 
 agent = Agent(
     model=model,
-    budget=Budget(run=1.0, on_exceeded=OnExceeded.STOP),
+    budget=Budget(run=1.0, on_exceeded=stop_on_exceeded),
 )
 ```
 

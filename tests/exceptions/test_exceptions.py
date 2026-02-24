@@ -7,8 +7,8 @@ from syrin.exceptions import (
     BudgetThresholdError,
     CodegenError,
     ModelNotFoundError,
-    SyrinError,
     ProviderError,
+    SyrinError,
     TaskError,
     ToolExecutionError,
 )

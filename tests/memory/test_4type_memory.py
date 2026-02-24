@@ -5,7 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-from syrin.enums import DecayStrategy, MemoryType, OnExceeded
+from syrin.budget import warn_on_exceeded
+from syrin.enums import DecayStrategy, MemoryType
 from syrin.memory import (
     Decay,
     MemoryBudget,
@@ -135,7 +136,7 @@ class TestMemoryBudget:
         """Memory store should warn when budget exceeded but still store."""
         budget = MemoryBudget(
             extraction_budget=0.001,  # Very low
-            on_exceeded=OnExceeded.WARN,
+            on_exceeded=warn_on_exceeded,
         )
 
         store = MemoryStore(budget=budget)
@@ -155,7 +156,7 @@ class TestMemoryBudget:
         """Memory store should allow operations under budget."""
         budget = MemoryBudget(
             extraction_budget=1.00,
-            on_exceeded=OnExceeded.WARN,
+            on_exceeded=warn_on_exceeded,
         )
 
         store = MemoryStore(budget=budget)

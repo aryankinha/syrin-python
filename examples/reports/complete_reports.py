@@ -14,16 +14,15 @@ Run: python -m examples.reports.complete_reports
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from dotenv import load_dotenv
 
-from syrin import Agent, Model, Budget, Hook
+from dotenv import load_dotenv
+from pydantic import BaseModel
+
+from syrin import Agent, Budget, Hook, Model
+from syrin.enums import MemoryType
 from syrin.guardrails import Guardrail
 from syrin.guardrails.decision import GuardrailDecision
-from syrin.ratelimit import APIRateLimit, RateLimitThreshold
-from syrin.enums import MemoryType, ThresholdMetric, RateLimitAction
-from pydantic import BaseModel
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
@@ -155,7 +154,7 @@ def example_memory_operations():
     print(f"After 3 stores: {agent.report.memory.stores}")
 
     # Recall memories
-    memories = agent.recall("Python")
+    agent.recall("Python")
     print(f"After recall: {agent.report.memory.recalls}")
 
     # Check all memory operations in report
@@ -218,7 +217,7 @@ def example_complete_report_summary():
     result = agent.response("Tell me about Python for AI development.")
 
     # Recall relevant memories
-    relevant = agent.recall("Python AI")
+    agent.recall("Python AI")
 
     # Complete report summary
     print("\n" + "=" * 70)

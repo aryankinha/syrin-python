@@ -17,12 +17,9 @@ Example:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 
-if TYPE_CHECKING:
-    from syrin.enums import ThresholdMetric
-
-from syrin.enums import ThresholdMetric
+from syrin.enums import ThresholdMetric, ThresholdWindow
 
 
 @dataclass
@@ -63,21 +60,34 @@ T = TypeVar("T", bound="BaseThreshold")
 class BaseThreshold:
     """Base class for thresholds."""
 
-    at: int
-    action: Any  # Callable[[ThresholdContext], None]
+    at: int = 0
+    action: Any = None  # Callable[[ThresholdContext], None]
     metric: Any = None  # ThresholdMetric
+    at_range: tuple[int, int] | None = None  # (min, max): trigger when min <= pct <= max
 
     def __post_init__(self) -> None:
-        if not 0 <= self.at <= 100:
-            raise ValueError(f"Threshold 'at' must be between 0 and 100, got {self.at}")
+        if self.at_range is not None:
+            lo, hi = self.at_range
+            if not 0 <= lo <= hi <= 100:
+                raise ValueError(
+                    f"Threshold 'at_range' must be (0-100, 0-100) with lo<=hi, got {self.at_range}"
+                )
+        else:
+            if not 0 <= self.at <= 100:
+                raise ValueError(f"Threshold 'at' must be between 0 and 100, got {self.at}")
         if self.action is None:
             raise ValueError("Threshold 'action' is required")
 
     def should_trigger(self, percentage: int, metric: Any = None) -> bool:
         """Check if this threshold should trigger."""
-        if metric is not None and hasattr(metric, "value"):
-            return percentage >= self.at and str(self.metric.value) == str(metric.value)
-        return percentage >= self.at
+        if self.at_range is not None:
+            lo, hi = self.at_range
+            in_range = lo <= percentage <= hi
+        else:
+            in_range = percentage >= self.at
+        if metric is not None and hasattr(self.metric, "value") and hasattr(metric, "value"):
+            return in_range and str(self.metric.value) == str(metric.value)
+        return in_range
 
     def execute(self, ctx: ThresholdContext) -> None:
         self.action(ctx)
@@ -85,24 +95,40 @@ class BaseThreshold:
 
 @dataclass
 class BudgetThreshold(BaseThreshold):
-    """Threshold for Budget (tracks cost in USD).
-
-    Automatically uses ThresholdMetric.COST.
+    """Threshold for Budget (cost in USD or tokens).
 
     Args:
-        at: Percentage (0-100) at which to trigger
+        at: Percentage (0-100) at which to trigger (use when pct >= at).
+        at_range: Optional (min, max): trigger only when min <= pct <= max.
         action: Function to call when threshold is crossed. Receives ThresholdContext.
+        metric: ThresholdMetric.COST (default) or ThresholdMetric.TOKENS.
+        window: ThresholdWindow.RUN (default), HOUR, DAY, WEEK, or MONTH.
+            For TOKENS, limits come from TokenLimits (run_tokens and per=TokenRateLimit).
 
     Example:
-        >>> from syrin.threshold import BudgetThreshold
-        >>>
         >>> BudgetThreshold(at=80, action=lambda ctx: print(f"At {ctx.percentage}%"))
+        >>> BudgetThreshold(at=80, action=warn, window=ThresholdWindow.DAY)
+        >>> BudgetThreshold(at=80, metric=ThresholdMetric.TOKENS, window=ThresholdWindow.HOUR, action=...)
+        >>> BudgetThreshold(at_range=(70, 75), action=alert)
     """
 
     metric: Any = ThresholdMetric.COST
+    window: ThresholdWindow = ThresholdWindow.RUN
 
     def __post_init__(self) -> None:
         super().__post_init__()
+        if isinstance(self.window, str):
+            self.window = ThresholdWindow(self.window)
+        if self.window not in (
+            ThresholdWindow.RUN,
+            ThresholdWindow.HOUR,
+            ThresholdWindow.DAY,
+            ThresholdWindow.WEEK,
+            ThresholdWindow.MONTH,
+        ):
+            raise ValueError(
+                f"BudgetThreshold window must be ThresholdWindow.RUN/HOUR/DAY/WEEK/MONTH, got {self.window!r}"
+            )
 
 
 @dataclass
@@ -167,6 +193,7 @@ __all__ = [
     "ThresholdAction",
     "BaseThreshold",
     "BudgetThreshold",
+    "ThresholdWindow",
     "ContextThreshold",
     "RateLimitThreshold",
     "Threshold",  # backwards compat - same as BudgetThreshold

@@ -5,11 +5,9 @@ Test Driven Development approach - all tests written before implementation.
 
 from __future__ import annotations
 
-import asyncio
+from unittest.mock import Mock
+
 import pytest
-from datetime import datetime, timedelta
-from typing import Any
-from unittest.mock import Mock, patch
 
 
 class TestAuthorityCheck:
@@ -18,8 +16,8 @@ class TestAuthorityCheck:
     @pytest.fixture
     def mock_context_with_user(self):
         """Create context with user."""
-        from syrin.guardrails.context import GuardrailContext
         from syrin.enums import GuardrailStage
+        from syrin.guardrails.context import GuardrailContext
 
         user = Mock()
         user.id = "user123"

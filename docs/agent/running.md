@@ -98,7 +98,7 @@ All four methods follow the same flow:
 
 ## Error Handling
 
-- **BudgetExceededError** — Budget limit reached (when `on_exceeded=ERROR`)
+- **BudgetExceededError** — Budget limit reached (when `on_exceeded=raise_on_exceeded` or your callback raises)
 - **BudgetThresholdError** — Threshold action (e.g. STOP) triggered
 - **ToolExecutionError** — Tool raised or failed
 - Other provider errors propagate as usual

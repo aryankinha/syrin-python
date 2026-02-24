@@ -34,7 +34,6 @@ from syrin.observability import (
     InMemoryExporter,
     SemanticAttributes,
     SpanKind,
-    SpanStatus,
     agent_span,
     budget_span,
     current_span,
@@ -457,7 +456,7 @@ def example_sampling():
 
     # 4. Adaptive - adjusts based on error rate
     print("\n4. Adaptive Sampler:")
-    adapt_sampler = AdaptiveSampler(SamplingPolicy(), target_error_rate=0.1)
+    AdaptiveSampler(SamplingPolicy(), target_error_rate=0.1)
 
 
 # =============================================================================
@@ -495,7 +494,7 @@ def example_hooks_integration():
     agent = HookAgent(debug=False)
 
     # Attach observability to hooks
-    observer = observe_hooks(agent)
+    observe_hooks(agent)
 
     # Register event handlers using correct API
     def on_start(ctx):
@@ -508,7 +507,7 @@ def example_hooks_integration():
     agent.events.on("complete", on_complete)
 
     print("Running agent with hook observers...")
-    result = agent.response("What time is it?")
+    agent.response("What time is it?")
 
     print("\nSpans captured (includes event data):")
     for s in exporter.spans:
@@ -611,7 +610,7 @@ def example_semantic_attributes():
         tools = [fetch_data]
 
     agent = AttrAgent()
-    result = agent.response("Fetch data from users table")
+    agent.response("Fetch data from users table")
 
     # Analyze semantic attributes
     print("Semantic attributes used:")

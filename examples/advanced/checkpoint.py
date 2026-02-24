@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from uuid import uuid4
 
 from dotenv import load_dotenv
 
@@ -42,7 +41,7 @@ def example_basic_checkpoint() -> None:
         model = Model(MODEL_ID)
         system_prompt = "You are a helpful assistant."
 
-    agent = StatefulAgent()
+    StatefulAgent()
 
     # Simulate some state
     state = {
@@ -89,7 +88,7 @@ def example_checkpoint_with_agent() -> None:
     print(f"Saved checkpoint with {len(state['messages'])} messages")
 
     # Simulate resuming
-    new_agent = ResearchAgent()
+    ResearchAgent()
     loaded = checkpointer.load(checkpoint_id)
 
     if loaded:
@@ -193,7 +192,7 @@ def example_checkpoint_resume_simulation() -> None:
 
     # Phase 1: Start task
     agent1 = LongRunningAgent()
-    response1 = agent1.response("Tell me about Python")
+    agent1.response("Tell me about Python")
 
     # Save progress
     state = {

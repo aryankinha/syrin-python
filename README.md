@@ -46,11 +46,11 @@ pip install syrin
 
 ```python
 import os
-from syrin import Agent, Model, Budget, OnExceeded
+from syrin import Agent, Model, Budget, stop_on_exceeded
 
 class Researcher(Agent):
     model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
-    budget = Budget(run=0.50, on_exceeded=OnExceeded.STOP)
+    budget = Budget(run=0.50, on_exceeded=stop_on_exceeded)
 
 result = Researcher().response("Summarize quantum computing in 3 sentences")
 print(result.content)
@@ -109,7 +109,7 @@ print(result.budget_used) # cost in USD
 Every agent declares its budget upfront. Automatic actions when thresholds hit.
 
 ```python
-from syrin import Agent, Budget, BudgetThreshold, Model, RateLimit, OnExceeded
+from syrin import Agent, Budget, BudgetThreshold, Model, RateLimit, raise_on_exceeded
 from syrin.exceptions import BudgetExceededError
 
 def stop_on_limit(ctx):
@@ -118,7 +118,7 @@ def stop_on_limit(ctx):
 budget = Budget(
     run=0.50,
     per=RateLimit(hour=10.00, day=100.00),
-    on_exceeded=OnExceeded.ERROR,
+    on_exceeded=raise_on_exceeded,
     thresholds=[
         BudgetThreshold(at=70, action=lambda ctx: print(f"Budget at {ctx.percentage}%")),
         BudgetThreshold(at=90, action=lambda ctx: ctx.parent.switch_model(Model("openai/gpt-4o-mini"))),
@@ -266,11 +266,11 @@ print(result.cost)     # ~$0.0005
 ### With Budget
 
 ```python
-from syrin import Agent, Model, Budget, OnExceeded
+from syrin import Agent, Model, Budget, raise_on_exceeded
 
 class Researcher(Agent):
     model = Model.OpenAI("gpt-4o-mini")
-    budget = Budget(run=0.50, on_exceeded=OnExceeded.ERROR)
+    budget = Budget(run=0.50, on_exceeded=raise_on_exceeded)
 
 result = Researcher().response("Research quantum computing")
 print(result.cost)       # ~$0.04
@@ -387,7 +387,7 @@ LangChain, LangGraph, CrewAI, and AutoGen each have strengths (LangChain's ecosy
 
 - **72+ lifecycle hooks** — Observe every step: `agent.events.on(Hook.LLM_REQUEST_START, handler)`, `Hook.BUDGET_THRESHOLD`, `Hook.TOOL_CALL_START`, etc. No black boxes.
 - **Declarative thresholds** — Define actions at 70%, 90%, 100% budget. Warn, switch model, or stop. No custom glue code.
-- **StrEnum everywhere** — `OnExceeded.ERROR`, `MemoryType.CORE` — no magic strings, full IDE autocomplete.
+- **Callbacks for behavior** — `on_exceeded=raise_on_exceeded` or your own function; `MemoryType.CORE` and other enums for options.
 - **TOON schemas** — Compact tool format (~40% fewer characters than JSON; see [examples/core/toon_format.py](examples/core/toon_format.py)).
 - **mypy strict** — Full type safety across the API.
 - **Extensible Model** — Add any LLM in ~30 lines by inheriting `syrin.Model`.

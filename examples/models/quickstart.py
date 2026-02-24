@@ -23,13 +23,11 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 # =============================================================================
 # Organized Imports - By Category
 # =============================================================================
-import syrin
 
 # Core
 from syrin import Model
 
 # Structured Output
-from syrin import structured
 
 
 # =============================================================================

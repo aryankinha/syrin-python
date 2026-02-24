@@ -14,12 +14,11 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Annotated, Optional
 
 from dotenv import load_dotenv
 
 from syrin import Agent, Model
-from syrin.model import OutputType, structured
+from syrin.model import structured
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
@@ -43,7 +42,7 @@ class PersonInfo:
     """Person information extracted from text."""
 
     name: str
-    age: Optional[int] = None
+    age: int | None = None
     occupation: str = "unknown"
     hobbies: list[str] = []
 
@@ -56,7 +55,7 @@ class WeatherData:
     temperature: float
     unit: str = "celsius"
     conditions: str = "clear"
-    humidity: Optional[int] = None
+    humidity: int | None = None
 
 
 def example_basic_structured_output() -> None:
@@ -73,7 +72,7 @@ def example_basic_structured_output() -> None:
 
     result = agent.response("I absolutely love this product! It's amazing!")
 
-    print(f"Input: 'I absolutely love this product! It's amazing!'")
+    print("Input: 'I absolutely love this product! It's amazing!'")
     print(f"Raw response: {result.content}")
     print(f"Structured data: {result.data}")
 
@@ -98,7 +97,7 @@ Return JSON with: name, age (if mentioned), occupation, and hobbies (list)."""
 
     result = agent.response("John is a 35-year-old software engineer who loves hiking and reading.")
 
-    print(f"Input: 'John is a 35-year-old software engineer...'")
+    print("Input: 'John is a 35-year-old software engineer...'")
     print(f"Extracted data: {result.data}")
 
 
@@ -114,7 +113,7 @@ def example_with_type_hints() -> None:
     class TodoItem:
         title: str
         priority: str  # high, medium, low
-        due_days: Optional[int] = None
+        due_days: int | None = None
         tags: list[str] = []
 
     class TodoAgent(Agent):
@@ -127,7 +126,7 @@ def example_with_type_hints() -> None:
         "Finish the quarterly report - high priority, due in 3 days, tags: work, urgent"
     )
 
-    print(f"Input: Todo item description")
+    print("Input: Todo item description")
     print(f"Parsed result: {result.data}")
 
 
@@ -153,7 +152,7 @@ def example_list_of_objects() -> None:
 
     result = agent.response("Team standup at 10am with Alice, Bob, and Charlie")
 
-    print(f"Input: 'Team standup at 10am with Alice, Bob, and Charlie'")
+    print("Input: 'Team standup at 10am with Alice, Bob, and Charlie'")
     print(f"Meeting details: {result.data}")
 
 

@@ -56,7 +56,6 @@ class BudgetEnforcer(Guardrail):
         self.cost = cost
         self.warn_threshold = warn_threshold
         self.fail_on_no_budget = fail_on_no_budget
-        self.budget_cost = cost
 
     async def evaluate(self, context: GuardrailContext) -> GuardrailDecision:
         """Check if action is within budget.
@@ -104,6 +103,8 @@ class BudgetEnforcer(Guardrail):
 
         budget = context.budget
         remaining = getattr(budget, "remaining", 0)
+        if remaining is None:
+            remaining = float("inf")  # Unlimited budget
 
         # Check for negative budget
         if remaining < 0:
@@ -145,9 +146,10 @@ class BudgetEnforcer(Guardrail):
 
         # Check warning threshold
         if self.warn_threshold is not None:
-            limit = getattr(budget, "limit", remaining)
-            if limit > 0:
-                ratio = remaining / limit
+            limit_raw = getattr(budget, "limit", None) or getattr(budget, "run", remaining)
+            warn_limit: float = remaining if limit_raw is None else float(limit_raw)
+            if warn_limit > 0:
+                ratio = remaining / warn_limit
                 if ratio < self.warn_threshold:
                     # Consume budget if checks passed
                     if hasattr(budget, "consume"):
@@ -160,7 +162,7 @@ class BudgetEnforcer(Guardrail):
                         action=DecisionAction.WARN,
                         metadata={
                             "remaining": remaining,
-                            "limit": limit,
+                            "limit": warn_limit,
                             "ratio": ratio,
                             "threshold": self.warn_threshold,
                         },

@@ -4,19 +4,18 @@ from __future__ import annotations
 
 import os
 import tempfile
-import pytest
 from datetime import datetime
-from typing import Any
+
+import pytest
 
 from syrin.checkpoint import (
+    BACKENDS,
+    CheckpointConfig,
+    Checkpointer,
     CheckpointState,
-    CheckpointBackendProtocol,
     MemoryCheckpointBackend,
     SQLiteCheckpointBackend,
-    Checkpointer,
-    CheckpointConfig,
     get_checkpoint_backend,
-    BACKENDS,
 )
 from syrin.enums import CheckpointBackend, CheckpointStrategy
 
@@ -385,9 +384,9 @@ class TestCheckpointIntegration:
             ],
         }
 
-        id1 = checkpointer.save("research_agent", state1)
+        checkpointer.save("research_agent", state1)
         id2 = checkpointer.save("research_agent", state2)
-        id3 = checkpointer.save("research_agent", state3)
+        checkpointer.save("research_agent", state3)
 
         checkpoints = checkpointer.list_checkpoints("research_agent")
         assert len(checkpoints) == 3

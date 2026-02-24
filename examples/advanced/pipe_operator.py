@@ -53,7 +53,7 @@ def example_basic_pipe() -> None:
         uppercase,
     )
 
-    print(f"Input: 'hello world'")
+    print("Input: 'hello world'")
     print(f"Output: '{result}'")
 
 
@@ -104,7 +104,7 @@ def example_pipe_with_agent() -> None:
         extract_answer,
     ).result()
 
-    print(f"Input: 'What is Python?'")
+    print("Input: 'What is Python?'")
     print(f"Output: {result[:100]}...")
 
 
@@ -130,7 +130,7 @@ def example_pipe_multiple_values() -> None:
         format_count,
     )
 
-    print(f"Input: 'hello world from python'")
+    print("Input: 'hello world from python'")
     print(f"Output: '{result}'")
 
 
@@ -155,7 +155,7 @@ def example_pipe_async() -> None:
         return result
 
     result = asyncio.run(run_async_pipe())
-    print(f"Input: 5")
+    print("Input: 5")
     print(f"Output: {result}")
 
 
@@ -170,7 +170,7 @@ def example_pipe_async_method() -> None:
         return await result.result_async()
 
     result = asyncio.run(run())
-    print(f"Input: 10")
+    print("Input: 10")
     print(f"Output: {result}")
 
 

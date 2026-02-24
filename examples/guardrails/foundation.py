@@ -5,16 +5,17 @@ Basic guardrails for content filtering, PII detection, and parallel evaluation.
 """
 
 import asyncio
+
+from syrin.enums import GuardrailStage
 from syrin.guardrails import (
+    ContentFilter,
     Guardrail,
+    GuardrailChain,
     GuardrailContext,
     GuardrailDecision,
-    ContentFilter,
-    PIIScanner,
     ParallelEvaluationEngine,
-    GuardrailChain,
+    PIIScanner,
 )
-from syrin.enums import GuardrailStage
 
 
 async def example_basic_content_filter():
@@ -182,7 +183,7 @@ async def example_decision_inspection():
     print(f"  Action: {result.action}")
     print(f"  Metadata: {result.metadata}")
     print(f"  Alternatives: {result.alternatives}")
-    print(f"\nJSON Representation:")
+    print("\nJSON Representation:")
     print(result.to_json())
 
 

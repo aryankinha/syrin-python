@@ -16,7 +16,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from syrin import Agent, BufferMemory, Memory, MemoryType, Model
+from syrin import Agent, Memory, MemoryType, Model
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
@@ -63,18 +63,18 @@ def example_memory_types() -> None:
     print("1. Storing different memory types:")
 
     assistant.remember("User prefers to be addressed as Dr. Smith", memory_type=MemoryType.CORE)
-    print(f"   CORE: User prefers to be addressed as Dr. Smith")
+    print("   CORE: User prefers to be addressed as Dr. Smith")
 
     assistant.remember("User asked about machine learning at 2pm", memory_type=MemoryType.EPISODIC)
-    print(f"   EPISODIC: User asked about machine learning at 2pm")
+    print("   EPISODIC: User asked about machine learning at 2pm")
 
     assistant.remember("User works in healthcare technology", memory_type=MemoryType.SEMANTIC)
-    print(f"   SEMANTIC: User works in healthcare technology")
+    print("   SEMANTIC: User works in healthcare technology")
 
     assistant.remember(
         "When user asks about ML, first recommend PyTorch", memory_type=MemoryType.PROCEDURAL
     )
-    print(f"   PROCEDURAL: When user asks about ML, first recommend PyTorch")
+    print("   PROCEDURAL: When user asks about ML, first recommend PyTorch")
 
     print("\n2. Listing all memories:")
     for mem in assistant.recall():

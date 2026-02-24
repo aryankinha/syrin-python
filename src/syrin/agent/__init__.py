@@ -5,20 +5,23 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from typing import Any, cast
 
 from syrin.budget import (
     Budget,
+    BudgetExceededContext,
+    BudgetLimitType,
     BudgetStatus,
     BudgetTracker,
-    OnExceeded,
+    CheckBudgetResult,
+    TokenLimits,
 )
 from syrin.budget_store import BudgetStore
 from syrin.checkpoint import CheckpointConfig, Checkpointer
 from syrin.context import Context, DefaultContextManager
 from syrin.context.config import ContextStats
-from syrin.cost import calculate_cost
+from syrin.cost import calculate_cost, estimate_cost_for_call
 from syrin.enums import (
     GuardrailStage,
     Hook,
@@ -183,6 +186,7 @@ class Agent:
         max_tool_iterations: int = DEFAULT_MAX_TOOL_ITERATIONS,
         budget_store: BudgetStore | None = None,
         budget_store_key: str = "default",
+        token_limits: TokenLimits | None = None,
         memory: ConversationMemory | MemoryConfig | None = None,
         loop_strategy: LoopStrategy = LoopStrategy.REACT,
         loop: Loop | type[Loop] | None = None,
@@ -212,6 +216,8 @@ class Agent:
                 Why: Track spend across restarts. Requires budget_store_key.
             budget_store_key: Key for budget persistence (default "default").
                 Why: Isolate budgets per user/session when using budget_store.
+            token_limits: Optional token usage caps (separate from Budget). Use for run_tokens
+                and per-period token caps. Budget = real money (USD); token_limits = usage.
             memory: Conversation memory (BufferMemory) or persistent MemoryConfig.
                 Why: Enables remember/recall/forget or session history.
             loop_strategy: Execution strategy (REACT, SINGLE_SHOT, etc.).
@@ -268,10 +274,12 @@ class Agent:
         self._budget = budget
         self._budget_store = budget_store
         self._budget_store_key = budget_store_key
+        self._token_limits = token_limits
         self._conversation_memory: ConversationMemory | None = None
         self._persistent_memory: MemoryConfig | None = None
         self._memory_backend: InMemoryBackend | None = None
         self._parent_agent: Agent | None = None
+        self._budget_tracker_shared: bool = False
         self._provider: Provider
 
         if memory is None:
@@ -286,13 +294,30 @@ class Agent:
             self._memory_backend = get_backend(memory.backend, path=memory.path)
         else:
             self._conversation_memory = memory
-        if budget and budget_store:
+        if (budget or token_limits) and budget_store and budget:
             loaded = budget_store.load(budget_store_key)
             self._budget_tracker = loaded if loaded is not None else BudgetTracker()
         else:
             self._budget_tracker = BudgetTracker()
         self._provider = _get_provider(self._model_config.provider)
         self._agent_name = self.__class__.__name__
+        if self._budget is not None:
+            self._budget._consume_callback = self._make_budget_consume_callback()
+        if self._budget is not None and self._budget.per is not None and self._budget_store is None:
+            _log.warning(
+                "Rate limits (hour/day/week/month) are in-memory only; "
+                "pass budget_store (e.g. FileBudgetStore) to persist across restarts."
+            )
+        if self._budget is not None and self._model is not None:
+            pricing = getattr(self._model, "pricing", None)
+            if pricing is None and hasattr(self._model, "get_pricing"):
+                pricing = self._model.get_pricing()
+            if pricing is None:
+                _log.warning(
+                    "Model %r has no pricing; budget cost may be 0 or incorrect. "
+                    "Set pricing_override or input_price/output_price on the model.",
+                    self._model_config.model_id,
+                )
 
         loop_instance: Loop
         if loop is not None:
@@ -422,9 +447,15 @@ class Agent:
             "iteration": self._run_report.tokens.total_tokens,
             "messages": [],  # Could include conversation history
             "memory_data": {},
-            "budget_state": {"remaining": self._budget.remaining, "spent": self._budget._spent}
-            if self._budget
-            else None,
+            "budget_state": (
+                {
+                    "remaining": self._budget.remaining,
+                    "spent": self._budget._spent,
+                    "tracker_state": self._budget_tracker.get_state(),
+                }
+                if self._budget is not None
+                else None
+            ),
             "checkpoint_reason": reason,
         }
 
@@ -474,6 +505,15 @@ class Agent:
         state = self._checkpointer.load(checkpoint_id)
         if state is None:
             return False
+
+        budget_state = getattr(state, "budget_state", None)
+        if budget_state is not None and self._budget is not None:
+            tracker_state = budget_state.get("tracker_state")
+            if tracker_state is not None:
+                self._budget_tracker.load_state(tracker_state)
+            spent = budget_state.get("spent")
+            if spent is not None:
+                self._budget._set_spent(spent)
 
         self._run_report.checkpoints.loads += 1
         self._emit_event(Hook.CHECKPOINT_LOAD, EventContext(checkpoint_id=checkpoint_id))
@@ -656,6 +696,28 @@ class Agent:
             {'current_run_cost': 0.0012, 'hourly_cost': 0.05, ...}
         """
         return self._budget_tracker.get_summary().to_dict()
+
+    def get_budget_tracker(self) -> BudgetTracker | None:
+        """Return the budget tracker when this agent has a budget or token_limits.
+
+        Use for reservation (reserve/commit/rollback) or inspection. Returns None
+        if the agent has neither budget nor token_limits.
+
+        Example:
+            >>> tracker = agent.get_budget_tracker()
+            >>> if tracker:
+            ...     token = tracker.reserve(estimated_cost)
+            ...     try:
+            ...         response = await agent.complete(messages, tools)
+            ...         token.commit(actual_cost, response.token_usage)
+            ...     except Exception:
+            ...         token.rollback()
+        """
+        return (
+            self._budget_tracker
+            if (self._budget is not None or self._token_limits is not None)
+            else None
+        )
 
     @property
     def memory(self) -> ConversationMemory | MemoryConfig | None:
@@ -989,7 +1051,7 @@ class Agent:
                 SemanticAttributes.GUARDRAIL_STAGE: stage.value,
             },
         ) as guardrail_span:
-            result = self._guardrails.check(text, stage)
+            result = self._guardrails.check(text, stage, budget=self._budget, agent=self)
 
             guardrail_span.set_attribute(
                 SemanticAttributes.GUARDRAIL_PASSED,
@@ -1172,14 +1234,17 @@ class Agent:
 
         child_agent = agent_class(**agent_kwargs)
 
-        # Track parent for budget updates
-        if hasattr(agent_kwargs.get("budget"), "_parent_budget"):
+        # When shared budget, child uses parent's tracker so parent has live view
+        borrowed = agent_kwargs.get("budget")
+        if borrowed is not None and getattr(borrowed, "_parent_budget", None) is not None:
             child_agent._parent_agent = self
+            child_agent._budget_tracker = self._budget_tracker
+            child_agent._budget_tracker_shared = True
 
         if task:
             result = child_agent.response(task)
-            # Update parent's budget with child's spending (borrow mechanism)
-            self._update_parent_budget(result.cost)
+            if not getattr(child_agent, "_budget_tracker_shared", False):
+                self._update_parent_budget(result.cost)
             return result
 
         return child_agent
@@ -1187,16 +1252,16 @@ class Agent:
     def _update_parent_budget(self, cost: float) -> None:
         """Update parent's budget when child spends (borrow mechanism)."""
         if self._budget is not None:
-            # Record the cost in parent's budget tracker
             from syrin.types import CostInfo
 
-            cost_info = CostInfo(
-                cost_usd=cost, model_name=getattr(self._model, "model_id", "unknown")
+            model_id = (
+                self._model_config.model_id
+                if hasattr(self, "_model_config") and self._model_config
+                else "unknown"
             )
+            cost_info = CostInfo(cost_usd=cost, model_name=model_id)
             self._budget_tracker.record(cost_info)
-            # Update budget's spent tracking
-            current_spent = getattr(self._budget, "_spent", 0.0)
-            self._budget._set_spent(current_spent + cost)
+            self._budget._set_spent(self._budget_tracker.current_run_cost)
 
     def spawn_parallel(
         self,
@@ -1445,35 +1510,165 @@ class Agent:
         """
         return self._execute_tool(name, arguments)
 
-    def _check_and_apply_budget(self) -> None:
-        """Raise if budget exceeded; apply threshold actions (switch, warn). Stop raises."""
-        if self._budget is None:
+    def estimate_call_cost(
+        self,
+        messages: list[Any],
+        max_output_tokens: int = 1024,
+    ) -> float:
+        """Estimate cost in USD for the next LLM call (best-effort).
+
+        Uses model pricing and token counts from message contents. Actual cost may
+        differ. Useful for pre-call budget checks.
+
+        Args:
+            messages: List of Message (role, content) to be sent.
+            max_output_tokens: Assumed max completion tokens (default 1024).
+
+        Returns:
+            Estimated cost in USD.
+        """
+        if self._model_config is None:
+            return 0.0
+        pricing = getattr(self._model, "pricing", None) if self._model is not None else None
+        if pricing is None and self._model is not None and hasattr(self._model, "get_pricing"):
+            pricing = self._model.get_pricing()
+        return estimate_cost_for_call(
+            self._model_config.model_id,
+            messages,
+            max_output_tokens=max_output_tokens,
+            pricing_override=pricing,
+        )
+
+    def _pre_call_budget_check(
+        self,
+        messages: list[Any],
+        max_output_tokens: int = 1024,
+    ) -> None:
+        """If run budget would be exceeded after an estimated call, call on_exceeded and raise.
+
+        Best-effort: uses estimated cost; actual cost may differ. Call before complete().
+        Skipped when run limit is 0 (post-call check only).
+        """
+        if self._budget is None or self._budget.run is None:
             return
-        status = self._budget_tracker.check_budget(self._budget)
-        if status == BudgetStatus.EXCEEDED:
-            run_cost = self._budget_tracker.current_run_cost
-            limit = self._budget.run or 0
-            on_exceeded = self._budget.on_exceeded
-            if on_exceeded == OnExceeded.ERROR:
-                raise BudgetExceededError(
-                    f"Budget exceeded: run cost ${run_cost:.4f} >= ${limit:.4f}",
-                    current_cost=run_cost,
-                    limit=limit,
-                    budget_type="run",
+        effective_run = (
+            (self._budget.run - self._budget.reserve)
+            if self._budget.run > self._budget.reserve
+            else self._budget.run
+        )
+        if effective_run is not None and effective_run <= 0:
+            return
+        estimate = self.estimate_call_cost(messages, max_output_tokens=max_output_tokens)
+        run_usage = self._budget_tracker.run_usage_with_reserved
+        if run_usage + estimate < effective_run:
+            return
+        on_exceeded = self._budget.on_exceeded
+        limit = effective_run
+        current = run_usage + estimate
+        msg = (
+            f"Budget would be exceeded: estimated run cost ${current:.4f} >= ${limit:.4f} "
+            "(pre-call estimate)"
+        )
+        if on_exceeded is not None:
+            ctx = BudgetExceededContext(
+                current_cost=current,
+                limit=limit,
+                budget_type=BudgetLimitType.RUN,
+                message=msg,
+            )
+            on_exceeded(ctx)
+        raise BudgetExceededError(
+            msg, current_cost=current, limit=limit, budget_type=BudgetLimitType.RUN.value
+        )
+
+    def _check_and_apply_budget(self) -> None:
+        """Raise if budget or token limits exceeded; apply threshold actions (switch, warn). Stop raises."""
+        if self._budget is None and self._token_limits is None:
+            return
+        result: CheckBudgetResult = self._budget_tracker.check_budget(
+            self._budget, token_limits=self._token_limits, parent=self
+        )
+        if result.status != BudgetStatus.EXCEEDED:
+            return
+        limit_key = result.exceeded_limit or BudgetLimitType.RUN
+        on_exceeded = self._budget.on_exceeded if self._budget is not None else None
+        if (
+            (
+                limit_key
+                in (
+                    BudgetLimitType.RUN_TOKENS,
+                    BudgetLimitType.HOUR_TOKENS,
+                    BudgetLimitType.DAY_TOKENS,
+                    BudgetLimitType.WEEK_TOKENS,
+                    BudgetLimitType.MONTH_TOKENS,
                 )
-            if on_exceeded == OnExceeded.WARN:
-                _log.warning(
-                    "Budget exceeded: run cost %.4f >= %.4f",
-                    run_cost,
-                    limit,
+                and self._token_limits is not None
+                and self._token_limits.on_exceeded is not None
+            )
+            or on_exceeded is None
+            and self._token_limits is not None
+        ):
+            on_exceeded = self._token_limits.on_exceeded
+        if limit_key == BudgetLimitType.RUN:
+            current = self._budget_tracker.current_run_cost
+            if self._budget is None:
+                limit = 0.0
+            else:
+                effective_run = (
+                    (self._budget.run - self._budget.reserve)
+                    if self._budget.run is not None and self._budget.run > self._budget.reserve
+                    else self._budget.run
                 )
-                return
-            if on_exceeded == OnExceeded.STOP:
-                raise BudgetThresholdError(
-                    f"Budget exceeded (stop): ${run_cost:.4f} >= ${limit:.4f}",
-                    threshold_percent=100.0,
-                    action_taken="stop",
-                )
+                limit = effective_run or 0.0
+            msg = f"Budget exceeded: run cost ${current:.4f} >= ${limit:.4f}"
+        elif limit_key == BudgetLimitType.RUN_TOKENS:
+            current = self._budget_tracker.current_run_tokens
+            run_tok = self._token_limits.run_tokens if self._token_limits is not None else None
+            limit = float(run_tok or 0)
+            msg = f"Budget exceeded: run tokens {current} >= {int(limit)}"
+        elif limit_key in (
+            BudgetLimitType.HOUR_TOKENS,
+            BudgetLimitType.DAY_TOKENS,
+            BudgetLimitType.WEEK_TOKENS,
+            BudgetLimitType.MONTH_TOKENS,
+        ):
+            token_per = self._token_limits.per if self._token_limits is not None else None
+            if limit_key == BudgetLimitType.HOUR_TOKENS and token_per is not None:
+                current = float(self._budget_tracker.hourly_tokens)
+                limit = float(token_per.hour or 0)
+            elif limit_key == BudgetLimitType.DAY_TOKENS and token_per is not None:
+                current = float(self._budget_tracker.daily_tokens)
+                limit = float(token_per.day or 0)
+            elif limit_key == BudgetLimitType.WEEK_TOKENS and token_per is not None:
+                current = float(self._budget_tracker.weekly_tokens)
+                limit = float(token_per.week or 0)
+            elif limit_key == BudgetLimitType.MONTH_TOKENS and token_per is not None:
+                current = float(self._budget_tracker.monthly_tokens)
+                limit = float(token_per.month or 0)
+            else:
+                current, limit = 0.0, 0.0
+            msg = f"Budget exceeded: {limit_key.value} {int(current)} >= {int(limit)}"
+        else:
+            per = self._budget.per if self._budget else None
+            if limit_key == BudgetLimitType.HOUR and per:
+                current, limit = self._budget_tracker.hourly_cost, (per.hour or 0)
+            elif limit_key == BudgetLimitType.DAY and per:
+                current, limit = self._budget_tracker.daily_cost, (per.day or 0)
+            elif limit_key == BudgetLimitType.WEEK and per:
+                current, limit = self._budget_tracker.weekly_cost, (per.week or 0)
+            elif limit_key == BudgetLimitType.MONTH and per:
+                current, limit = self._budget_tracker.monthly_cost, (per.month or 0)
+            else:
+                current, limit = self._budget_tracker.current_run_cost, 0.0
+            msg = f"Budget exceeded: {limit_key.value} cost ${current:.4f} >= ${limit:.4f}"
+        if on_exceeded is not None:
+            ctx = BudgetExceededContext(
+                current_cost=current,
+                limit=limit,
+                budget_type=limit_key,
+                message=msg,
+            )
+            on_exceeded(ctx)
 
     def _check_and_apply_rate_limit(self) -> None:
         """Check rate limits and apply threshold actions (switch model, wait, warn, stop).
@@ -1571,7 +1766,7 @@ class Agent:
         self._rate_limit_manager.record(tokens_used=token_usage.total_tokens)
 
     def _record_cost(self, token_usage: TokenUsage, model_id: str) -> None:
-        """Compute cost, build CostInfo, record on tracker, then re-check thresholds."""
+        """Compute cost, build CostInfo, record on tracker, sync Budget._spent, then re-check thresholds."""
         pricing = getattr(self._model, "pricing", None) if self._model is not None else None
         cost_usd = calculate_cost(model_id, token_usage, pricing_override=pricing)
         cost_info = CostInfo(
@@ -1579,7 +1774,26 @@ class Agent:
             cost_usd=cost_usd,
             model_name=model_id,
         )
+        self._record_cost_info(cost_info)
+
+    def _make_budget_consume_callback(self) -> Callable[[float], None]:
+        """Return a callback for Budget.consume() so guardrails can record cost."""
+
+        def _consume(amount: float) -> None:
+            model_id = (
+                self._model_config.model_id
+                if hasattr(self, "_model_config") and self._model_config
+                else "unknown"
+            )
+            self._record_cost_info(CostInfo(cost_usd=amount, model_name=model_id))
+
+        return _consume
+
+    def _record_cost_info(self, cost_info: CostInfo) -> None:
+        """Record a CostInfo (e.g. from streaming). Syncs spent and checks budget."""
         self._budget_tracker.record(cost_info)
+        if self._budget is not None:
+            self._budget._set_spent(self._budget_tracker.current_run_cost)
         if self._budget_store is not None:
             self._budget_store.save(self._budget_store_key, self._budget_tracker)
         self._check_and_apply_budget()
@@ -1657,8 +1871,7 @@ class Agent:
                 total_tokens=token_usage.get("total", 0),
             )
 
-            if self._budget is not None:
-                self._record_cost(tokens, self._model_config.model_id)
+            # Cost is recorded per LLM call by the loop; no need to record again here
 
             agent_span.set_attribute(SemanticAttributes.LLM_TOKENS_TOTAL, tokens.total_tokens)
             agent_span.set_attribute("cost.usd", result.cost_usd)
@@ -1741,12 +1954,14 @@ class Agent:
         return _get_agent_loop().run_until_complete(self._run_loop_response_async(user_input))
 
     def _stream_response(self, user_input: str) -> Iterator[StreamChunk]:
-        """Stream response chunks synchronously. Returns StreamChunk with accumulated text."""
+        """Stream response chunks synchronously. Records cost per chunk and checks budget mid-stream."""
         messages = self._build_messages(user_input)
         tools = self._tools if self._tools else None
         accumulated = ""
         total_cost = 0.0
         total_tokens = TokenUsage()
+        prev_cost = 0.0
+        prev_tokens = TokenUsage()
 
         try:
             for chunk in self._provider.stream_sync(messages, self._model_config, tools):
@@ -1761,12 +1976,36 @@ class Agent:
                     total_tokens=total_tokens.total_tokens
                     + (chunk.token_usage.total_tokens if hasattr(chunk, "token_usage") else 0),
                 )
+                if self._budget is not None or self._token_limits is not None:
+                    delta_cost = total_cost - prev_cost
+                    delta_tokens = TokenUsage(
+                        input_tokens=total_tokens.input_tokens - prev_tokens.input_tokens,
+                        output_tokens=total_tokens.output_tokens - prev_tokens.output_tokens,
+                        total_tokens=total_tokens.total_tokens - prev_tokens.total_tokens,
+                    )
+                    if delta_cost > 0 or delta_tokens.total_tokens > 0:
+                        cost_info = CostInfo(
+                            cost_usd=delta_cost,
+                            token_usage=delta_tokens,
+                            model_name=self._model_config.model_id,
+                        )
+                        self._budget_tracker.record(cost_info)
+                        if self._budget is not None:
+                            self._budget._set_spent(self._budget_tracker.current_run_cost)
+                        if self._budget_store is not None:
+                            self._budget_store.save(self._budget_store_key, self._budget_tracker)
                 yield StreamChunk(
                     text=content,
                     accumulated_text=accumulated,
                     cost_so_far=total_cost,
                     tokens_so_far=total_tokens,
                 )
+                if self._budget is not None or self._token_limits is not None:
+                    self._check_and_apply_budget()
+                prev_cost = total_cost
+                prev_tokens = total_tokens
+        except (BudgetExceededError, BudgetThresholdError):
+            raise
         except Exception as e:
             raise ToolExecutionError(f"Streaming failed: {e}") from e
 
@@ -1792,8 +2031,10 @@ class Agent:
         """
         # Reset report for new run
         self._run_report = AgentReport()
-        if self._budget is not None:
+        if self._budget is not None or self._token_limits is not None:
             self._budget_tracker.reset_run()
+            if self._budget is not None:
+                self._budget._set_spent(0)
         try:
             return self._run_loop_response(user_input)
         except (BudgetThresholdError, BudgetExceededError):
@@ -1818,8 +2059,10 @@ class Agent:
             >>> r = await agent.arun("Summarize this")
         """
         self._run_report = AgentReport()
-        if self._budget is not None:
+        if self._budget is not None or self._token_limits is not None:
             self._budget_tracker.reset_run()
+            if self._budget is not None:
+                self._budget._set_spent(0)
         try:
             return await self._run_loop_response_async(user_input)
         except (BudgetThresholdError, BudgetExceededError):
@@ -1843,8 +2086,10 @@ class Agent:
             >>> for chunk in agent.stream("Write a poem"):
             ...     print(chunk.text, end="")
         """
-        if self._budget is not None:
+        if self._budget is not None or self._token_limits is not None:
             self._budget_tracker.reset_run()
+            if self._budget is not None:
+                self._budget._set_spent(0)
         yield from self._stream_response(user_input)
 
     async def astream(self, user_input: str) -> AsyncIterator[StreamChunk]:
@@ -1856,13 +2101,17 @@ class Agent:
             >>> async for chunk in agent.astream("Write a poem"):
             ...     print(chunk.text, end="")
         """
-        if self._budget is not None:
+        if self._budget is not None or self._token_limits is not None:
             self._budget_tracker.reset_run()
+            if self._budget is not None:
+                self._budget._set_spent(0)
         messages = self._build_messages(user_input)
         tools = self._tools if self._tools else None
         accumulated = ""
         total_cost = 0.0
         total_tokens = TokenUsage()
+        prev_cost = 0.0
+        prev_tokens = TokenUsage()
 
         try:
             async for chunk in self._provider.stream(messages, self._model_config, tools):
@@ -1877,11 +2126,35 @@ class Agent:
                     total_tokens=total_tokens.total_tokens
                     + (chunk.token_usage.total_tokens if hasattr(chunk, "token_usage") else 0),
                 )
+                if self._budget is not None or self._token_limits is not None:
+                    delta_cost = total_cost - prev_cost
+                    delta_tokens = TokenUsage(
+                        input_tokens=total_tokens.input_tokens - prev_tokens.input_tokens,
+                        output_tokens=total_tokens.output_tokens - prev_tokens.output_tokens,
+                        total_tokens=total_tokens.total_tokens - prev_tokens.total_tokens,
+                    )
+                    if delta_cost > 0 or delta_tokens.total_tokens > 0:
+                        cost_info = CostInfo(
+                            cost_usd=delta_cost,
+                            token_usage=delta_tokens,
+                            model_name=self._model_config.model_id,
+                        )
+                        self._budget_tracker.record(cost_info)
+                        if self._budget is not None:
+                            self._budget._set_spent(self._budget_tracker.current_run_cost)
+                        if self._budget_store is not None:
+                            self._budget_store.save(self._budget_store_key, self._budget_tracker)
                 yield StreamChunk(
                     text=content,
                     accumulated_text=accumulated,
                     cost_so_far=total_cost,
                     tokens_so_far=total_tokens,
                 )
+                if self._budget is not None or self._token_limits is not None:
+                    self._check_and_apply_budget()
+                prev_cost = total_cost
+                prev_tokens = total_tokens
+        except (BudgetExceededError, BudgetThresholdError):
+            raise
         except Exception as e:
             raise ToolExecutionError(f"Streaming failed: {e}") from e

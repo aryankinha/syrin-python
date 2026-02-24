@@ -8,7 +8,9 @@ No need to attach a debugger or write custom hooks!
 """
 
 import os
+
 from dotenv import load_dotenv
+
 from syrin import Agent, Model
 from syrin.tool import tool
 

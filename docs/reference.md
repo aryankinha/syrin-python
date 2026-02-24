@@ -82,22 +82,20 @@ class MyAgent(Agent):
 
 ## Budget Management
 
-Control costs and prevent overspending.
+Control costs (USD) and prevent overspending. Budget is **spend only**; for token usage caps use **TokenLimits** separately — see [Budget Control](budget-control.md).
 
 ```python
 import os
-from syrin import Agent, Budget, Model, OnExceeded
+from syrin import Agent, Budget, RateLimit, Model, raise_on_exceeded
 from syrin.threshold import BudgetThreshold
 
 class BudgetAgent(Agent):
     def __init__(self):
         super().__init__()
         self.budget = Budget(
-            run=0.10,           # Max $0.10 per request
-            hourly=5.00,        # Max $5 per hour
-            daily=50.00,        # Max $50 per day
-            monthly=500.00,     # Max $500 per month
-            on_exceeded=OnExceeded.ERROR,  # or WARN
+            run=0.10,                              # Max $0.10 per request
+            per=RateLimit(hour=5.00, day=50.00, month=500.00),
+            on_exceeded=raise_on_exceeded,        # or warn_on_exceeded
             thresholds=[
                 BudgetThreshold(at=80, action=lambda ctx: print(f"Budget at {ctx.percentage}%")),
                 BudgetThreshold(at=95, action=lambda ctx: ctx.parent.switch_model(Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY")))),
@@ -105,9 +103,7 @@ class BudgetAgent(Agent):
         )
 ```
 
-**OnExceeded Options:**
-- `OnExceeded.WARN` - Show warning but continue
-- `OnExceeded.ERROR` - Stop and raise error
+**on_exceeded:** Pass a callback. Use `raise_on_exceeded` to stop and raise, or `warn_on_exceeded` to log and continue.
 
 ---
 
@@ -147,7 +143,7 @@ What you get back from `agent.response()`:
 response = agent.response("Hello")
 
 response.content          # The answer text
-response.cost_usd         # $ spent
+response.cost             # $ spent
 response.tokens           # Tokens used
 response.model            # Which model
 response.duration         # Seconds taken
@@ -165,11 +161,11 @@ response.raw             # Raw API response
 Use these constants instead of strings:
 
 ```python
-from syrin import OnExceeded, LoopStrategy
+from syrin import LoopStrategy
 
 # For budgets
-OnExceeded.WARN
-OnExceeded.ERROR
+warn_on_exceeded
+raise_on_exceeded
 
 # For loops
 LoopStrategy.REACT  # Think-Act-Observe (default)
@@ -260,7 +256,7 @@ agent.response("What's my name?")  # It remembers!
 
 ```python
 import os
-from syrin import Agent, Budget, OnExceeded, Model
+from syrin import Agent, Budget, Model, raise_on_exceeded
 
 class BudgetAgent(Agent):
     model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
@@ -269,12 +265,12 @@ class BudgetAgent(Agent):
         super().__init__()
         self.budget = Budget(
             run=0.10,
-            on_exceeded=OnExceeded.ERROR
+            on_exceeded=raise_on_exceeded
         )
 
 agent = BudgetAgent()
 response = agent.response("Do something")
-print(f"Cost: ${response.cost_usd:.4f}")
+print(f"Cost: ${response.cost:.4f}")
 ```
 
 ### Pattern 5: Multiple Agents

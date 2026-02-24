@@ -42,7 +42,19 @@ from syrin.agent.multi_agent import (
     parallel,
     sequential,
 )
-from syrin.budget import Budget, BudgetThreshold, RateLimit, Threshold
+from syrin.budget import (
+    Budget,
+    BudgetExceededContext,
+    BudgetLimitType,
+    BudgetThreshold,
+    RateLimit,
+    Threshold,
+    TokenLimits,
+    TokenRateLimit,
+    raise_on_exceeded,
+    stop_on_exceeded,
+    warn_on_exceeded,
+)
 from syrin.budget_store import BudgetStore, FileBudgetStore, InMemoryBudgetStore
 from syrin.checkpoint import (
     CheckpointConfig,
@@ -88,7 +100,6 @@ from syrin.enums import (
     MemoryType,
     MessageRole,
     OffloadBackend,
-    OnExceeded,
     ProgressStatus,
     RateWindow,
     RetryBackoff,
@@ -97,6 +108,7 @@ from syrin.enums import (
     StopReason,
     SwitchReason,
     ThresholdMetric,
+    ThresholdWindow,
     TraceLevel,
     TracingBackend,
 )
@@ -313,9 +325,15 @@ __all__ = [
     # Budget
     # =============================================================================
     "Budget",
+    "BudgetExceededContext",
     "RateLimit",
+    "TokenLimits",
+    "TokenRateLimit",
     "Threshold",
     "BudgetThreshold",
+    "raise_on_exceeded",
+    "stop_on_exceeded",
+    "warn_on_exceeded",
     "BudgetStore",
     "InMemoryBudgetStore",
     "FileBudgetStore",
@@ -383,7 +401,6 @@ __all__ = [
     # =============================================================================
     # Enums
     # =============================================================================
-    "OnExceeded",
     "StopReason",
     "LoopStrategy",
     "ContextStrategy",
@@ -412,7 +429,9 @@ __all__ = [
     "RetryBackoff",
     "CircuitState",
     "ProgressStatus",
+    "BudgetLimitType",
     "ThresholdMetric",
+    "ThresholdWindow",
     "Events",
     "EventContext",
     "E",

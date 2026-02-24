@@ -7,27 +7,24 @@ End-to-end examples combining foundation, authority, and intelligence layers.
 import asyncio
 from unittest.mock import Mock
 
-from syrin import Agent, Model
+from syrin.enums import GuardrailStage
 from syrin.guardrails import (
-    Guardrail,
-    GuardrailContext,
-    GuardrailDecision,
-    ContentFilter,
-    PIIScanner,
     AuthorityCheck,
     BudgetEnforcer,
-    ThresholdApproval,
-    HumanApproval,
     CapabilityToken,
-    ParallelEvaluationEngine,
+    ContentFilter,
     GuardrailChain,
+    GuardrailContext,
+    HumanApproval,
+    ParallelEvaluationEngine,
+    PIIScanner,
+    ThresholdApproval,
 )
 from syrin.guardrails.intelligence import (
+    AdaptiveThresholdGuardrail,
     ContextAwareGuardrail,
     EscalationDetector,
-    AdaptiveThresholdGuardrail,
 )
-from syrin.enums import GuardrailStage, DecisionAction
 
 
 async def example_financial_services_guardrails():
@@ -126,10 +123,10 @@ async def example_content_moderation_pipeline():
         was_missed = result.passed and not is_safe
 
         if was_false_positive:
-            print(f"    → False positive detected, adjusting threshold")
+            print("    → False positive detected, adjusting threshold")
             adaptive_filter.report_result(context, result, was_false_positive=True)
         elif was_missed:
-            print(f"    → Missed violation detected, adjusting threshold")
+            print("    → Missed violation detected, adjusting threshold")
             adaptive_filter.report_result(
                 context, result, was_false_positive=False, was_violation=True
             )
@@ -241,7 +238,7 @@ async def example_multi_tenant_saas_guardrails():
         # Check HIPAA compliance
         if "HIPAA" in query and not config["requires_hipaa_compliance"]:
             print(f"  ✗ {customer_id}: '{query[:40]}...'")
-            print(f"      REJECTED: HIPAA compliance not enabled for this customer")
+            print("      REJECTED: HIPAA compliance not enabled for this customer")
             continue
 
         print(f"  ✓ {customer_id}: '{query[:40]}...'")
@@ -278,16 +275,16 @@ async def example_complete_agent_with_all_layers():
 
     print("Guardrail configuration:")
     print(f"  Input Layer: {len(input_guardrails)} guardrails")
-    print(f"    - ContentFilter (harmful/illegal/dangerous)")
-    print(f"    - PIIScanner (redaction enabled)")
+    print("    - ContentFilter (harmful/illegal/dangerous)")
+    print("    - PIIScanner (redaction enabled)")
     print(f"\n  Authority Layer: {len(action_guardrails)} guardrails")
-    print(f"    - AuthorityCheck (requires: agent:use)")
-    print(f"    - BudgetEnforcer ($100/action, $500/day)")
-    print(f"    - HumanApproval (for sensitive actions)")
+    print("    - AuthorityCheck (requires: agent:use)")
+    print("    - BudgetEnforcer ($100/action, $500/day)")
+    print("    - HumanApproval (for sensitive actions)")
     print(f"\n  Intelligence Layer: {len(monitoring_guardrails)} guardrails")
-    print(f"    - ContextAwareGuardrail (10 turn history)")
-    print(f"    - EscalationDetector (3 violations/5min)")
-    print(f"    - AdaptiveThresholdGuardrail (auto-tuning)")
+    print("    - ContextAwareGuardrail (10 turn history)")
+    print("    - EscalationDetector (3 violations/5min)")
+    print("    - AdaptiveThresholdGuardrail (auto-tuning)")
 
     print("\n\nExample usage scenarios:")
 
@@ -303,11 +300,11 @@ async def example_complete_agent_with_all_layers():
 
         # Simulate evaluation
         if any(word in query.lower() for word in ["ignore", "reveal", "system"]):
-            print(f"  ✗ BLOCKED: Suspicious query detected")
+            print("  ✗ BLOCKED: Suspicious query detected")
         elif metadata.get("sensitive"):
-            print(f"  ⏳ AWAITING: Human approval required for sensitive action")
+            print("  ⏳ AWAITING: Human approval required for sensitive action")
         else:
-            print(f"  ✓ ALLOWED: Query passed all guardrails")
+            print("  ✓ ALLOWED: Query passed all guardrails")
 
 
 async def main():

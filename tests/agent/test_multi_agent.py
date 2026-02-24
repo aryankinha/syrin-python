@@ -184,6 +184,29 @@ class TestSpawn:
         assert child._budget is not None
 
     @patch("syrin.agent._get_provider")
+    def test_spawn_shared_budget_child_uses_parent_tracker(self, mock_get_provider):
+        """With shared budget, child uses parent's tracker (live view, no double count)."""
+        from syrin import Budget
+
+        mock_get_provider.return_value = create_mock_provider()
+
+        class Parent(Agent):
+            model = Model("test/model")
+
+        class Child(Agent):
+            model = Model("test/model")
+
+        parent = Parent(budget=Budget(run=10.0, shared=True))
+        parent_tracker = parent._budget_tracker
+
+        result = parent.spawn(Child, task="Do something")
+        assert result is not None
+        # Child shared parent's tracker (live view)
+        assert parent._budget_tracker is parent_tracker
+        # Spent must match tracker: no double count from _update_parent_budget
+        assert parent._budget._spent == parent._budget_tracker.current_run_cost
+
+    @patch("syrin.agent._get_provider")
     def test_spawn_max_children_limit(self, mock_get_provider):
         """Test spawn respects max_children limit."""
         mock_get_provider.return_value = create_mock_provider()

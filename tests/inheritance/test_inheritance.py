@@ -277,13 +277,12 @@ class TestInheritanceEdgeCases:
 
     def test_inheritance_budget_exceeded(self) -> None:
         """Test budget inheritance behavior."""
-        from syrin.budget import Budget
-        from syrin.enums import OnExceeded
+        from syrin.budget import Budget, raise_on_exceeded
         from syrin.exceptions import BudgetExceededError
 
         class Base(Agent):
             model = Model("openai/gpt-4")
-            budget = Budget(run=0.000001, on_exceeded=OnExceeded.ERROR)
+            budget = Budget(run=0.000001, on_exceeded=raise_on_exceeded)
 
         class Child(Base):
             pass

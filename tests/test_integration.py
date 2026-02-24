@@ -14,8 +14,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from syrin import Agent, Budget
-from syrin.enums import MessageRole, OnExceeded
+from syrin import Agent, Budget, warn_on_exceeded
+from syrin.budget import raise_on_exceeded
+from syrin.enums import MessageRole
 from syrin.model import Model
 from syrin.tool import tool
 from syrin.types import (
@@ -101,7 +102,7 @@ class TestAgentIntegrationWorkflows:
     def test_agent_with_budget_workflow(self):
         """Test agent with budget: tracks costs end-to-end."""
         model = Model("openai/gpt-4o-mini")
-        budget = Budget(run=10.0, on_exceeded=OnExceeded.WARN)
+        budget = Budget(run=10.0, on_exceeded=warn_on_exceeded)
         agent = Agent(model=model, budget=budget)
 
         with patch.object(agent._provider, "complete", new_callable=AsyncMock) as mock:
@@ -181,7 +182,7 @@ class TestBudgetTrackingIntegration:
     def test_budget_warning_workflow(self):
         """Test budget warning: cost exceeds threshold → warning."""
         model = Model("openai/gpt-4o-mini")
-        budget = Budget(run=1.0, on_exceeded=OnExceeded.WARN)
+        budget = Budget(run=1.0, on_exceeded=warn_on_exceeded)
         agent = Agent(model=model, budget=budget)
 
         with patch.object(agent._provider, "complete", new_callable=AsyncMock) as mock:
@@ -200,7 +201,7 @@ class TestBudgetTrackingIntegration:
     def test_budget_error_workflow(self):
         """Test budget error: cost exceeds limit → raises."""
         model = Model("openai/gpt-4o-mini")
-        budget = Budget(run=0.000001, on_exceeded=OnExceeded.ERROR)
+        budget = Budget(run=0.000001, on_exceeded=raise_on_exceeded)
         agent = Agent(model=model, budget=budget)
 
         with patch.object(agent._provider, "complete", new_callable=AsyncMock) as mock:

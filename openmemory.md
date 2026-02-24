@@ -34,9 +34,9 @@
 - **agent.py** — `Agent(model, system_prompt, tools)`, `response(user_input)` with tool-call loop; `_get_provider(provider_name)` resolves to provider instance
 - **prompt.py** — `PromptTemplate(template, name)`, `render(**kwargs)` / `__call__`; `@prompt` on no-arg function returning template string
 - **response.py** — `Response(content, token_usage, cost, model, trace, tool_calls, latency_ms)`, `TraceStep`; `str(response)` → content
-- **budget_store.py** — `BudgetStore` ABC (get/save), `InMemoryBudgetStore`, `FileBudgetStore(path, single_file=True)`
-- **cost.py** — `MODEL_PRICING` (USD per 1M tokens), `Pricing`, `calculate_cost()`, `count_tokens()` (tiktoken or estimate)
-- **budget.py** — `Budget` (run, per RateLimit, on_exceeded, thresholds), `RateLimit`, `Threshold`, `SwitchModelAction`/`StopAction`/`WarnAction`/`CustomAction`, `SwitchModel()`/`Stop()`/`Warn()` constructors, `BudgetTracker` (record, check_budget, check_thresholds, reset_run, get_summary, rolling windows), `BudgetStatus`, `BudgetSummary`, `CostEntry`; re-exports `Pricing`
+- **budget_store.py** — `BudgetStore` ABC (load/save), `InMemoryBudgetStore`, `FileBudgetStore(path, single_file=True)`; FileBudgetStore uses fcntl locking on save for concurrent safety (Unix)
+- **cost.py** — `MODEL_PRICING`, `Pricing`, `calculate_cost(model_id, token_usage, pricing_override=, pricing_resolver=)`, `count_tokens()` (tiktoken or estimate); optional `pricing_resolver` callable for pluggable pricing
+- **budget.py** — `Budget` (run, per RateLimit, on_exceeded, thresholds), `RateLimit`, `Threshold`, `BudgetTracker` (record, check_budget → `CheckBudgetResult(status, exceeded_limit)`), `CheckBudgetResult`, `BudgetStatus`, `BudgetSummary`, `CostEntry`; re-exports `Pricing`
 - **agent.py** — Optional `budget`, `budget_store`, `budget_store_key`, `memory`; `__init_subclass__` sets _Syrin_default_* from MRO (tools merged, prompt/model/budget first-defined); `_build_messages` includes memory.get_messages(); after response, memory.add(user + assistant); `response()` returns `Response`; `switch_model(model)`, `budget_summary`
 - **memory.py** — `Memory` ABC (add, get_messages, clear), `BufferMemory`, `WindowMemory(k)` (last k message pairs)
 - **pipe.py** — `Pipe(value).then(fn).result()` / `.result_async()`, `pipe(value, f1, f2, ...)`; async steps run via asyncio.run in result()

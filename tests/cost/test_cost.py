@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from syrin.cost import (
     MODEL_PRICING,
     Pricing,
@@ -23,6 +25,55 @@ def test_calculate_cost_with_override() -> None:
     usage = TokenUsage(input_tokens=1_000_000, output_tokens=0)
     cost = calculate_cost("unknown/model", usage, pricing_override=Pricing(1.0, 2.0))
     assert cost == 1.0
+
+
+def test_calculate_cost_with_pricing_resolver() -> None:
+    """When pricing_resolver is provided, it is used instead of built-in or override."""
+    usage = TokenUsage(input_tokens=1_000_000, output_tokens=500_000)
+
+    def resolver(model_id: str) -> tuple[float, float]:
+        assert model_id == "custom/model"
+        return (2.0, 4.0)
+
+    cost = calculate_cost("custom/model", usage, pricing_resolver=resolver)
+    assert cost == 4.0  # 1M*2 + 0.5M*4 = 2 + 2
+
+
+def test_calculate_cost_pricing_resolver_takes_precedence_over_override() -> None:
+    """pricing_resolver overrides pricing_override when both are given."""
+    usage = TokenUsage(input_tokens=1_000_000, output_tokens=0)
+
+    def resolver(_: str) -> tuple[float, float]:
+        return (10.0, 20.0)
+
+    cost = calculate_cost(
+        "any/model",
+        usage,
+        pricing_override=Pricing(1.0, 2.0),
+        pricing_resolver=resolver,
+    )
+    assert cost == 10.0
+
+
+def test_calculate_cost_pricing_resolver_none_uses_builtin() -> None:
+    """When pricing_resolver is None, built-in MODEL_PRICING is used."""
+    usage = TokenUsage(input_tokens=1_000_000, output_tokens=0)
+    cost = calculate_cost("gpt-4o-mini", usage, pricing_resolver=None)
+    assert cost == 0.15
+
+
+def test_calculate_cost_pricing_resolver_raises_propagates() -> None:
+    """When pricing_resolver raises, the exception propagates."""
+
+    def resolver(_: str) -> tuple[float, float]:
+        raise ValueError("custom resolver error")
+
+    with pytest.raises(ValueError, match="custom resolver error"):
+        calculate_cost(
+            "any/model",
+            TokenUsage(input_tokens=100, output_tokens=100),
+            pricing_resolver=resolver,
+        )
 
 
 def test_calculate_cost_unknown_model_zero() -> None:

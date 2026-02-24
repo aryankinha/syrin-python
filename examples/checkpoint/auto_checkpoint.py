@@ -14,7 +14,7 @@ Note: This example uses mock model and won't make actual API calls.
 import os
 import tempfile
 
-from syrin import Agent, Model, CheckpointConfig, CheckpointTrigger, tool
+from syrin import Agent, CheckpointConfig, CheckpointTrigger, Model
 
 
 def example_with_step_trigger():

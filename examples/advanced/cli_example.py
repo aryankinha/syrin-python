@@ -14,11 +14,10 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from unittest.mock import MagicMock
 
 from dotenv import load_dotenv
 
-from syrin import Agent, CLI, Model
+from syrin import CLI, Agent, Model
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
@@ -105,16 +104,13 @@ def example_cli_with_agent() -> None:
     print("Simulating conversation...\n")
 
     # Mock the input to test
-    original_input = input
     inputs = iter(["Hello", "/quit"])
 
     def mock_input(prompt):
         try:
             return next(inputs)
-        except StopIteration:
-            raise EOFError()
-
-    input = mock_input
+        except StopIteration as err:
+            raise EOFError() from err
 
     try:
         cli.serve(agent)
@@ -145,7 +141,7 @@ def example_cli_commands_simulation() -> None:
     print("CLI Command Simulation")
     print("=" * 50)
 
-    cli = CLI()
+    CLI()
 
     class BudgetAgent(Agent):
         model = Model(MODEL_ID)

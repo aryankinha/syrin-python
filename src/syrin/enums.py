@@ -1,14 +1,6 @@
 from enum import StrEnum
 
 
-class OnExceeded(StrEnum):
-    """What happens when an agent exceeds its budget."""
-
-    ERROR = "error"
-    STOP = "stop"
-    WARN = "warn"
-
-
 class StopReason(StrEnum):
     """Why an agent run terminated."""
 
@@ -130,6 +122,40 @@ class RateWindow(StrEnum):
     DAY = "day"
     WEEK = "week"
     MONTH = "month"
+
+
+class ThresholdWindow(StrEnum):
+    """Window for thresholds: run (per execution) or time-based (hour/day/week/month).
+
+    Reusable for budget thresholds, rate-limit thresholds, and other threshold types
+    that need a run or time window.
+    """
+
+    RUN = "run"
+    HOUR = "hour"
+    DAY = "day"
+    WEEK = "week"
+    MONTH = "month"
+
+
+class BudgetLimitType(StrEnum):
+    """Which budget limit was exceeded or is being reported.
+
+    Used by CheckBudgetResult.exceeded_limit and BudgetExceededContext.budget_type.
+    Exhaustive: run, run_tokens, and cost/token rate limits per window.
+    """
+
+    RUN = "run"
+    RUN_TOKENS = "run_tokens"
+    HOUR = "hour"
+    DAY = "day"
+    WEEK = "week"
+    MONTH = "month"
+    HOUR_TOKENS = "hour_tokens"
+    DAY_TOKENS = "day_tokens"
+    WEEK_TOKENS = "week_tokens"
+    MONTH_TOKENS = "month_tokens"
+    MEMORY = "memory"  # custom limit for memory/store extraction budget
 
 
 class AuditBackend(StrEnum):

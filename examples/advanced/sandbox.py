@@ -16,15 +16,14 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-
-from syrin import Agent, Model
-from syrin.enums import SandboxRuntime
 from syrin.sandbox import (
     LocalSandbox,
-    SandboxResult,
     SubprocessSandbox,
     get_sandbox,
 )
+
+from syrin import Agent, Model
+from syrin.enums import SandboxRuntime
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
@@ -75,7 +74,7 @@ print(json.dumps(data))
     print(f"Duration: {result.duration:.4f}s")
 
 
-def example_sandbox_error_handling() → None:
+def example_sandbox_error_handling() -> None:
     """Handling sandbox errors."""
     print("\n" + "=" * 50)
     print("Sandbox Error Handling")
@@ -140,6 +139,7 @@ print("File executed successfully")
 
     # Clean up
     import os
+
     os.unlink(temp_path)
 
 

@@ -14,9 +14,9 @@ import pytest
 
 from syrin import Agent, Budget, Hook, Pipeline
 from syrin.agent.multi_agent import parallel, sequential
-from syrin.budget import RateLimit
+from syrin.budget import RateLimit, raise_on_exceeded, stop_on_exceeded
 from syrin.checkpoint import CheckpointConfig, CheckpointTrigger
-from syrin.enums import LoopStrategy, MemoryType, OnExceeded
+from syrin.enums import LoopStrategy, MemoryType
 from syrin.memory import BufferMemory
 from syrin.model import Model
 from syrin.tool import tool
@@ -38,7 +38,9 @@ def _create_mock_provider():
     mock = MagicMock()
     mock.complete = AsyncMock(return_value=_mock_provider_response())
     mock.stream_sync = MagicMock(
-        return_value=iter([_mock_provider_response(content="chunk1"), _mock_provider_response(content="chunk2")])
+        return_value=iter(
+            [_mock_provider_response(content="chunk1"), _mock_provider_response(content="chunk2")]
+        )
     )
 
     async def _stream_gen(*_args, **_kwargs):
@@ -194,8 +196,10 @@ class TestBudgetExamples:
         agent = Agent(model=Model("openai/gpt-4o-mini"), budget=Budget(run=1.0))
         response = agent.response("Hello")
         assert response.content
+        assert hasattr(response, "cost")
         summary = agent.budget_summary
-        assert "current_run_cost" in summary or "run_cost" in summary or "run_remaining" in summary
+        assert "current_run_cost" in summary
+        assert "hourly_tokens" in summary
 
     def test_budget_params_construction(self):
         agent = Agent(
@@ -203,7 +207,7 @@ class TestBudgetExamples:
             budget=Budget(
                 run=1.0,
                 per=RateLimit(hour=10),
-                on_exceeded=OnExceeded.ERROR,
+                on_exceeded=raise_on_exceeded,
                 shared=False,
             ),
         )
@@ -219,6 +223,17 @@ class TestBudgetExamples:
             budget_store_key="user_123",
         )
         assert agent._budget_store is not None
+
+    def test_get_budget_tracker_returns_tracker_when_budget_set(self):
+        agent = Agent(model=Model("openai/gpt-4o-mini"), budget=Budget(run=1.0))
+        tracker = agent.get_budget_tracker()
+        assert tracker is not None
+        state = tracker.get_state()
+        assert "version" in state or "cost_history" in state
+
+    def test_get_budget_tracker_returns_none_when_no_budget(self):
+        agent = Agent(model=Model("openai/gpt-4o-mini"))
+        assert agent.get_budget_tracker() is None
 
 
 # -----------------------------------------------------------------------------
@@ -308,7 +323,7 @@ class TestConstructorExamples:
     def test_budget_constructor(self):
         agent = Agent(
             model=Model("openai/gpt-4o-mini"),
-            budget=Budget(run=1.0, on_exceeded=OnExceeded.STOP),
+            budget=Budget(run=1.0, on_exceeded=stop_on_exceeded),
         )
         assert agent._budget is not None
 
@@ -323,7 +338,9 @@ class TestConstructorExamples:
 
         agent = Agent(
             model=Model("openai/gpt-4o-mini"),
-            output=Output(Answer, validation_retries=3, context={"allowed_domains": ["example.com"]}),
+            output=Output(
+                Answer, validation_retries=3, context={"allowed_domains": ["example.com"]}
+            ),
         )
         assert agent._output is not None
 
@@ -347,7 +364,9 @@ class TestConstructorExamples:
 
         agent = Agent(
             model=Model("openai/gpt-4o-mini"),
-            memory=MemoryConfig(types=[MemoryType.CORE, MemoryType.EPISODIC], top_k=10, auto_store=True),
+            memory=MemoryConfig(
+                types=[MemoryType.CORE, MemoryType.EPISODIC], top_k=10, auto_store=True
+            ),
         )
         assert agent.memory is not None
 
@@ -423,7 +442,9 @@ class TestConstructorExamples:
             memory=None,
             loop_strategy=LoopStrategy.REACT,
             guardrails=[],
-            checkpoint=CheckpointConfig(enabled=True, trigger=CheckpointTrigger.STEP, max_checkpoints=5),
+            checkpoint=CheckpointConfig(
+                enabled=True, trigger=CheckpointTrigger.STEP, max_checkpoints=5
+            ),
             debug=False,
         )
         response = agent.response("What is quantum computing?")
@@ -481,7 +502,9 @@ class TestCreatingAgentsExamples:
             tools = [calculate]
 
         agent = MathResearcher()
-        assert agent._model_config.model_id == "gpt-4o-mini" or "gpt-4o-mini" in str(agent._model_config.model_id)
+        assert agent._model_config.model_id == "gpt-4o-mini" or "gpt-4o-mini" in str(
+            agent._model_config.model_id
+        )
         assert len(agent._tools) == 2
 
     def test_override_at_instantiation(self):

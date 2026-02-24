@@ -1,5 +1,9 @@
 """Syrin exception hierarchy."""
 
+from __future__ import annotations
+
+from typing import Any
+
 
 class SyrinError(Exception):
     """Base exception for all Syrin errors."""
@@ -8,19 +12,27 @@ class SyrinError(Exception):
 
 
 class BudgetExceededError(SyrinError):
-    """Raised when a budget limit is exceeded."""
+    """Raised when a budget limit is exceeded.
+
+    Attributes:
+        message: Human-readable error message.
+        current_cost: Current cost or token count that exceeded the limit.
+        limit: The limit that was exceeded.
+        budget_type: Which limit was exceeded (str, one of BudgetLimitType values).
+    """
 
     def __init__(
         self,
         message: str,
         current_cost: float = 0.0,
         limit: float = 0.0,
-        budget_type: str = "run",
+        budget_type: str | Any = "run",
     ) -> None:
         super().__init__(message)
         self.current_cost = current_cost
         self.limit = limit
-        self.budget_type = budget_type
+        _bt = budget_type
+        self.budget_type: str = _bt.value if hasattr(_bt, "value") else _bt
 
 
 class BudgetThresholdError(SyrinError):

@@ -17,11 +17,8 @@ import syrin
 # Organized Imports - By Category
 # =============================================================================
 # Core
-from syrin import Model
-
 # Structured Output
-from syrin import structured
-
+from syrin import Model
 from syrin.types import Message, ProviderResponse
 
 # Setup logging

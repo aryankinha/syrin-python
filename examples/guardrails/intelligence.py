@@ -6,16 +6,16 @@ attack simulation, and red team evaluation.
 """
 
 import asyncio
-from syrin.guardrails import GuardrailContext
+
+from syrin.guardrails import ContentFilter, GuardrailContext, ParallelEvaluationEngine
 from syrin.guardrails.intelligence import (
-    ContextAwareGuardrail,
-    EscalationDetector,
     AdaptiveThresholdGuardrail,
     AttackSimulator,
-    RedTeamEvaluator,
+    ContextAwareGuardrail,
+    EscalationDetector,
     FuzzingEngine,
+    RedTeamEvaluator,
 )
-from syrin.guardrails import ContentFilter, ParallelEvaluationEngine
 
 
 async def example_context_awareness():
@@ -41,7 +41,7 @@ async def example_context_awareness():
         print(f"  User: '{text}'")
 
         if result.metadata.get("escalation_detected"):
-            print(f"    ⚠️  ESCALATION DETECTED!")
+            print("    ⚠️  ESCALATION DETECTED!")
             print(f"       Pattern: {result.metadata['escalation_pattern']}")
 
     # Show conversation history
@@ -117,7 +117,7 @@ async def example_adaptive_thresholds():
 
     # Show stats
     stats = guardrail.get_stats()
-    print(f"\nStatistics:")
+    print("\nStatistics:")
     print(f"  False positive rate: {stats['false_positive_rate']:.2%}")
     print(f"  Missed violation rate: {stats['missed_violation_rate']:.2%}")
 
@@ -170,7 +170,7 @@ async def example_red_team_evaluation():
         guardrail=guardrail, attack_types=["jailbreak", "encoding"], iterations=10
     )
 
-    print(f"\nResults:")
+    print("\nResults:")
     print(f"  Total attempts: {results['total_attempts']}")
     print(f"  Blocked: {results['blocked_count']}")
     print(f"  Bypassed: {results['bypassed_count']}")
@@ -192,7 +192,7 @@ async def example_fuzzing():
 
     bypasses = [f for f in findings if f.bypassed]
 
-    print(f"Total mutations: 30")
+    print("Total mutations: 30")
     print(f"Bypasses found: {len(bypasses)}")
 
     if bypasses:

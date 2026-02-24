@@ -288,12 +288,12 @@ Memory operations can respect budget constraints:
 
 ```python
 from Syrin.memory import MemoryStore, MemoryBudget
-from Syrin.enums import OnExceeded
+from syrin.budget import warn_on_exceeded
 
 # Create budget constraints
 budget = MemoryBudget(
     extraction_budget=0.01,  # $0.01 max per operation
-    on_exceeded=OnExceeded.WARN,  # warn but allow
+    on_exceeded=warn_on_exceeded,  # warn but allow
 )
 
 store = MemoryStore(budget=budget)

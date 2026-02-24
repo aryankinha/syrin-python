@@ -91,9 +91,17 @@ class SingleShotLoop(Loop):
         )
 
         agent._check_and_apply_rate_limit()
+        _max_ot = (
+            (getattr(agent._model, "metadata", None) or {}).get("max_output_tokens", 1024)
+            if getattr(agent, "_model", None)
+            else 1024
+        )
+        agent._pre_call_budget_check(messages, max_output_tokens=_max_ot)
         response = await agent.complete(messages)
         if agent._rate_limit_manager_internal is not None:
             agent._record_rate_limit_usage(response.token_usage)
+        if agent._budget is not None:
+            agent._record_cost(response.token_usage, agent._model_config.model_id)
 
         latency_ms = (time.perf_counter() - run_start) * 1000
         content = response.content or ""
@@ -182,6 +190,12 @@ class ReactLoop(Loop):
             iteration += 1
             agent._check_and_apply_budget()
             agent._check_and_apply_rate_limit()
+            _max_ot = (
+                (getattr(agent._model, "metadata", None) or {}).get("max_output_tokens", 1024)
+                if getattr(agent, "_model", None)
+                else 1024
+            )
+            agent._pre_call_budget_check(messages, max_output_tokens=_max_ot)
 
             agent._emit_event(Hook.LLM_REQUEST_START, EventContext(iteration=iteration))
 
@@ -189,9 +203,8 @@ class ReactLoop(Loop):
 
             if agent._rate_limit_manager_internal is not None:
                 agent._record_rate_limit_usage(response.token_usage)
-
-            # Check budget AFTER the LLM call to capture cost and trigger thresholds
-            agent._check_and_apply_budget()
+            if agent._budget is not None:
+                agent._record_cost(response.token_usage, agent._model_config.model_id)
 
             stop_reason = getattr(response, "stop_reason", None) or StopReason.END_TURN
 
@@ -360,11 +373,19 @@ class HumanInTheLoop(Loop):
         while iteration < self.max_iterations:
             iteration += 1
             agent._check_and_apply_rate_limit()
+            _max_ot = (
+                (getattr(agent._model, "metadata", None) or {}).get("max_output_tokens", 1024)
+                if getattr(agent, "_model", None)
+                else 1024
+            )
+            agent._pre_call_budget_check(messages, max_output_tokens=_max_ot)
 
             response = await agent.complete(messages, tools)
 
             if agent._rate_limit_manager_internal is not None:
                 agent._record_rate_limit_usage(response.token_usage)
+            if agent._budget is not None:
+                agent._record_cost(response.token_usage, agent._model_config.model_id)
 
             if not response.tool_calls:
                 break
@@ -527,12 +548,20 @@ class PlanExecuteLoop(Loop):
         while plan_iteration < self.max_plan_iterations:
             plan_iteration += 1
             agent._check_and_apply_rate_limit()
+            _max_ot = (
+                (getattr(agent._model, "metadata", None) or {}).get("max_output_tokens", 1024)
+                if getattr(agent, "_model", None)
+                else 1024
+            )
+            agent._pre_call_budget_check(messages, max_output_tokens=_max_ot)
             agent._emit_event(Hook.LLM_REQUEST_START, EventContext(iteration=plan_iteration))
 
             response = await agent.complete(messages, tools)
 
             if agent._rate_limit_manager_internal is not None:
                 agent._record_rate_limit_usage(response.token_usage)
+            if agent._budget is not None:
+                agent._record_cost(response.token_usage, agent._model_config.model_id)
 
             u = response.token_usage
             total_input += u.input_tokens
@@ -579,6 +608,12 @@ class PlanExecuteLoop(Loop):
             exec_iteration += 1
             agent._check_and_apply_budget()
             agent._check_and_apply_rate_limit()
+            _max_ot = (
+                (getattr(agent._model, "metadata", None) or {}).get("max_output_tokens", 1024)
+                if getattr(agent, "_model", None)
+                else 1024
+            )
+            agent._pre_call_budget_check(messages, max_output_tokens=_max_ot)
             agent._emit_event(
                 Hook.LLM_REQUEST_START, EventContext(iteration=plan_iteration + exec_iteration)
             )
@@ -587,6 +622,8 @@ class PlanExecuteLoop(Loop):
 
             if agent._rate_limit_manager_internal is not None:
                 agent._record_rate_limit_usage(response.token_usage)
+            if agent._budget is not None:
+                agent._record_cost(response.token_usage, agent._model_config.model_id)
 
             u = response.token_usage
             total_input += u.input_tokens
@@ -719,12 +756,20 @@ class CodeActionLoop(Loop):
             iteration += 1
             agent._check_and_apply_budget()
             agent._check_and_apply_rate_limit()
+            _max_ot = (
+                (getattr(agent._model, "metadata", None) or {}).get("max_output_tokens", 1024)
+                if getattr(agent, "_model", None)
+                else 1024
+            )
+            agent._pre_call_budget_check(messages, max_output_tokens=_max_ot)
             agent._emit_event(Hook.LLM_REQUEST_START, EventContext(iteration=iteration))
 
             response = await agent.complete(messages, tools)
 
             if agent._rate_limit_manager_internal is not None:
                 agent._record_rate_limit_usage(response.token_usage)
+            if agent._budget is not None:
+                agent._record_cost(response.token_usage, agent._model_config.model_id)
 
             u = response.token_usage
             total_input += u.input_tokens

@@ -20,16 +20,14 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "gpt-4o-mini")
 
 from syrin import Agent, Model, Output
-from syrin.model import structured
 from syrin.enums import Hook
+from syrin.model import structured
 from syrin.types.validation import (
     OutputValidator,
-    ValidationResult,
-    ValidationContext,
     ValidationAction,
+    ValidationContext,
+    ValidationResult,
 )
-from syrin.validation import ValidationPipeline
-
 
 # =============================================================================
 # EXAMPLE 1: Real LLM Call with Structured Output
@@ -64,20 +62,20 @@ try:
         "Extract user info: John Doe is 35 years old, email john.doe@example.com, lives in San Francisco"
     )
 
-    print(f"\n✅ Response received!")
-    print(f"\n📋 Structured Output:")
+    print("\n✅ Response received!")
+    print("\n📋 Structured Output:")
     print(f"   is_valid: {result.structured.is_valid}")
     print(f"   raw: {result.structured.raw[:100]}...")
 
     if result.structured.parsed:
-        print(f"\n📊 Parsed Data:")
+        print("\n📊 Parsed Data:")
         print(f"   name: {result.structured.parsed.name}")
         print(f"   email: {result.structured.parsed.email}")
         print(f"   age: {result.structured.parsed.age}")
         print(f"   city: {result.structured.parsed.city}")
 
     if result.structured.validation_attempts:
-        print(f"\n🔄 Validation Attempts:")
+        print("\n🔄 Validation Attempts:")
         for attempt in result.structured.validation_attempts:
             status = "✅" if not attempt.error else "❌"
             print(f"   {status} Attempt {attempt.attempt}: {attempt.error or 'Success'}")
@@ -119,16 +117,16 @@ try:
         Price: $29.99
         In Stock: yes
         Category: electronics
-        
+
         Return the product info as JSON.
         IMPORTANT: For in_stock, use "yes" or "no" (not true/false)
     """)
 
-    print(f"\n✅ Response received!")
+    print("\n✅ Response received!")
     print(f"   is_valid: {result.structured.is_valid}")
 
     if result.structured.parsed:
-        print(f"\n📊 Parsed Data:")
+        print("\n📊 Parsed Data:")
         print(f"   name: {result.structured.parsed.name}")
         print(f"   price: {result.structured.parsed.price}")
         print(f"   in_stock: {result.structured.parsed.in_stock}")
@@ -138,7 +136,7 @@ try:
         print(f"\n❌ Final Error: {result.structured.final_error}")
 
     if result.structured.validation_attempts:
-        print(f"\n🔄 Validation Attempts:")
+        print("\n🔄 Validation Attempts:")
         for attempt in result.structured.validation_attempts:
             status = "✅" if not attempt.error else "❌"
             print(
@@ -207,16 +205,16 @@ try:
     result = agent.response("""
         Analyze the sentiment of this review:
         "This product is amazing! I love it so much."
-        
-        Return as JSON with sentiment (positive/negative/neutral), 
+
+        Return as JSON with sentiment (positive/negative/neutral),
         confidence (0-1), and explanation.
     """)
 
-    print(f"\n✅ Response received!")
+    print("\n✅ Response received!")
     print(f"   is_valid: {result.structured.is_valid}")
 
     if result.structured.parsed:
-        print(f"\n📊 Parsed Data:")
+        print("\n📊 Parsed Data:")
         print(f"   sentiment: {result.structured.parsed.sentiment}")
         print(f"   confidence: {result.structured.parsed.confidence}")
         print(f"   explanation: {result.structured.parsed.explanation}")
@@ -291,15 +289,15 @@ print("\n📤 Calling LLM with custom validator...")
 try:
     result = agent.response("""
         Review: "This product is terrible. Worst purchase ever."
-        
+
         Return as JSON with rating (1-5), sentiment, and summary.
     """)
 
-    print(f"\n✅ Response received!")
+    print("\n✅ Response received!")
     print(f"   is_valid: {result.structured.is_valid}")
 
     if result.structured.parsed:
-        print(f"\n📊 Parsed Data:")
+        print("\n📊 Parsed Data:")
         print(f"   rating: {result.structured.parsed.rating}")
         print(f"   sentiment: {result.structured.parsed.sentiment}")
         print(f"   summary: {result.structured.parsed.summary}")
@@ -358,11 +356,11 @@ try:
         Return as JSON.
     """)
 
-    print(f"\n✅ Response received!")
+    print("\n✅ Response received!")
     print(f"   is_valid: {result.structured.is_valid}")
 
     if result.structured.parsed:
-        print(f"\n📊 Parsed Data:")
+        print("\n📊 Parsed Data:")
         print(f"   name: {result.structured.parsed.name}")
         print(f"   email: {result.structured.parsed.email}")
         print(f"   role: {result.structured.parsed.role}")
@@ -393,12 +391,12 @@ API:
     class UserInfo:
         name: str
         email: str
-    
+
     agent = Agent(
         model=Model.OpenAI(MODEL_ID),
         output=Output(UserInfo, validation_retries=3),
     )
-    
+
     result = agent.response("Extract info")
     result.structured.parsed.name
 """)

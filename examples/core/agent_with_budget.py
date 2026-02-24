@@ -2,8 +2,9 @@
 
 Demonstrates:
 - Creating an Agent with a Budget
-- Budget tracking via response.budget property
+- Budget tracking via response.budget and agent.budget_summary
 - Budget limits and exceeded handling
+- get_budget_tracker() for inspection or reservation (reserve/commit/rollback)
 
 Run: python -m examples.core.agent_with_budget
 """
@@ -16,7 +17,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Budget, Model, OnExceeded
+from syrin import Agent, Budget, Model, warn_on_exceeded
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
@@ -36,27 +37,34 @@ def example_agent_with_budget() -> None:
     class Assistant(Agent):
         model = Model(MODEL_ID)
         system_prompt = "You are a helpful assistant."
-        budget = Budget(run=0.10, on_exceeded=OnExceeded.WARN)
+        budget = Budget(run=0.10, on_exceeded=warn_on_exceeded)
 
     assistant = Assistant()
 
-    print(f"1. Created agent with budget: ${assistant._budget.run}")
-    print(f"   Budget: {assistant._budget}")
+    print(f"1. Created agent with budget: ${assistant.budget.run}")
+    print(f"   Budget: {assistant.budget}")
 
     result = assistant.response("Explain quantum computing in detail")
 
-    print(f"\n2. Response received:")
+    print("\n2. Response received:")
     print(f"   Content: {result.content[:80]}...")
     print(f"   Cost: ${result.cost:.6f}")
 
     if result.budget:
-        print(f"\n3. Budget tracking via response.budget:")
+        print("\n3. Budget tracking via response.budget:")
         print(f"   Remaining: ${result.budget.remaining:.4f}")
         print(f"   Used: ${result.budget.used:.4f}")
         print(f"   Total: ${result.budget.total:.4f}")
 
-    print(f"\n4. Budget summary:")
+    print("\n4. Budget summary:")
     print(f"   {assistant.budget_summary}")
+
+    # get_budget_tracker() returns the tracker when agent has a budget (for reservation or inspection)
+    tracker = assistant.get_budget_tracker()
+    if tracker:
+        print(
+            f"\n5. Tracker (for reserve/commit/rollback or inspection): run cost=${tracker.current_run_cost:.6f}"
+        )
 
 
 def example_shared_budget() -> None:
@@ -76,7 +84,7 @@ def example_shared_budget() -> None:
         budget = Budget(run=0.15)
 
     manager = Manager()
-    print(f"1. Parent agent with shared budget: {manager._budget}")
+    print(f"1. Parent agent with shared budget: {manager.budget}")
 
     print("\n2. Spawning child agent...")
     result = manager.spawn(Worker, task="What is AI?")
@@ -88,8 +96,8 @@ def example_shared_budget() -> None:
         print(f"   Budget remaining: ${result.budget.remaining:.4f}")
         print(f"   Budget used: ${result.budget.used:.4f}")
 
-    print(f"\n3. Parent budget after child completes:")
-    print(f"   Remaining: ${manager._budget.remaining:.4f}")
+    print("\n3. Parent budget after child completes:")
+    print(f"   Remaining: ${manager.budget.remaining:.4f}")
 
 
 if __name__ == "__main__":

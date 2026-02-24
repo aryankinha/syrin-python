@@ -6,7 +6,6 @@ threshold consensus, and capability tokens.
 """
 
 import asyncio
-from datetime import datetime
 from unittest.mock import Mock
 
 
@@ -14,8 +13,8 @@ async def example_authority_check():
     """Permission-based authorization."""
     print("\n=== Authority Check ===\n")
 
-    from syrin.guardrails import AuthorityCheck, GuardrailContext
     from syrin.enums import GuardrailStage
+    from syrin.guardrails import AuthorityCheck, GuardrailContext
 
     # Create a user with permissions
     user = Mock()
@@ -73,7 +72,7 @@ async def example_threshold_approval():
     """K-of-N threshold approval."""
     print("\n=== Threshold Approval ===\n")
 
-    from syrin.guardrails import ThresholdApproval, GuardrailContext
+    from syrin.guardrails import GuardrailContext, ThresholdApproval
 
     # Create threshold requiring 2 of 3 approvals
     guardrail = ThresholdApproval(
@@ -107,7 +106,7 @@ async def example_human_approval():
     """Human-in-the-loop approval."""
     print("\n=== Human Approval ===\n")
 
-    from syrin.guardrails import HumanApproval, GuardrailContext
+    from syrin.guardrails import GuardrailContext, HumanApproval
 
     guardrail = HumanApproval(
         approver="admin@example.com",
@@ -142,7 +141,7 @@ async def example_capability_tokens():
     """Capability tokens with budget and TTL."""
     print("\n=== Capability Tokens ===\n")
 
-    from syrin.guardrails import CapabilityToken, CapabilityIssuer
+    from syrin.guardrails import CapabilityIssuer
 
     # Issue a capability token
     issuer = CapabilityIssuer()
@@ -153,7 +152,7 @@ async def example_capability_tokens():
         issued_to="analyst789",
     )
 
-    print(f"Token issued:")
+    print("Token issued:")
     print(f"  Scope: {token.scope}")
     print(f"  Budget: {token.budget}")
     print(f"  Valid: {token.is_valid()}")
@@ -174,8 +173,9 @@ async def example_capability_guardrail():
     """Capability-based guardrail."""
     print("\n=== Capability Guardrail ===\n")
 
-    from syrin.guardrails import CapabilityGuardrail, CapabilityToken
     from unittest.mock import Mock
+
+    from syrin.guardrails import CapabilityGuardrail, CapabilityToken
 
     # Create token
     token = CapabilityToken(scope="finance:transfer", budget=10)
@@ -209,9 +209,9 @@ async def example_combined_authority_workflow():
     from syrin.guardrails import (
         AuthorityCheck,
         BudgetEnforcer,
-        ThresholdApproval,
-        ParallelEvaluationEngine,
         GuardrailContext,
+        ParallelEvaluationEngine,
+        ThresholdApproval,
     )
 
     # Setup user
@@ -248,7 +248,7 @@ async def example_combined_authority_workflow():
     result = await engine.evaluate(context, guardrails)
 
     print(f"Workflow result: {'✓ PASSED' if result.passed else '✗ BLOCKED'}")
-    print(f"  Decisions:")
+    print("  Decisions:")
     for decision in result.decisions:
         status = "✓" if decision.passed else "✗"
         print(f"    {status} {decision.rule}: {decision.reason[:50]}...")

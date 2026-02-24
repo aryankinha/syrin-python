@@ -5,12 +5,12 @@ Tests that these reports are properly populated during agent execution.
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import Mock, patch
 
-from syrin import Agent, Model
-from syrin.response import OutputReport, ContextReport, CheckpointReport, TokenReport
+import pytest
 
+from syrin import Agent, Model
+from syrin.response import CheckpointReport, ContextReport, OutputReport, TokenReport
 
 # =============================================================================
 # TESTS FOR OUTPUT REPORT

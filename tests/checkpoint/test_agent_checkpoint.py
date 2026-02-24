@@ -1,8 +1,6 @@
 """Tests for checkpoint integration with Agent."""
 
-import pytest
-
-from syrin import Agent, CheckpointConfig, CheckpointState, Checkpointer, Model
+from syrin import Agent, CheckpointConfig, Checkpointer, Model
 
 
 class TestAgentCheckpointIntegration:
@@ -93,6 +91,37 @@ class TestAgentCheckpointIntegration:
         result = agent.load_checkpoint(checkpoint_id)
         assert result is True
 
+    def test_load_checkpoint_restores_budget_tracker_and_spent(self):
+        """Load checkpoint restores budget_tracker state and Budget._spent."""
+        from syrin.budget import Budget
+        from syrin.types import CostInfo, TokenUsage
+
+        agent = Agent(
+            model=Model(provider="openai", model_id="gpt-4o-mini"),
+            budget=Budget(run=10.0),
+            checkpoint=CheckpointConfig(storage="memory"),
+        )
+        agent._budget_tracker.record(
+            CostInfo(cost_usd=2.5, model_name="gpt-4o-mini", token_usage=TokenUsage())
+        )
+        agent._budget._set_spent(2.5)
+        assert agent._budget_tracker.current_run_cost == 2.5
+        assert agent._budget._spent == 2.5
+
+        checkpoint_id = agent.save_checkpoint(reason="budget")
+        assert checkpoint_id is not None
+
+        agent._budget_tracker.reset_run()
+        agent._budget._set_spent(0)
+        assert agent._budget_tracker.current_run_cost == 0.0
+        assert agent._budget._spent == 0.0
+
+        result = agent.load_checkpoint(checkpoint_id)
+        assert result is True
+        assert agent._budget_tracker.current_run_cost == 2.5
+        assert agent._budget._spent == 2.5
+        assert agent._budget.remaining == 7.5
+
     def test_load_checkpoint_nonexistent(self):
         """Test loading nonexistent checkpoint returns False."""
         agent = Agent(
@@ -140,8 +169,8 @@ class TestAgentCheckpointIntegration:
 
     def test_checkpoint_with_sqlite_backend(self):
         """Test Agent with SQLite backend."""
-        import tempfile
         import os
+        import tempfile
 
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
@@ -162,7 +191,6 @@ class TestAgentCheckpointIntegration:
     def test_checkpoint_with_filesystem_backend(self):
         """Test Agent with filesystem backend."""
         import tempfile
-        import os
 
         with tempfile.TemporaryDirectory() as tmpdir:
             agent = Agent(

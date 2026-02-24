@@ -15,7 +15,6 @@ import asyncio
 import logging
 import os
 from pathlib import Path
-from typing import AsyncIterator
 
 from dotenv import load_dotenv
 

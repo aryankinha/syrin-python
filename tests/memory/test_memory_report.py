@@ -5,13 +5,14 @@ Tests that MemoryReport is properly populated during agent execution.
 
 from __future__ import annotations
 
-import pytest
+import contextlib
 from unittest.mock import Mock, patch
+
+import pytest
 
 from syrin import Agent, Model
 from syrin.enums import MemoryType
 from syrin.response import MemoryReport
-
 
 # =============================================================================
 # TESTS FOR MEMORY REPORT POPULATION
@@ -276,10 +277,8 @@ class TestMemoryReportEdgeCases:
         initial_stores = agent.report.memory.stores
 
         # This should raise but report should still be valid
-        try:
+        with contextlib.suppress(RuntimeError):
             agent.remember("Test")
-        except RuntimeError:
-            pass
 
         # Report should not have been updated due to exception
         assert agent.report.memory.stores == initial_stores

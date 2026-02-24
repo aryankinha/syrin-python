@@ -16,7 +16,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Budget, Memory, MemoryType, Model, prompt
+from syrin import Agent, Memory, MemoryType, Model, prompt
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)

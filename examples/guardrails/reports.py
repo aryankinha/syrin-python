@@ -10,11 +10,11 @@ Run: python -m examples.guardrails.reports
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
-from syrin import Agent, Model, Guardrail, GuardrailStage, Hook
+from syrin import Agent, Guardrail, GuardrailStage, Hook, Model
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
@@ -72,7 +72,7 @@ def example_guardrail_blocked():
 
     print(f"\nResponse content: {result.content!r}")
     print(f"Stop reason: {result.stop_reason}")
-    print(f"\nGuardrail Report:")
+    print("\nGuardrail Report:")
     print(f"  Passed: {result.report.guardrail.passed}")
     print(f"  Blocked: {result.report.guardrail.blocked}")
     print(f"  Blocked stage: {result.report.guardrail.blocked_stage}")
@@ -96,10 +96,10 @@ def example_guardrail_passed():
     assistant = Assistant()
 
     def on_input_guardrail(ctx):
-        print(f"  [Hook] Input guardrail checking...")
+        print("  [Hook] Input guardrail checking...")
 
     def on_output_guardrail(ctx):
-        print(f"  [Hook] Output guardrail checking...")
+        print("  [Hook] Output guardrail checking...")
 
     assistant.events.on(Hook.GUARDRAIL_INPUT, on_input_guardrail)
     assistant.events.on(Hook.GUARDRAIL_OUTPUT, on_output_guardrail)
@@ -109,7 +109,7 @@ def example_guardrail_passed():
 
     print(f"\nResponse content: {result.content[:80]}...")
     print(f"Stop reason: {result.stop_reason}")
-    print(f"\nGuardrail Report:")
+    print("\nGuardrail Report:")
     print(f"  Passed: {result.report.guardrail.passed}")
     print(f"  Input passed: {result.report.guardrail.input_passed}")
     print(f"  Input guardrails: {result.report.guardrail.input_guardrails}")
@@ -161,7 +161,7 @@ def example_output_guardrail():
 
     print(f"\nResponse content: {result.content[:80]}...")
     print(f"Stop reason: {result.stop_reason}")
-    print(f"\nGuardrail Report:")
+    print("\nGuardrail Report:")
     print(f"  Passed: {result.report.guardrail.passed}")
     print(f"  Blocked: {result.report.guardrail.blocked}")
     print(f"  Blocked stage: {result.report.guardrail.blocked_stage}")
@@ -185,17 +185,17 @@ def example_report_summary():
     result = assistant.response("Hello, how are you?")
 
     print("\n=== Agent Report Summary ===")
-    print(f"\nGuardrail:")
+    print("\nGuardrail:")
     print(f"  passed: {result.report.guardrail.passed}")
     print(f"  blocked: {result.report.guardrail.blocked}")
     print(f"  input_guardrails: {result.report.guardrail.input_guardrails}")
 
-    print(f"\nBudget:")
+    print("\nBudget:")
     print(f"  remaining: {result.report.budget.remaining}")
     print(f"  used: {result.report.budget.used}")
     print(f"  total: {result.report.budget.total}")
 
-    print(f"\nTokens:")
+    print("\nTokens:")
     print(f"  input: {result.report.tokens.input_tokens}")
     print(f"  output: {result.report.tokens.output_tokens}")
     print(f"  total: {result.report.tokens.total_tokens}")

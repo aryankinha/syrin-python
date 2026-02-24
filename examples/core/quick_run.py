@@ -5,6 +5,7 @@ without needing to create an Agent instance.
 """
 
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 import syrin
@@ -50,7 +51,7 @@ print(f"\n{result4.content}")
 # With budget control
 budget = syrin.Budget(
     run=0.10,  # $0.10 max per run
-    on_exceeded=syrin.OnExceeded.ERROR,
+    on_exceeded=syrin.raise_on_exceeded,
 )
 result5 = syrin.run(
     "Hello!",

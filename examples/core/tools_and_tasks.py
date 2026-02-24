@@ -17,7 +17,6 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import List
 
 from dotenv import load_dotenv
 
@@ -69,7 +68,7 @@ def get_weather(city: str, unit: str = "celsius") -> str:
 
 
 @tool
-def search_documents(query: str, max_results: int = 5) -> List[str]:
+def search_documents(query: str, max_results: int = 5) -> list[str]:
     """Search through documents for matching content.
 
     Args:
@@ -102,7 +101,7 @@ def example_tools() -> None:
 
     # Use the calculator tool
     result = assistant.response("What is 15 times 7?")
-    print(f"Question: What is 15 times 7?")
+    print("Question: What is 15 times 7?")
     print(f"Answer: {result.content}")
     print(f"Tool calls: {len(result.tool_calls)}")
     for tc in result.tool_calls:
@@ -112,7 +111,7 @@ def example_tools() -> None:
 
     # Use weather tool
     result = assistant.response("What's the weather in Tokyo?")
-    print(f"Question: What's the weather in Tokyo?")
+    print("Question: What's the weather in Tokyo?")
     print(f"Answer: {result.content}")
 
 
@@ -144,7 +143,7 @@ def example_tools_with_events() -> None:
     print(f"Answer: {result.content}")
 
     if tools_used:
-        print(f"\n✅ Tool was executed via event hook!")
+        print("\n✅ Tool was executed via event hook!")
         for t in tools_used:
             print(f"   - {t['name']}: {t['args']}")
 
@@ -176,7 +175,7 @@ def example_human_in_the_loop() -> None:
     print(f"Answer: {result.content}")
 
     if approvals_log:
-        print(f"\n✅ Approval system working!")
+        print("\n✅ Approval system working!")
         for a in approvals_log:
             print(f"   - {a['name']}: {a['args']}")
 
@@ -227,7 +226,7 @@ def example_multiple_tools() -> None:
         "First find documents about Python, then calculate how many days "
         "until the year 2030, and finally check the weather in San Francisco."
     )
-    print(f"Question: Complex multi-tool request")
+    print("Question: Complex multi-tool request")
     print(f"Answer: {result.content}")
     print(f"Tool calls made: {len(result.tool_calls)}")
 

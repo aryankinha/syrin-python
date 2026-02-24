@@ -131,8 +131,8 @@ See [Constructor Reference](constructor.md) for full parameter details.
 ### StopReason
 - `END_TURN`, `BUDGET`, `MAX_ITERATIONS`, `TIMEOUT`, `TOOL_ERROR`, `HANDOFF`, `GUARDRAIL`, `CANCELLED`
 
-### OnExceeded
-- `ERROR`, `STOP`, `WARN`
+### on_exceeded (callback)
+- Pass `raise_on_exceeded`, `warn_on_exceeded`, or `stop_on_exceeded`; or any callable receiving `BudgetExceededContext`.
 
 ### MemoryType
 - `CORE`, `EPISODIC`, `SEMANTIC`, `PROCEDURAL`
@@ -147,6 +147,6 @@ See [Constructor Reference](constructor.md) for full parameter details.
 | Exception | When |
 |-----------|------|
 | `TypeError` | Model not provided |
-| `BudgetExceededError` | Budget exceeded (on_exceeded=ERROR) |
+| `BudgetExceededError` | Budget exceeded (e.g. when using `raise_on_exceeded`) |
 | `BudgetThresholdError` | Threshold action (e.g. STOP) |
 | `ToolExecutionError` | Tool failed or unknown tool |

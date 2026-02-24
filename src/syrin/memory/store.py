@@ -8,7 +8,8 @@ from collections.abc import Iterator
 from datetime import datetime
 from typing import Any
 
-from syrin.enums import DecayStrategy, MemoryScope, MemoryType, OnExceeded
+from syrin.budget import BudgetExceededContext
+from syrin.enums import BudgetLimitType, DecayStrategy, MemoryScope, MemoryType
 from syrin.memory.config import Decay, MemoryBudget, MemoryEntry
 from syrin.memory.types import create_memory
 
@@ -125,12 +126,19 @@ class MemoryStore:
                         "estimated_cost": estimated_cost,
                     },
                 )
-                if (
-                    self._budget.on_exceeded == OnExceeded.ERROR
-                    or self._budget.on_exceeded == OnExceeded.STOP
-                ):
-                    self._end_span(span_data, success=False, reason="budget_exceeded")
-                    return False
+                if self._budget.on_exceeded is not None:
+                    limit = self._budget.extraction_budget or 0.0
+                    ctx = BudgetExceededContext(
+                        current_cost=estimated_cost,
+                        limit=limit,
+                        budget_type=BudgetLimitType.MEMORY,
+                        message=f"Memory budget exceeded: estimated cost {estimated_cost} > {limit}",
+                    )
+                    try:
+                        self._budget.on_exceeded(ctx)
+                    except Exception:
+                        self._end_span(span_data, success=False, reason="budget_exceeded")
+                        return False
 
         mem_key = f"{entry.type.value}:{entry.id}"
         self._backend[mem_key] = entry

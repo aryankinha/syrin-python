@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
-import pytest
 from pydantic import BaseModel, Field, field_validator
 
 from syrin.response import StructuredOutput
-from syrin.validation import ValidationPipeline
 from syrin.types.validation import (
+    ValidationAction,
     ValidationAttempt,
     ValidationResult,
-    ValidationAction,
-    OutputValidator,
 )
-
+from syrin.validation import ValidationPipeline
 
 # =============================================================================
 # TEST MODELS - Simple and Complex

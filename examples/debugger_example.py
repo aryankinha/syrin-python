@@ -29,7 +29,9 @@ Choose what's best for your use case:
 """
 
 import os
+
 from dotenv import load_dotenv
+
 from syrin import Agent, Model
 from syrin.tool import tool
 

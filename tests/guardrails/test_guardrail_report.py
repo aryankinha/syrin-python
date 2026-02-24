@@ -5,15 +5,15 @@ Tests that GuardrailReport is properly populated during guardrail evaluation.
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import Mock, patch
 
-from syrin import Agent, Model, Hook
+import pytest
+
+from syrin import Agent, Hook, Model
+from syrin.enums import StopReason
 from syrin.guardrails import Guardrail
 from syrin.guardrails.decision import GuardrailDecision
-from syrin.enums import StopReason
 from syrin.response import GuardrailReport
-
 
 # =============================================================================
 # FIXTURES

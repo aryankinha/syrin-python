@@ -497,14 +497,14 @@ Control team spending:
 Team Budget: All agents share one budget
 """
 
-from Syrin import Agent, Budget, OnExceeded
+from syrin import Agent, Budget, raise_on_exceeded
 from Syrin.model import Model
 from Syrin.threshold import BudgetThreshold
 
 
 shared_budget = Budget(
     hourly=50.00,  # Team max $50/hour
-    on_exceeded=OnExceeded.ERROR,
+    on_exceeded=raise_on_exceeded,
     thresholds=[
         BudgetThreshold(at=80, action={"type": "warn"})
     ]

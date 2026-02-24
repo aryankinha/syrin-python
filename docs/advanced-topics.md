@@ -599,10 +599,10 @@ from Syrin.observability import trace, ConsoleExporter
 from Syrin.enums import Hook, RateWindow
 
 # 1. Configure budget
+from syrin import raise_on_exceeded
 budget = Budget(
-    total_limit=10.0,  # $10 max
-    rate_limit=RateWindow(minutes=1, max_requests=10),
-    on_exceeded="error",
+    run=10.0,  # $10 max per run
+    on_exceeded=raise_on_exceeded,
 )
 
 # 2. Configure guardrails

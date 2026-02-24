@@ -94,7 +94,7 @@ When you call `agent.response()`, you get back a `Response` object with useful i
 response = agent.response("Hello!")
 
 response.content         # The actual answer text
-response.cost_usd        # How much money was spent (in USD)
+response.cost             # How much money was spent (in USD)
 response.tokens          # How many tokens were used
 response.model           # Which AI model was used
 response.duration        # How long it took
@@ -102,19 +102,16 @@ response.duration        # How long it took
 
 ### Enums (Special Option Lists)
 
-In Syrin, instead of writing text like `"error"`, we use **special names** called **Enums**. This prevents typos and makes things more reliable:
+In Syrin, you pass **callbacks** for behavior like "what to do when budget is exceeded". Use the built-in helpers or your own function:
 
 ```python
-from syrin import OnExceeded
+from syrin import Budget, warn_on_exceeded
 
-# This is correct:
-budget = Budget(run=1.00, on_exceeded=OnExceeded.WARN)
+# Warn and continue when budget exceeded:
+budget = Budget(run=1.00, on_exceeded=warn_on_exceeded)
 
-# This won't work (and you'll get an error early):
-# budget = Budget(run=1.00, on_exceeded="warn")  # WRONG!
+# Or use raise_on_exceeded to stop and raise an error.
 ```
-
-This might seem strict, but it catches bugs before they happen!
 
 ## Common Questions
 

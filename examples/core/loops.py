@@ -16,13 +16,12 @@ if env_path.exists():
 from syrin import Agent, Model
 from syrin.loop import (
     CodeActionLoop,
+    HumanInTheLoop,
     LoopResult,
     PlanExecuteLoop,
     ReactLoop,
     SingleShotLoop,
-    HumanInTheLoop,
 )
-
 
 MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
 model = Model(MODEL_ID)
@@ -39,7 +38,7 @@ def example_single_shot():
     )
 
     response = agent.response("What is the capital of France?")
-    print(f"Q: What is the capital of France?")
+    print("Q: What is the capital of France?")
     print(f"A: {response.content}")
 
 
@@ -54,7 +53,7 @@ def example_react():
     )
 
     response = agent.response("What is 5 + 3?")
-    print(f"Q: What is 5 + 3?")
+    print("Q: What is 5 + 3?")
     print(f"A: {response.content}")
 
 
@@ -78,7 +77,7 @@ def example_human_in_the_loop():
     )
 
     response = agent.response("What is the square root of 144?")
-    print(f"Q: What is the square root of 144?")
+    print("Q: What is the square root of 144?")
     print(f"A: {response.content}")
     print(f"Tools evaluated: {approved_count}")
 
@@ -99,7 +98,7 @@ def example_plan_execute():
     response = agent.response(
         "Research the top 3 programming languages in 2024 and summarize their pros and cons"
     )
-    print(f"Q: Research programming languages")
+    print("Q: Research programming languages")
     print(f"A: {response.content[:300]}...")
     print(f"Iterations: {response.iterations}")
 
@@ -118,7 +117,7 @@ def example_code_action():
     )
 
     response = agent.response("What is the sum of all even numbers from 1 to 100?")
-    print(f"Q: Sum of even numbers 1-100?")
+    print("Q: Sum of even numbers 1-100?")
     print(f"A: {response.content}")
     print(f"Iterations: {response.iterations}")
 
@@ -152,7 +151,7 @@ def example_custom_loop():
     )
 
     response = agent.response("Hello!")
-    print(f"Q: Hello!")
+    print("Q: Hello!")
     print(f"A: {response.content}")
 
 

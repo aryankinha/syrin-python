@@ -12,7 +12,6 @@ Run: python -m examples.core.toon_format
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -165,12 +164,12 @@ Real-world impact:
   - 10 tools × 150 chars JSON = 1500 chars per call
   - 10 tools × 90 chars TOON = 900 chars per call
   - Savings: 600 chars (40%) per call
-  
+
 Cost at $3/M input tokens:
   - JSON: $0.0045 per call
   - TOON: $0.0027 per call
   - Savings: $0.0018 per call (40%)
-  
+
 At 1000 calls/day: $1.80/day = $54/month saved
 """)
 

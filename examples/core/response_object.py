@@ -4,6 +4,7 @@ This shows what you get back from syrin.run() and agent.response().
 """
 
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 import syrin
@@ -26,44 +27,44 @@ print("RESPONSE OBJECT STRUCTURE")
 print("=" * 60)
 
 # Main content
-print(f"\n1. content (main response):")
+print("\n1. content (main response):")
 print(f"   {result.content!r}")
 
 # Raw response (same as content for text)
-print(f"\n2. raw (raw string):")
+print("\n2. raw (raw string):")
 print(f"   {result.raw!r}")
 
 # Cost information
-print(f"\n3. cost (USD):")
+print("\n3. cost (USD):")
 print(f"   ${result.cost:.6f}")
 
 # Token usage breakdown
-print(f"\n4. tokens (TokenUsage object):")
+print("\n4. tokens (TokenUsage object):")
 print(f"   input_tokens:  {result.tokens.input_tokens}")
 print(f"   output_tokens: {result.tokens.output_tokens}")
 print(f"   total_tokens:  {result.tokens.total_tokens}")
 
 # Model used
-print(f"\n5. model:")
+print("\n5. model:")
 print(f"   {result.model}")
 
 # Duration
-print(f"\n6. duration (seconds):")
+print("\n6. duration (seconds):")
 print(f"   {result.duration:.3f}s")
 
 # Stop reason
-print(f"\n7. stop_reason:")
+print("\n7. stop_reason:")
 print(f"   {result.stop_reason}")
 
 # Budget information (when budget is set)
-print(f"\n8. budget_remaining:")
+print("\n8. budget_remaining:")
 print(f"   {result.budget_remaining}")
 
-print(f"\n9. budget_used:")
+print("\n9. budget_used:")
 print(f"   ${result.budget_used:.6f}" if result.budget_used is not None else "   None")
 
 # Trace (list of steps)
-print(f"\n10. trace (execution steps):")
+print("\n10. trace (execution steps):")
 for i, step in enumerate(result.trace):
     print(f"    Step {i + 1}:")
     print(f"      step_type: {step.step_type}")
@@ -73,15 +74,15 @@ for i, step in enumerate(result.trace):
     print(f"      latency_ms: {step.latency_ms:.1f}ms")
 
 # Tool calls (if any)
-print(f"\n11. tool_calls:")
+print("\n11. tool_calls:")
 print(f"   {result.tool_calls}")
 
 # Boolean check
-print(f"\n12. bool(response) - success check:")
+print("\n12. bool(response) - success check:")
 print(f"   {bool(result)}")
 
 # Budget property (convenience)
-print(f"\n13. response.budget (property):")
+print("\n13. response.budget (property):")
 print(f"   {result.budget}")
 
 # =============================================================================
@@ -94,7 +95,7 @@ print("=" * 60)
 
 budget = syrin.Budget(
     run=0.10,  # $0.10 max per run
-    on_exceeded=syrin.OnExceeded.ERROR,
+    on_exceeded=syrin.raise_on_exceeded,
 )
 
 result_with_budget = syrin.run(
@@ -139,7 +140,7 @@ print(f"Tokens used: {result_structured.tokens.total_tokens}")
 print(f"Cost: ${result_structured.cost:.6f}")
 
 # Access structured output - now it's automatic!
-print(f"\nStructured output:")
+print("\nStructured output:")
 print(f"  result.raw = {result_structured.raw}")
 print(f"  result.data = {result_structured.data}")
 print(f"  result.data.result = {result_structured.data.get('result')}")
@@ -152,6 +153,6 @@ result_structured2 = syrin.run(
     model=model_with_output,
 )
 
-print(f"\nSecond query:")
+print("\nSecond query:")
 print(f"  result.data.result = {result_structured2.data.get('result')}")
 print(f"  result.data.expression = {result_structured2.data.get('expression')}")

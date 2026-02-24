@@ -25,7 +25,6 @@ from syrin.guardrails import (
     GuardrailChain,
     GuardrailContext,
     GuardrailDecision,
-    GuardrailResult,
     LengthGuardrail,
 )
 
@@ -169,7 +168,7 @@ def example_guardrail_with_agent() -> None:
 
     if result.passed:
         response = agent.response(user_input)
-        print(f"Input passed guardrails")
+        print("Input passed guardrails")
         print(f"Response: {response.content[:100]}...")
     else:
         print(f"Input blocked: {result.reason}")

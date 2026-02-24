@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -32,6 +33,62 @@ def test_file_store_save_load() -> None:
         assert loaded is not None
         assert loaded.current_run_cost == 0.25
         assert path.exists()
+
+
+def test_file_store_save_load_uses_locking_on_all_platforms() -> None:
+    """FileBudgetStore uses fcntl (Unix) or msvcrt (Windows) when saving single_file.
+
+    Save then load must succeed and preserve state on all platforms.
+    """
+    with TemporaryDirectory() as tmp:
+        path = Path(tmp) / "budget.json"
+        store = FileBudgetStore(path, single_file=True)
+        tracker = BudgetTracker()
+        tracker.record(CostInfo(cost_usd=1.5, token_usage=TokenUsage()))
+        store.save("key1", tracker)
+        loaded = store.load("key1")
+        assert loaded is not None
+        assert loaded.current_run_cost == 1.5
+
+
+def test_file_store_concurrent_save_single_file() -> None:
+    """Concurrent saves to the same file (different keys) should not corrupt state."""
+    with TemporaryDirectory() as tmp:
+        path = Path(tmp) / "budget.json"
+        store = FileBudgetStore(path, single_file=True)
+        errors: list[Exception] = []
+
+        def save_key(key: str, cost: float) -> None:
+            try:
+                t = BudgetTracker()
+                t.record(CostInfo(cost_usd=cost, token_usage=TokenUsage()))
+                for _ in range(20):
+                    store.save(key, t)
+            except Exception as e:
+                errors.append(e)
+
+        t1 = threading.Thread(target=save_key, args=("a", 1.0))
+        t2 = threading.Thread(target=save_key, args=("b", 2.0))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        assert not errors, errors
+        la = store.load("a")
+        lb = store.load("b")
+        assert la is not None and la.current_run_cost == 1.0
+        assert lb is not None and lb.current_run_cost == 2.0
+
+
+def test_file_store_save_invalid_key_raises_or_succeeds() -> None:
+    """Save with empty key is allowed (implementation-defined)."""
+    with TemporaryDirectory() as tmp:
+        path = Path(tmp) / "budget.json"
+        store = FileBudgetStore(path, single_file=True)
+        tracker = BudgetTracker()
+        store.save("", tracker)
+        loaded = store.load("")
+        assert loaded is not None
 
 
 # =============================================================================

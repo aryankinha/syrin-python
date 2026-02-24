@@ -2,12 +2,50 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
+import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
 from syrin.budget import BudgetTracker
+
+try:
+    import fcntl
+except ImportError:
+    fcntl = None  # type: ignore[assignment]
+
+try:
+    import msvcrt
+except ImportError:
+    msvcrt = None  # type: ignore[assignment]
+
+
+def _lock_file(f: Any) -> None:
+    """Acquire exclusive lock on file (fcntl on Unix, msvcrt on Windows)."""
+    if sys.platform == "win32" and msvcrt is not None:
+        try:
+            f.seek(0)
+            msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
+        except (OSError, AttributeError):
+            pass
+    elif fcntl is not None:
+        with contextlib.suppress(OSError, AttributeError):
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+
+
+def _unlock_file(f: Any) -> None:
+    """Release exclusive lock on file."""
+    if sys.platform == "win32" and msvcrt is not None:
+        try:
+            f.seek(0)
+            msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+        except (OSError, AttributeError):
+            pass
+    elif fcntl is not None:
+        with contextlib.suppress(OSError, AttributeError):
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
 class BudgetStore(ABC):
@@ -72,18 +110,27 @@ class FileBudgetStore(BudgetStore):
 
     def save(self, key: str, tracker: BudgetTracker) -> None:
         path = self._file_for(key)
+        path.parent.mkdir(parents=True, exist_ok=True)
         if self._single_file:
             all_data: dict[str, Any] = {}
-            if path.exists():
+            with path.open("a") as _:
+                pass
+            with path.open("r+") as f:
+                _lock_file(f)
                 try:
-                    all_data = json.loads(path.read_text())
-                    if not isinstance(all_data, dict):
-                        all_data = {}
-                except (json.JSONDecodeError, OSError):
-                    pass
-            all_data[key] = tracker.get_state()
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(all_data, indent=2))
+                    raw = f.read()
+                    if raw:
+                        try:
+                            all_data = json.loads(raw)
+                            if not isinstance(all_data, dict):
+                                all_data = {}
+                        except json.JSONDecodeError:
+                            all_data = {}
+                    all_data[key] = tracker.get_state()
+                    f.seek(0)
+                    f.truncate()
+                    f.write(json.dumps(all_data, indent=2))
+                finally:
+                    _unlock_file(f)
         else:
-            path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(tracker.get_state(), indent=2))
