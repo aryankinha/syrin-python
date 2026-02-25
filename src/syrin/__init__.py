@@ -1,9 +1,43 @@
 """Syrin — Python library for building AI agents with budget management and DSL codegen."""
 
+import atexit
 import sys
 from typing import Any
 
 _TRACE_ENABLED = False
+
+
+def _trace_summary_on_exit() -> None:
+    """Print trace summary at process exit when --trace was used (built-in)."""
+    if not _TRACE_ENABLED:
+        return
+    try:
+        from syrin.observability.metrics import get_metrics
+
+        metrics = get_metrics()
+        summary = metrics.get_summary()
+        agent_cost = summary.get("agent", {}).get("cost") or 0.0
+        llm_cost = summary.get("llm", {}).get("cost") or 0.0
+        total_cost = float(agent_cost or llm_cost or 0)
+        runs = summary.get("agent", {}).get("runs") or 0
+        errors = summary.get("agent", {}).get("errors") or 0
+        tokens = summary.get("llm", {}).get("tokens_total") or 0
+        cost_str = f"${total_cost:.6f}".rstrip("0").rstrip(".")
+        if cost_str == "$":
+            cost_str = "$0"
+        runs_int = int(runs) if runs is not None else 0
+        errors_int = int(errors) if errors is not None else 0
+        tokens_int = int(tokens) if tokens is not None else 0
+        print("\n" + "=" * 60)
+        print(" TRACE SUMMARY (--trace)")
+        print("=" * 60)
+        print(f"  Agent runs:    {runs_int}")
+        print(f"  Errors:        {errors_int}")
+        print(f"  Total tokens:  {tokens_int}")
+        print(f"  Total cost:    {cost_str}")
+        print("=" * 60 + "\n")
+    except Exception:
+        pass
 
 
 def _auto_trace_check() -> None:
@@ -21,6 +55,7 @@ def _auto_trace_check() -> None:
         tracer = get_tracer()
         tracer.add_exporter(ConsoleExporter(colors=True, verbose=True))
         tracer.set_debug_mode(True)
+        atexit.register(_trace_summary_on_exit)
 
         print("\n" + "=" * 60)
         print(" Syrin Tracing Enabled (--trace flag detected)")

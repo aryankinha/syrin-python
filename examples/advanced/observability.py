@@ -39,6 +39,13 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
 
 
+def _ensure_console_exporter():
+    """Add ConsoleExporter to global tracer only if not already present (avoids duplicate when run with --trace)."""
+    tracer = get_tracer()
+    if not any(isinstance(e, ConsoleExporter) for e in tracer._exporters):
+        tracer.add_exporter(ConsoleExporter())
+
+
 # =============================================================================
 # Example 1: Basic Debug Mode
 # =============================================================================
@@ -82,9 +89,7 @@ def example_manual_spans():
     print("Example 2: Manual Span Creation")
     print("=" * 60)
 
-    # Add console exporter
-    tracer = get_tracer()
-    tracer.add_exporter(ConsoleExporter())
+    _ensure_console_exporter()
 
     @tool
     def calculate(expression: str) -> str:
@@ -127,8 +132,7 @@ def example_session_tracking():
     print("Example 3: Session Tracking")
     print("=" * 60)
 
-    tracer = get_tracer()
-    tracer.add_exporter(ConsoleExporter())
+    _ensure_console_exporter()
 
     class ChatAgent(Agent):
         model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
@@ -217,8 +221,7 @@ def example_nested_spans():
     print("Example 5: Nested Spans (Hierarchical Traces)")
     print("=" * 60)
 
-    tracer = get_tracer()
-    tracer.add_exporter(ConsoleExporter())
+    _ensure_console_exporter()
 
     @tool
     def fetch_data(source: str) -> str:
@@ -263,8 +266,7 @@ def example_error_tracking():
     print("Example 6: Error Tracking")
     print("=" * 60)
 
-    tracer = get_tracer()
-    tracer.add_exporter(ConsoleExporter())
+    _ensure_console_exporter()
 
     @tool
     def risky_operation(should_fail: bool) -> str:
@@ -423,15 +425,15 @@ def example_custom_exporter():
 if __name__ == "__main__":
     # Run all examples
     examples = [
-        example_debug_mode,
-        example_manual_spans,
-        example_session_tracking,
-        example_semantic_attributes,
+        # example_debug_mode,
+        # example_manual_spans,
+        # example_session_tracking,
+        # example_semantic_attributes,
         example_nested_spans,
-        example_error_tracking,
-        example_cost_attribution,
-        example_global_config,
-        example_custom_exporter,
+        # example_error_tracking,
+        # example_cost_attribution,
+        # example_global_config,
+        # example_custom_exporter,
     ]
 
     print("\n" + "#" * 60)

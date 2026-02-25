@@ -174,14 +174,16 @@ class MetricsCollector:
 
         # LLM metrics
         if span.kind.value == "llm":
-            tokens_input = attrs.get("llm.tokens.input", 0)
-            tokens_output = attrs.get("llm.tokens.output", 0)
+            tokens_input = attrs.get("llm.tokens.input", 0) or 0
+            tokens_output = attrs.get("llm.tokens.output", 0) or 0
+            tokens_total_attr = attrs.get("llm.tokens.total", 0) or 0
+            tokens_total = (tokens_input + tokens_output) or tokens_total_attr
             cost = attrs.get("llm.cost", 0)
 
             self.increment("llm.requests.total", tags={"model": attrs.get("llm.model", "")})
             self.record("llm.tokens.input", tokens_input)
             self.record("llm.tokens.output", tokens_output)
-            self.record("llm.tokens.total", tokens_input + tokens_output)
+            self.record("llm.tokens.total", tokens_total)
             self.record("llm.cost", cost)
             self.timing("llm.latency", span.duration_ms)
 
@@ -194,7 +196,9 @@ class MetricsCollector:
         # Agent metrics
         elif span.kind.value == "agent":
             iterations = attrs.get("iterations", 1)
-            cost = attrs.get("llm.cost", 0) or attrs.get("budget.used", 0)
+            cost = (
+                attrs.get("llm.cost", 0) or attrs.get("cost.usd", 0) or attrs.get("budget.used", 0)
+            )
 
             self.increment("agent.runs.total")
             self.record("agent.cost", cost)

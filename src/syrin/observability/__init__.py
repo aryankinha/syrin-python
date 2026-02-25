@@ -413,12 +413,16 @@ class ConsoleExporter(SpanExporter):
         """Export span to console."""
         tracer = get_tracer()
         is_debug = tracer.debug_mode if hasattr(tracer, "debug_mode") else False
+        is_verbose = is_debug or self.verbose
 
-        if span.parent_span_id is None or is_debug or self.verbose:
-            print(self._format_span(span))
+        if span.parent_span_id is None or is_verbose:
+            # In verbose/debug mode, each span is printed when exported; avoid
+            # printing children again when printing the root (they were already printed).
+            include_children = not is_verbose or span.parent_span_id is not None
+            print(self._format_span(span, include_children=include_children))
 
-    def _format_span(self, span: Span, indent: int = 0) -> str:
-        """Format a span and its children as a tree."""
+    def _format_span(self, span: Span, indent: int = 0, include_children: bool = True) -> str:
+        """Format a span and optionally its children as a tree."""
         prefix = "  " * indent
 
         # Color codes
@@ -453,22 +457,24 @@ class ConsoleExporter(SpanExporter):
             lines.append(f"{prefix}  attributes:")
             lines.extend(attrs)
 
-        # Children
-        for child in span.children:
-            lines.append(self._format_span(child, indent + 1))
+        # Children (only when not in verbose mode for root, to avoid duplicate output)
+        if include_children:
+            for child in span.children:
+                lines.append(self._format_span(child, indent + 1, include_children=True))
 
         return "\n".join(lines)
 
     def _format_attributes(self, attrs: dict[str, Any], indent: int) -> list[str]:
-        """Format all attributes without filtering."""
+        """Format all attributes without filtering. Cost keys shown as decimal with $."""
         prefix = "  " * indent
         lines = []
 
-        # Show ALL attributes, no filtering
+        cost_keys = ("cost.usd", "llm.cost", "cost")
         for key, value in attrs.items():
             if isinstance(value, str) and len(value) > 200:
-                # Only truncate very long strings for display
                 value = value[:197] + "..."
+            elif key in cost_keys and isinstance(value, (int, float)):
+                value = f"${value:.6f}".rstrip("0").rstrip(".")
             lines.append(f"{prefix}{key}={value}")
 
         return lines
