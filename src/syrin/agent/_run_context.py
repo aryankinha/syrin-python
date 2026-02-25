@@ -101,6 +101,11 @@ class AgentRunContext(Protocol):
         """Optional pricing override from the model for cost calculation."""
         ...
 
+    @property
+    def tracer(self) -> Any:
+        """Optional tracer for observability; when set, loop creates LLM/tool spans."""
+        ...
+
 
 class DefaultAgentRunContext:
     """Implements AgentRunContext by delegating to an Agent instance.
@@ -171,3 +176,8 @@ class DefaultAgentRunContext:
             if getattr(self._agent, "_model", None) is not None
             else None
         )
+
+    @property
+    def tracer(self) -> Any:
+        """Return agent's tracer so loops can create LLM/tool child spans."""
+        return getattr(self._agent, "_tracer", None)

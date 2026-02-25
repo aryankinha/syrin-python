@@ -20,11 +20,54 @@ from __future__ import annotations
 
 import time
 from collections.abc import Awaitable, Callable
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Any
 
 from syrin.agent._run_context import AgentRunContext
 from syrin.enums import Hook, LoopStrategy, MessageRole, StopReason
+
+
+def _get_tracer(ctx: Any) -> Any:
+    """Return tracer from context if available, else None (no span creation)."""
+    return getattr(ctx, "tracer", None)
+
+
+def _llm_span_context(ctx: Any, iteration: int, model_id: str) -> Any:
+    """Context manager for LLM span when ctx.tracer is set; else no-op."""
+    tracer = _get_tracer(ctx)
+    if tracer is None:
+        return nullcontext()
+    from syrin.observability import SemanticAttributes, SpanKind
+
+    return tracer.span(
+        f"llm.iteration_{iteration}",
+        kind=SpanKind.LLM,
+        attributes={
+            SemanticAttributes.LLM_MODEL: model_id,
+            SemanticAttributes.AGENT_ITERATION: iteration,
+        },
+    )
+
+
+def _tool_span_context(ctx: Any, tool_name: str, tool_args: dict[str, Any], iteration: int) -> Any:
+    """Context manager for tool span when ctx.tracer is set; else no-op."""
+    tracer = _get_tracer(ctx)
+    if tracer is None:
+        return nullcontext()
+    import json
+
+    from syrin.observability import SemanticAttributes, SpanKind
+
+    return tracer.span(
+        f"tool.{tool_name}",
+        kind=SpanKind.TOOL,
+        attributes={
+            SemanticAttributes.TOOL_NAME: tool_name,
+            SemanticAttributes.TOOL_INPUT: json.dumps(tool_args) if tool_args else "{}",
+            SemanticAttributes.AGENT_ITERATION: iteration,
+        },
+    )
 
 
 @dataclass
@@ -96,7 +139,20 @@ class SingleShotLoop(Loop):
 
         ctx.check_and_apply_rate_limit()
         ctx.pre_call_budget_check(messages, max_output_tokens=ctx.max_output_tokens)
-        response = await ctx.complete(messages)
+        with _llm_span_context(ctx, 1, ctx.model_id) as llm_span:
+            response = await ctx.complete(messages)
+            if llm_span is not None:
+                from syrin.observability import SemanticAttributes
+
+                u = response.token_usage
+                llm_span.set_attribute(
+                    SemanticAttributes.LLM_TOKENS_TOTAL,
+                    getattr(
+                        u,
+                        "total_tokens",
+                        getattr(u, "input_tokens", 0) + getattr(u, "output_tokens", 0),
+                    ),
+                )
         if ctx.has_rate_limit:
             ctx.record_rate_limit_usage(response.token_usage)
         if ctx.has_budget:
@@ -191,8 +247,16 @@ class ReactLoop(Loop):
 
             ctx.emit_event(Hook.LLM_REQUEST_START, EventContext(iteration=iteration))
 
-            response = await ctx.complete(messages, tools)
+            with _llm_span_context(ctx, iteration, ctx.model_id) as llm_span:
+                response = await ctx.complete(messages, tools)
+                if llm_span is not None:
+                    from syrin.observability import SemanticAttributes
 
+                    u = response.token_usage
+                    total_tokens = getattr(u, "total_tokens", None) or (
+                        getattr(u, "input_tokens", 0) + getattr(u, "output_tokens", 0)
+                    )
+                    llm_span.set_attribute(SemanticAttributes.LLM_TOKENS_TOTAL, total_tokens)
             if ctx.has_rate_limit:
                 ctx.record_rate_limit_usage(response.token_usage)
             if ctx.has_budget:
@@ -241,7 +305,14 @@ class ReactLoop(Loop):
                 )
 
                 try:
-                    result = await ctx.execute_tool(tool_name, tool_args)
+                    with _tool_span_context(ctx, tool_name, tool_args, iteration) as tool_span:
+                        result = await ctx.execute_tool(tool_name, tool_args)
+                        if tool_span is not None:
+                            from syrin.observability import SemanticAttributes
+
+                            tool_span.set_attribute(
+                                SemanticAttributes.TOOL_OUTPUT, str(result)[:500]
+                            )
                     messages.append(
                         Message(
                             role=MessageRole.TOOL,

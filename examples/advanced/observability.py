@@ -1,11 +1,12 @@
 """Observability Examples
 
-Demonstrates the new observability system with:
-- Span-based tracing with parent-child relationships
+Demonstrates the observability system with:
+- Span-based tracing with parent-child relationships (agent → LLM → tool)
+- Automatic spans: agent run, each LLM call (llm.iteration_N), each tool call (tool.<name>)
 - Semantic attributes for LLM, tool, memory events
 - Session tracking across multiple calls
-- Debug mode for deep introspection
-- Console and OTLP exporters
+- Debug mode for deep introspection (debug=True adds ConsoleExporter)
+- Console, InMemory, and custom exporters
 
 Run: python -m examples.advanced.observability
 """

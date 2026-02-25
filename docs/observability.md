@@ -403,6 +403,20 @@ Agent Runs: 3
 Errors: 0
 ```
 
+### Metrics schema
+
+`get_metrics().get_summary(window)` returns a dict with:
+
+- **counters** — All counter names and current values.
+- **gauges** — All gauge names and current values.
+- **llm** — `requests`, `tokens_input`, `tokens_output`, `tokens_total`, `cost`, `latency_avg`, `latency_p95`.
+- **agent** — `runs`, `errors`, `cost`, `latency_avg`, `latency_p95`.
+- **tool** — `calls` (and per-tool timing when present).
+- **guardrail** — `passed`, `blocked` (counts).
+- **memory** — `recalls`, `stores`, `forgets` (counts).
+
+Pass a `timedelta` as `window` to restrict aggregation to recent data.
+
 ### Manual Metric Recording
 
 You can also manually record metrics:
@@ -715,12 +729,11 @@ from Syrin.guardrails import ContentFilter
 from Syrin.observability import (
     ConsoleExporter,
     InMemoryExporter,
-    create_sampler,
     session,
     get_tracer,
-    get_metrics,
 )
 from Syrin.observability.metrics import get_metrics
+from Syrin.observability.sampling import create_sampler
 
 # 1. Configure tracer
 tracer = get_tracer()
@@ -848,21 +861,21 @@ set_debug(True)
 
 ## What's Traced by Default
 
-When you create an agent with `debug=True`, Syrin automatically traces:
+When you create an agent with `debug=True` (or attach a tracer with exporters), Syrin automatically creates spans for:
 
-1. **Agent execution** - The entire response flow
-2. **LLM calls** - Each iteration with tokens, cost, timing
-3. **Tool executions** - Tool name, input, output, duration
-4. **Memory operations** - When using persistent memory
-5. **Guardrail checks** - Input/output validation
-6. **Budget checks** - Cost tracking and limits
+1. **Agent execution** — One root span per `response()` / `arun()` with `SpanKind.AGENT`.
+2. **LLM calls** — A child span per completion (SingleShot, REACT, PlanExecute, CodeAction, HumanInTheLoop) with `SpanKind.LLM`, tokens and model attributes.
+3. **Tool executions** — A child span per tool call with `SpanKind.TOOL`, name, input, and output.
+4. **Memory operations** — When using persistent memory: `remember`, `recall`, `forget` each create a `SpanKind.MEMORY` span.
+5. **Guardrail checks** — Input/output guardrails create `SpanKind.GUARDRAIL` spans with stage and passed/violation.
+6. **Budget checks** — (Optional) Budget threshold/exceeded can be wrapped in spans; cost is recorded on agent/LLM spans.
 
-Every span includes:
-- Start/end timestamps
-- Duration
-- Status (success/error)
-- Semantic attributes
-- Child spans (nested)
+Spans form a tree: agent → LLM → tool (and agent → guardrail, agent → memory). Every span includes:
+
+- Start/end timestamps and duration
+- Status (ok / error / cancelled)
+- Semantic attributes (e.g. `llm.model`, `tool.name`, `memory.operation`)
+- Session ID when used inside `session()`
 
 ---
 
