@@ -1,12 +1,12 @@
 [project]
 name = "syrin"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python library for building AI agents with budget management, declarative definitions, and production-ready observability."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Syrin Labs" }]
-keywords = ["ai", "agents", "llm", "budget", "dsl"]
+keywords = ["ai", "agents", "llm", "budget"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
