@@ -12,12 +12,12 @@ Run: python -m examples.advanced.guardrails
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Model
+from examples.models.models import almock
+from syrin import Agent
 from syrin.enums import GuardrailStage
 from syrin.guardrails import (
     ContentFilter,
@@ -32,8 +32,6 @@ logging.basicConfig(level=logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
 logging.getLogger("httpcore").setLevel(logging.CRITICAL)
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
 
 
 def example_blocked_words() -> None:
@@ -161,7 +159,7 @@ def example_guardrail_with_agent() -> None:
     )
 
     class SafeAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant."
 
     agent = SafeAgent()
@@ -196,7 +194,7 @@ def example_output_guardrail() -> None:
     )
 
     class ControlledAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "Give very brief answers."
 
     agent = ControlledAgent()

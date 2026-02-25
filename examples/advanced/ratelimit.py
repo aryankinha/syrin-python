@@ -10,9 +10,8 @@ Key concepts:
 - ThresholdMetric: Enum for metric types
 """
 
-import os
-
-from syrin import Agent, Model
+from examples.models.models import almock
+from syrin import Agent
 from syrin.enums import ThresholdMetric
 from syrin.ratelimit import (
     APIRateLimit,
@@ -26,7 +25,7 @@ def example_simple_limits():
     print("\n=== Example 1: Simple Rate Limits ===")
 
     agent = Agent(
-        model=Model("openai/gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         rate_limit=APIRateLimit(
             rpm=500,
             tpm=150000,
@@ -45,7 +44,7 @@ def example_with_threshold():
         print(f"WARNING: {ctx.metric} at {ctx.percentage}%")
 
     Agent(
-        model=Model("openai/gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         rate_limit=APIRateLimit(
             rpm=100,
             thresholds=[
@@ -62,7 +61,7 @@ def example_with_switch_model():
     print("\n=== Example 3: Auto-switch Model ===")
 
     Agent(
-        model=Model("openai/gpt-4o", api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         rate_limit=APIRateLimit(
             rpm=100,
             thresholds=[
@@ -83,7 +82,7 @@ def example_multiple_thresholds():
     print("\n=== Example 4: Multiple Thresholds ===")
 
     Agent(
-        model=Model("openai/gpt-4o", api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         rate_limit=APIRateLimit(
             rpm=500,
             tpm=150000,
@@ -144,7 +143,7 @@ def example_events():
         print(f"Event: {event} - {ctx}")
 
     agent = Agent(
-        model=Model("openai/gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         rate_limit=APIRateLimit(
             rpm=100,
             thresholds=[
@@ -165,7 +164,7 @@ def example_rpd_limit():
     print("\n=== Example 7: Daily Request Limits (RPD) ===")
 
     Agent(
-        model=Model("openai/gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         rate_limit=APIRateLimit(
             rpd=1000,
             thresholds=[

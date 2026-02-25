@@ -35,8 +35,11 @@ Start with these:
 ```python
 from Syrin.model import Model
 
-agent = Agent(model=Model.OpenAI("gpt-4o-mini"))  # Cheap
-agent = Agent(model=Model.Anthropic("claude-sonnet-4-20250514"))  # Powerful
+agent = Agent(
+    # model=Model.OpenAI("gpt-4o-mini"),  # Cheap
+    model=Model.Almock(),  # No API Key needed
+)
+# Or Model.Anthropic("claude-sonnet-4-20250514") when you have a key
 ```
 
 ### Can I use Ollama or local models?
@@ -107,7 +110,8 @@ from Syrin import Agent, Memory
 from Syrin.enums import MemoryType
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     memory=Memory(types=[MemoryType.CORE, MemoryType.EPISODIC]),
 )
 
@@ -153,7 +157,11 @@ budget = Budget(
     ),
 )
 
-agent = Agent(model=Model.OpenAI("gpt-4o-mini"), budget=budget)
+agent = Agent(
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
+    budget=budget,
+)
 ```
 
 ### What happens when budget runs out?
@@ -230,7 +238,10 @@ import asyncio
 from Syrin import Agent
 
 async def main():
-    agent = Agent(model=Model.OpenAI("gpt-4o-mini"))
+    agent = Agent(
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
+)
     result = await agent.arun("Hello!")
     print(result.content)
 
@@ -269,7 +280,8 @@ from syrin import Context
 from syrin.threshold import ContextThreshold
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
+    # model=Model.OpenAI("gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     context=Context(
         max_tokens=80000,
         thresholds=[
@@ -289,7 +301,8 @@ Enable debug mode:
 
 ```python
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     debug=True,  # Prints detailed logs
 )
 ```
@@ -408,7 +421,8 @@ class MyGuardrail(Guardrail):
         return GuardrailResult(passed=True)
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     guardrails=GuardrailChain([MyGuardrail()]),
 )
 ```
@@ -427,13 +441,15 @@ from Syrin.loop import PlanExecuteLoop, CodeActionLoop
 
 # Plan then execute - good for complex multi-step tasks
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     loop=PlanExecuteLoop(max_plan_iterations=3, max_execution_iterations=10),
 )
 
 # Code action - generate and run Python code
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     loop=CodeActionLoop(max_iterations=5),
 )
 ```
@@ -490,7 +506,8 @@ print(result.token_usage)
 1. Ensure memory is enabled:
 ```python
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     memory=Memory(types=[MemoryType.CORE]),  # Must specify types
 )
 ```

@@ -25,7 +25,9 @@ logging.getLogger("asyncio").setLevel(logging.CRITICAL)
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 # Use centralized models - import from examples.models.models
-from examples.models.models import gpt4_mini
+from examples.models.models import almock
+
+model = almock  # or gpt4_mini for real API
 
 
 def example_basic_agent() -> None:
@@ -35,7 +37,7 @@ def example_basic_agent() -> None:
     print("=" * 50)
 
     class Assistant(Agent):
-        model = gpt4_mini
+        model = model
         system_prompt = "You are a helpful assistant."
 
     assistant = Assistant()

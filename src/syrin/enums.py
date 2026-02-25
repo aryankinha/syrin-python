@@ -153,6 +153,18 @@ class AuditBackend(StrEnum):
     OTLP = "otlp"
 
 
+class AlmockPricing(StrEnum):
+    """Pricing tier for Almock (An LLM Mock). Use to test costing without real API calls.
+
+    LOW, MEDIUM, HIGH, ULTRA_HIGH map to increasing USD-per-1M-tokens for budget testing.
+    """
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    ULTRA_HIGH = "ultra_high"
+
+
 class ContentType(StrEnum):
     """Multi-modal content types."""
 

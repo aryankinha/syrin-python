@@ -25,9 +25,36 @@ API keys must be passed explicitly — the library never auto-reads from environ
 
 **Quick rule:** Need tools, memory, or budget? Use `Agent(model=...)`. Otherwise, `model.complete(messages)` is enough.
 
+**No API key?** Use `Model.Almock()` to run without any provider — ideal for local development, CI, or trying the library. See [Almock (An LLM Mock)](#almock-an-llm-mock) below.
+
 ---
 
 ## Built-in Models
+
+### Almock (An LLM Mock)
+
+No API calls, no key required. Use for development, tests, and examples.
+
+```python
+from syrin import Agent, Model, AlmockPricing
+
+# Default: Lorem Ipsum response, random 1–3s latency, medium pricing
+model = Model.Almock()
+
+# Fast (no delay), custom response, high pricing for budget tests
+model = Model.Almock(
+    latency_min=0,
+    latency_max=0,
+    response_mode="custom",
+    custom_response="Hello, mock!",
+    pricing_tier=AlmockPricing.HIGH,
+)
+agent = Agent(model=model, system_prompt="You are helpful.")
+r = agent.response("Hi")
+# r.content == "Hello, mock!"; r.cost uses the chosen pricing tier
+```
+
+Options: `pricing_tier` (low, medium, high, ultra_high), `context_window`, `response_mode` ("lorem" | "custom"), `custom_response`, `lorem_length`, `latency_min`/`latency_max` or `latency_seconds` (must be > 0).
 
 ### OpenAI
 

@@ -15,12 +15,12 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Model, tool
+from examples.models.models import almock
+from syrin import Agent, tool
 from syrin.enums import DocFormat
 from syrin.loop import HumanInTheLoop, ReactLoop
 from syrin.tool import schema_to_toon, tool_schema_to_format
@@ -29,8 +29,6 @@ logging.basicConfig(level=logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
 logging.getLogger("httpcore").setLevel(logging.CRITICAL)
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
 
 
 @tool
@@ -93,7 +91,7 @@ def example_tools() -> None:
     print("=" * 50)
 
     class MathAssistant(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant that uses tools when needed."
         tools = [calculate, get_weather]
 
@@ -122,7 +120,7 @@ def example_tools_with_events() -> None:
     print("=" * 50)
 
     class MathAssistant(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant. Use tools for calculations."
         tools = [calculate]
         loop = ReactLoop(max_iterations=3)
@@ -163,7 +161,7 @@ def example_human_in_the_loop() -> None:
         return True
 
     class SafeAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a safe agent. Use calculate tool for math."
         tools = [calculate]
         loop = HumanInTheLoop(approve=approve_tool, max_iterations=3)
@@ -216,7 +214,7 @@ def example_multiple_tools() -> None:
     print("=" * 50)
 
     class ResearchAssistant(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a research assistant. Use tools to help answer questions."
         tools = [calculate, get_weather, search_documents]
 

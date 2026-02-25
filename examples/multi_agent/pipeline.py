@@ -11,20 +11,18 @@ Run: python -m examples.multi_agent.pipeline
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Budget, Model, Pipeline, prompt
+from examples.models.models import almock
+from syrin import Agent, Budget, Pipeline, prompt
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
 logging.getLogger("httpcore").setLevel(logging.CRITICAL)
 logging.getLogger("asyncio").setLevel(logging.CRITICAL)
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
 
 
 @prompt
@@ -49,15 +47,15 @@ def example_sequential_pipeline() -> None:
     print("=" * 50)
 
     class Researcher(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = researcher_prompt(domain="technology")
 
     class Writer(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = writer_prompt(style="professional")
 
     class Editor(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = editor_prompt()
 
     pipeline = Pipeline()
@@ -82,7 +80,7 @@ def example_parallel_pipeline() -> None:
     print("=" * 50)
 
     class Analyst(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are an analyst."
 
     pipeline = Pipeline()
@@ -108,11 +106,11 @@ def example_pipeline_with_budget() -> None:
     print("=" * 50)
 
     class Researcher(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = researcher_prompt(domain="science")
 
     class Writer(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = writer_prompt(style="concise")
 
     pipeline = Pipeline(budget=Budget(run=0.30))

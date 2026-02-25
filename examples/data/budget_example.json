@@ -1,0 +1,16 @@
+{
+  "example_user": {
+    "version": 1,
+    "cost_history": [
+      {
+        "cost_usd": 4.4e-05,
+        "timestamp": 1772042538.056122,
+        "model_name": "almock/default",
+        "total_tokens": 37
+      }
+    ],
+    "run_start": 1772042536.814938,
+    "month_days": 30,
+    "use_calendar_month": false
+  }
+}

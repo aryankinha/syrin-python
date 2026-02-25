@@ -11,7 +11,8 @@ import os
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Model
+from examples.models.models import almock
+from syrin import Agent
 from syrin.tool import tool
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
@@ -38,7 +39,7 @@ def main():
     # Create agent with debug=True - that's it!
     # All events will be printed to console automatically
     agent = Agent(
-        model=Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant with access to tools.",
         tools=[calculator, greet],
         debug=True,  # <-- Just add this!

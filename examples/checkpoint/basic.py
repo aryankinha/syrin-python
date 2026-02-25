@@ -7,12 +7,12 @@ This module demonstrates how to use the checkpoint system for:
 - Automatic checkpoint triggers
 """
 
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from examples.models.models import almock
 
-from syrin import Agent, CheckpointConfig, CheckpointTrigger, Model
+from syrin import Agent, CheckpointConfig, CheckpointTrigger
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
@@ -24,7 +24,7 @@ def example_basic_checkpointing():
     print("=" * 60)
 
     agent = Agent(
-        model=Model.Anthropic("claude-sonnet-4-20250514", api_key=os.getenv("ANTHROPIC_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful research assistant.",
     )
 
@@ -43,7 +43,7 @@ def example_auto_checkpoint_triggers():
 
     # STEP: Auto-save after each agent step
     agent = Agent(
-        model=Model.Anthropic("claude-sonnet-4-20250514", api_key=os.getenv("ANTHROPIC_API_KEY")),
+        model=almock,
         checkpoint=CheckpointConfig(
             storage="memory",
             trigger=CheckpointTrigger.STEP,
@@ -53,7 +53,7 @@ def example_auto_checkpoint_triggers():
 
     # TOOL: Auto-save after each tool call
     agent2 = Agent(
-        model=Model.Anthropic("claude-sonnet-4-20250514", api_key=os.getenv("ANTHROPIC_API_KEY")),
+        model=almock,
         checkpoint=CheckpointConfig(
             storage="memory",
             trigger=CheckpointTrigger.TOOL,
@@ -63,7 +63,7 @@ def example_auto_checkpoint_triggers():
 
     # ERROR: Auto-save when errors occur
     agent3 = Agent(
-        model=Model.Anthropic("claude-sonnet-4-20250514", api_key=os.getenv("ANTHROPIC_API_KEY")),
+        model=almock,
         checkpoint=CheckpointConfig(
             storage="memory",
             trigger=CheckpointTrigger.ERROR,
@@ -73,7 +73,7 @@ def example_auto_checkpoint_triggers():
 
     # BUDGET: Auto-save before budget exhaustion
     agent4 = Agent(
-        model=Model.Anthropic("claude-sonnet-4-20250514", api_key=os.getenv("ANTHROPIC_API_KEY")),
+        model=almock,
         checkpoint=CheckpointConfig(
             storage="memory",
             trigger=CheckpointTrigger.BUDGET,
@@ -83,7 +83,7 @@ def example_auto_checkpoint_triggers():
 
     # MANUAL: Only save when explicitly called
     agent5 = Agent(
-        model=Model.Anthropic("claude-sonnet-4-20250514", api_key=os.getenv("ANTHROPIC_API_KEY")),
+        model=almock,
         checkpoint=CheckpointConfig(
             storage="memory",
             trigger=CheckpointTrigger.MANUAL,
@@ -108,7 +108,7 @@ def example_checkpoint_config():
     )
 
     agent = Agent(
-        model=Model.Anthropic("claude-sonnet-4-20250514", api_key=os.getenv("ANTHROPIC_API_KEY")),
+        model=almock,
         checkpoint=config,
     )
 
@@ -123,7 +123,7 @@ def example_checkpoint_restore():
     print("=" * 60)
 
     agent = Agent(
-        model=Model.Anthropic("claude-sonnet-4-20250514", api_key=os.getenv("ANTHROPIC_API_KEY")),
+        model=almock,
     )
 
     checkpoint_id = agent.save_checkpoint("my_research")
@@ -190,7 +190,7 @@ def example_checkpoint_report():
     print("=" * 60)
 
     agent = Agent(
-        model=Model.Anthropic("claude-sonnet-4-20250514", api_key=os.getenv("ANTHROPIC_API_KEY")),
+        model=almock,
     )
 
     agent.save_checkpoint()

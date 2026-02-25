@@ -70,7 +70,8 @@ from Syrin.guardrails import ContentFilter, PIIScanner
 
 # Simple setup
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
+    # model=Model.OpenAI("gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     guardrails=[
         ContentFilter(blocked_words=["password", "secret"]),
         PIIScanner(redact=True),
@@ -519,7 +520,8 @@ from Syrin import Agent, Model
 from Syrin.guardrails import ContentFilter, PIIScanner
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
+    # model=Model.OpenAI("gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     guardrails=[
         ContentFilter(blocked_words=["password"]),
         PIIScanner(),
@@ -535,7 +537,8 @@ agent = Agent(
 from Syrin import GuardrailConfig
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
+    # model=Model.OpenAI("gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     guardrails=GuardrailConfig(
         input=[
             ContentFilter(blocked_words=["spam"]),
@@ -1384,7 +1387,8 @@ from Syrin import Agent, Model
 from Syrin.guardrails import GuardrailConfig
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
+    # model=Model.OpenAI("gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     guardrails=GuardrailConfig(
         actions={
             "transfer_funds": [
@@ -1401,7 +1405,8 @@ agent = Agent(
 
 ```python
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
+    # model=Model.OpenAI("gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     guardrails=GuardrailConfig(
         input=[PHIValidator(allow_phi=False)],
         output=[EncryptionEnforcer()],
@@ -1544,7 +1549,8 @@ from Syrin.guardrails.intelligence import (
 
 # Build comprehensive intelligent guardrail system
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
+    # model=Model.OpenAI("gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     guardrails=GuardrailConfig(
         input=[
             ContentFilter(blocked_words=["spam", "harmful"]),

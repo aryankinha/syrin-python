@@ -13,19 +13,17 @@ Run: python -m examples.memory.memory_advanced
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Decay, Memory, MemoryBudget, MemoryEntry, MemoryType, Model
+from examples.models.models import almock
+from syrin import Agent, Decay, Memory, MemoryBudget, MemoryEntry, MemoryType
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
 logging.getLogger("httpcore").setLevel(logging.CRITICAL)
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
 
 
 def example_memory_decay() -> None:
@@ -34,14 +32,18 @@ def example_memory_decay() -> None:
     print("Memory Decay Example")
     print("=" * 50)
 
-    # Create decay configuration
+    # Create decay configuration (option 1: rate per hour)
     decay = Decay(
         strategy="exponential",
-        half_life=100,  # Importance halves every 100 interactions
+        rate=0.995,  # Decay factor per hour (exponential)
+        reinforce_on_access=True,
     )
-
     print(f"Decay strategy: {decay.strategy}")
-    print(f"Half life: {decay.half_life}")
+    print(f"Rate: {decay.rate}, reinforce_on_access: {decay.reinforce_on_access}")
+
+    # Option 2: half-life in hours (importance halves every N hours)
+    decay_hl = Decay(half_life_hours=24.0, reinforce_on_access=True)
+    print(f"Half-life decay: rate={decay_hl.rate:.4f} (halves every 24h)")
 
 
 def example_memory_budget() -> None:
@@ -51,14 +53,12 @@ def example_memory_budget() -> None:
     print("=" * 50)
 
     budget = MemoryBudget(
-        max_tokens=4000,  # Max tokens for memory context
-        max_entries=100,  # Max memory entries
-        cost_per_token=0.0001,  # Cost per token
+        extraction_budget=10.0,  # Budget for extraction/recall
+        consolidation_budget=5.0,  # Budget for consolidation
     )
 
-    print(f"Max tokens: {budget.max_tokens}")
-    print(f"Max entries: {budget.max_entries}")
-    print(f"Cost per token: {budget.cost_per_token}")
+    print(f"Extraction budget: {budget.extraction_budget}")
+    print(f"Consolidation budget: {budget.consolidation_budget}")
 
 
 def example_memory_entry() -> None:
@@ -68,8 +68,9 @@ def example_memory_entry() -> None:
     print("=" * 50)
 
     entry = MemoryEntry(
+        id="entry-1",
         content="User prefers dark mode",
-        memory_type=MemoryType.CORE,
+        type=MemoryType.CORE,
         importance=0.9,
         metadata={"source": "user_preference"},
     )
@@ -87,7 +88,7 @@ def example_recall_with_query() -> None:
     print("=" * 50)
 
     class Assistant(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant."
 
     assistant = Assistant(memory=Memory())
@@ -112,7 +113,7 @@ def example_forget_memory() -> None:
     print("=" * 50)
 
     class Assistant(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant."
 
     assistant = Assistant(memory=Memory())
@@ -138,7 +139,7 @@ def example_memory_context_window() -> None:
     print("=" * 50)
 
     class Assistant(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant."
         persistent_memory = Memory()
 
@@ -181,7 +182,7 @@ def example_agent_memory_lifecycle() -> None:
     print("=" * 50)
 
     class Assistant(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant that remembers user context."
         persistent_memory = Memory()
 
@@ -208,7 +209,7 @@ def example_memory_importance() -> None:
     print("=" * 50)
 
     class Assistant(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant."
         persistent_memory = Memory()
 

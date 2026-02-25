@@ -11,20 +11,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Model
+from examples.models.models import almock
+from syrin import Agent
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
 logging.getLogger("httpcore").setLevel(logging.CRITICAL)
 logging.getLogger("asyncio").setLevel(logging.CRITICAL)
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
 
 
 def example_sync_response() -> None:
@@ -34,7 +32,7 @@ def example_sync_response() -> None:
     print("=" * 50)
 
     class Assistant(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant."
 
     assistant = Assistant()
@@ -52,7 +50,7 @@ async def example_async_response() -> None:
     print("=" * 50)
 
     class Assistant(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant."
 
     assistant = Assistant()
@@ -70,7 +68,7 @@ async def example_multiple_async() -> None:
     print("=" * 50)
 
     class Analyzer(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are an analyst."
 
     async def analyze(topic: str) -> None:

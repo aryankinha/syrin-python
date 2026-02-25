@@ -140,12 +140,14 @@ class StreamChunk:
     cost_so_far and tokens_so_far update as the stream progresses.
 
     Fields:
+        index: Zero-based chunk index in this stream.
         text: New text in this chunk (delta).
         accumulated_text: Full text received so far.
         cost_so_far: Total cost up to this chunk (USD).
         tokens_so_far: TokenUsage (input/output/total) so far.
     """
 
+    index: int = 0
     text: str = ""
     accumulated_text: str = ""
     cost_so_far: float = 0.0

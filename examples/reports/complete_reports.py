@@ -14,13 +14,13 @@ Run: python -m examples.reports.complete_reports
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from examples.models.models import almock
 from pydantic import BaseModel
 
-from syrin import Agent, Budget, Hook, Model
+from syrin import Agent, Budget, Hook
 from syrin.enums import MemoryType
 from syrin.guardrails import ContentFilter
 
@@ -42,7 +42,7 @@ def example_basic_reports():
     print("=" * 70)
 
     class Assistant(Agent):
-        model = Model("openai/gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant."
 
     agent = Assistant()
@@ -86,7 +86,7 @@ def example_guardrail_blocking():
     guardrail = ContentFilter(blocked_words=["hack", "steal", "password"])
 
     class Assistant(Agent):
-        model = Model("openai/gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         guardrails = [guardrail]
         system_prompt = "You are a helpful assistant."
 
@@ -117,7 +117,7 @@ def example_memory_operations():
     print("=" * 70)
 
     class Assistant(Agent):
-        model = Model("openai/gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant."
 
     agent = Assistant()
@@ -152,9 +152,8 @@ def example_structured_output_validation():
     print("=" * 70)
 
     class Assistant(Agent):
-        model = Model(
-            "openai/gpt-4o-mini", output=AnalysisOutput, api_key=os.getenv("OPENAI_API_KEY")
-        )
+        model = almock
+        output = AnalysisOutput
         system_prompt = "You analyze text and return structured output."
 
     agent = Assistant()
@@ -185,9 +184,8 @@ def example_complete_report_summary():
     guardrail = ContentFilter(blocked_words=["blocked"])
 
     class Assistant(Agent):
-        model = Model(
-            "openai/gpt-4o-mini", output=AnalysisOutput, api_key=os.getenv("OPENAI_API_KEY")
-        )
+        model = almock
+        output = AnalysisOutput
         system_prompt = "You are a helpful assistant with memory."
         guardrails = [guardrail]
         budget = Budget(run=5.0)  # $5 budget
@@ -269,7 +267,7 @@ def example_report_reset():
     print("=" * 70)
 
     class Assistant(Agent):
-        model = Model("openai/gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
 
     agent = Assistant()
 

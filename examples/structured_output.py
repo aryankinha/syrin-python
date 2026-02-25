@@ -9,7 +9,6 @@ Run with:
     python examples/structured_output.py
 """
 
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -17,9 +16,8 @@ from dotenv import load_dotenv
 # Check for API key
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "gpt-4o-mini")
-
-from syrin import Agent, Model, Output
+from examples.models.models import almock
+from syrin import Agent, Output
 from syrin.enums import Hook
 from syrin.model import structured
 from syrin.types.validation import (
@@ -50,7 +48,7 @@ class UserInfo:
 
 # Create agent with output validation
 agent = Agent(
-    model=Model.OpenAI(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+    model=almock,
     output=Output(UserInfo, validation_retries=3),
 )
 
@@ -103,7 +101,7 @@ class ProductInfo:
 
 
 agent = Agent(
-    model=Model.OpenAI(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+    model=almock,
     output=Output(ProductInfo, validation_retries=3),
     debug=True,
 )
@@ -165,7 +163,7 @@ class SentimentResult:
 
 
 agent = Agent(
-    model=Model.OpenAI(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+    model=almock,
     output=Output(SentimentResult, validation_retries=3),
 )
 
@@ -276,7 +274,7 @@ class RatingValidator(OutputValidator):
 
 
 agent = Agent(
-    model=Model.OpenAI(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+    model=almock,
     output=Output(
         type=ReviewResult,
         validator=RatingValidator(),
@@ -340,7 +338,7 @@ class RestrictedUser(BaseModel):
 
 
 agent = Agent(
-    model=Model.OpenAI(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+    model=almock,
     output=Output(
         type=RestrictedUser,
         validation_retries=3,
@@ -393,7 +391,7 @@ API:
         email: str
 
     agent = Agent(
-        model=Model.OpenAI(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         output=Output(UserInfo, validation_retries=3),
     )
 

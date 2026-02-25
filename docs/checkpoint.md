@@ -15,7 +15,8 @@ Syrin provides a checkpoint system for saving and restoring agent state. This is
 from Syrin import Agent, Model, CheckpointConfig
 
 agent = Agent(
-    model=Model("gpt-4o"),
+    # model=Model("gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     checkpoint=CheckpointConfig(storage="memory"),
 )
 
@@ -55,7 +56,8 @@ CheckpointTrigger.BUDGET   # Before budget exhaustion
 
 ```python
 agent = Agent(
-    model=Model("gpt-4o"),
+    # model=Model("gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     checkpoint=CheckpointConfig(storage="memory"),
 )
 ```
@@ -66,7 +68,8 @@ Best for: Testing, short-lived agents
 
 ```python
 agent = Agent(
-    model=Model("gpt-4o"),
+    # model=Model("gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     checkpoint=CheckpointConfig(
         storage="sqlite",
         path="/tmp/agent_checkpoints.db",
@@ -80,7 +83,8 @@ Best for: Single-user applications, persistent local storage
 
 ```python
 agent = Agent(
-    model=Model("gpt-4o"),
+    # model=Model("gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     checkpoint=CheckpointConfig(
         storage="filesystem",
         path="/tmp/checkpoints",

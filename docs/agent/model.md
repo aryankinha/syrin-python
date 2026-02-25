@@ -14,11 +14,15 @@ The model is **required**. Pass it at construction or set it on the class:
 from syrin import Agent
 from syrin.model import Model
 
-agent = Agent(model=Model.OpenAI("gpt-4o-mini"))
+agent = Agent(
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
+)
 
 # Or on a class
 class MyAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are helpful."
 ```
 
@@ -64,7 +68,8 @@ from syrin.model import Model
 from syrin.threshold import BudgetThreshold
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
+    # model=Model.OpenAI("gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     budget=Budget(
         run=1.0,
         thresholds=[
@@ -101,10 +106,11 @@ On subclasses, `model` follows MRO merge rules: the first definition in the clas
 
 ```python
 class BaseAgent(Agent):
-    model = Model.OpenAI("gpt-4o")
+    # model = Model.OpenAI("gpt-4o")
+    model = Model.Almock()  # No API Key needed
 
 class CheaperAgent(BaseAgent):
-    model = Model.OpenAI("gpt-4o-mini")  # Overrides parent
+    model = Model.OpenAI("gpt-4o-mini")  # Overrides parent (use real model when you have a key)
 ```
 
 See [Creating Agents](creating-agents.md) for full inheritance rules.

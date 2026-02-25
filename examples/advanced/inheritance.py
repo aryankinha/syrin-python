@@ -11,20 +11,18 @@ Run: python -m examples.advanced.inheritance
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Model, tool
+from examples.models.models import almock
+from syrin import Agent, tool
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
 logging.getLogger("httpcore").setLevel(logging.CRITICAL)
 logging.getLogger("asyncio").setLevel(logging.CRITICAL)
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
 
 
 def example_inheritance() -> None:
@@ -39,15 +37,15 @@ def example_inheritance() -> None:
         return " ".join([text] * count)
 
     class BaseAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant."
         tools = [repeat]
 
     class SpecializedAgent(BaseAgent):
         system_prompt = "You are a specialized assistant."
 
-    print("1. Base agent tools:", [t.function.name for t in BaseAgent()._tools])
-    print("2. Specialized inherits tools:", [t.function.name for t in SpecializedAgent()._tools])
+    print("1. Base agent tools:", [t.name for t in BaseAgent()._tools])
+    print("2. Specialized inherits tools:", [t.name for t in SpecializedAgent()._tools])
     print("3. Specialized prompt:", SpecializedAgent()._system_prompt[:50], "...")
 
     result = SpecializedAgent().response("Say hello")

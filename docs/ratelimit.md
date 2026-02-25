@@ -241,7 +241,11 @@ print(agent.rate_limit.tpm)   # 150000
 Returns `RateLimitStats` from tracking:
 
 ```python
-agent = Agent(model=Model("openai/gpt-4o"), rate_limit=APIRateLimit(rpm=500))
+agent = Agent(
+    # model=Model("openai/gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
+    rate_limit=APIRateLimit(rpm=500),
+)
 
 # After some requests
 stats = agent.rate_limit_stats

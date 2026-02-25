@@ -3,7 +3,6 @@
 Simple and clean API for controlling agent execution loops.
 """
 
-import os
 from pathlib import Path
 
 # Load .env from examples/ directory
@@ -13,7 +12,8 @@ if env_path.exists():
 
     load_dotenv(env_path)
 
-from syrin import Agent, Model
+from examples.models.models import almock
+from syrin import Agent
 from syrin.loop import (
     CodeActionLoop,
     HumanInTheLoop,
@@ -23,8 +23,7 @@ from syrin.loop import (
     SingleShotLoop,
 )
 
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
-model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+model = almock
 
 
 def example_single_shot():
@@ -156,14 +155,9 @@ def example_custom_loop():
 
 
 if __name__ == "__main__":
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if not openai_key:
-        print("⚠️  Set OPENAI_API_KEY in examples/.env")
-        exit(1)
-
     print("=" * 50)
     print("Syrin Loop Strategies")
-    print(f"Model: {MODEL_ID}")
+    print("Model: almock")
     print("=" * 50)
 
     example_single_shot()

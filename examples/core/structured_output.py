@@ -12,20 +12,18 @@ Run: python -m examples.core.structured_output
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Model
+from examples.models.models import almock
+from syrin import Agent
 from syrin.model import structured
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
 logging.getLogger("httpcore").setLevel(logging.CRITICAL)
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
 
 
 @structured
@@ -65,7 +63,7 @@ def example_basic_structured_output() -> None:
     print("=" * 50)
 
     class SentimentAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "Analyze the sentiment of the text. Respond with sentiment (positive/negative/neutral), confidence (0-1), and explanation."
 
     agent = SentimentAgent()
@@ -89,7 +87,7 @@ def example_person_extraction() -> None:
     print("=" * 50)
 
     class ExtractionAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = """Extract person information from the text.
 Return JSON with: name, age (if mentioned), occupation, and hobbies (list)."""
 
@@ -117,7 +115,7 @@ def example_with_type_hints() -> None:
         tags: list[str] = []
 
     class TodoAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "Parse the todo item. Return JSON with title, priority, due_days (if mentioned), and tags."
 
     agent = TodoAgent()
@@ -143,7 +141,7 @@ def example_list_of_objects() -> None:
         participants: list[str] = []
 
     class MeetingAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = (
             "Extract meeting details. Return JSON with title, time, and participants list."
         )
@@ -163,7 +161,7 @@ def example_response_object() -> None:
     print("=" * 50)
 
     class WeatherAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "Extract weather data as JSON with city, temperature, unit, conditions."
 
     agent = WeatherAgent()

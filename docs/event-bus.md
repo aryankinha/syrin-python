@@ -57,7 +57,8 @@ bus.subscribe(BudgetThresholdReached, lambda e: print(f"Budget at {e.percentage}
 bus.subscribe(ContextCompacted, lambda e: print(f"Compacted: {e.method}"))
 
 agent = Agent(
-    model=Model("openai/gpt-4o-mini"),
+    # model=Model("openai/gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     budget=Budget(run=0.50),
     bus=bus,
 )

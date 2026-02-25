@@ -25,6 +25,14 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 # -----------------------------------------------------------------------------
+# Almock (An LLM Mock) — no API key required; use for local testing and CI
+# -----------------------------------------------------------------------------
+# Use this to run examples without any API key. Uncomment the Almock line in
+# each example and comment the real model to try the library with zero cost.
+almock = Model.Almock(latency_min=0, latency_max=0, lorem_length=80)
+
+
+# -----------------------------------------------------------------------------
 # Provider models - pass api_key explicitly (examples use env for convenience)
 # -----------------------------------------------------------------------------
 

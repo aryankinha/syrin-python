@@ -50,7 +50,8 @@ def save_text(filename: str, content: str) -> dict:
 class WriterAgent(Agent):
     """Writes blog posts."""
     
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     
     system_prompt = """
     You are a professional blog writer.
@@ -65,7 +66,8 @@ class WriterAgent(Agent):
 class EditorAgent(Agent):
     """Edits and improves text."""
     
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     
     system_prompt = """
     You are a professional editor.
@@ -80,7 +82,8 @@ class EditorAgent(Agent):
 class ReviewerAgent(Agent):
     """Final quality check."""
     
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     
     system_prompt = """
     You are a quality reviewer.
@@ -139,19 +142,22 @@ from Syrin.model import Model
 
 class ResearcherAgent(Agent):
     """Researches topics."""
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are a researcher. Find key points about the topic."
 
 
 class AnalystAgent(Agent):
     """Analyzes findings."""
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are an analyst. Analyze and summarize the key findings."
 
 
 class ReportAgent(Agent):
     """Writes reports."""
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are a report writer. Create a professional report."
 
 
@@ -202,19 +208,22 @@ import asyncio
 
 class SocialMediaAgent(Agent):
     """Create social media posts."""
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = "Create catchy social media posts."
 
 
 class EmailAgentAgent(Agent):
     """Write marketing emails."""
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = "Write professional marketing emails."
 
 
 class NewsletterAgent(Agent):
     """Write newsletters."""
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = "Write engaging newsletters."
 
 
@@ -263,7 +272,8 @@ from Syrin.model import Model
 
 class CodeReviewerAgent(Agent):
     """Reviews code quality."""
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = """
     You are a senior code reviewer.
     Check code for:
@@ -276,7 +286,8 @@ class CodeReviewerAgent(Agent):
 
 class SecurityAuditAgent(Agent):
     """Audits security."""
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = """
     You are a security expert.
     Audit code for security issues:
@@ -289,7 +300,8 @@ class SecurityAuditAgent(Agent):
 
 class DocumentationAgent(Agent):
     """Writes documentation."""
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = """
     You are a technical writer.
     Create clear documentation:
@@ -348,23 +360,27 @@ from Syrin.tool import tool
 
 # Helper agents
 class MathAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are a math expert. Solve math problems."
 
 
 class HistoryAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are a history expert. Answer history questions."
 
 
 class ScienceAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are a science expert. Answer science questions."
 
 
 # Main agent that delegates
 class TeacherAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     
     system_prompt = """
     You are a teacher assistant.
@@ -424,21 +440,24 @@ def send_message(customer_id: str, message: str) -> dict:
 
 class OrderSupportAgent(Agent):
     """Handles order-related issues."""
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You handle order inquiries and shipping issues."
     tools = [check_order_status, send_message]
 
 
 class RefundAgent(Agent):
     """Handles refunds and returns."""
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You process refunds and handle returns."
     tools = [process_refund, send_message]
 
 
 class TechnicalSupportAgent(Agent):
     """Handles technical issues."""
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You help with product technical issues."
     tools = [send_message]
 
@@ -446,7 +465,8 @@ class TechnicalSupportAgent(Agent):
 class SupportRouter(Agent):
     """Routes requests to the right agent."""
     
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     
     system_prompt = """
     You are a support router.
@@ -512,7 +532,8 @@ shared_budget = Budget(
 
 
 class TeamAgent1(Agent):
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     
     def __init__(self):
         super().__init__()
@@ -520,7 +541,8 @@ class TeamAgent1(Agent):
 
 
 class TeamAgent2(Agent):
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     
     def __init__(self):
         super().__init__()
@@ -528,7 +550,8 @@ class TeamAgent2(Agent):
 
 
 class TeamAgent3(Agent):
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     
     def __init__(self):
         super().__init__()

@@ -180,12 +180,16 @@ class SingleShotLoop(Loop):
         # Extract stop_reason from response, default to "end_turn"
         stop_reason = response.stop_reason or "end_turn"
 
+        total_tokens = u.input_tokens + u.output_tokens
         ctx.emit_event(
             Hook.AGENT_RUN_END,
             EventContext(
                 content=content,
                 iterations=1,
                 cost=cost_usd,
+                tokens=total_tokens,
+                duration=latency_ms / 1000.0,
+                stop_reason=stop_reason,
             ),
         )
 
@@ -361,12 +365,16 @@ class ReactLoop(Loop):
             pricing_override=ctx.pricing_override,
         )
 
+        total_tokens = total_input + total_output
         ctx.emit_event(
             Hook.AGENT_RUN_END,
             EventContext(
                 content=response.content or "",
                 iterations=iteration,
                 cost=total_cost,
+                tokens=total_tokens,
+                duration=latency_ms / 1000.0,
+                stop_reason=getattr(stop_reason, "value", str(stop_reason)),
             ),
         )
 
@@ -523,12 +531,16 @@ class HumanInTheLoop(Loop):
             pricing_override=ctx.pricing_override,
         )
 
+        total_tokens = total_input + total_output
         ctx.emit_event(
             Hook.AGENT_RUN_END,
             EventContext(
                 content=response.content or "",
                 iterations=iteration,
                 cost=total_cost,
+                tokens=total_tokens,
+                duration=latency_ms / 1000.0,
+                stop_reason="end_turn",
             ),
         )
 
@@ -711,12 +723,16 @@ class PlanExecuteLoop(Loop):
             pricing_override=ctx.pricing_override,
         )
 
+        total_tokens = total_input + total_output
         ctx.emit_event(
             Hook.AGENT_RUN_END,
             EventContext(
                 content=final_response.content or "",
                 iterations=plan_iteration + exec_iteration,
                 cost=total_cost,
+                tokens=total_tokens,
+                duration=latency_ms / 1000.0,
+                stop_reason=getattr(final_response, "stop_reason", "end_turn") or "end_turn",
             ),
         )
 
@@ -873,12 +889,16 @@ class CodeActionLoop(Loop):
             pricing_override=ctx.pricing_override,
         )
 
+        total_tokens = total_input + total_output
         ctx.emit_event(
             Hook.AGENT_RUN_END,
             EventContext(
                 content=response.content or "",
                 iterations=iteration,
                 cost=total_cost,
+                tokens=total_tokens,
+                duration=latency_ms / 1000.0,
+                stop_reason=getattr(response, "stop_reason", "end_turn") or "end_turn",
             ),
         )
 

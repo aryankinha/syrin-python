@@ -12,7 +12,6 @@ Run: python -m examples.advanced.sandbox
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -22,15 +21,14 @@ from syrin.sandbox import (
     get_sandbox,
 )
 
-from syrin import Agent, Model
+from examples.models.models import almock
+from syrin import Agent
 from syrin.enums import SandboxRuntime
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
 logging.getLogger("httpcore").setLevel(logging.CRITICAL)
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
 
 
 def example_local_sandbox() -> None:
@@ -206,7 +204,7 @@ def example_sandbox_with_agent() -> None:
         return f"Error: {result.error}"
 
     class CodingAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a coding assistant. Use the execute_code tool to run Python code."
         tools = [execute_code]
 

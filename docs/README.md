@@ -91,7 +91,8 @@ Copy and run this to test your setup:
 from syrin import Agent, Model
 
 class MyAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are helpful."
 
 agent = MyAgent()

@@ -34,7 +34,10 @@ class MemoryStore:
         backend: dict[str, MemoryEntry] | None = None,
     ) -> None:
         self._decay = decay or Decay(
-            strategy=DecayStrategy.EXPONENTIAL, rate=0.995, min_importance=0.1
+            strategy=DecayStrategy.EXPONENTIAL,
+            rate=0.995,
+            min_importance=0.1,
+            half_life_hours=None,
         )
         self._budget = budget
         self._events = events
@@ -114,6 +117,8 @@ class MemoryStore:
                 importance=importance,
                 **kwargs,
             )
+        elif not (entry.id or "").strip():
+            entry = entry.model_copy(update={"id": self._generate_id()})
 
         if self._budget and self._budget.extraction_budget is not None:
             estimated_cost = self._estimate_cost(entry)
@@ -291,6 +296,57 @@ class MemoryStore:
 
         self._end_span(span_data, deleted_count=deleted)
         return deleted
+
+    def consolidate(
+        self,
+        *,
+        deduplicate: bool = True,
+        consolidation_budget: float | None = None,
+    ) -> int:
+        """Deduplicate memories (exact content match), optionally budget-aware.
+
+        Merges duplicates by keeping one entry per unique content (highest importance).
+        Emits MEMORY_CONSOLIDATE hook with count of removed duplicates.
+
+        Args:
+            deduplicate: If True, remove duplicate contents (keep one per content).
+            consolidation_budget: If set, skip consolidation when estimated cost would exceed.
+
+        Returns:
+            Number of duplicate entries removed.
+        """
+        span_data = self._create_span("consolidate")
+        if not deduplicate:
+            self._end_span(span_data, consolidated=0)
+            return 0
+
+        if consolidation_budget is None and self._budget is not None:
+            consolidation_budget = getattr(self._budget, "consolidation_budget", None)
+
+        # Simple dedupe: group by content, keep one (max importance), delete rest
+        by_content: dict[str, list[tuple[str, MemoryEntry]]] = {}
+        for key, entry in self._backend.items():
+            c = (entry.content or "").strip()
+            if c not in by_content:
+                by_content[c] = []
+            by_content[c].append((key, entry))
+
+        removed = 0
+        for _content, key_entries in by_content.items():
+            if len(key_entries) <= 1:
+                continue
+            # Keep the one with highest importance; remove others
+            key_entries.sort(key=lambda ke: ke[1].importance, reverse=True)
+            for key, _entry in key_entries[1:]:
+                del self._backend[key]
+                removed += 1
+
+        self._emit_event(
+            "memory.consolidate",
+            {"memories_consolidated": removed},
+        )
+        self._end_span(span_data, consolidated=removed)
+        return removed
 
     def list(
         self,

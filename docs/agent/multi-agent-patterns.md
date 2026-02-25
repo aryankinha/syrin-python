@@ -89,7 +89,8 @@ from syrin import DynamicPipeline
 
 pipeline = DynamicPipeline(
     agents=[ResearcherAgent, AnalystAgent, WriterAgent],
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     budget=Budget(run=1.0),
     max_parallel=5,
     debug=True,

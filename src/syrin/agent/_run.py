@@ -71,6 +71,7 @@ async def run_agent_loop_async(agent: Any, user_input: str) -> Response[str]:
         if not result.tool_calls:
             output_guardrail = agent._run_guardrails(result.content or "", GuardrailStage.OUTPUT)
             if not output_guardrail.passed:
+                agent._last_iteration = result.iterations
                 return cast(
                     Response[str],
                     agent._with_context_on_response(
@@ -99,6 +100,8 @@ async def run_agent_loop_async(agent: Any, user_input: str) -> Response[str]:
         agent._run_report.tokens.output_tokens = tokens.output_tokens
         agent._run_report.tokens.total_tokens = tokens.total_tokens
         agent._run_report.tokens.cost_usd = result.cost_usd
+
+        agent._last_iteration = result.iterations
 
         return cast(
             Response[str],

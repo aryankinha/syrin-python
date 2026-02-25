@@ -1054,7 +1054,8 @@ debugger = WorkflowDebugger(verbose=True)
 
 # Create agent and attach debugger
 agent = Agent(
-    model=Model.LiteLLM("gpt-4o-mini"),
+    # model=Model.LiteLLM("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     system_prompt="You are a helpful assistant with access to tools.",
     tools=[calculator],
 )
@@ -1080,7 +1081,8 @@ debugger = WorkflowDebugger(verbose=True)
 # Create pipeline
 pipeline = DynamicPipeline(
     agents=[ResearchAgent, AnalysisAgent, WriterAgent],
-    model=Model.OpenAI("gpt-4o"),
+    # model=Model.OpenAI("gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
 )
 
 # Attach debugger

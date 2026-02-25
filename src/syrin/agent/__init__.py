@@ -374,6 +374,7 @@ class Agent:
                 loop_strategy, max_iterations=max_tool_iterations
             )
         self._loop = loop_instance
+        self._last_iteration: int = 0
 
         # Guardrails setup
         if guardrails is None or (isinstance(guardrails, list) and len(guardrails) == 0):
@@ -450,6 +451,18 @@ class Agent:
                 )
             else:
                 self._checkpointer = None
+
+    @property
+    def iteration(self) -> int:
+        """Number of loop iterations from the last run (0 before first run or on guardrail block)."""
+        return getattr(self, "_last_iteration", 0)
+
+    @property
+    def messages(self) -> list[Message]:
+        """Current conversation messages from conversation memory, or empty list if none."""
+        if self._conversation_memory is not None:
+            return self._conversation_memory.get_messages()
+        return []
 
     def save_checkpoint(self, name: str | None = None, reason: str | None = None) -> str | None:
         """Save a snapshot of the agent's current state for later restore.
@@ -1793,6 +1806,7 @@ class Agent:
         total_tokens = TokenUsage()
         prev_cost = 0.0
         prev_tokens = TokenUsage()
+        chunk_index = 0
 
         try:
             for chunk in self._provider.stream_sync(messages, self._model_config, tools):
@@ -1826,11 +1840,13 @@ class Agent:
                         if self._budget_store is not None:
                             self._budget_store.save(self._budget_store_key, self._budget_tracker)
                 yield StreamChunk(
+                    index=chunk_index,
                     text=content,
                     accumulated_text=accumulated,
                     cost_so_far=total_cost,
                     tokens_so_far=total_tokens,
                 )
+                chunk_index += 1
                 if self._budget is not None or self._token_limits is not None:
                     self._check_and_apply_budget()
                 prev_cost = total_cost
@@ -1979,6 +1995,7 @@ class Agent:
             total_tokens = TokenUsage()
             prev_cost = 0.0
             prev_tokens = TokenUsage()
+            chunk_index = 0
 
             try:
                 async for chunk in self._provider.stream(messages, self._model_config, tools):
@@ -2014,11 +2031,13 @@ class Agent:
                                     self._budget_store_key, self._budget_tracker
                                 )
                     yield StreamChunk(
+                        index=chunk_index,
                         text=content,
                         accumulated_text=accumulated,
                         cost_so_far=total_cost,
                         tokens_so_far=total_tokens,
                     )
+                    chunk_index += 1
                     if self._budget is not None or self._token_limits is not None:
                         self._check_and_apply_budget()
                     prev_cost = total_cost

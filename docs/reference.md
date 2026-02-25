@@ -15,7 +15,8 @@ import os
 from syrin import Agent, Model
 
 class MyAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are helpful"
     tools = []  # Optional tools
     
@@ -207,7 +208,8 @@ import os
 from syrin import Agent, Model
 
 class SimpleAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     system_prompt = "Help users"
 
 agent = SimpleAgent()
@@ -227,7 +229,8 @@ def do_something(param: str) -> dict:
     return {"result": param.upper()}
 
 class ToolAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     tools = [do_something]
 
 agent = ToolAgent()
@@ -241,7 +244,8 @@ import os
 from syrin import Agent, Memory, Model
 
 class MemoryAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     
     def __init__(self):
         super().__init__()
@@ -259,7 +263,8 @@ import os
 from syrin import Agent, Budget, Model, raise_on_exceeded
 
 class BudgetAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     
     def __init__(self):
         super().__init__()
@@ -280,11 +285,13 @@ import os
 from syrin import Agent, Model
 
 class Agent1(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are Agent 1"
 
 class Agent2(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are Agent 2"
 
 a1 = Agent1()
@@ -301,7 +308,8 @@ import os
 from syrin import Agent, Model
 
 class StreamAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
 
 agent = StreamAgent()
 

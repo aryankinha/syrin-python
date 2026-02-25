@@ -72,7 +72,8 @@ import os
 from syrin import Agent, Model, Budget, stop_on_exceeded
 
 class Researcher(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     budget = Budget(run=0.50, on_exceeded=stop_on_exceeded)
 
 result = Researcher().response("Summarize quantum computing in 3 sentences")
@@ -83,6 +84,8 @@ print(f"Cost: ${result.cost:.4f}  |  Budget used: ${result.budget_used:.4f}")
 ```
 
 Pass your API key explicitly. The run is capped at $0.50; when the budget is exceeded, the agent stops.
+
+**No API key?** Examples and docs use `Model.Almock()` by default; comment it out and uncomment the real model when you have an API key.
 
 ---
 
@@ -95,7 +98,8 @@ import os
 from syrin import Agent, Model
 
 class Greeter(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are a helpful assistant."
 
 result = Greeter().response("Say hello in one sentence.")
@@ -116,7 +120,8 @@ import os
 from syrin import Agent, Model, Budget, stop_on_exceeded
 
 class SafeResearcher(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     budget = Budget(run=0.50, on_exceeded=stop_on_exceeded)
 
 result = SafeResearcher().response("Explain photosynthesis briefly.")
@@ -138,7 +143,8 @@ import os
 from syrin import Agent, Model, Budget, BudgetThreshold
 
 class AdaptiveResearcher(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     budget = Budget(
         run=0.50,
         thresholds=[
@@ -184,7 +190,8 @@ from syrin import Agent, Model, Budget
 from syrin.enums import Hook
 
 class ObservableAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are a research assistant."
     budget = Budget(run=0.50)
 
@@ -212,7 +219,8 @@ from syrin import Agent, Model, Memory
 from syrin.enums import MemoryType
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY")),
+    # model=Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY")),
+    model=Model.Almock(),  # No API Key needed
     memory=Memory(types=[MemoryType.CORE, MemoryType.EPISODIC]),
 )
 
@@ -241,7 +249,8 @@ from syrin import Agent, Model, GuardrailChain
 from syrin.guardrails import LengthGuardrail, ContentFilter
 
 class SafeAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     guardrails = GuardrailChain([
         LengthGuardrail(max_length=4000),
         ContentFilter(blocked_words=["spam", "malicious"]),
@@ -269,7 +278,8 @@ from syrin import Agent, Model
 from syrin.context import Context
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY")),
+    # model=Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY")),
+    model=Model.Almock(),  # No API Key needed
     context=Context(max_tokens=8000),
 )
 
@@ -291,7 +301,8 @@ import os
 from syrin import Agent, Model, CheckpointConfig, CheckpointTrigger
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY")),
+    # model=Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY")),
+    model=Model.Almock(),  # No API Key needed
     checkpoint=CheckpointConfig(storage="memory", trigger=CheckpointTrigger.STEP),
 )
 
@@ -322,7 +333,8 @@ def search_web(query: str) -> str:
     return f"Results for: {query}"  # Replace with real search in production
 
 class Assistant(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     tools = [search_web]
     budget = Budget(run=0.25)
 
@@ -345,7 +357,8 @@ import os
 from syrin import Agent, Model
 
 class Writer(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
 
 async def main():
     agent = Writer()

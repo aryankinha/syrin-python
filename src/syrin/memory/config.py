@@ -6,7 +6,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from syrin.budget import BudgetExceededContext
 from syrin.enums import (
@@ -25,12 +25,26 @@ class Decay(BaseModel):
     """Ebbinghaus-inspired forgetting curve.
 
     Memories lose importance over time unless reinforced by access.
+    Use either ``rate`` (per-hour decay multiplier) or ``half_life_hours``
+    (hours until importance halves); if both are set, ``half_life_hours`` wins.
     """
 
     strategy: DecayStrategy = DecayStrategy.EXPONENTIAL
     rate: float = Field(0.995, gt=0.0, le=1.0)
+    half_life_hours: float | None = Field(
+        None,
+        gt=0,
+        description="Hours until importance halves (exponential). If set, rate is derived as 0.5**(1/half_life_hours).",
+    )
     reinforce_on_access: bool = True
     min_importance: float = Field(0.1, ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def _apply_half_life(self) -> Decay:
+        if self.half_life_hours is not None and self.strategy == DecayStrategy.EXPONENTIAL:
+            # importance halves every half_life_hours: 0.5 = rate^half_life => rate = 0.5^(1/half_life_hours)
+            return self.model_copy(update={"rate": 0.5 ** (1.0 / self.half_life_hours)})
+        return self
 
     def apply(self, entry: MemoryEntry) -> None:
         """Apply decay to a memory entry based on age.
@@ -265,6 +279,35 @@ class Memory(BaseModel):
             memory_id=memory_id,
             memory_type=memory_type,
             query=query,
+        )
+
+    def consolidate(
+        self,
+        *,
+        deduplicate: bool | None = None,
+        consolidation_budget: float | None = None,
+    ) -> int:
+        """Run memory consolidation (deduplicate by content). Optional, budget-aware.
+
+        When consolidation is configured, uses its deduplicate setting; otherwise
+        defaults to True. Respects memory_budget.consolidation_budget when set.
+
+        Returns:
+            Number of duplicate entries removed.
+        """
+        if self._store is None:
+            return 0
+        dedup = (
+            deduplicate
+            if deduplicate is not None
+            else getattr(self.consolidation, "deduplicate", True)
+        )
+        budget = consolidation_budget
+        if budget is None and self.memory_budget is not None:
+            budget = self.memory_budget.consolidation_budget
+        return self._store.consolidate(
+            deduplicate=dedup,
+            consolidation_budget=budget,
         )
 
     model_config = {"arbitrary_types_allowed": True}

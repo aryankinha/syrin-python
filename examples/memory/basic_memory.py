@@ -11,20 +11,18 @@ Run: python -m examples.memory.basic_memory
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Memory, MemoryType, Model
+from examples.models.models import almock
+from syrin import Agent, Memory, MemoryType
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
 logging.getLogger("httpcore").setLevel(logging.CRITICAL)
 logging.getLogger("asyncio").setLevel(logging.CRITICAL)
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
 
 
 def example_basic_memory() -> None:
@@ -34,7 +32,7 @@ def example_basic_memory() -> None:
     print("=" * 50)
 
     class Assistant(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant that remembers user preferences."
 
     assistant = Assistant(memory=Memory())
@@ -57,7 +55,7 @@ def example_memory_types() -> None:
     print("=" * 50)
 
     class Assistant(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant."
 
     assistant = Assistant(memory=Memory())

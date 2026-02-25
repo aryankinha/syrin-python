@@ -63,7 +63,8 @@ from syrin import Agent, Model
 
 # Default context (no thresholds, no compaction)
 agent = Agent(
-    model=Model("openai/gpt-4o"),
+    # model=Model("openai/gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     system_prompt="You are a helpful assistant.",
 )
 result = agent.response("Hello!")
@@ -78,7 +79,8 @@ from syrin import Agent, Context, Model
 from syrin.threshold import ContextThreshold
 
 agent = Agent(
-    model=Model("openai/gpt-4o"),
+    # model=Model("openai/gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     system_prompt="You are helpful.",
     context=Context(
         max_tokens=80000,
@@ -292,7 +294,8 @@ from syrin import Agent, Context, TokenLimits, Model, TokenRateLimit
 from syrin.budget import raise_on_exceeded
 
 agent = Agent(
-    model=Model("openai/gpt-4o"),
+    # model=Model("openai/gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     context=Context(
         budget=TokenLimits(
             run=50_000,
@@ -331,7 +334,11 @@ When **context** is a **Context** instance, that run uses its **max_tokens**, **
 ```python
 from syrin import Agent, Context, Model
 
-agent = Agent(model=Model("openai/gpt-4o"), context=Context(max_tokens=128000))
+agent = Agent(
+    # model=Model("openai/gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
+    context=Context(max_tokens=128000),
+)
 # This call uses a smaller window and no thresholds:
 result = agent.response("Summarize this", context=Context(max_tokens=4000))
 ```
@@ -600,7 +607,8 @@ If `tools` are so large that `available_for_messages = max_tokens - reserve - to
 ```python
 # Many/large tools leave no room for messages
 agent = Agent(
-    model=Model("openai/gpt-4o"),
+    # model=Model("openai/gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     context=Context(max_tokens=4000, reserve=500, thresholds=[
         ContextThreshold(at=100, action=lambda ctx: (_ for _ in ()).throw(ValueError("Context full"))),
     ]),
@@ -621,7 +629,8 @@ The default compactor only compacts the **message** list. Tool definitions are n
 ```python
 # Compaction won't remove tool tokens
 agent = Agent(
-    model=Model("openai/gpt-4o"),
+    # model=Model("openai/gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     context=Context(max_tokens=8000, thresholds=[
         ContextThreshold(at=80, action=lambda ctx: ctx.compact() if ctx.compact else None),
     ]),
@@ -639,7 +648,11 @@ agent = Agent(
 **agent.context** still exposes the agent’s default **Context** config. For the config and stats **actually used** on a given call, use **result.context** and **result.context_stats** (set on every **Response** from **response()** / **arun()**).
 
 ```python
-agent = Agent(model=Model("openai/gpt-4o"), context=Context(max_tokens=128000))
+agent = Agent(
+    # model=Model("openai/gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
+    context=Context(max_tokens=128000),
+)
 result = agent.response("Summarize this", context=Context(max_tokens=4000))
 # Default context (unchanged):
 print(agent.context.max_tokens)  # 128000
@@ -704,7 +717,11 @@ async def run():
 ```python
 from syrin import Agent, Model
 
-agent = Agent(model=Model("openai/gpt-4o"), system_prompt="You are helpful.")
+agent = Agent(
+    # model=Model("openai/gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
+    system_prompt="You are helpful.",
+)
 result = agent.response("Hello!")
 print(agent.context_stats.total_tokens, agent.context_stats.utilization)
 ```
@@ -719,7 +736,8 @@ def on_full(ctx):
     raise ValueError("Context full")
 
 agent = Agent(
-    model=Model("openai/gpt-4o"),
+    # model=Model("openai/gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     system_prompt="You are helpful.",
     context=Context(
         max_tokens=80000,
@@ -741,7 +759,8 @@ from syrin import Agent, Context, TokenLimits, Model, TokenRateLimit
 from syrin.budget import warn_on_exceeded
 
 agent = Agent(
-    model=Model("openai/gpt-4o"),
+    # model=Model("openai/gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     context=Context(
         max_tokens=128000,
         budget=TokenLimits(
@@ -765,7 +784,8 @@ def on_full(ctx):
     raise ValueError("Context full")
 
 agent = Agent(
-    model=Model("openai/gpt-4o"),
+    # model=Model("openai/gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     system_prompt="You are helpful.",
     memory=Memory(types=[MemoryType.CORE, MemoryType.EPISODIC]),
     context=Context(

@@ -18,7 +18,7 @@ Think of Syrin as a toolkit for building **AI agents** - programs that can talk 
 pip install syrin
 ```
 
-Set your API key:
+Set your API key (or use `Model.Almock()` to run without one — see [Models Guide](models.md#almock-an-llm-mock)):
 ```bash
 export OPENAI_API_KEY="sk-..."  # or ANTHROPIC_API_KEY for Claude
 ```
@@ -33,7 +33,8 @@ from syrin import Model
 from syrin.types import Message
 from syrin.enums import MessageRole
 
-model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+# model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+model = Model.Almock()  # No API Key needed
 messages = [
     Message(role=MessageRole.SYSTEM, content="You are helpful."),
     Message(role=MessageRole.USER, content="What is 2 + 2?"),
@@ -53,7 +54,8 @@ import os
 from syrin import Agent, Model
 
 class SimpleAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are a helpful assistant."
 
 agent = SimpleAgent()

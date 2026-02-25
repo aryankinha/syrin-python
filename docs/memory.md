@@ -17,7 +17,8 @@ from Syrin.enums import MemoryType
 
 # Agent now has persistent memory ENABLED BY DEFAULT
 agent = Agent(
-    model=Model("openai/gpt-4o-mini"),
+    # model=Model("openai/gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     # memory is automatically enabled with sensible defaults!
 )
 
@@ -40,7 +41,8 @@ print([m.content for m in memories])
 ```python
 # To disable memory entirely
 agent = Agent(
-    model=Model("openai/gpt-4o-mini"),
+    # model=Model("openai/gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     memory=False,  # Disable memory
 )
 ```
@@ -52,7 +54,8 @@ from Syrin.memory import Memory, Decay
 from Syrin.enums import MemoryType, InjectionStrategy
 
 agent = Agent(
-    model=Model("openai/gpt-4o-mini"),
+    # model=Model("openai/gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     memory=Memory(
         types=[MemoryType.CORE, MemoryType.EPISODIC],  # Types to store
         top_k=10,  # Max memories to retrieve
@@ -320,7 +323,8 @@ from Syrin.enums import MemoryType
 
 # Create agent with persistent memory
 agent = Agent(
-    model=Model("openai/gpt-4o-mini"),
+    # model=Model("openai/gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     memory=Memory(  # Accepts Memory or ConversationMemory
         types=[MemoryType.CORE, MemoryType.EPISODIC],
         top_k=10,
@@ -530,13 +534,15 @@ from Syrin.memory import BufferMemory, WindowMemory
 
 # BufferMemory - keeps all messages
 agent = Agent(
-    model=Model("openai/gpt-4o-mini"),
+    # model=Model("openai/gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     memory=BufferMemory(),  # Session memory
 )
 
 # WindowMemory - keeps last K message pairs
 agent = Agent(
-    model=Model("openai/gpt-4o-mini"),
+    # model=Model("openai/gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     memory=WindowMemory(k=10),  # Last 10 pairs
 )
 ```
@@ -554,7 +560,8 @@ from Syrin.observability import set_debug, get_tracer
 set_debug(True)
 
 agent = Agent(
-    model=Model("openai/gpt-4o-mini"),
+    # model=Model("openai/gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     memory=Memory(),
 )
 
@@ -713,7 +720,8 @@ from Syrin.memory import Memory
 from Syrin.enums import MemoryType
 
 agent = Agent(
-    model=Model("openai/gpt-4o-mini"),
+    # model=Model("openai/gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     memory=Memory(types=[
         MemoryType.CORE,       # User identity
         MemoryType.EPISODIC,   # Past conversations

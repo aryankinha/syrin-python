@@ -29,17 +29,15 @@ Events available via shortcuts:
 Run: python -m examples.advanced.hooks
 """
 
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Model
+from examples.models.models import almock
+from syrin import Agent
 from syrin.enums import Hook
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
 
 
 def example_simple_logging():
@@ -49,7 +47,7 @@ def example_simple_logging():
     print("=" * 50)
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
     )
 
@@ -72,7 +70,7 @@ def example_track_cost():
         total_cost["total"] += ctx.get("cost", 0)
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
     )
 
@@ -95,7 +93,7 @@ def example_listen_to_all():
         print(f"  [{event.value if hasattr(event, 'value') else event}]")
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
     )
 
@@ -121,7 +119,7 @@ def example_before_after():
         calls.append("after_request")
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
     )
 
@@ -147,7 +145,7 @@ def example_tool_tracking():
         return str(eval(expr))
 
     class CalcAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "Use the calculate tool for math."
         tools = [calculate]
 

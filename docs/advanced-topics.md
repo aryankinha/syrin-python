@@ -21,6 +21,19 @@ The test suite in `tests/core_stability/` encodes these guarantees with TDD test
 
 ---
 
+## Loop strategy comparison
+
+| Strategy        | When to use it | Tool use | Typical flow |
+|----------------|----------------|----------|---------------|
+| **REACT**      | General agents that may call tools; one step per turn. | Yes | User → LLM → (tool calls or answer) → optional tool loop → final answer. |
+| **SINGLE_SHOT**| No tools; one prompt, one completion. | No | User → LLM → answer. |
+| **PLAN_EXECUTE**| Multi-step tasks: plan first, then execute steps. | Yes | User → plan → execute steps (each step can use tools). |
+| **CODE_ACTION**| Agent emits code or actions to run (e.g. sandbox). | Yes | User → LLM → code/actions → execute → optional loop. |
+
+All strategies return the same `LoopResult` shape (content, stop_reason, iterations, cost_usd, token_usage, tool_calls). Choose REACT for most agents with tools; SINGLE_SHOT when you have no tools; PLAN_EXECUTE for explicit planning; CODE_ACTION when the agent outputs code or structured actions.
+
+---
+
 ## Lifecycle Hooks
 
 Hooks let you execute code at specific moments during an agent's execution. This is essential for logging, metrics, authentication, and custom behaviors.
@@ -45,7 +58,8 @@ from Syrin.enums import Hook
 
 # Create agent
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     system_prompt="You are a helpful assistant.",
 )
 
@@ -71,7 +85,8 @@ from Syrin import Agent, Model
 from Syrin.enums import Hook
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     system_prompt="You are a helpful assistant.",
 )
 
@@ -206,7 +221,8 @@ for span in memory_exporter.spans:
 
 # Or enable debug mode on agent for automatic console output
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     debug=True,  # Enables trace output
 )
 ```
@@ -242,7 +258,8 @@ from Syrin.checkpoint import Checkpointer, CheckpointState
 checkpointer = Checkpointer()
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     system_prompt="You are a helpful assistant.",
 )
 
@@ -344,7 +361,8 @@ from Syrin.guardrails import ContentFilter, PIIScanner
 
 # Simple content filtering
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
+    # model=Model.OpenAI("gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     guardrails=[
         ContentFilter(blocked_words=["password", "secret"]),
         PIIScanner(redact=True),
@@ -433,7 +451,8 @@ from Syrin import Agent, Model
 from Syrin.loop import SingleShotLoop
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     system_prompt="You are a helpful assistant.",
     loop=SingleShotLoop(),
 )
@@ -451,7 +470,8 @@ from Syrin import Agent, Model
 from Syrin.loop import ReactLoop
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     system_prompt="You are a helpful assistant.",
     loop=ReactLoop(),  # Default when tools are present
     tools=[my_tool],
@@ -473,7 +493,8 @@ async def approve_tool(tool_name: str, arguments: dict) -> bool:
     return response.lower() == 'y'
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     system_prompt="You are a helpful assistant.",
     loop=HumanInTheLoop(approve_tool),
     tools=[dangerous_tool],
@@ -490,7 +511,8 @@ The `PlanExecuteLoop` is a 3-phase loop that first generates a plan, then execut
 from Syrin.loop import PlanExecuteLoop
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     loop=PlanExecuteLoop(
         max_plan_iterations=3,      # Max iterations for planning
         max_execution_iterations=20,  # Max iterations for execution
@@ -510,7 +532,8 @@ The `CodeActionLoop` generates Python code, executes it, and interprets the resu
 from Syrin.loop import CodeActionLoop
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     loop=CodeActionLoop(
         max_iterations=5,       # Max code generation attempts
         timeout_seconds=30,     # Code execution timeout
@@ -545,7 +568,8 @@ class MyCustomLoop(Loop):
         )
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     loop=MyCustomLoop(),
 )
 ```
@@ -617,7 +641,8 @@ tracer = get_tracer()
 tracer.add_exporter(ConsoleExporter())
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
+    # model=Model.OpenAI("gpt-4o"),
+    model=Model.Almock(),  # No API Key needed
     system_prompt="You are a professional customer support agent.",
     budget=budget,
     guardrails=guardrails,

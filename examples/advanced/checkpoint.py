@@ -12,12 +12,12 @@ Run: python -m examples.advanced.checkpoint
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Model
+from examples.models.models import almock
+from syrin import Agent
 from syrin.checkpoint import Checkpointer, CheckpointState
 from syrin.enums import CheckpointStrategy
 
@@ -25,8 +25,6 @@ logging.basicConfig(level=logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
 logging.getLogger("httpcore").setLevel(logging.CRITICAL)
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
 
 
 def example_basic_checkpoint() -> None:
@@ -38,7 +36,7 @@ def example_basic_checkpoint() -> None:
     checkpointer = Checkpointer()
 
     class StatefulAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant."
 
     StatefulAgent()
@@ -69,7 +67,7 @@ def example_checkpoint_with_agent() -> None:
     checkpointer = Checkpointer()
 
     class ResearchAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a research assistant."
 
     agent = ResearchAgent()
@@ -77,10 +75,10 @@ def example_checkpoint_with_agent() -> None:
     # Make some progress
     agent.response("What is machine learning?")
 
-    # Capture current agent state
+    # Capture current agent state (use conversation history if available)
     state = {
         "messages": [msg.model_dump() for msg in agent.messages],
-        "iteration": agent._iteration,  # Access internal state
+        "iteration": agent.iteration,
     }
 
     # Save checkpoint
@@ -187,7 +185,7 @@ def example_checkpoint_resume_simulation() -> None:
     checkpointer = Checkpointer()
 
     class LongRunningAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant that provides detailed information."
 
     # Phase 1: Start task
@@ -195,8 +193,10 @@ def example_checkpoint_resume_simulation() -> None:
     agent1.response("Tell me about Python")
 
     # Save progress
+    conv1 = agent1.conversation_memory
+    msgs = [m.model_dump() for m in conv1.get_messages()] if conv1 else []
     state = {
-        "messages": [m.model_dump() for m in agent1.messages],
+        "messages": msgs,
         "budget_state": {
             "current_run_cost": agent1.budget_summary.get("current_run_cost", 0)
             if hasattr(agent1, "budget_summary")

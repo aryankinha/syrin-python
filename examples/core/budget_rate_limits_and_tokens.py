@@ -12,16 +12,15 @@ Run: python -m examples.core.budget_rate_limits_and_tokens
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
+from examples.models.models import almock
 from syrin import (
     Agent,
     Budget,
     Context,
-    Model,
     RateLimit,
     TokenLimits,
     TokenRateLimit,
@@ -35,8 +34,6 @@ logging.getLogger("httpx").setLevel(logging.CRITICAL)
 logging.getLogger("httpcore").setLevel(logging.CRITICAL)
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
-
 
 def example_budget_plus_token_limits() -> None:
     """Budget (USD only) + TokenLimits (separate). Recommended way to cap both spend and usage."""
@@ -45,7 +42,7 @@ def example_budget_plus_token_limits() -> None:
     print("=" * 55)
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are concise. Answer in one short paragraph.",
         budget=Budget(run=0.05, on_exceeded=warn_on_exceeded),
         context=Context(
@@ -69,7 +66,7 @@ def example_rate_limits_plus_token_limits() -> None:
     print("=" * 55)
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are concise. Answer in one short paragraph.",
         budget=Budget(
             run=0.05,
@@ -103,7 +100,7 @@ def example_persistent_rate_limits_with_file_store() -> None:
     store_path.parent.mkdir(parents=True, exist_ok=True)
 
     class PersistentBudgetAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are concise."
         budget = Budget(
             run=0.10,

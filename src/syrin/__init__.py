@@ -121,6 +121,7 @@ from syrin.domain_events import (
     EventBus,
 )
 from syrin.enums import (
+    AlmockPricing,
     AuditBackend,
     CheckpointBackend,
     CheckpointStrategy,
@@ -460,6 +461,7 @@ __all__ = [
     "GuardrailStage",
     "SwitchReason",
     "RateWindow",
+    "AlmockPricing",
     "AuditBackend",
     "ContentType",
     "SandboxRuntime",

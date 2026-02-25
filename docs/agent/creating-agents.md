@@ -9,7 +9,8 @@ from syrin import Agent
 from syrin.model import Model
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     system_prompt="You are helpful.",
 )
 response = agent.response("Hello")
@@ -24,7 +25,8 @@ from syrin import Agent
 from syrin.model import Model
 
 class Assistant(Agent):
-    model = Model.OpenAI("gpt-4o-mini")
+    # model = Model.OpenAI("gpt-4o-mini")
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are a helpful assistant."
 
 agent = Assistant()
@@ -65,12 +67,13 @@ def calculate(expression: str) -> str:
     return str(eval(expression))
 
 class BaseResearcher(Agent):
-    model = Model.OpenAI("gpt-4o")
+    # model = Model.OpenAI("gpt-4o")
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are a researcher."
     tools = [search]
 
 class MathResearcher(BaseResearcher):
-    model = Model.OpenAI("gpt-4o-mini")  # Overrides parent
+    model = Model.OpenAI("gpt-4o-mini")  # Overrides parent (use real model when you have a key)
     tools = [calculate]  # Merged with [search] → [search, calculate]
 
 agent = MathResearcher()
@@ -95,7 +98,7 @@ agent = MathResearcher(
 
 ```python
 agent = Agent()  # TypeError: Agent requires model
-agent = Agent(model=Model.OpenAI("gpt-4o"))  # OK
+agent = Agent(model=Model.Almock())  # OK (or Model.OpenAI("gpt-4o") when you have a key)
 ```
 
 ## Class-Level Defaults Summary

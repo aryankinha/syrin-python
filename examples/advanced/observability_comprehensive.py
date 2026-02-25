@@ -21,13 +21,13 @@ Run: python -m examples.advanced.observability_comprehensive
 
 from __future__ import annotations
 
-import os
 import time
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Model
+from examples.models.models import almock
+from syrin import Agent
 from syrin.guardrails import ContentFilter
 from syrin.observability import (
     ConsoleExporter,
@@ -59,8 +59,6 @@ from syrin.tool import tool
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
-
 
 # =============================================================================
 # Example 1: Debug Mode - The Easiest Way to See What's Happening
@@ -84,7 +82,7 @@ def example_debug_mode():
             return f"Error: {e}"
 
     class DebugAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful math assistant."
         tools = [calculator]
 
@@ -125,7 +123,7 @@ def example_manual_spans():
         return f"Found 3 results for: {query}"
 
     class DBAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a database assistant."
         tools = [search_db]
 
@@ -175,7 +173,7 @@ def example_sessions():
     tracer.add_exporter(ConsoleExporter())
 
     class ChatAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant."
 
     # Create a session - all spans within are linked
@@ -283,7 +281,7 @@ def example_guardrails():
     blocked = ContentFilter(blocked_words=["badword", "forbidden"], name="word_filter")
 
     class GuardedAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant."
         guardrails = [blocked]
 
@@ -374,7 +372,7 @@ def example_metrics():
         return x * 2
 
     class MetricAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a calculator."
         tools = [quick_tool]
 
@@ -487,7 +485,7 @@ def example_hooks_integration():
         return datetime.now().strftime("%H:%M:%S")
 
     class HookAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a time assistant."
         tools = [get_time]
 
@@ -569,7 +567,7 @@ def example_custom_exporter():
         return msg
 
     class CustomExpAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "Echo assistant."
         tools = [echo]
 
@@ -605,7 +603,7 @@ def example_semantic_attributes():
         return f"Data from {source}"
 
     class AttrAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "Data assistant."
         tools = [fetch_data]
 
@@ -670,7 +668,7 @@ def example_production_setup():
     blocked = ContentFilter(blocked_words=["block", "forbidden"], name="content_filter")
 
     class ProdAgent(Agent):
-        model = Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY"))
+        model = almock
         system_prompt = "You are a helpful assistant."
         guardrails = [blocked]
 

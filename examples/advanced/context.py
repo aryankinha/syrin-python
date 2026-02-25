@@ -12,20 +12,19 @@ Run: python -m examples.advanced.context
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Model
+from examples.models.models import almock
+from syrin import Agent
 from syrin.context import (
     Context,
     ContextCompactor,
     ContextManager,
     ContextPayload,
     MiddleOutTruncator,
-    TokenLimits,
 )
 from syrin.context.counter import TokenCounter
 from syrin.enums import Hook
@@ -36,8 +35,6 @@ logging.getLogger("httpx").setLevel(logging.CRITICAL)
 logging.getLogger("httpcore").setLevel(logging.CRITICAL)
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
-
 
 def example_default_context() -> None:
     """Default context management - just works."""
@@ -46,7 +43,7 @@ def example_default_context() -> None:
     print("=" * 50)
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
     )
 
@@ -67,7 +64,7 @@ def example_custom_context() -> None:
     print("=" * 50)
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
         context=Context(max_tokens=80000),
     )
@@ -86,7 +83,7 @@ def example_context_stats() -> None:
     print("=" * 50)
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant that answers questions.",
         context=Context(max_tokens=128000),
     )
@@ -146,7 +143,8 @@ def example_custom_context_manager() -> None:
             system_prompt: str,
             tools: list[dict[str, Any]],
             memory_context: str,
-            budget: TokenLimits,
+            budget: Any,
+            context: Context | None = None,
         ) -> ContextPayload:
             counter = TokenCounter()
 
@@ -177,7 +175,7 @@ def example_custom_context_manager() -> None:
             print(f"Compaction happened: {event.method}")
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
         context=MyContextManager(),
     )
@@ -201,7 +199,7 @@ def example_context_with_events() -> None:
 
     # Create agent with debug mode for visibility
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
         context=Context(max_tokens=128000),
         debug=True,
@@ -232,7 +230,7 @@ def example_compaction_events() -> None:
 
     # Small budget to force compaction
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
         context=Context(max_tokens=5000),
     )
@@ -269,7 +267,7 @@ def example_context_thresholds() -> None:
         print(f"THRESHOLD: {ctx.percentage}%")
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
         context=Context(
             max_tokens=5000,
@@ -313,7 +311,7 @@ def example_custom_threshold_handler() -> None:
         print(f"CUSTOM HANDLER called: {ctx}")
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
         context=Context(
             max_tokens=5000,
@@ -345,7 +343,7 @@ def example_budget_detection() -> None:
     print("=" * 50)
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
     )
 

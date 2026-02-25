@@ -50,7 +50,8 @@ from syrin.enums import ThresholdWindow
 class BudgetAwareAgent(Agent):
     """An agent with a spending budget."""
 
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     system_prompt = "You are a helpful assistant."
 
     def __init__(self):
@@ -108,7 +109,8 @@ from syrin import Agent, Budget, RateLimit, raise_on_exceeded, warn_on_exceeded
 from syrin.model import Model
 
 class Agent1(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
 
     def __init__(self):
         super().__init__()
@@ -127,7 +129,8 @@ from syrin import Agent, Budget, RateLimit
 from syrin.model import Model
 
 class Agent2(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
 
     def __init__(self):
         super().__init__()
@@ -140,7 +143,8 @@ class Agent2(Agent):
 
 ```python
 class Agent3(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
 
     def __init__(self):
         super().__init__()
@@ -155,7 +159,8 @@ The "month" window is the last **N** days (wall-clock). Default is 30; you can s
 
 ```python
 class Agent4(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
 
     def __init__(self):
         super().__init__()
@@ -207,7 +212,8 @@ from syrin import Agent, Budget, RateLimit, raise_on_exceeded, warn_on_exceeded
 from syrin.model import Model
 
 class MultibudgetAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
 
     def __init__(self):
         super().__init__()
@@ -235,7 +241,8 @@ from syrin import Agent, Budget, warn_on_exceeded
 from syrin.model import Model
 
 class WarnAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
 
     def __init__(self):
         super().__init__()
@@ -254,7 +261,8 @@ Stop and raise an error:
 
 ```python
 class StrictAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
 
     def __init__(self):
         super().__init__()
@@ -289,7 +297,8 @@ from syrin.model import Model
 from syrin.threshold import BudgetThreshold
 
 class ThresholdAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
 
     def __init__(self):
         super().__init__()
@@ -315,7 +324,8 @@ from syrin.threshold import BudgetThreshold
 from syrin.enums import ThresholdWindow
 
 class SpendThresholdAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
     system_prompt = "Be concise."
 
     def __init__(self):
@@ -384,7 +394,8 @@ class ProductionAgent(Agent):
     - $1000 per month maximum
     """
     
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))  # Cheapest reliable model
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))  # Cheapest reliable model
+    model = Model.Almock()  # No API Key needed
 
     system_prompt = """
     You are a production assistant.
@@ -472,7 +483,8 @@ from datetime import datetime
 
 
 class MonitoredAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    model = Model.Almock()  # No API Key needed
 
     def __init__(self):
         super().__init__()
@@ -543,10 +555,12 @@ budget = Budget(run=1.00, per=RateLimit(hour=100.00, day=1000.00))
 import os
 # ✓ Good - cheap for testing
 test_agent = Agent()
-test_agent.model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+# test_agent.model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+test_agent.model = Model.Almock()  # No API Key needed
 
 # ❌ Not good - expensive for testing
-test_agent.model = Model.OpenAI("gpt-4", api_key=os.getenv("OPENAI_API_KEY"))
+# test_agent.model = Model.OpenAI("gpt-4", api_key=os.getenv("OPENAI_API_KEY"))
+test_agent.model = Model.Almock()  # No API Key needed
 ```
 
 ### 3. Monitor Costs Regularly

@@ -10,16 +10,15 @@ Usage:
 Run: python -m examples.simple_events
 """
 
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from syrin import Agent, Model
+from examples.models.models import almock
+from syrin import Agent
+from syrin.enums import Hook
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
-
-MODEL_ID = os.getenv("OPENAI_MODEL_NAME", "openai/gpt-4o-mini")
 
 
 def example_simple_logging():
@@ -29,12 +28,12 @@ def example_simple_logging():
     print("=" * 50)
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
     )
 
     # Simple one-liner logging
-    agent.events.on("complete", lambda ctx: print(f"  → Done! Cost: ${ctx.cost:.6f}"))
+    agent.events.on_complete(lambda ctx: print(f"  → Done! Cost: ${ctx.cost:.6f}"))
 
     result = agent.response("Hello!")
     print(f"Response: {result.content[:50]}...")
@@ -52,7 +51,7 @@ def example_track_cost():
         total_cost["total"] += ctx.cost
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
     )
 
@@ -91,7 +90,7 @@ def example_tool_tracking():
 
     # Note: tool execution needs fixing - this is just for demonstration
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
         tools=[calculate],
     )
@@ -115,7 +114,7 @@ def example_on_all_events():
         print(f"  [{event}]")
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
     )
 
@@ -136,11 +135,11 @@ def example_before_hook():
         ctx["user_reminder"] = "Be concise in your response."
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
     )
 
-    agent.events.before("request", add_reminder)
+    agent.events.before(Hook.LLM_REQUEST_START, add_reminder)
 
     print("(Before hook registered - will add reminder to requests)")
 
@@ -154,11 +153,12 @@ def example_error_handling():
     errors = []
 
     def handle_error(ctx):
-        errors.append(ctx.error)
-        print(f"  Error caught: {ctx.error}")
+        err = ctx.get("error")
+        errors.append(err)
+        print(f"  Error caught: {err}")
 
     agent = Agent(
-        model=Model(MODEL_ID, api_key=os.getenv("OPENAI_API_KEY")),
+        model=almock,
         system_prompt="You are a helpful assistant.",
     )
 

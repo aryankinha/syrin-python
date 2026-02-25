@@ -523,6 +523,68 @@ class Model:
             **kwargs,
         )
 
+    @staticmethod
+    def Almock(
+        *,
+        pricing_tier: str | None = None,
+        context_window: int | None = 8192,
+        response_mode: str = "lorem",
+        custom_response: str | None = None,
+        lorem_length: int = 100,
+        latency_min: float = 1.0,
+        latency_max: float = 3.0,
+        latency_seconds: float | None = None,
+        **kwargs: Any,
+    ) -> Model:
+        """Create an Almock (An LLM Mock) model — no API calls, for testing and development.
+
+        Returns configurable Lorem Ipsum or custom text, optional latency, and pricing
+        tiers so you can test budgeting and run examples without an API key.
+
+        Args:
+            pricing_tier: One of "low", "medium", "high", "ultra_high" for cost testing.
+            context_window: Simulated context window size (default 8192).
+            response_mode: "lorem" = Lorem Ipsum of lorem_length; "custom" = custom_response.
+            custom_response: Used when response_mode == "custom".
+            lorem_length: Output length in characters when response_mode == "lorem".
+            latency_min: Min delay in seconds (default 1); ignored if latency_seconds set.
+            latency_max: Max delay in seconds (default 3); ignored if latency_seconds set.
+            latency_seconds: Fixed delay in seconds; must be > 0. Overrides min/max.
+
+        Returns:
+            Model instance that uses AlmockProvider (no API key required).
+
+        Example:
+            model = Model.Almock(pricing_tier="medium", lorem_length=50)
+            agent = Agent(model=model)
+            r = agent.response("Hello")
+        """
+        from syrin.enums import AlmockPricing
+        from syrin.providers.almock import ALMOCK_PRICING
+
+        tier: AlmockPricing = AlmockPricing.MEDIUM
+        if isinstance(pricing_tier, AlmockPricing):
+            tier = pricing_tier
+        elif isinstance(pricing_tier, str):
+            tier = AlmockPricing(pricing_tier.lower())
+        inp, out = ALMOCK_PRICING.get(tier, ALMOCK_PRICING[AlmockPricing.MEDIUM])
+
+        return Model(
+            model_id="almock/default",
+            name="almock",
+            provider="almock",
+            context_window=context_window or 8192,
+            input_price=inp,
+            output_price=out,
+            latency_min=latency_min,
+            latency_max=latency_max,
+            latency_seconds=latency_seconds,
+            response_mode=response_mode,
+            custom_response=custom_response,
+            lorem_length=lorem_length,
+            **kwargs,
+        )
+
     def __init__(
         self,
         model_id: str | None = None,
@@ -906,6 +968,10 @@ class Model:
 
     def _get_provider_instance(self) -> Any:
         """Get the provider instance for this model."""
+        if self._provider == "almock":
+            from syrin.providers.almock import AlmockProvider
+
+            return AlmockProvider()
         if self._provider == "anthropic":
             from syrin.providers.anthropic import AnthropicProvider
 

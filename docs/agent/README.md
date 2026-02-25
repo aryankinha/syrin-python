@@ -7,11 +7,11 @@ Complete documentation for creating and configuring AI agents in Syrin. This dir
 ## Quick Start
 
 ```python
-from syrin import Agent
-from syrin.model import Model
+from syrin import Agent, Model
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o-mini"),
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
     system_prompt="You are a helpful assistant.",
 )
 response = agent.response("Hello!")

@@ -98,7 +98,10 @@ Hooks emitted during execution (e.g. `AGENT_RUN_START`, `LLM_REQUEST_END`, `TOOL
 from syrin import Agent
 from syrin.model import Model
 
-agent = Agent(model=Model.OpenAI("gpt-4o-mini"))
+agent = Agent(
+    # model=Model.OpenAI("gpt-4o-mini"),
+    model=Model.Almock(),  # No API Key needed
+)
 response = agent.response("What is 2+2?")
 print(response.content)  # "4"
 ```
