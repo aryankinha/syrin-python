@@ -11,7 +11,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,9 @@ class CheckpointState(BaseModel):
 class CheckpointConfig(BaseModel):
     """Configuration for checkpoint behavior.
 
+    Immutable after creation (config objects are immutable per architecture).
+    Runtime state (checkpoint IDs, saved state) lives in Checkpointer/backends.
+
     Usage:
         agent = Agent(
             model=Model("gpt-4o"),
@@ -55,6 +58,8 @@ class CheckpointConfig(BaseModel):
             ),
         )
     """
+
+    model_config = ConfigDict(frozen=True)
 
     enabled: bool = True
     storage: str = Field(default="memory", pattern="^(memory|sqlite|postgres|filesystem)$")

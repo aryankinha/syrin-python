@@ -1,1 +1,1 @@
-# Tests for spec hardening (API_DESIGN.md contract).
+# Spec contract tests (Response, Error, config validation).

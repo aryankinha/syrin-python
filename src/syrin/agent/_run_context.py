@@ -1,6 +1,9 @@
 """Agent run context: narrow interface used by Loop implementations.
 
-Loops depend on AgentRunContext instead of Agent so that:
+Loops depend only on AgentRunContext (Protocol), not on Agent. The single place
+that builds the message list for the LLM is syrin.agent._context_builder.build_messages;
+DefaultAgentRunContext.build_messages delegates to it via the agent.
+
 - Refactoring Agent internals does not break Loop implementations.
 - The contract is explicit (Protocol) and minimal (ISP).
 

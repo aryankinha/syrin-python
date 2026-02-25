@@ -47,7 +47,6 @@ from syrin.enums import (
     MemoryBackend,
     MemoryType,
     RateLimitAction,
-    StopReason,
 )
 from syrin.events import EventContext, Events
 from syrin.exceptions import BudgetExceededError, BudgetThresholdError, ToolExecutionError
@@ -117,7 +116,11 @@ def _merge_class_attrs(mro: tuple[type, ...], name: str, merge: bool) -> Any:
 
 
 def _resolve_provider(model: Model | None, model_config: ModelConfig) -> Provider:
-    """Resolve Provider from Model (preferred) or ModelConfig.provider via registry."""
+    """Resolve Provider from Model (preferred) or ModelConfig.provider via registry.
+
+    Canonical path for agent runs: Model.get_provider(). Registry (get_provider(name))
+    only when no Model is available (e.g. tests, scripts).
+    """
     if model is not None and hasattr(model, "get_provider"):
         return model.get_provider()
     from syrin.providers.registry import get_provider
@@ -263,7 +266,7 @@ class Agent:
             tracer: Custom tracer for observability.
             bus: Optional EventBus for typed domain events (BudgetThresholdReached,
                 ContextCompacted). Use when you need structured event handling for
-                metrics, observability, or custom pipelines. See docs/event-bus.md.
+                metrics, observability, or custom pipelines.
 
         Example:
             >>> agent = Agent(
@@ -1835,135 +1838,9 @@ class Agent:
 
     async def _run_loop_response_async(self, user_input: str) -> Response[str]:
         """Run using the configured loop strategy with full observability (async)."""
-        from syrin.observability import SemanticAttributes, SpanKind
-        from syrin.response import Response as ResponseClass
-        from syrin.types import TokenUsage
+        from syrin.agent._run import run_agent_loop_async
 
-        with self._tracer.span(
-            f"{self._agent_name}.response",
-            kind=SpanKind.AGENT,
-            attributes={
-                SemanticAttributes.AGENT_NAME: self._agent_name,
-                SemanticAttributes.AGENT_CLASS: self.__class__.__name__,
-                "input": user_input if not self._debug else user_input[:1000],
-                SemanticAttributes.LLM_MODEL: self._model_config.model_id,
-                SemanticAttributes.LLM_PROVIDER: self._model_config.provider,
-            },
-        ) as agent_span:
-            # Input guardrails check
-            input_guardrail = self._run_guardrails(user_input, GuardrailStage.INPUT)
-            if not input_guardrail.passed:
-                return self._with_context_on_response(
-                    ResponseClass(
-                        content="",
-                        raw="",
-                        cost=0.0,
-                        tokens=TokenUsage(input_tokens=0, output_tokens=0, total_tokens=0),
-                        model=self._model_config.model_id,
-                        duration=0.0,
-                        trace=[],
-                        tool_calls=[],
-                        stop_reason=StopReason.GUARDRAIL,
-                        budget_remaining=self._budget.remaining if self._budget else None,
-                        budget_used=0.0,
-                        structured=None,
-                        report=self._run_report,
-                    )
-                )
-
-            result = await self._loop.run(self.run_context, user_input)
-
-            # Auto-checkpoint after step completion
-            self._maybe_checkpoint("step")
-
-            token_usage = result.token_usage
-            tokens = TokenUsage(
-                input_tokens=token_usage.get("input", 0),
-                output_tokens=token_usage.get("output", 0),
-                total_tokens=token_usage.get("total", 0),
-            )
-
-            # Cost is recorded per LLM call by the loop; no need to record again here
-
-            agent_span.set_attribute(SemanticAttributes.LLM_TOKENS_TOTAL, tokens.total_tokens)
-            agent_span.set_attribute("cost.usd", result.cost_usd)
-
-            if self._budget is not None:
-                agent_span.set_attribute("budget.remaining", self._budget.remaining)
-                agent_span.set_attribute("budget.spent", self._budget._spent)
-
-            tool_calls_list = []
-            if result.tool_calls:
-                from syrin.types import ToolCall
-
-                # Auto-checkpoint after tool call
-                self._maybe_checkpoint("tool")
-
-                for tc in result.tool_calls:
-                    tool_calls_list.append(
-                        ToolCall(
-                            id=tc.get("id", ""),
-                            name=tc.get("name", ""),
-                            arguments=tc.get("arguments", {}),
-                        )
-                    )
-
-            # Output guardrails check (only if no tool calls)
-            if not result.tool_calls:
-                output_guardrail = self._run_guardrails(result.content or "", GuardrailStage.OUTPUT)
-                if not output_guardrail.passed:
-                    return self._with_context_on_response(
-                        ResponseClass(
-                            content="",
-                            raw="",
-                            cost=result.cost_usd,
-                            tokens=tokens,
-                            model=self._model_config.model_id,
-                            duration=result.latency_ms / 1000,
-                            trace=[],
-                            tool_calls=tool_calls_list,
-                            stop_reason=StopReason.GUARDRAIL,
-                            budget_remaining=self._budget.remaining if self._budget else None,
-                            budget_used=self._budget._spent if self._budget else 0.0,
-                            structured=None,
-                            report=self._run_report,
-                        )
-                    )
-
-            # Build structured output with validation
-            structured = self._build_output(
-                result.content,
-                validation_retries=self._validation_retries,
-                validation_context=self._validation_context,
-                validator=getattr(self, "_output_validator", None),
-            )
-
-            # Populate report with final data
-            self._run_report.budget_remaining = self._budget.remaining if self._budget else None
-            self._run_report.budget_used = self._budget._spent if self._budget else 0.0
-            self._run_report.tokens.input_tokens = tokens.input_tokens
-            self._run_report.tokens.output_tokens = tokens.output_tokens
-            self._run_report.tokens.total_tokens = tokens.total_tokens
-            self._run_report.tokens.cost_usd = result.cost_usd
-
-            return self._with_context_on_response(
-                ResponseClass(
-                    content=result.content,
-                    cost=result.cost_usd,
-                    tokens=tokens,
-                    model=self._model_config.model_id,
-                    duration=result.latency_ms / 1000,
-                    tool_calls=tool_calls_list,
-                    stop_reason=StopReason(result.stop_reason)
-                    if isinstance(result.stop_reason, str)
-                    else result.stop_reason,
-                    budget_remaining=self._budget.remaining if self._budget else None,
-                    budget_used=self._budget._spent if self._budget else 0.0,
-                    iterations=result.iterations,
-                    structured=structured,
-                    report=self._run_report,
-                )
-            )
+        return await run_agent_loop_async(self, user_input)
 
     def _run_loop_response(self, user_input: str) -> Response[str]:
         """Run using the configured loop strategy (sync wrapper)."""

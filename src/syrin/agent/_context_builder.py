@@ -1,5 +1,9 @@
 """Context builder: builds the message list for an LLM call.
 
+This is the single place that builds the message list for the LLM. All logic for
+"what messages go to the LLM" lives here. Agent._build_messages is a thin wrapper
+that gathers agent state and calls build_messages().
+
 Extracted from Agent so message/context construction has a single responsibility.
 Agent passes in memory, context manager, and config; this module returns list[Message].
 """

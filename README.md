@@ -364,7 +364,7 @@ Syrin is built for developers who want **simplicity**, **visibility**, and **pro
 | **Extensible Model** (add any LLM in ~30 lines) | ✅ | Plugins | Plugins | Complex |
 | **First-party cost/budget** (no separate service) | ✅ | ❌ | ❌ | ❌ |
 
-### Reported problems ([from research](plan/RESEARCH.md))
+### Reported problems (from research)
 
 LangChain, LangGraph, CrewAI, and AutoGen each have strengths (LangChain's ecosystem, LangGraph's graph model). The issues below are commonly reported by developers:
 

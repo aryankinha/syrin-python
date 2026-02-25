@@ -1,7 +1,7 @@
-"""Tests for Step 1 spec hardening: Response contract, Error contract, config validation.
+"""Tests for Response contract, Error contract, and config validation.
 
-Ensures API_DESIGN.md contract is satisfied: Response shape, all public exceptions
-extend SyrinError, Budget/CheckpointConfig/Context accept valid inputs and reject invalid ones.
+Ensures Response shape, all public exceptions extend SyrinError, and
+Budget/CheckpointConfig/Context accept valid inputs and reject invalid ones.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from syrin.response import AgentReport, BudgetStatus, Response
 from syrin.threshold import BudgetThreshold
 
 # -----------------------------------------------------------------------------
-# Response contract (v0.2.0 stable shape)
+# Response contract
 # -----------------------------------------------------------------------------
 
 
@@ -52,7 +52,7 @@ RESPONSE_CONTRACT_FIELDS = [
 
 
 def test_response_has_all_contract_fields() -> None:
-    """Response must have all fields from API_DESIGN §7 Response contract."""
+    """Response must have all required contract fields."""
     r = Response(content="test")
     for field in RESPONSE_CONTRACT_FIELDS:
         assert hasattr(r, field), f"Response missing contract field: {field}"
@@ -113,7 +113,7 @@ def test_all_public_exceptions_extend_syrin_error(exc_cls: type[Exception]) -> N
 
 
 def test_validation_error_has_attempts_and_last_error() -> None:
-    """ValidationError (from spec) has attempts and last_error."""
+    """ValidationError has attempts and last_error."""
     e = ValidationError("invalid", attempts=["err1"], last_error=ValueError("parse"))
     assert e.attempts == ["err1"]
     assert e.last_error is not None
