@@ -101,7 +101,7 @@ result = pipeline.run("Research AI market and create a report", mode="parallel")
 
 ### Agent Names
 
-- Use `_syrin_name = "research"` on the class for custom names.
+- Use `name = "research"` on the class for custom names.
 - Default: lowercase class name (e.g. `ResearcherAgent` → `"researcheragent"`).
 
 ### Hooks

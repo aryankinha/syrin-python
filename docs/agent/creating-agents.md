@@ -116,18 +116,20 @@ agent = Agent(model=Model.Almock())  # OK (or Model.OpenAI("gpt-4o") when you ha
 | `budget`       | `Budget \| None`           | None      | No     |
 | `guardrails`   | `list[Guardrail]`          | `[]`      | Yes    |
 
-## Custom Agent Names (Multi-Agent)
+## Agent Name and Description (Discovery + Routing)
 
-For `DynamicPipeline` and similar patterns, agent names come from the class. You can set a custom name:
+Agents have `name` and `description` for discovery, routing, and Agent Cards. Required for serving.
 
 ```python
 class ResearcherAgent(Agent):
-    _syrin_name = "research"  # Used in DynamicPipeline
+    name = "researcher"
+    description = "Searches and summarizes information from the web"
     model = Model.OpenAI("gpt-4o")
     system_prompt = "You are a researcher."
 ```
 
-If `_syrin_name` is not set, the lowercase class name is used (`ResearcherAgent` → `"researcheragent"`).
+If `name` is not set, it defaults to the lowercase class name (`ResearcherAgent` → `"researcheragent"`).  
+`description` defaults to `""`.
 
 ## Next Steps
 

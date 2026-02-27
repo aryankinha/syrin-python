@@ -153,6 +153,7 @@ from syrin.enums import (
     RateWindow,
     RetryBackoff,
     SandboxRuntime,
+    ServeProtocol,
     StepType,
     StopReason,
     SwitchReason,
@@ -271,6 +272,7 @@ from syrin.response import (
     TokenReport,
 )
 from syrin.run_context import RunContext
+from syrin.serve import BearerTokenAuth, ServeConfig
 from syrin.task import task
 from syrin.threshold import (
     ContextThreshold,
@@ -472,7 +474,9 @@ __all__ = [
     "tool",
     "ToolSpec",
     "task",
+    "BearerTokenAuth",
     "RunContext",
+    "ServeConfig",
     # =============================================================================
     # Enums
     # =============================================================================
@@ -496,6 +500,7 @@ __all__ = [
     "ContentType",
     "JsonlAuditBackend",
     "SandboxRuntime",
+    "ServeProtocol",
     "Hook",
     "DocFormat",
     "MemoryType",

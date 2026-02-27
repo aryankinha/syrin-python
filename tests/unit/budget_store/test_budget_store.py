@@ -7,6 +7,8 @@ import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
+
 from syrin.budget import BudgetTracker
 from syrin.budget_store import FileBudgetStore, InMemoryBudgetStore
 from syrin.types import CostInfo, TokenUsage
@@ -186,7 +188,7 @@ def test_in_memory_store_many_records() -> None:
     store.save("agent", tracker)
     loaded = store.load("agent")
 
-    assert loaded.current_run_cost == 1.0
+    assert loaded.current_run_cost == pytest.approx(1.0)
 
 
 def test_file_store_nonexistent_path() -> None:

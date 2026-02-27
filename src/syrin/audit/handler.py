@@ -16,6 +16,8 @@ _HOOK_TO_AUDIT_EVENT: dict[Hook, str] = {
     Hook.AGENT_RUN_END: AuditEventType.AGENT_RUN_END,
     Hook.AGENT_INIT: AuditEventType.AGENT_INIT,
     Hook.AGENT_RESET: AuditEventType.AGENT_RESET,
+    Hook.SERVE_REQUEST_START: AuditEventType.SERVE_REQUEST_START,
+    Hook.SERVE_REQUEST_END: AuditEventType.SERVE_REQUEST_END,
     Hook.LLM_REQUEST_START: AuditEventType.LLM_CALL,
     Hook.LLM_REQUEST_END: AuditEventType.LLM_CALL,
     Hook.LLM_RETRY: AuditEventType.LLM_RETRY,

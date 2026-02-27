@@ -684,7 +684,7 @@ class DynamicPipeline:
 
     Or with custom agent names:
         class MyAgent(Agent):
-            _syrin_name = "research"  # Custom name
+            name = "research"  # Custom name for routing and discovery
     """
 
     def __init__(
@@ -702,7 +702,7 @@ class DynamicPipeline:
         Args:
             agents: List of Agent classes available for spawning.
                 Each agent's name is:
-                - The `_syrin_name` attribute if set, otherwise
+                - The `name` attribute if set, otherwise
                 - The class name (lowercase)
                 Example: ResearcherAgent → "researcher"
             budget: Optional budget for all spawned agents
@@ -728,10 +728,10 @@ class DynamicPipeline:
         self._debug = debug
         self._run_metrics: dict[str, Any] = {}
 
-        # Build agent name mapping
+        # Build agent name mapping (uses Agent.name; fallback to lowercase class name)
         self._agent_names: dict[str, type[Agent]] = {}
         for agent_class in self._agents:
-            name = getattr(agent_class, "_syrin_name", None)
+            name = getattr(agent_class, "_Syrin_default_name", None)
             if name is None:
                 name = agent_class.__name__.lower()
             self._agent_names[name] = agent_class
@@ -843,7 +843,7 @@ class DynamicPipeline:
 
     def _get_agent_description(self, agent_class: type[Agent]) -> str:
         """Get description for an agent class."""
-        name = getattr(agent_class, "_syrin_name", None) or agent_class.__name__.lower()
+        name = getattr(agent_class, "_Syrin_default_name", None) or agent_class.__name__.lower()
         prompt = getattr(agent_class, "system_prompt", "Specialized agent")[:100]
         return f"- {name}: {prompt}"
 

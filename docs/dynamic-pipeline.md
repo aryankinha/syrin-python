@@ -71,12 +71,12 @@ from syrin.enums import Hook
 
 # Define specialized agents
 class ResearcherAgent(Agent):
-    _syrin_name = "researcher"  # Custom name for the LLM to reference
+    name = "researcher"  # Custom name for the LLM to reference
     model = Model(provider="openai", model_id="gpt-4o-mini")
     system_prompt = "You research and gather information."
 
 class WriterAgent(Agent):
-    _syrin_name = "writer"
+    name = "writer"
     model = Model(provider="openai", model_id="gpt-4o-mini")
     system_prompt = "You write reports."
 
@@ -96,7 +96,7 @@ print(result.content)
 
 Agents can be referenced by:
 - **Class name** (lowercase): `ResearcherAgent` → `researcheragent`
-- **`_syrin_name` attribute**: `class Agent: _syrin_name = "researcher"` → `researcher`
+- **`name` attribute**: `class Agent: name = "researcher"` → `researcher`
 
 The LLM will use these names in the plan:
 
@@ -224,12 +224,12 @@ from syrin.enums import Hook
 
 # Define agents
 class TechResearchAgent(Agent):
-    _syrin_name = "tech"
+    name = "tech"
     model = Model(provider="openai", model_id="gpt-4o-mini")
     system_prompt = "Research technology trends."
 
 class FinanceResearchAgent(Agent):
-    _syrin_name = "finance"
+    name = "finance"
     model = Model(provider="openai", model_id="gpt-4o-mini")
     system_prompt = "Research financial metrics."
 
@@ -268,7 +268,7 @@ The pipeline handles errors gracefully:
 
 ## Best Practices
 
-1. **Use `_syrin_name`**: Give agents descriptive, easy-to-reference names
+1. **Use `name`**: Give agents descriptive, easy-to-reference names
 2. **Set `max_parallel`**: Don't exceed your rate limits
 3. **Add hooks**: Always add observability for production use
 4. **Use `before()` handlers**: For validation, logging, or context modification

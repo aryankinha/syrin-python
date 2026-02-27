@@ -595,6 +595,91 @@ def test_agent_model_config_returns_config() -> None:
     assert cfg.provider == "openai"
 
 
+# Agent name and description (v0.4.0 — discovery + routing)
+
+
+def test_agent_name_defaults_to_lowercase_class_name() -> None:
+    """Agent name defaults to lowercase class name when not set."""
+
+    class MyAssistant(Agent):
+        model = Model("openai/gpt-4")
+        system_prompt = "Help"
+
+    agent = MyAssistant()
+    assert agent.name == "myassistant"
+
+
+def test_agent_description_defaults_to_empty() -> None:
+    """Agent description defaults to empty string when not set."""
+
+    class Assistant(Agent):
+        model = Model("openai/gpt-4")
+        system_prompt = "Help"
+
+    agent = Assistant()
+    assert agent.description == ""
+
+
+def test_agent_explicit_name_and_description() -> None:
+    """Agent with explicit name and description uses them."""
+
+    class Assistant(Agent):
+        name = "product-agent"
+        description = "E-commerce product assistant"
+        model = Model("openai/gpt-4")
+        system_prompt = "Help"
+
+    agent = Assistant()
+    assert agent.name == "product-agent"
+    assert agent.description == "E-commerce product assistant"
+
+
+def test_agent_name_inheritance_override() -> None:
+    """Child class name overrides parent; override pattern."""
+
+    class BaseAgent(Agent):
+        name = "base"
+        description = "Base agent"
+        model = Model("openai/gpt-4")
+        system_prompt = "Base"
+
+    class ChildAgent(BaseAgent):
+        name = "child"
+        description = "Child agent"
+
+    agent = ChildAgent()
+    assert agent.name == "child"
+    assert agent.description == "Child agent"
+
+
+def test_agent_name_instance_override() -> None:
+    """Constructor name overrides class default."""
+
+    class Assistant(Agent):
+        name = "assistant"
+        description = "Help assistant"
+        model = Model("openai/gpt-4")
+        system_prompt = "Help"
+
+    agent = Assistant(name="custom-instance", description="Custom description")
+    assert agent.name == "custom-instance"
+    assert agent.description == "Custom description"
+
+
+def test_agent_name_non_str_rejects() -> None:
+    """Agent name must be str."""
+    model = Model("openai/gpt-4")
+    with pytest.raises(TypeError, match="name must be str"):
+        Agent(model=model, name=123)  # type: ignore[arg-type]
+
+
+def test_agent_description_non_str_rejects() -> None:
+    """Agent description must be str."""
+    model = Model("openai/gpt-4")
+    with pytest.raises(TypeError, match="description must be str"):
+        Agent(model=model, description=123)  # type: ignore[arg-type]
+
+
 def test_agent_response_with_tool_execution_error() -> None:
     """Test tool execution error handling."""
     from syrin.exceptions import ToolExecutionError

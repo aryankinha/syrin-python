@@ -304,7 +304,7 @@ def test_budget_tracker_very_many_entries() -> None:
     for _i in range(10000):
         tracker.record(CostInfo(cost_usd=0.001, token_usage=TokenUsage()))
 
-    assert tracker.current_run_cost == 10.0
+    assert tracker.current_run_cost == pytest.approx(10.0)
     assert tracker.get_summary().entries_count == 10000
 
 

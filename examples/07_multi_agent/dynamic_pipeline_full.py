@@ -69,28 +69,28 @@ def export_report(title: str, content: str) -> str:
 
 
 class TechResearchAgent(Agent):
-    _syrin_name = "tech_researcher"
+    name = "tech_researcher"
     model = MODEL
     system_prompt = "You research technology trends."
     tools = [search_web, analyze_data]
 
 
 class FinanceResearchAgent(Agent):
-    _syrin_name = "finance_researcher"
+    name = "finance_researcher"
     model = MODEL
     system_prompt = "You research financial markets."
     tools = [fetch_financial, analyze_data]
 
 
 class HealthcareResearchAgent(Agent):
-    _syrin_name = "healthcare_researcher"
+    name = "healthcare_researcher"
     model = MODEL
     system_prompt = "You research healthcare industry."
     tools = [search_web, analyze_data]
 
 
 class SummarizerAgent(Agent):
-    _syrin_name = "summarizer"
+    name = "summarizer"
     model = MODEL
     system_prompt = "You synthesize research into a clear report."
     tools = [generate_chart, export_report]

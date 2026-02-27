@@ -782,7 +782,7 @@ class TestDynamicPipeline:
         """Create a test researcher agent."""
 
         class ResearcherAgent(Agent):
-            _syrin_name = "researcher"
+            name = "researcher"
             model = Model(provider="openai", model_id="gpt-4o-mini")
             system_prompt = "You research and gather information."
 
@@ -793,7 +793,7 @@ class TestDynamicPipeline:
         """Create a test writer agent."""
 
         class WriterAgent(Agent):
-            _syrin_name = "writer"
+            name = "writer"
             model = Model(provider="openai", model_id="gpt-4o-mini")
             system_prompt = "You write reports."
 
@@ -866,11 +866,11 @@ class TestDynamicPipeline:
         assert "mytestagent" in pipeline._agent_names
 
     def test_agent_custom_name(self, mock_model):
-        """Test custom _syrin_name attribute."""
+        """Test custom name attribute."""
         from syrin.agent.multi_agent import DynamicPipeline
 
         class MyAgent(Agent):
-            _syrin_name = "custom_name"
+            name = "custom_name"
             model = Model(provider="openai", model_id="gpt-4o-mini")
             system_prompt = "Test agent"
 

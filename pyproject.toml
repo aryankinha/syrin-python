@@ -30,6 +30,7 @@ Homepage = "https://syrin.ai/"
 litellm = ["litellm"]
 anthropic = ["anthropic"]
 openai = ["openai"]
+serve = ["fastapi", "uvicorn"]
 dev = [
     "pytest",
     "pytest-asyncio",
@@ -37,6 +38,8 @@ dev = [
     "ruff",
     "mypy",
     "python-dotenv",
+    "fastapi",
+    "uvicorn",
 ]
 
 [project.scripts]
@@ -143,6 +146,14 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "psycopg2"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "fastapi"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "starlette"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

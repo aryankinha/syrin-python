@@ -5,7 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable, Iterator
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, TextIO, cast
+
+if TYPE_CHECKING:
+    from syrin.serve.config import ServeConfig  # noqa: F401
 
 from syrin.budget import (
     Budget,
@@ -128,7 +131,11 @@ def _merge_class_attrs(mro: tuple[type, ...], name: str, merge: bool) -> Any:
         if cls is object:
             continue
         if name in cls.__dict__:
-            return cls.__dict__[name]
+            val = cls.__dict__[name]
+            # Skip descriptors (e.g. @property) so we get class attrs only
+            if hasattr(val, "__get__"):
+                continue
+            return val
     return _UNSET
 
 
@@ -176,7 +183,32 @@ def _emit_domain_event_for_hook(hook: Hook, ctx: EventContext, bus: Any) -> None
         )
 
 
-class Agent:
+class _AgentMeta(type):
+    """Metaclass that moves name/description to internal attrs so instance property is not shadowed."""
+
+    def __new__(
+        mcs,
+        name: str,
+        bases: tuple[type, ...],
+        namespace: dict[str, Any],
+        **kwargs: Any,
+    ) -> type:
+        for attr, internal in (
+            ("name", "_Syrin_default_name"),
+            ("description", "_Syrin_default_description"),
+        ):
+            if attr in namespace:
+                val = namespace[attr]
+                if not hasattr(val, "__get__"):  # Not a descriptor/property
+                    if attr == "name":
+                        namespace[internal] = val if isinstance(val, str) else None
+                    else:
+                        namespace[internal] = val if isinstance(val, str) else ""
+                    del namespace[attr]
+        return super().__new__(mcs, name, bases, namespace, **kwargs)
+
+
+class Agent(metaclass=_AgentMeta):
     """AI agent that runs completions, tools, memory, and budget control.
 
     An Agent is the main interface for talking to an LLM, executing tools, remembering
@@ -223,6 +255,8 @@ class Agent:
     _Syrin_default_tools: list[ToolSpec] = []
     _Syrin_default_budget: Budget | None = None
     _Syrin_default_guardrails: list[Guardrail] = []
+    _Syrin_default_name: str | None = None
+    _Syrin_default_description: str = ""
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -232,6 +266,8 @@ class Agent:
         default_tools = _merge_class_attrs(mro, "tools", merge=True)
         default_budget = _merge_class_attrs(mro, "budget", merge=False)
         default_guardrails = _merge_class_attrs(mro, "guardrails", merge=True)
+        default_name = _merge_class_attrs(mro, "name", merge=False)
+        default_description = _merge_class_attrs(mro, "description", merge=False)
         cls._Syrin_default_model = default_model if default_model is not _UNSET else None
         cls._Syrin_default_system_prompt = default_prompt if default_prompt is not _UNSET else ""
         cls._Syrin_default_tools = list(default_tools) if default_tools is not _UNSET else []
@@ -239,6 +275,14 @@ class Agent:
         cls._Syrin_default_guardrails = (
             list(default_guardrails) if default_guardrails is not _UNSET else []
         )
+        if default_name is not _UNSET and isinstance(default_name, str):
+            cls._Syrin_default_name = default_name
+        elif default_name is _UNSET and "_Syrin_default_name" not in cls.__dict__:
+            cls._Syrin_default_name = None
+        if default_description is not _UNSET:
+            cls._Syrin_default_description = default_description
+        elif default_description is _UNSET and "_Syrin_default_description" not in cls.__dict__:
+            cls._Syrin_default_description = ""
 
     def __init__(
         self,
@@ -266,6 +310,8 @@ class Agent:
         bus: Any = None,
         audit: Any = None,
         deps: Any = None,
+        name: str | None = _UNSET,
+        description: str | None = _UNSET,
     ) -> None:
         """Create an agent with model, prompt, tools, and optional config.
 
@@ -335,6 +381,23 @@ class Agent:
             budget = getattr(cls, "_Syrin_default_budget", None)
         if guardrails is _UNSET:
             guardrails = getattr(cls, "_Syrin_default_guardrails", None) or []
+        if name is _UNSET:
+            name = getattr(cls, "_Syrin_default_name", None)
+        if description is _UNSET:
+            description = getattr(cls, "_Syrin_default_description", "") or ""
+        if name is None:
+            name = cls.__name__.lower()
+        if description is None:
+            description = ""
+        if not isinstance(name, str):
+            raise TypeError(
+                f"name must be str, got {type(name).__name__}. Example: name='product-agent'"
+            )
+        if not isinstance(description, str):
+            raise TypeError(
+                f"description must be str, got {type(description).__name__}. "
+                "Example: description='E-commerce product assistant'"
+            )
         if not isinstance(max_tool_iterations, int):
             raise TypeError(
                 f"max_tool_iterations must be int, got {type(max_tool_iterations).__name__}. "
@@ -447,7 +510,8 @@ class Agent:
         else:
             self._budget_tracker = BudgetTracker()
         self._provider = _resolve_provider(self._model, self._model_config)
-        self._agent_name = self.__class__.__name__
+        self._agent_name = name
+        self._description = description
         self._deps: Any = deps
         if self._budget is not None:
             self._budget._consume_callback = self._make_budget_consume_callback()
@@ -588,6 +652,16 @@ class Agent:
     def iteration(self) -> int:
         """Number of loop iterations from the last run (0 before first run or on guardrail block)."""
         return getattr(self, "_last_iteration", 0)
+
+    @property
+    def name(self) -> str:
+        """Agent name for discovery, routing, and Agent Card. Defaults to lowercase class name."""
+        return self._agent_name
+
+    @property
+    def description(self) -> str:
+        """Agent description for discovery and Agent Card. Defaults to empty string."""
+        return self._description
 
     @property
     def messages(self) -> list[Message]:
@@ -2395,6 +2469,95 @@ class Agent:
                 raise ToolExecutionError(f"Streaming failed: {e}") from e
         finally:
             self._call_context = None
+
+    def as_app(self, config: Any | None = None, **config_kwargs: Any) -> Any:
+        """Return a FastAPI APIRouter for this agent. Mount on your app.
+
+        Use when you want to serve this agent over HTTP. Mount the router on an
+        existing FastAPI app, e.g. app.include_router(agent.as_app(), prefix="/agent").
+
+        Requires syrin[serve] (fastapi, uvicorn).
+
+        Args:
+            config: Optional ServeConfig. If None, uses defaults.
+            **config_kwargs: Override ServeConfig fields (route_prefix, port, etc.).
+
+        Returns:
+            FastAPI APIRouter with /chat, /stream, /health, /ready, /budget, /describe.
+
+        Example:
+            >>> from fastapi import FastAPI
+            >>> app = FastAPI()
+            >>> app.include_router(agent.as_app(), prefix="/agent")
+        """
+        from syrin.serve.config import ServeConfig
+        from syrin.serve.http import build_router
+
+        cfg = config if isinstance(config, ServeConfig) else ServeConfig(**config_kwargs)
+        return build_router(self, cfg)
+
+    def serve(
+        self,
+        config: ServeConfig | None = None,
+        *,
+        stdin: TextIO | None = None,
+        stdout: TextIO | None = None,
+        **config_kwargs: Any,
+    ) -> None:
+        """Serve this agent via HTTP, CLI, or STDIO. Blocks until stopped.
+
+        Use for local dev or production. For HTTP, runs uvicorn. For CLI/STDIO,
+        see ServeProtocol. Requires syrin[serve] (fastapi, uvicorn).
+
+        Args:
+            config: Optional ServeConfig. If None, uses defaults.
+            stdin: Input stream for STDIO protocol. Defaults to sys.stdin.
+            stdout: Output stream for STDIO protocol. Defaults to sys.stdout.
+            **config_kwargs: Override ServeConfig fields (protocol, host, port, etc.).
+
+        Example:
+            >>> agent.serve(port=8000)  # HTTP on localhost:8000
+            >>> agent.serve(protocol=ServeProtocol.CLI)  # Interactive REPL
+        """
+        from syrin.enums import ServeProtocol
+        from syrin.serve.config import ServeConfig
+
+        cfg = config if isinstance(config, ServeConfig) else ServeConfig(**config_kwargs)
+
+        if cfg.protocol == ServeProtocol.HTTP:
+            try:
+                import uvicorn
+            except ImportError as e:
+                raise ImportError(
+                    "HTTP serving requires uvicorn. Install with: uv pip install syrin[serve]"
+                ) from e
+            app = _create_fastapi_app(self, cfg)
+            uvicorn.run(app, host=cfg.host, port=cfg.port)
+        elif cfg.protocol == ServeProtocol.CLI:
+            from syrin.serve.cli import run_cli_repl
+
+            run_cli_repl(self, cfg)
+        elif cfg.protocol == ServeProtocol.STDIO:
+            from syrin.serve.stdio import run_stdio_protocol
+
+            run_stdio_protocol(self, cfg, stdin=stdin, stdout=stdout)
+        else:
+            raise ValueError(f"Unknown protocol: {cfg.protocol}")
+
+
+def _create_fastapi_app(agent: Agent, config: ServeConfig) -> Any:
+    """Create a FastAPI app with the agent's router mounted."""
+    from fastapi import FastAPI
+
+    from syrin.serve.http import build_router
+
+    app = FastAPI(title=f"Syrin Agent: {agent.name}", description=agent.description)
+    router = build_router(agent, config)
+    app.include_router(router)
+    from syrin.serve.http import _add_startup_endpoint_logging
+
+    _add_startup_endpoint_logging(app)
+    return app
 
 
 # Presets and builder

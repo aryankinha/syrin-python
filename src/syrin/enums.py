@@ -212,6 +212,10 @@ class AuditEventType(StrEnum):
     DYNAMIC_PIPELINE_END = "dynamic_pipeline_end"
     DYNAMIC_PIPELINE_ERROR = "dynamic_pipeline_error"
 
+    # Serve
+    SERVE_REQUEST_START = "serve_request_start"
+    SERVE_REQUEST_END = "serve_request_end"
+
 
 class AlmockPricing(StrEnum):
     """Pricing tier for Almock (An LLM Mock). Use to test costing without real API calls.
@@ -251,6 +255,9 @@ class Hook(StrEnum):
     AGENT_RUN_START = "agent.run.start"
     AGENT_RUN_END = "agent.run.end"
     AGENT_RESET = "agent.reset"
+
+    SERVE_REQUEST_START = "serve.request.start"
+    SERVE_REQUEST_END = "serve.request.end"
 
     LLM_REQUEST_START = "llm.request.start"
     LLM_REQUEST_END = "llm.request.end"
@@ -347,6 +354,17 @@ class MemoryType(StrEnum):
     EPISODIC = "episodic"
     SEMANTIC = "semantic"
     PROCEDURAL = "procedural"
+
+
+class ServeProtocol(StrEnum):
+    """Transport protocol for serving agents.
+
+    Use when calling agent.serve(protocol=ServeProtocol.HTTP).
+    """
+
+    CLI = "cli"  # Interactive REPL on terminal
+    HTTP = "http"  # FastAPI server
+    STDIO = "stdio"  # stdin/stdout (background tasks, process spawning)
 
 
 class MemoryBackend(StrEnum):
