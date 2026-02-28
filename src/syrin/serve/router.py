@@ -63,6 +63,7 @@ class AgentRouter:
         from fastapi import APIRouter
 
         from syrin.serve.config import ServeConfig
+        from syrin.serve.discovery import build_agent_card_json, should_enable_discovery
         from syrin.serve.http import build_router
 
         cfg = self._config or ServeConfig()
@@ -81,6 +82,37 @@ class AgentRouter:
             )
             router = build_router(agent, sub_config)
             main.include_router(router)
+        # Root registry at /.well-known/agent.json — lists all agents when discovery enabled
+        if cfg.enable_discovery is not False:
+            host = cfg.host or "0.0.0.0"
+            port = cfg.port or 8000
+            display_host = "localhost" if host == "0.0.0.0" else host
+            base = f"http://{display_host}:{port}"
+            if cfg.route_prefix:
+                base = (base.rstrip("/") + "/" + cfg.route_prefix.strip("/").lstrip("/")).rstrip(
+                    "/"
+                )
+            prefix = (self._agent_prefix or "/agent").rstrip("/")
+
+            @main.get("/.well-known/agent.json")
+            async def registry() -> dict[str, Any]:
+                """Multi-agent registry: agents with name, description, url."""
+                agents_list: list[dict[str, Any]] = []
+                for agent in self._agents:
+                    if should_enable_discovery(agent, cfg):
+                        card = build_agent_card_json(
+                            agent,
+                            base_url=f"{base}{prefix}/{agent.name}",
+                        )
+                        agents_list.append(
+                            {
+                                "name": card["name"],
+                                "description": card["description"],
+                                "url": card["url"],
+                            }
+                        )
+                return {"agents": agents_list}
+
         return main
 
     def serve(self, config: ServeConfig | None = None, **config_kwargs: Any) -> None:

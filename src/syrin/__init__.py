@@ -192,6 +192,7 @@ from syrin.loop import (
     SingleShotLoop,
     ToolApprovalFn,
 )
+from syrin.mcp import MCP, MCPClient
 from syrin.memory import (
     BufferMemory,
     ConversationMemory,
@@ -272,7 +273,15 @@ from syrin.response import (
     TokenReport,
 )
 from syrin.run_context import RunContext
-from syrin.serve import ServeConfig
+from syrin.serve import (
+    AgentCard,
+    AgentCardAuth,
+    AgentCardProvider,
+    AgentRouter,
+    ServeConfig,
+    build_agent_card_json,
+    build_router,
+)
 from syrin.task import task
 from syrin.threshold import (
     ContextThreshold,
@@ -476,6 +485,14 @@ __all__ = [
     "task",
     "RunContext",
     "ServeConfig",
+    "AgentCard",
+    "AgentCardAuth",
+    "AgentCardProvider",
+    "AgentRouter",
+    "build_agent_card_json",
+    "build_router",
+    "MCP",
+    "MCPClient",
     # =============================================================================
     # Enums
     # =============================================================================

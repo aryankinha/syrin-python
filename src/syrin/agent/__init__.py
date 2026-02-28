@@ -139,6 +139,62 @@ def _merge_class_attrs(mro: tuple[type, ...], name: str, merge: bool) -> Any:
     return _UNSET
 
 
+def _collect_class_tools(cls: type) -> list[ToolSpec]:
+    """Collect ToolSpec from @tool-decorated class methods (MRO order, subclass overrides)."""
+    from syrin.tool import ToolSpec as TS
+
+    seen: set[str] = set()
+    result: list[ToolSpec] = []
+    for c in cls.__mro__:
+        if c is object:
+            continue
+        for _attr_name, val in c.__dict__.items():
+            if isinstance(val, TS) and val.name not in seen:
+                seen.add(val.name)
+                result.append(val)
+    return result
+
+
+def _is_mcp(x: Any) -> bool:
+    """Return True if x is an MCP server instance (has _tool_specs)."""
+    return hasattr(x, "_tool_specs") and hasattr(x, "tools")
+
+
+def _expand_tool_sources(items: list[Any]) -> list[ToolSpec]:
+    """Expand MCP/MCPClient to ToolSpec; pass through ToolSpec; flatten lists from mcp.select()."""
+    out: list[ToolSpec] = []
+    for x in items:
+        if isinstance(x, ToolSpec):
+            out.append(x)
+        elif isinstance(x, list):
+            out.extend(t for t in x if isinstance(t, ToolSpec))
+        elif hasattr(x, "tools") and callable(x.tools):
+            out.extend(x.tools())
+            # MCP instances are tracked separately for co-location
+        elif isinstance(x, ToolSpec):
+            out.append(x)
+    return out
+
+
+def _bind_tool_to_instance(spec: ToolSpec, instance: Any) -> ToolSpec:
+    """If spec.func is an unbound method (has 'self'), bind it to instance."""
+    import inspect
+
+    sig = inspect.signature(spec.func)
+    params = list(sig.parameters)
+    if params and params[0] == "self":
+        bound_func = spec.func.__get__(instance, type(instance))
+        return ToolSpec(
+            name=spec.name,
+            description=spec.description,
+            parameters_schema=spec.parameters_schema,
+            func=bound_func,
+            requires_approval=spec.requires_approval,
+            inject_run_context=spec.inject_run_context,
+        )
+    return spec
+
+
 def _validate_user_input(user_input: str | None, method: str = "response") -> None:
     """Raise TypeError if user_input is not str."""
     if not isinstance(user_input, str):
@@ -270,7 +326,22 @@ class Agent(metaclass=_AgentMeta):
         default_description = _merge_class_attrs(mro, "description", merge=False)
         cls._Syrin_default_model = default_model if default_model is not _UNSET else None
         cls._Syrin_default_system_prompt = default_prompt if default_prompt is not _UNSET else ""
-        cls._Syrin_default_tools = list(default_tools) if default_tools is not _UNSET else []
+        # Merge: class @tool methods first, then explicit tools. Explicit overrides by name.
+        # MCP and MCPClient kept for init-time expansion; MCP also for co-location.
+        class_tools = _collect_class_tools(cls)
+        explicit_list = list(default_tools) if default_tools is not _UNSET else []
+        by_name: dict[str, ToolSpec] = {t.name: t for t in class_tools}
+        mcp_sources: list[Any] = []
+        for t in explicit_list:
+            if isinstance(t, ToolSpec):
+                by_name[t.name] = t
+            elif isinstance(t, list):
+                for s in t:
+                    if isinstance(s, ToolSpec):
+                        by_name[s.name] = s
+            elif hasattr(t, "tools") and callable(getattr(t, "tools", None)):
+                mcp_sources.append(t)
+        cls._Syrin_default_tools = list(by_name.values()) + mcp_sources
         cls._Syrin_default_budget = default_budget if default_budget is not _UNSET else None
         cls._Syrin_default_guardrails = (
             list(default_guardrails) if default_guardrails is not _UNSET else []
@@ -375,8 +446,32 @@ class Agent(metaclass=_AgentMeta):
             model = getattr(cls, "_Syrin_default_model", None)
         if system_prompt is _UNSET:
             system_prompt = getattr(cls, "_Syrin_default_system_prompt", "") or ""
+        # Merge class tools (@tool methods + class tools=[]) with constructor tools (later overrides by name)
+        base_tools = getattr(cls, "_Syrin_default_tools", None) or []
         if tools is _UNSET:
-            tools = getattr(cls, "_Syrin_default_tools", None) or []
+            tools = base_tools
+        else:
+            if not isinstance(tools, list):
+                raise TypeError(
+                    f"tools must be list of ToolSpec or None, got {type(tools).__name__}. "
+                    "Use @syrin.tool or syrin.tool() to create tools."
+                )
+            for i, x in enumerate(tools):
+                if isinstance(x, ToolSpec) or (
+                    isinstance(x, list) and all(isinstance(t, ToolSpec) for t in x)
+                ):
+                    continue
+                if _is_mcp(x) or (hasattr(x, "tools") and hasattr(x, "_url")):
+                    continue
+                raise TypeError(
+                    f"tools[{i}] must be ToolSpec, list of ToolSpec, MCP, or MCPClient, got {type(x).__name__}. "
+                    "Use @syrin.tool or syrin.tool() to create tools."
+                )
+            by_name = {t.name: t for t in base_tools if isinstance(t, ToolSpec)}
+            for t in tools:
+                if isinstance(t, ToolSpec):
+                    by_name[t.name] = t
+            tools = list(by_name.values())
         if budget is _UNSET:
             budget = getattr(cls, "_Syrin_default_budget", None)
         if guardrails is _UNSET:
@@ -418,8 +513,11 @@ class Agent(metaclass=_AgentMeta):
                 f"tools must be list of ToolSpec or None, got {type(tools).__name__}. "
                 "Use @syrin.tool or syrin.tool() to create tools."
             )
-        tools_list = tools if isinstance(tools, list) else []
-        for i, t in enumerate(tools_list):
+        tools_list: list[Any] = tools if isinstance(tools, list) else []
+        mcp_instances = [x for x in tools_list if _is_mcp(x)]
+        tools_expanded = _expand_tool_sources(tools_list)
+        tools_final: list[ToolSpec] = []
+        for i, t in enumerate(tools_expanded):
             if t is None:
                 raise TypeError(
                     "tools must not contain None. "
@@ -430,6 +528,7 @@ class Agent(metaclass=_AgentMeta):
                     f"tools[{i}] must be ToolSpec, got {type(t).__name__}. "
                     "Use @syrin.tool or syrin.tool() to create tools."
                 )
+            tools_final.append(_bind_tool_to_instance(t, self))
         if budget is not None and not isinstance(budget, Budget):
             raise TypeError(
                 f"budget must be Budget, got {type(budget).__name__}. "
@@ -455,7 +554,8 @@ class Agent(metaclass=_AgentMeta):
             self._model_config.output = output.type
 
         self._system_prompt = system_prompt or ""
-        self._tools = list(tools) if tools else []
+        self._tools = tools_final if tools_final else []
+        self._mcp_instances: list[Any] = mcp_instances
         self._max_tool_iterations = max_tool_iterations
         self._budget = budget
         self._budget_store = budget_store

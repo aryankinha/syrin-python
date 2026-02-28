@@ -259,6 +259,11 @@ class Hook(StrEnum):
     SERVE_REQUEST_START = "serve.request.start"
     SERVE_REQUEST_END = "serve.request.end"
 
+    MCP_CONNECTED = "mcp.connected"
+    MCP_DISCONNECTED = "mcp.disconnected"
+    MCP_TOOL_CALL_START = "mcp.tool.call.start"
+    MCP_TOOL_CALL_END = "mcp.tool.call.end"
+
     LLM_REQUEST_START = "llm.request.start"
     LLM_REQUEST_END = "llm.request.end"
     LLM_STREAM_CHUNK = "llm.stream.chunk"

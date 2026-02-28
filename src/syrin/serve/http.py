@@ -1,4 +1,4 @@
-"""HTTP serving — FastAPI routes for /chat, /stream, /health, /ready, /budget, /describe."""
+"""HTTP serving — FastAPI routes for /chat, /stream, /health, /ready, /budget, /describe, /.well-known/agent.json."""
 
 from __future__ import annotations
 
@@ -17,11 +17,21 @@ def _add_startup_endpoint_logging(app: Any) -> None:
     @app.on_event("startup")  # type: ignore[untyped-decorator]
     def _log_endpoints() -> None:
         lines: list[str] = ["Syrin endpoints:"]
+        has_mcp = False
         for route in app.routes:
             if hasattr(route, "methods") and hasattr(route, "path"):
                 methods = ", ".join(sorted(m for m in route.methods if m != "HEAD"))
                 lines.append(f"  {methods:6} {route.path}")
+                if "/mcp" in (route.path or ""):
+                    has_mcp = True
         print("\n".join(lines) + "\n", flush=True)
+        if has_mcp:
+            import sys
+
+            from syrin.mcp.stdio import _syrin_cli_message
+
+            use_color = getattr(sys.stdout, "isatty", lambda: False)()
+            print(_syrin_cli_message(use_color=use_color), flush=True)
 
 
 def _ensure_serve_deps() -> None:
@@ -170,5 +180,32 @@ def build_router(
                 else None
             ),
         }
+
+    # MCP co-location — when agent has MCP in tools, mount /mcp
+    mcp_instances = getattr(agent, "_mcp_instances", []) or []
+    if mcp_instances:
+        from syrin.mcp.http import build_mcp_router
+
+        mcp_router = build_mcp_router(mcp_instances[0])
+        mcp_prefix = _route("/mcp").rstrip("/")
+        router.include_router(mcp_router, prefix=mcp_prefix)
+
+    # A2A Agent Card (/.well-known/agent.json) — discovery for agent-to-agent
+    from syrin.serve.discovery import build_agent_card_json, should_enable_discovery
+
+    if should_enable_discovery(agent, config):
+        host = getattr(config, "host", "0.0.0.0")
+        port = getattr(config, "port", 8000)
+        display_host = "localhost" if host == "0.0.0.0" else host
+        base_url = f"http://{display_host}:{port}"
+        if config.route_prefix:
+            base_url = base_url.rstrip("/") + "/" + config.route_prefix.strip("/").lstrip("/")
+        if prefix:
+            base_url = (base_url.rstrip("/") + "/" + prefix.lstrip("/")).rstrip("/")
+
+        @router.get(_route("/.well-known/agent.json"))
+        async def agent_card() -> dict[str, Any]:
+            """A2A Agent Card for discovery. GET /.well-known/agent.json."""
+            return build_agent_card_json(agent, base_url=base_url)
 
     return router

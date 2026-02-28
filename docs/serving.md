@@ -42,8 +42,27 @@ When using `agent.serve()` or `agent.as_router()`:
 | `/ready` | GET | Readiness probe |
 | `/budget` | GET | Budget state (404 if not configured) |
 | `/describe` | GET | Agent introspection (name, tools, budget) |
+| `/mcp` | POST | MCP JSON-RPC (when MCP in agent tools) |
+| `/.well-known/agent.json` | GET | A2A Agent Card (when discovery enabled) |
 
 **Request body for `/chat` and `/stream`:** `{"message": "..."}` or `{"input": "..."}`
+
+## Agent Discovery — A2A Agent Card
+
+When `enable_discovery` is on (auto when agent has `name`), the serve layer exposes an A2A Agent Card at `GET /.well-known/agent.json`. Other agents, frontends, and infrastructure can discover capabilities without manual configuration.
+
+```python
+class ProductAgent(Agent):
+    name = "product-agent"
+    description = "E-commerce product search and cart management"
+    model = Model.Almock()
+    tools = [search_products, get_product]
+
+ProductAgent().serve(port=8000)
+# GET /.well-known/agent.json returns: name, description, url, skills (tools), etc.
+```
+
+**Disable discovery:** `ServeConfig(enable_discovery=False)`
 
 ## Mount on Existing FastAPI App
 
@@ -175,3 +194,4 @@ echo '{"input": "Hi"}' | python -m examples.serving.stdio_serve
 - `examples/serving/mount_on_existing_app.py` — Mount on FastAPI
 - `examples/serving/cli_serve.py` — CLI REPL
 - `examples/serving/stdio_serve.py` — STDIO JSON lines
+- `examples/11_mcp/` — MCP server, client, co-location (see `docs/mcp.md`)
