@@ -107,6 +107,8 @@ def build_messages(
     for tool in tools:
         if hasattr(tool, "to_tool_spec"):
             tool_dicts.append(tool.to_tool_spec())
+        elif hasattr(tool, "to_format"):
+            tool_dicts.append(tool.to_format())
         elif isinstance(tool, dict):
             tool_dicts.append(tool)
 

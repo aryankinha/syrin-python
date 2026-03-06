@@ -306,6 +306,7 @@ class Hook(StrEnum):
     CONTEXT_COMPRESS = "context.compress"
     CONTEXT_COMPACT = "context.compact"
     CONTEXT_THRESHOLD = "context.threshold"
+    CONTEXT_SNAPSHOT = "context.snapshot"
     CONTEXT_OFFLOAD = "context.offload"
     CONTEXT_RESTORE = "context.restore"
 

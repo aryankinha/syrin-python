@@ -1,5 +1,7 @@
 """Default context manager implementation."""
 
+from __future__ import annotations
+
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -7,8 +9,19 @@ from typing import Any, Protocol
 from syrin.context.compactors import CompactionResult, ContextCompactor, ContextCompactorProtocol
 from syrin.context.config import Context, ContextStats, ContextWindowCapacity
 from syrin.context.counter import TokenCounter, get_counter
+from syrin.context.snapshot import (
+    ContextBreakdown,
+    ContextSegmentProvenance,
+    ContextSegmentSource,
+    ContextSnapshot,
+    MessagePreview,
+    _context_rot_risk_from_utilization,
+)
 from syrin.enums import Hook, ThresholdMetric
 from syrin.threshold import ThresholdContext
+
+# Max chars for content_snippet in MessagePreview.
+_SNIPPET_MAX_CHARS = 80
 
 
 @dataclass
@@ -31,7 +44,7 @@ class ContextPayload:
 class _NullSpan:
     """Null context manager for when no tracer is set."""
 
-    def __enter__(self) -> "_NullSpan":
+    def __enter__(self) -> _NullSpan:
         return self
 
     def __exit__(self, *args: Any) -> None:
@@ -117,6 +130,7 @@ class DefaultContextManager:
     _last_compaction_method: str | None = field(default=None, repr=False)
     _current_compact_fn: Callable[[], None] | None = field(default=None, repr=False)
     _run_compaction_count: int = field(default=0, repr=False)
+    _last_snapshot: ContextSnapshot | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         """Apply Context.encoding and Context.compactor when set."""
@@ -259,6 +273,12 @@ class DefaultContextManager:
 
                 capacity.used_tokens = tokens_used
 
+                breakdown = self._counter.count_breakdown(
+                    system_prompt=system_prompt,
+                    memory_context=memory_context,
+                    tools=tools,
+                    tokens_used=tokens_used,
+                )
                 self._stats = ContextStats(
                     total_tokens=tokens_used,
                     max_tokens=capacity.max_tokens,
@@ -267,6 +287,22 @@ class DefaultContextManager:
                     compact_count=self._run_compaction_count,
                     compact_method=self._last_compaction_method if self._did_compact else None,
                     thresholds_triggered=thresholds_triggered,
+                    breakdown=breakdown,
+                )
+
+                snap = self._build_snapshot(
+                    final_msgs=final_msgs,
+                    system_prompt=system_prompt,
+                    memory_context=memory_context,
+                    tools=tools,
+                    tokens_used=tokens_used,
+                    capacity=capacity,
+                    breakdown=breakdown,
+                )
+                self._last_snapshot = snap
+                self._emit(
+                    Hook.CONTEXT_SNAPSHOT.value,
+                    {"snapshot": snap.to_dict(), "utilization_pct": snap.utilization_pct},
                 )
 
                 if span:
@@ -336,6 +372,112 @@ class DefaultContextManager:
     def stats(self) -> ContextStats:
         """Get context statistics from last call."""
         return self._stats
+
+    def _build_snapshot(
+        self,
+        *,
+        final_msgs: list[dict[str, Any]],
+        system_prompt: str,
+        memory_context: str,
+        tools: list[dict[str, Any]],
+        tokens_used: int,
+        capacity: ContextWindowCapacity,
+        breakdown: ContextBreakdown,
+    ) -> ContextSnapshot:
+        """Build ContextSnapshot from the last prepare state. Breakdown is computed once in prepare()."""
+        import time
+
+        utilization_pct = (
+            (capacity.used_tokens / capacity.available * 100.0) if capacity.available > 0 else 0.0
+        )
+        tokens_available = max(0, capacity.available - capacity.used_tokens)
+
+        previews: list[MessagePreview] = []
+        provenances: list[ContextSegmentProvenance] = []
+        why_included: list[str] = []
+
+        conversation_reason_added = False
+        for i, msg in enumerate(final_msgs):
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            content_str = content if isinstance(content, str) else str(content)
+            snippet = (
+                content_str[:_SNIPPET_MAX_CHARS] + "..."
+                if len(content_str) > _SNIPPET_MAX_CHARS
+                else content_str
+            )
+            tok = self._counter.count(content_str) + self._counter._role_overhead(role)
+
+            if system_prompt and content_str.strip() == system_prompt.strip():
+                source = ContextSegmentSource.SYSTEM
+                why_included.append("system prompt")
+            elif memory_context and "[Memory]" in content_str:
+                source = ContextSegmentSource.MEMORY
+                why_included.append("recalled memory")
+            elif i == len(final_msgs) - 1 and role == "user":
+                source = ContextSegmentSource.CURRENT_PROMPT
+                why_included.append("current user message")
+            else:
+                source = ContextSegmentSource.CONVERSATION
+                if not conversation_reason_added:
+                    why_included.append("conversation history")
+                    conversation_reason_added = True
+
+            previews.append(
+                MessagePreview(
+                    role=role,
+                    content_snippet=snippet,
+                    token_count=tok,
+                    source=source,
+                )
+            )
+            provenances.append(
+                ContextSegmentProvenance(
+                    segment_id=str(i),
+                    source=source,
+                    source_detail=f"message index {i}",
+                )
+            )
+
+        if tools:
+            why_included.append("tool definitions")
+            provenances.append(
+                ContextSegmentProvenance(
+                    segment_id="tools",
+                    source=ContextSegmentSource.TOOLS,
+                    source_detail="tool schemas",
+                )
+            )
+
+        if not why_included:
+            why_included = ["context formation"]
+
+        return ContextSnapshot(
+            timestamp=time.time(),
+            total_tokens=tokens_used,
+            max_tokens=capacity.max_tokens,
+            tokens_available=tokens_available,
+            utilization_pct=utilization_pct,
+            breakdown=breakdown,
+            compacted=self._did_compact,
+            compact_method=self._last_compaction_method if self._did_compact else None,
+            messages_count=len(final_msgs),
+            message_preview=previews,
+            raw_messages=None,
+            provenance=provenances,
+            why_included=why_included,
+            context_rot_risk=_context_rot_risk_from_utilization(utilization_pct),
+        )
+
+    def snapshot(self) -> ContextSnapshot:
+        """Return a point-in-time view of the context from the last prepare.
+
+        Before any prepare(), returns an empty snapshot (zeros, low rot risk).
+        After prepare(), returns full view: message_preview, provenance, why_included, context_rot_risk.
+        """
+        if self._last_snapshot is None:
+            return ContextSnapshot()
+        return self._last_snapshot
 
     @property
     def current_tokens(self) -> int:

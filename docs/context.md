@@ -14,6 +14,7 @@ Syrin’s context system manages **token limits**, **on-demand compaction**, and
 - [Compaction](#compaction)
 - [TokenLimits (token caps)](#tokenlimits-token-caps)
 - [Agent API](#agent-api)
+- [Context snapshot (full view)](#context-snapshot-full-view)
 - [Events](#events)
 - [Token counting](#token-counting)
 - [Custom context manager](#custom-context-manager)
@@ -51,6 +52,7 @@ Syrin’s context system manages **token limits**, **on-demand compaction**, and
 | Set **context window** size and reserve | **Context** (max_tokens, reserve) | reserve = tokens reserved for model output |
 | React at utilization (e.g. compact at 75%) | **Context.thresholds** + **ContextThreshold** + **compact_if_available** | Action receives **ThresholdContext**; call **evt.compact()** to compact |
 | Per-call stats (tokens, utilization, compact_count) | **result.context_stats** or **agent.context_stats** | **result.context** = Context used for that call (overrides agent's when passed) |
+| **Full context view** (what, why, where, rot risk) | **agent.context.snapshot()** | **ContextSnapshot**: message_preview, provenance, why_included, breakdown, context_rot_risk; export via **to_dict()** for viz tools. |
 
 **Budget vs token caps:** **Budget** = cost limits in USD. **Context.token_limits** (TokenLimits) = token caps (run and/or per period). Same field names (run, per, on_exceeded) for consistency.
 
@@ -377,8 +379,9 @@ print(r.context_stats.total_tokens) # tokens for this call
 | **compact_count**    | `int`    | Compactions in this run (this prepare) only. |
 | **compact_method**   | `str \| None` | e.g. `"middle_out_truncate"`, `"summarize"`, or `None`. |
 | **thresholds_triggered**| `list[str]` | Metric names of triggered thresholds. |
+| **breakdown**            | **ContextBreakdown \| None** | Token counts by component (system, tools, memory, messages). Set after **prepare()**; **None** before any run. Same data as **snapshot().breakdown**. |
 
-**Why:** Inspect token usage and compaction after each run. **What:** Snapshot from the last **prepare** (or use **result.context_stats** for that call). **How:** Read **agent.context_stats** or **result.context_stats** after **response()** / **arun()**.
+**Why:** Inspect token usage and compaction after each run. **What:** Snapshot from the last **prepare** (or use **result.context_stats** for that call). **How:** Read **agent.context_stats** or **result.context_stats** after **response()** / **arun()**. Use **breakdown** for component-level token counts without building a full snapshot.
 
 Example:
 
@@ -390,6 +393,45 @@ print(agent.context_stats.compacted)
 # Per-call stats (same run):
 print(result.context_stats.total_tokens, result.context.max_tokens)
 ```
+
+### Context snapshot (full view)
+
+**`agent.context.snapshot()`** returns a **ContextSnapshot** — a point-in-time view of what was sent to the LLM: which messages, where they came from, why they were included, token breakdown, and **context rot risk** (low / medium / high based on utilization).
+
+Use it to debug context formation, feed visualization tools (e.g. Letta-style UIs), or log what actually went into the model.
+
+**When:** After **response()** or **arun()**; the snapshot reflects the last **prepare**. Before any run, returns an empty snapshot (zeros, **context_rot_risk** = low).
+
+**ContextSnapshot fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| **timestamp** | `float` | When the snapshot was taken. |
+| **total_tokens**, **max_tokens**, **tokens_available** | `int` | Capacity. |
+| **utilization_pct** | `float` | Used vs available (0–100). |
+| **breakdown** | **ContextBreakdown** | **system_tokens**, **tools_tokens**, **memory_tokens**, **messages_tokens**. |
+| **message_preview** | `list[MessagePreview]` | Per-message: **role**, **content_snippet**, **token_count**, **source** (system / memory / conversation / tools / current_prompt / injected). |
+| **provenance** | `list[ContextSegmentProvenance]` | Per segment: **segment_id**, **source**, **source_detail**. |
+| **why_included** | `list[str]` | Human-readable reasons (e.g. "system prompt", "recalled memory", "conversation history", "current user message"). |
+| **context_rot_risk** | `"low" \| "medium" \| "high"` | Derived from utilization: low &lt; 60%, medium 60–70%, high ≥ 70%. |
+| **compacted**, **compact_method** | `bool`, `str \| None` | Whether compaction ran and which method. |
+
+**Export for visualization:** **`snapshot.to_dict()`** returns a JSON-serializable dict. Use **`to_dict(include_raw_messages=True)`** only when you need the full message list (can be large).
+
+Example:
+
+```python
+result = agent.response("Hello!")
+snap = agent.context.snapshot()
+print(snap.utilization_pct, snap.context_rot_risk)  # e.g. 0.5, "low"
+for p in snap.provenance:
+    print(p.source.value, p.source_detail)
+print(snap.why_included)
+# Export for dashboards / viz tools
+data = snap.to_dict()
+```
+
+**Hook:** **context.snapshot** is emitted after each **prepare** with payload **snapshot** (the **to_dict()** result) and **utilization_pct**.
 
 ---
 
@@ -417,6 +459,16 @@ Emitted when a context threshold triggers.
 agent.events.on("context.threshold", lambda e: print(f"Threshold {e['percent']}%"))
 ```
 
+### context.snapshot
+
+Emitted after each **prepare** with the full context snapshot for that run.
+
+**Payload:** **snapshot** (ContextSnapshot as dict via **to_dict()**), **utilization_pct**.
+
+```python
+agent.events.on("context.snapshot", lambda e: print(e["utilization_pct"], e["snapshot"]["context_rot_risk"]))
+```
+
 ---
 
 ## Token counting
@@ -436,6 +488,10 @@ Count tokens in a string.
 ### count_tools(tools: list[dict]) -> int
 
 Approximate tokens for tool definitions.
+
+### count_breakdown(system_prompt, memory_context, tools, tokens_used) -> ContextBreakdown
+
+Returns **ContextBreakdown** with **system_tokens**, **tools_tokens**, **memory_tokens**, and **messages_tokens** (residual so that the sum matches **tokens_used** when possible). Used internally by the context manager to populate **ContextStats.breakdown** and **ContextSnapshot.breakdown**. Call it directly if you need component counts without running a full prepare.
 
 ### get_counter() -> TokenCounter
 
@@ -550,15 +606,20 @@ You can replace the compactor in a custom manager or extend **DefaultContextMana
 | Class / type | Description |
 |--------------|-------------|
 | **Context** | Config: max_tokens, reserve, thresholds, token_limits, encoding, compactor. **get_capacity(model)**. |
-| **ContextStats** | total_tokens, max_tokens, utilization, compacted, compact_count (this run only), compact_method, thresholds_triggered. |
+| **ContextStats** | total_tokens, max_tokens, utilization, compacted, compact_count (this run only), compact_method, thresholds_triggered, **breakdown** (ContextBreakdown \| None; set after prepare). |
+| **ContextSnapshot** | Full view from **agent.context.snapshot()**: timestamp, total_tokens, max_tokens, utilization_pct, breakdown, message_preview, provenance, why_included, context_rot_risk, compacted, compact_method. **to_dict(include_raw_messages=False)** for export. |
+| **ContextBreakdown** | system_tokens, tools_tokens, memory_tokens, messages_tokens; **total_tokens** property. |
+| **MessagePreview** | role, content_snippet, token_count, **source** (ContextSegmentSource). |
+| **ContextSegmentProvenance** | segment_id, source, source_detail. |
+| **ContextSegmentSource** | StrEnum: SYSTEM, MEMORY, CONVERSATION, TOOLS, CURRENT_PROMPT, INJECTED. |
 | **TokenLimits** | Token caps: **run**, **per** (TokenRateLimit), **on_exceeded**. Use on **Context.token_limits**. |
 | **ContextWindowCapacity** | Internal: max_tokens, reserve, available, used_tokens, utilization, percent, reset(). |
 | **ContextThreshold** | at, at_range, action, metric=TOKENS, window=MAX_TOKENS. **should_trigger(percent, metric)**. |
 | **ThresholdContext** | percentage, metric, current_value, limit_value, budget_run, parent, metadata, **compact**. |
 | **ContextPayload** | messages, system_prompt, tools, tokens. |
 | **ContextManager** | Protocol: prepare(), on_compact(). |
-| **DefaultContextManager** | context, prepare(), stats, current_tokens, **compact()**, set_emit_fn(), set_tracer(). |
-| **TokenCounter** | count(), count_messages(), count_tools(). **TokenCount**: total, system, messages, tools, memory. |
+| **DefaultContextManager** | context, prepare(), **stats**, **snapshot()**, current_tokens, **compact()**, set_emit_fn(), set_tracer(). |
+| **TokenCounter** | count(), count_messages(), count_tools(), **count_breakdown()** (system_prompt, memory_context, tools, tokens_used → ContextBreakdown). **TokenCount**: total, system, messages, tools, memory. |
 | **get_counter()** | Default TokenCounter. |
 | **CompactionResult** | messages, method, tokens_before, tokens_after. |
 | **Compactor** | Base: compact(messages, budget, counter). |
@@ -712,6 +773,14 @@ async def run():
 ---
 
 ## Complete examples
+
+Runnable scripts in **examples/11_context/** showcase snapshot, breakdown, thresholds, and compaction:
+
+- **context_management.py** — Tour: basics, snapshot, manual compaction, thresholds, custom ContextManager. Run: `python -m examples.11_context.context_management`
+- **context_snapshot_demo.py** — Full snapshot and breakdown (capacity, components, provenance, why_included, context_rot_risk, export). Run: `python -m examples.11_context.context_snapshot_demo`
+- **context_thresholds_compaction_demo.py** — Threshold at 50% triggers compaction; events and stats. Run: `python -m examples.11_context.context_thresholds_compaction_demo`
+
+See **examples/11_context/README.md** for a short index.
 
 ### Minimal (default context)
 

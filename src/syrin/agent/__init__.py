@@ -24,10 +24,11 @@ from syrin.budget_store import BudgetStore
 from syrin.checkpoint import CheckpointConfig, Checkpointer, CheckpointTrigger
 from syrin.context import Context, DefaultContextManager
 from syrin.context.config import ContextStats
+from syrin.context.snapshot import ContextSnapshot
 
 
 class _ContextFacade:
-    """Facade for agent.context: config attributes + compact() during prepare."""
+    """Facade for agent.context: config attributes + compact() and snapshot() during/after prepare."""
 
     def __init__(self, config: Context, manager: DefaultContextManager) -> None:
         self._config = config
@@ -36,6 +37,10 @@ class _ContextFacade:
     def compact(self) -> None:
         """Request context compaction (valid during prepare, e.g. from threshold action)."""
         self._manager.compact()
+
+    def snapshot(self) -> ContextSnapshot:
+        """Return a point-in-time view of the context from the last prepare (full view: provenance, why_included, context_rot_risk)."""
+        return self._manager.snapshot()
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._config, name)

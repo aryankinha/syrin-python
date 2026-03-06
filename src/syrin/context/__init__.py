@@ -39,6 +39,13 @@ from syrin.context.config import (
     ContextWindowCapacity,
 )
 from syrin.context.counter import TokenCount, TokenCounter, get_counter
+from syrin.context.snapshot import (
+    ContextBreakdown,
+    ContextSegmentProvenance,
+    ContextSegmentSource,
+    ContextSnapshot,
+    MessagePreview,
+)
 from syrin.threshold import BudgetThreshold, ContextThreshold
 
 __all__ = [
@@ -49,6 +56,12 @@ __all__ = [
     "TokenLimits",
     "BudgetThreshold",
     "ContextThreshold",
+    # Snapshot
+    "ContextBreakdown",
+    "ContextSegmentProvenance",
+    "ContextSegmentSource",
+    "ContextSnapshot",
+    "MessagePreview",
     # Counter
     "TokenCounter",
     "TokenCount",

@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 from syrin.budget import TokenLimits
 from syrin.context.compactors import ContextCompactor, ContextCompactorProtocol
+from syrin.context.snapshot import ContextBreakdown
 
 
 @dataclass
@@ -34,6 +35,8 @@ class ContextStats:
     """Method used (e.g. 'middle_out_truncate', 'summarize') or None if no compaction."""
     thresholds_triggered: list[str] = field(default_factory=list)
     """List of threshold metric names that fired (e.g. ['tokens'])."""
+    breakdown: ContextBreakdown | None = None
+    """Token counts by component (system, tools, memory, messages). Set after prepare(); None before any prepare."""
 
 
 @dataclass

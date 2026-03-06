@@ -1,5 +1,7 @@
 """Token counting for context management."""
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -12,6 +14,8 @@ except ImportError:
 
 import contextlib
 from dataclasses import dataclass
+
+from syrin.context.snapshot import ContextBreakdown
 
 
 @dataclass
@@ -126,6 +130,52 @@ class TokenCounter:
             total += 12
 
         return total
+
+    def count_breakdown(
+        self,
+        *,
+        system_prompt: str,
+        memory_context: str,
+        tools: list[dict[str, Any]],
+        tokens_used: int,
+    ) -> ContextBreakdown:
+        """Compute token breakdown by component (system, tools, memory, messages).
+
+        Used by the context manager to populate ContextSnapshot.breakdown and
+        ContextStats.breakdown. messages_tokens is derived as the residual so
+        that total_tokens equals tokens_used.
+
+        Args:
+            system_prompt: System prompt text (may be empty).
+            memory_context: Recalled memory text injected as [Memory] block (may be empty).
+            tools: Tool definition dicts.
+            tokens_used: Total token count for this prepare (authoritative total).
+
+        Returns:
+            ContextBreakdown with system_tokens, tools_tokens, memory_tokens,
+            and messages_tokens (residual). breakdown.total_tokens equals tokens_used
+            when tokens_used >= sum(system, tools, memory); otherwise messages_tokens
+            is clamped to 0.
+        """
+        system_tokens = 0
+        if system_prompt:
+            system_tokens = self.count(system_prompt) + self._role_overhead("system")
+        tools_tokens = self.count_tools(tools)
+        memory_tokens = 0
+        if memory_context:
+            memory_tokens = self.count(f"[Memory]\n{memory_context}") + self._role_overhead(
+                "system"
+            )
+        messages_tokens = max(
+            0,
+            tokens_used - system_tokens - tools_tokens - memory_tokens,
+        )
+        return ContextBreakdown(
+            system_tokens=system_tokens,
+            tools_tokens=tools_tokens,
+            memory_tokens=memory_tokens,
+            messages_tokens=messages_tokens,
+        )
 
     def _role_overhead(self, role: str) -> int:
         """Get token overhead for a role."""
