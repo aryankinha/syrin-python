@@ -51,6 +51,7 @@ Syrin’s context system manages **token limits**, **on-demand compaction**, and
 | Limit **tokens** per run or per period | **Context.token_limits** (TokenLimits) | Same field names as Budget: run, per, on_exceeded |
 | Set **context window** size and reserve | **Context** (max_tokens, reserve) | reserve = tokens reserved for model output |
 | React at utilization (e.g. compact at 75%) | **Context.thresholds** + **ContextThreshold** + **compact_if_available** | Action receives **ThresholdContext**; call **evt.compact()** to compact |
+| Proactively compact at a fraction (e.g. 60%) | **Context.auto_compact_at** (e.g. `0.6`) | One knob; compaction runs once per prepare when utilization ≥ value; no threshold needed |
 | Per-call stats (tokens, utilization, compact_count) | **result.context_stats** or **agent.context_stats** | **result.context** = Context used for that call (overrides agent's when passed) |
 | **Full context view** (what, why, where, rot risk) | **agent.context.snapshot()** | **ContextSnapshot**: message_preview, provenance, why_included, breakdown, context_rot_risk; export via **to_dict()** for viz tools. |
 
@@ -101,7 +102,7 @@ result = agent.response("Long conversation...")
 - **Context window** – The maximum tokens allowed for the current request’s context. Set by **`Context.max_tokens`** or inferred from the model (or 128k).
 - **Context window capacity** – Internal **ContextWindowCapacity**: `available = max_tokens - reserve` (default reserve 2000, or model’s **default_reserve_tokens** when set). Utilization = used tokens / available, capped at 1.0 when at or over capacity. You don’t construct this; it’s built from **Context** during prepare.
 - **Thresholds** – **ContextThreshold** instances: at a given utilization (e.g. `at=75` or `at_range=(70, 75)`), an **action** callable is run. The callable receives **ThresholdContext** with `percentage`, `current_value`, `limit_value`, and **`compact()`** (context only).
-- **Compaction** – Reducing message list size (e.g. middle-out truncation or summarization). Happens **only** when something calls **`ctx.compact()`** or **`agent.context.compact()`** during **prepare** (typically from a threshold action). There is no automatic compaction at a fixed percentage.
+- **Compaction** – Reducing message list size (e.g. middle-out truncation or summarization). Happens when **`ctx.compact()`** (or **`agent.context.compact()`**) is called during **prepare**, or when **Context.auto_compact_at** is set and utilization reaches that fraction (proactive compaction). With **auto_compact_at=None** (default), only threshold actions trigger compaction.
 - **TokenLimits** – Optional token caps on **Context** via **`Context.token_limits`**: **run** (max tokens per run), **per** (hour/day/week/month), **on_exceeded** (callback). Same field names as **Budget** (run, per, on_exceeded). Enforced by the budget tracker; separate from cost (Budget).
 
 ---
@@ -122,6 +123,10 @@ result = agent.response("Long conversation...")
 | **token_limits** | Cap token usage per run and/or per period (separate from USD Budget). | Optional **TokenLimits**: **run**, **per**, **on_exceeded**. Same names as **Budget**. | **Context(token_limits=TokenLimits(run=50_000, on_exceeded=raise_on_exceeded))** or with **per=TokenRateLimit(...)**. |
 | **encoding** | Token counting must use the same encoding as the model (e.g. cl100k_base for OpenAI). | TokenCounter encoding string. Default **"cl100k_base"**. | Set if you use a model with a different tokenizer; the default context manager uses it. |
 | **compactor** | Use a custom compaction strategy (e.g. summarizer) instead of the default middle-out truncation. | Optional **ContextCompactorProtocol**: **compact(messages, budget) -> CompactionResult**. | **Context(compactor=MyCompactor())**; default manager calls it during prepare when compaction runs. |
+| **compaction_prompt** | Override the user prompt template for summarization (e.g. "Summarize: {messages}"). | Optional **str**. **{messages}** is replaced with the conversation text. **None** = default from **syrin.context.prompts**. | Passed to the default **ContextCompactor**'s **Summarizer** when compaction runs. |
+| **compaction_system_prompt** | Override the system prompt for the summarization LLM. | Optional **str**. **None** = default from **syrin.context.prompts**. | Use with **compaction_model** for custom summarization behavior. |
+| **compaction_model** | Model used for summarization when compaction runs. | Optional **Model**. **None** = placeholder (no LLM; keeps system + last 4 messages and a summary line). | Set to e.g. **Model.Almock()** or **Model.OpenAI("gpt-4o-mini")** for real LLM summarization. |
+| **auto_compact_at** | Proactively compact when context utilization reaches a fraction (e.g. 60%) to reduce context rot. | **float \| None** in **[0.0, 1.0]** (e.g. `0.6` = 60%). **None** = no proactive compaction. | **Context(auto_compact_at=0.6)** to compact once per prepare when utilization ≥ 60%; same **context.compact** event and compactor as threshold-triggered compaction. |
 
 Example:
 
@@ -231,12 +236,22 @@ ContextThreshold(
 
 ## Compaction
 
-Compaction **only runs when something calls** **`ctx.compact()`** or **`agent.context.compact()`** while the default context manager is inside **prepare** (e.g. from a threshold action). There is no automatic compaction at a fixed percentage.
+Compaction runs during **prepare** when (1) a threshold action calls **`ctx.compact()`** or **`agent.context.compact()`**, or (2) **Context.auto_compact_at** is set and utilization reaches that fraction (proactive compaction). With **auto_compact_at=None** (default), only threshold actions trigger compaction.
 
-- **When:** Only during **prepare**, and only when the manager has set the compact callback (e.g. when checking thresholds). Calling **compact()** outside that is a no-op.
+- **When:** Only during **prepare**, when the manager has set the compact callback (e.g. when checking thresholds) or when proactive compaction triggers. Calling **compact()** outside that is a no-op.
 - **What it does:** The default **ContextCompactor** first tries middle-out truncation; if overage is large, it may summarize then truncate. The current message list is replaced in place so the rest of **prepare** uses the compacted list.
-- **Events:** After compaction, a **context.compact** event is emitted (see [Events](#events)).
+- **Events:** After compaction, a **context.compact** event is emitted (see [Events](#events)). Same event for both proactive and threshold-triggered compaction.
 - **Stats:** **ContextStats.compacted**, **compact_count** (this run only), **compact_method** reflect the last run. Use **result.context_stats** for per-call stats.
+
+### Proactive compaction (auto_compact_at)
+
+Set **Context.auto_compact_at** to a fraction in **[0.0, 1.0]** (e.g. **0.6** for 60%) to compact **once per prepare** when utilization reaches that value, **before** threshold actions run. This reduces context rot without adding a **ContextThreshold**; research suggests keeping utilization under about 60–70% helps quality.
+
+- **None** (default): no proactive compaction; only threshold actions (e.g. **compact_if_available** at 75%) can trigger compact.
+- **0.6**: compact when utilization ≥ 60%; same compactor and **context.compact** event as threshold-triggered compaction.
+- If both **auto_compact_at** and thresholds are set, proactive compact runs first; then thresholds see the updated utilization.
+
+**Custom compaction prompt:** Set **Context.compaction_prompt** (user template with **{messages}**), **Context.compaction_system_prompt** (optional), and **Context.compaction_model** (optional) to override the default summarization prompts and use an LLM for compaction. When **compaction_model** is **None**, the default compactor uses a placeholder (no LLM). Default prompts live in **syrin.context.prompts** (**DEFAULT_COMPACTION_SYSTEM_PROMPT**, **DEFAULT_COMPACTION_USER_TEMPLATE**).
 
 **Compact from a threshold:**
 
@@ -256,7 +271,19 @@ ContextThreshold(at=75, action=lambda ctx: ctx.compact() if ctx.compact else Non
 ctx.parent.context.compact()
 ```
 
-**CompactionResult** (internal) has **messages**, **method** (`"none"`, `"middle_out_truncate"`, `"summarize"`), **tokens_before**, **tokens_after**.
+**CompactionResult** (internal) has **messages**, **method** (a **CompactionMethod** value), **tokens_before**, **tokens_after**.
+
+### Compaction methods (CompactionMethod)
+
+All possible values are on **CompactionMethod** (StrEnum). Use **`list(CompactionMethod)`** or **`from syrin.context import CompactionMethod`** to see and compare.
+
+| Value | When it runs |
+|--------|----------------|
+| **none** | Messages already fit in budget; no compaction. |
+| **middle_out_truncate** | Over budget and **overage** (tokens_before / budget) **&lt; 1.5** → keep start/end of conversation, drop middle. |
+| **summarize** | Overage **≥ 1.5** and **&gt; 4 non-system messages** → older messages summarized (LLM if **compaction_model** set); if result still over budget, **middle_out_truncate** is applied (so you may see that method after a summarize step). |
+
+So **middle_out_truncate** appears when the context is only slightly over budget (under 1.5×). To get **summarize**, use a smaller budget or more/longer messages so overage ≥ 1.5, and ensure you have more than 4 non-system messages so the summarizer runs.
 
 ---
 
@@ -300,7 +327,7 @@ agent = Agent(
     # model=Model("openai/gpt-4o"),
     model=Model.Almock(),  # No API Key needed
     context=Context(
-        budget=TokenLimits(
+        token_limits=TokenLimits(
             run=50_000,
             per=TokenRateLimit(hour=100_000, day=400_000),
             on_exceeded=raise_on_exceeded,
@@ -573,15 +600,19 @@ Keeps the start and end of the conversation and truncates the middle (primacy/re
 
 ### Summarizer
 
-**summarize(messages, counter=None)** – Placeholder that keeps system + last few messages and adds a summary placeholder. Can be extended with a custom **summarize_fn** for LLM-based summarization.
+**Summarizer(system_prompt=None, user_prompt_template=None, model=None)** – Summarizes older messages. When **model** is set, calls the model with the given (or default) system and user prompts; the user template should contain **{messages}**, which is replaced with the conversation text. When **model** is **None**, uses a placeholder: keeps system + last 4 non-system messages and adds a summary line (no LLM). Default prompts are in **syrin.context.prompts**.
+
+**summarize(messages, counter=None)** – Returns a shortened message list (system + summary block + last 4 messages).
 
 ### ContextCompactor
+
+**ContextCompactor(compaction_prompt=None, compaction_system_prompt=None, compaction_model=None)** – Builds an internal **Summarizer** with these arguments. When omitted, the default compactor uses **Context**'s **compaction_prompt**, **compaction_system_prompt**, and **compaction_model** when the manager creates it.
 
 **compact(messages, budget)** (no counter arg; uses internal counter):
 
 1. If within budget, return as-is (**method="none"**).
 2. If overage &lt; 1.5×, use **MiddleOutTruncator**.
-3. Otherwise summarize, then truncate if still over.
+3. Otherwise summarize (via **Summarizer**), then truncate if still over.
 
 You can replace the compactor in a custom manager or extend **DefaultContextManager** with a different compactor. Custom compactors must implement **ContextCompactorProtocol** (``compact(messages, budget) -> CompactionResult``); the default is **ContextCompactor**.
 
@@ -605,7 +636,7 @@ You can replace the compactor in a custom manager or extend **DefaultContextMana
 
 | Class / type | Description |
 |--------------|-------------|
-| **Context** | Config: max_tokens, reserve, thresholds, token_limits, encoding, compactor. **get_capacity(model)**. |
+| **Context** | Config: max_tokens, reserve, thresholds, token_limits, encoding, compactor, **compaction_prompt**, **compaction_system_prompt**, **compaction_model**. **get_capacity(model)**. |
 | **ContextStats** | total_tokens, max_tokens, utilization, compacted, compact_count (this run only), compact_method, thresholds_triggered, **breakdown** (ContextBreakdown \| None; set after prepare). |
 | **ContextSnapshot** | Full view from **agent.context.snapshot()**: timestamp, total_tokens, max_tokens, utilization_pct, breakdown, message_preview, provenance, why_included, context_rot_risk, compacted, compact_method. **to_dict(include_raw_messages=False)** for export. |
 | **ContextBreakdown** | system_tokens, tools_tokens, memory_tokens, messages_tokens; **total_tokens** property. |
@@ -621,10 +652,11 @@ You can replace the compactor in a custom manager or extend **DefaultContextMana
 | **DefaultContextManager** | context, prepare(), **stats**, **snapshot()**, current_tokens, **compact()**, set_emit_fn(), set_tracer(). |
 | **TokenCounter** | count(), count_messages(), count_tools(), **count_breakdown()** (system_prompt, memory_context, tools, tokens_used → ContextBreakdown). **TokenCount**: total, system, messages, tools, memory. |
 | **get_counter()** | Default TokenCounter. |
-| **CompactionResult** | messages, method, tokens_before, tokens_after. |
+| **CompactionMethod** | StrEnum: **NONE**, **MIDDLE_OUT_TRUNCATE**, **SUMMARIZE**. Use **list(CompactionMethod)** to see all; **stats.compact_method** is one of these values. |
+| **CompactionResult** | messages, method (CompactionMethod value), tokens_before, tokens_after. |
 | **Compactor** | Base: compact(messages, budget, counter). |
 | **MiddleOutTruncator** | Compactor: middle-out truncation. |
-| **Summarizer** | summarize(messages, counter). |
+| **Summarizer** | **Summarizer(system_prompt=None, user_prompt_template=None, model=None)**. **summarize(messages, counter)**. |
 | **ContextCompactor** | compact(messages, budget): truncate and/or summarize. |
 | **ContextCompactorProtocol** | Protocol for custom compactors: **compact(messages, budget) -> CompactionResult**. Use for **Context.compactor** type. |
 | **create_context_manager(context, emit_fn, tracer)** | Build DefaultContextManager. |
@@ -649,7 +681,7 @@ Ensure utilization actually reaches the threshold (e.g. use many or long message
 Use a threshold at 100% with an action that raises, e.g. **ContextThreshold(at=100, action=lambda ctx: (_ for _ in ()).throw(ValueError("Context full")))** or a named function that raises.
 
 **Token caps not enforced**  
-Set **Context.token_limits** (**run** and/or **per=TokenRateLimit(...)**). The agent’s budget tracker must be present (it is when the agent has a **Budget** or **context.budget**).
+Set **Context.token_limits** (**run** and/or **per=TokenRateLimit(...)**). The agent’s budget tracker must be present (it is when the agent has a **Budget** or **Context.token_limits**).
 
 ---
 
@@ -833,7 +865,7 @@ agent = Agent(
     model=Model.Almock(),  # No API Key needed
     context=Context(
         max_tokens=128000,
-        budget=TokenLimits(
+        token_limits=TokenLimits(
             run=30_000,
             per=TokenRateLimit(hour=100_000),
             on_exceeded=warn_on_exceeded,

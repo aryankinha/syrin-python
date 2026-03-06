@@ -12,16 +12,21 @@ Run: python -m examples.11_context.context_thresholds_compaction_demo
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from examples.models.models import almock
+from examples.models.models import almock, gpt4_mini
 from syrin import Agent
 from syrin.context import Context
+from syrin.model import Model
 from syrin.threshold import ContextThreshold
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+# Use real gpt-4o-mini when USE_REAL_MODEL=1
+_model: Model = gpt4_mini if os.environ.get("USE_REAL_MODEL") == "1" else almock
 
 
 def main() -> None:
@@ -36,7 +41,7 @@ def main() -> None:
     # Very small context window so we hit the 50% threshold and trigger compaction
     # Available = max_tokens - reserve (e.g. 120 - 20 = 100). 50% = 50 tokens.
     agent = Agent(
-        model=almock,
+        model=_model,
         system_prompt="You are a helpful assistant. Be very brief.",
         context=Context(
             max_tokens=120,

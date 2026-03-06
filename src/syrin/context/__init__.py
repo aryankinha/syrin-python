@@ -46,6 +46,7 @@ from syrin.context.snapshot import (
     ContextSnapshot,
     MessagePreview,
 )
+from syrin.enums import CompactionMethod
 from syrin.threshold import BudgetThreshold, ContextThreshold
 
 __all__ = [
@@ -67,6 +68,7 @@ __all__ = [
     "TokenCount",
     "get_counter",
     # Compactors
+    "CompactionMethod",
     "Compactor",
     "CompactionResult",
     "ContextCompactor",

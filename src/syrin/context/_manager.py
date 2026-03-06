@@ -133,12 +133,18 @@ class DefaultContextManager:
     _last_snapshot: ContextSnapshot | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
-        """Apply Context.encoding and Context.compactor when set."""
+        """Apply Context.encoding and Context.compactor (or default with compaction_*) when set."""
         if getattr(self.context, "encoding", None) is not None:
             self._counter = TokenCounter(encoding=self.context.encoding)
         compactor = self.context.compactor
         if compactor is not None:
             self._compactor = compactor
+        else:
+            self._compactor = ContextCompactor(
+                compaction_prompt=getattr(self.context, "compaction_prompt", None),
+                compaction_system_prompt=getattr(self.context, "compaction_system_prompt", None),
+                compaction_model=getattr(self.context, "compaction_model", None),
+            )
 
     def _emit(self, event: Hook | str, ctx: dict[str, Any]) -> None:
         """Emit an event if emit_fn is configured."""
@@ -256,6 +262,20 @@ class DefaultContextManager:
 
             self._current_compact_fn = _compact_fn
             try:
+                # Proactive compaction: when utilization >= auto_compact_at, compact once before thresholds
+                auto_at = getattr(effective_context, "auto_compact_at", None)
+                if auto_at is not None and capacity.utilization >= auto_at:
+                    _compact_fn()
+                    # Recompute token count after compaction so thresholds see updated utilization
+                    tokens_after_compact = (
+                        self._counter.count_messages(
+                            [m for m in all_messages if m.get("role") != "system"],
+                            system_prompt,
+                        ).total
+                        + tools_tokens
+                    )
+                    capacity.used_tokens = tokens_after_compact
+
                 thresholds_triggered = self._check_thresholds(
                     capacity, _compact_fn, thresholds=effective_context.thresholds
                 )

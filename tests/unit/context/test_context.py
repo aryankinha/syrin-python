@@ -90,6 +90,45 @@ class TestContext:
         assert out == []
 
 
+class TestContextAutoCompactAt:
+    """Tests for Context.auto_compact_at (proactive compaction threshold)."""
+
+    def test_auto_compact_at_default_none(self) -> None:
+        """auto_compact_at is None by default; no proactive compaction."""
+        ctx = Context()
+        assert getattr(ctx, "auto_compact_at", None) is None
+
+    def test_auto_compact_at_accepts_zero(self) -> None:
+        """auto_compact_at=0.0 is valid (compact at any utilization)."""
+        ctx = Context(max_tokens=8000, auto_compact_at=0.0)
+        assert ctx.auto_compact_at == 0.0
+
+    def test_auto_compact_at_accepts_sixty_percent(self) -> None:
+        """auto_compact_at=0.6 is valid (60% utilization)."""
+        ctx = Context(max_tokens=8000, auto_compact_at=0.6)
+        assert ctx.auto_compact_at == 0.6
+
+    def test_auto_compact_at_accepts_one(self) -> None:
+        """auto_compact_at=1.0 is valid (compact only at 100%)."""
+        ctx = Context(max_tokens=8000, auto_compact_at=1.0)
+        assert ctx.auto_compact_at == 1.0
+
+    def test_auto_compact_at_rejects_negative(self) -> None:
+        """auto_compact_at < 0 raises ValueError."""
+        with pytest.raises(ValueError, match="auto_compact_at must be between 0 and 1"):
+            Context(max_tokens=8000, auto_compact_at=-0.1)
+
+    def test_auto_compact_at_rejects_above_one(self) -> None:
+        """auto_compact_at > 1 raises ValueError."""
+        with pytest.raises(ValueError, match="auto_compact_at must be between 0 and 1"):
+            Context(max_tokens=8000, auto_compact_at=1.5)
+
+    def test_auto_compact_at_rejects_slightly_above_one(self) -> None:
+        """auto_compact_at=1.01 raises ValueError."""
+        with pytest.raises(ValueError, match="auto_compact_at must be between 0 and 1"):
+            Context(max_tokens=8000, auto_compact_at=1.01)
+
+
 class TestContextWindowCapacity:
     """Tests for ContextWindowCapacity (internal window capacity)."""
 
@@ -287,6 +326,155 @@ class TestDefaultContextManager:
         assert len(threshold_events) > 0
         # The custom action should have been triggered
         assert len(triggered_percentages) > 0
+
+    def test_prepare_auto_compact_at_none_no_proactive_compact(self) -> None:
+        """When auto_compact_at is None, no proactive compaction; only threshold can trigger compact."""
+        events: list[tuple[str, object]] = []
+
+        def emit_fn(event: str, ctx: object) -> None:
+            events.append((event, ctx))
+
+        # No thresholds, no auto_compact_at -> no compaction even if over capacity
+        manager = DefaultContextManager(Context(max_tokens=3000))
+        manager.set_emit_fn(emit_fn)
+
+        messages = [{"role": "system", "content": "System"}]
+        for i in range(40):
+            messages.append({"role": "user", "content": f"Message {i}: " + "x" * 200})
+
+        manager.prepare(
+            messages=messages,
+            system_prompt="You are helpful.",
+            tools=[],
+            memory_context="",
+        )
+
+        compact_events = [e for e in events if e[0] == "context.compact"]
+        assert len(compact_events) == 0
+        assert manager.stats.compacted is False
+
+    def test_prepare_utilization_below_auto_compact_at_no_compact(self) -> None:
+        """When utilization < auto_compact_at, proactive compaction does not run."""
+        events: list[tuple[str, object]] = []
+
+        def emit_fn(event: str, ctx: object) -> None:
+            events.append((event, ctx))
+
+        # auto_compact_at=0.6; use large max_tokens so few messages stay under 60%
+        manager = DefaultContextManager(Context(max_tokens=100_000, auto_compact_at=0.6))
+        manager.set_emit_fn(emit_fn)
+
+        messages = [{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi"}]
+
+        manager.prepare(
+            messages=messages,
+            system_prompt="Short.",
+            tools=[],
+            memory_context="",
+        )
+
+        compact_events = [e for e in events if e[0] == "context.compact"]
+        assert len(compact_events) == 0
+        assert manager.stats.compacted is False
+        assert manager.stats.utilization < 0.6
+
+    def test_prepare_utilization_at_or_above_auto_compact_at_compacts_once(self) -> None:
+        """When utilization >= auto_compact_at, proactive compaction runs once."""
+        events: list[tuple[str, object]] = []
+
+        def emit_fn(event: str, ctx: object) -> None:
+            events.append((event, ctx))
+
+        # Small window, many messages -> high utilization -> proactive compact at 60%
+        manager = DefaultContextManager(Context(max_tokens=3000, auto_compact_at=0.6))
+        manager.set_emit_fn(emit_fn)
+
+        messages = [{"role": "system", "content": "System"}]
+        for i in range(50):
+            messages.append({"role": "user", "content": f"Message {i}: " + "x" * 200})
+
+        payload = manager.prepare(
+            messages=messages,
+            system_prompt="You are helpful.",
+            tools=[],
+            memory_context="",
+        )
+
+        compact_events = [e for e in events if e[0] == "context.compact"]
+        assert len(compact_events) >= 1
+        assert manager.stats.compacted is True
+        assert manager.stats.compact_count >= 1
+        assert manager.stats.compact_method is not None
+        # Payload should have fewer messages (compacted)
+        assert len(payload.messages) < len(messages)
+
+    def test_auto_compact_emits_context_compact_event_with_before_after(self) -> None:
+        """Proactive compaction emits context.compact with tokens_before and tokens_after."""
+        events: list[tuple[str, object]] = []
+
+        def emit_fn(event: str, ctx: object) -> None:
+            events.append((event, ctx))
+
+        manager = DefaultContextManager(Context(max_tokens=3000, auto_compact_at=0.6))
+        manager.set_emit_fn(emit_fn)
+
+        messages = [{"role": "system", "content": "System"}]
+        for i in range(50):
+            messages.append({"role": "user", "content": f"Message {i}: " + "x" * 200})
+
+        manager.prepare(
+            messages=messages,
+            system_prompt="You are helpful.",
+            tools=[],
+            memory_context="",
+        )
+
+        compact_events = [e for e in events if e[0] == "context.compact"]
+        assert len(compact_events) >= 1
+        event_name, payload_dict = compact_events[0]
+        assert event_name == "context.compact"
+        assert isinstance(payload_dict, dict)
+        assert "tokens_before" in payload_dict
+        assert "tokens_after" in payload_dict
+        assert payload_dict["tokens_before"] >= payload_dict["tokens_after"]
+
+    def test_auto_compact_at_and_threshold_proactive_runs_first(self) -> None:
+        """When both auto_compact_at and thresholds are set, proactive compact runs first."""
+        order: list[str] = []
+
+        def emit_fn(event: str, ctx: object) -> None:
+            if event == "context.compact":
+                order.append("compact")
+            elif event == "context.threshold":
+                order.append("threshold")
+
+        def track_threshold(ctx: object) -> None:
+            order.append("threshold_action")
+
+        manager = DefaultContextManager(
+            Context(
+                max_tokens=3000,
+                auto_compact_at=0.6,
+                thresholds=[ContextThreshold(at=70, action=track_threshold)],
+            )
+        )
+        manager.set_emit_fn(emit_fn)
+
+        messages = [{"role": "system", "content": "System"}]
+        for i in range(50):
+            messages.append({"role": "user", "content": f"Message {i}: " + "x" * 200})
+
+        manager.prepare(
+            messages=messages,
+            system_prompt="You are helpful.",
+            tools=[],
+            memory_context="",
+        )
+
+        # Proactive compact should have run (context.compact before threshold check that runs after)
+        assert "compact" in order
+        # Threshold may or may not fire after compact depending on new utilization
+        assert manager.stats.compacted is True
 
 
 class TestContextStats:

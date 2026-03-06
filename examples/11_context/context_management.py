@@ -21,14 +21,21 @@ Serve: python -m examples.11_context.context_management --serve  (requires syrin
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
 
-from examples.models.models import almock
+from examples.models.models import almock, gpt4_mini
 from syrin import Agent
+from syrin.model import Model
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+# Use real gpt-4o-mini when USE_REAL_MODEL=1 (e.g. USE_REAL_MODEL=1 python -m examples.11_context.context_management)
+_model: Model = gpt4_mini if os.environ.get("USE_REAL_MODEL") == "1" else almock
 from syrin.context import (
     Context,
     ContextCompactor,
@@ -39,8 +46,6 @@ from syrin.context import (
 )
 from syrin.context.counter import TokenCounter
 from syrin.threshold import ContextThreshold
-
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 def section(title: str) -> None:
@@ -56,7 +61,7 @@ def run_tour() -> None:
     section("1. Context basics (max_tokens, stats after response)")
 
     agent = Agent(
-        model=almock,
+        model=_model,
         system_prompt="You are a helpful assistant.",
         context=Context(max_tokens=80_000),
     )
@@ -120,7 +125,7 @@ def run_tour() -> None:
 
     fired: list[int] = []
     agent2 = Agent(
-        model=almock,
+        model=_model,
         system_prompt="You are helpful.",
         context=Context(
             max_tokens=5000,
@@ -166,7 +171,7 @@ def run_tour() -> None:
         def on_compact(self, _event: Any) -> None:
             pass
 
-    agent3 = Agent(model=almock, context=PassThroughContextManager())
+    agent3 = Agent(model=_model, context=PassThroughContextManager())
     agent3.response("Hi, custom manager!")
     print(
         "  Pass-through manager used; no compaction. Stats:",
@@ -193,7 +198,7 @@ def main() -> None:
         class ContextDemoAgent(Agent):
             _agent_name = "context-demo"
             _agent_description = "Agent with context management"
-            model = almock
+            model = _model
             system_prompt = "You are a helpful assistant."
             context = Context(max_tokens=1000)
 

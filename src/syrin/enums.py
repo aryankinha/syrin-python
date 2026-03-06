@@ -31,6 +31,23 @@ class ContextStrategy(StrEnum):
     SUMMARIZE = "summarize"
 
 
+class CompactionMethod(StrEnum):
+    """Method used when context compaction runs. See ContextCompactor for when each is chosen.
+
+    Use list(CompactionMethod) or CompactionMethod.__members__ to see all methods.
+    stats.compact_method and CompactionResult.method use these string values.
+
+    Attributes:
+        NONE: No compaction; messages already fit in budget.
+        MIDDLE_OUT_TRUNCATE: Kept start and end of conversation, truncated middle (overage < 1.5×).
+        SUMMARIZE: Older messages summarized (e.g. via LLM or placeholder); used when overage ≥ 1.5×.
+    """
+
+    NONE = "none"
+    MIDDLE_OUT_TRUNCATE = "middle_out_truncate"
+    SUMMARIZE = "summarize"
+
+
 class TracingBackend(StrEnum):
     """Built-in tracing output destinations."""
 

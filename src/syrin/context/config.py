@@ -121,12 +121,25 @@ class Context:
     """TokenCounter encoding. Default context manager uses it for counting."""
     compactor: ContextCompactorProtocol | None = None
     """Custom compactor (compact(messages, budget) -> CompactionResult). Default: ContextCompactor."""
+    compaction_prompt: str | None = None
+    """User prompt template for summarization (e.g. with {messages}). None = default from prompts.py. Passed to default ContextCompactor."""
+    compaction_system_prompt: str | None = None
+    """System prompt for summarization. None = default. Passed to default ContextCompactor."""
+    compaction_model: "Model | None" = None
+    """Model for summarization. None = placeholder (no LLM). Passed to default ContextCompactor."""
+    auto_compact_at: float | None = None
+    """Proactive compaction: when utilization (0.0–1.0) >= this value, compact once before evaluating thresholds. None = no proactive compaction."""
 
     def __post_init__(self) -> None:
         if self.reserve < 0:
             raise ValueError(f"Context reserve must be >= 0, got {self.reserve}")
         if self.max_tokens is not None and self.max_tokens <= 0:
             raise ValueError(f"Context max_tokens must be > 0 when set, got {self.max_tokens}")
+        if self.auto_compact_at is not None and not (0.0 <= self.auto_compact_at <= 1.0):
+            raise ValueError(
+                "auto_compact_at must be between 0 and 1 (fraction of context window), "
+                f"got {self.auto_compact_at}"
+            )
         self._validate_thresholds()
 
     def _validate_thresholds(self) -> None:
@@ -212,7 +225,13 @@ class Context:
                 msgs.append(
                     {"role": getattr(m, "role", "user"), "content": str(getattr(m, "content", ""))}
                 )
-        compactor = self.compactor if self.compactor is not None else ContextCompactor()
+        compactor = self.compactor
+        if compactor is None:
+            compactor = ContextCompactor(
+                compaction_prompt=self.compaction_prompt,
+                compaction_system_prompt=self.compaction_system_prompt,
+                compaction_model=self.compaction_model,
+            )
         result = compactor.compact(msgs, available)
         return result.messages
 

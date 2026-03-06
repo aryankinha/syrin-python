@@ -12,16 +12,21 @@ Run: python -m examples.11_context.context_snapshot_demo
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from examples.models.models import almock
+from examples.models.models import almock, gpt4_mini
 from syrin import Agent, tool
 from syrin.context import Context
 from syrin.context.snapshot import ContextSegmentSource
+from syrin.model import Model
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+# Use real gpt-4o-mini when USE_REAL_MODEL=1
+_model: Model = gpt4_mini if os.environ.get("USE_REAL_MODEL") == "1" else almock
 
 
 @tool
@@ -46,7 +51,7 @@ def main() -> None:
     print("=" * 60)
 
     agent = Agent(
-        model=almock,
+        model=_model,
         system_prompt="You are a concise assistant. Use tools when asked to compute.",
         context=Context(max_tokens=8_000),
         tools=[add_numbers, get_word_count],
