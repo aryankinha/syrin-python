@@ -40,7 +40,7 @@ def _apply_context_mode(
     if mode == ContextMode.INTELLIGENT:
         raise NotImplementedError(
             "context_mode=intelligent requires a relevance scorer; "
-            "use context_mode=focused for now, or wait for pull-based context store (Step 10)"
+            "use context_mode=focused for now; INTELLIGENT requires a relevance scorer (not yet implemented)"
         )
     if mode != ContextMode.FOCUSED:
         return messages, 0

@@ -112,16 +112,21 @@ class Decay(BaseModel):
 
 
 class MemoryBudget(BaseModel):
-    """Budget constraints for memory operations.
+    """Budget constraints for memory operations (cost in USD).
 
     When budget is low, memory ops degrade gracefully.
-    on_exceeded: If set, called when budget would be exceeded. Raise to reject the op; return to allow.
+    extraction_budget: Max cost for auto_extract. consolidation_budget: Max cost for consolidation.
+    on_exceeded: If set, called when budget would be exceeded. Raise to reject; return to allow.
     """
 
     model_config = {"arbitrary_types_allowed": True}
 
-    extraction_budget: float | None = Field(None, gt=0)
-    consolidation_budget: float | None = Field(None, gt=0)
+    extraction_budget: float | None = Field(
+        None, gt=0, description="Max cost (USD) for extraction ops."
+    )
+    consolidation_budget: float | None = Field(
+        None, gt=0, description="Max cost (USD) for consolidation ops."
+    )
     on_exceeded: Callable[[BudgetExceededContext], None] | None = Field(
         default=None,
         description="Called when memory budget exceeded. Raise to reject store; return to allow.",
@@ -131,7 +136,9 @@ class MemoryBudget(BaseModel):
 class Consolidation(BaseModel):
     """Background memory consolidation — analogous to human memory during sleep.
 
-    Runs periodically to deduplicate, compress, and resolve contradictions.
+    Runs periodically (when implemented) to deduplicate similar memories,
+    compress older entries, and resolve contradictions. interval: how often
+    (e.g. '1h'); compress_older_than: age threshold for compression (e.g. '7d').
     """
 
     interval: str = "1h"
@@ -208,16 +215,16 @@ class Memory(BaseModel):
             user, password, table.
         types: Memory types to enable. Default: all four (CORE, EPISODIC,
             SEMANTIC, PROCEDURAL).
-        auto_extract: Extract facts from turns into semantic memory (when implemented).
-        extraction_model: Model for extraction. None = use agent's model.
+        auto_extract: When implemented, extract facts from turns into semantic memory. Currently a placeholder.
+        extraction_model: Model for extraction when auto_extract is used. None = use agent's model.
         top_k: Max memories to recall per query. Higher = more context, higher cost.
         relevance_threshold: Min similarity (0-1) for recall. Filter out low-relevance.
-        injection_strategy: How to inject recalled memories into context.
+        injection_strategy: Order of recalled memories in context: CHRONOLOGICAL, RELEVANCE, or ATTENTION_OPTIMIZED (default).
         auto_store: Auto-store user+assistant turns as episodic. No remember tool needed.
         decay: Forgetting curve. Memories lose importance over time unless reinforced.
         memory_budget: Cost limits for memory ops. None = no limit.
         consolidation: Background deduplication/compression. None = disabled.
-        scope: USER or SESSION. Affects isolation.
+        scope: MemoryScope for isolation: USER (default), SESSION (per conversation), AGENT, or GLOBAL.
         redact_pii: Redact PII before storage.
         retention_days: Max age in days. Older memories pruned. None = no limit.
         write_mode: SYNC blocks until complete; ASYNC fire-and-forget for remember/forget.
@@ -284,7 +291,7 @@ class Memory(BaseModel):
 
     auto_extract: bool = Field(
         default=True,
-        description="Extract facts from turns into semantic memory (when implemented)",
+        description="When implemented: extract facts from turns into semantic memory. Currently a placeholder.",
     )
     extraction_model: str | None = Field(
         default=None,
@@ -304,7 +311,7 @@ class Memory(BaseModel):
     )
     injection_strategy: InjectionStrategy = Field(
         default=InjectionStrategy.ATTENTION_OPTIMIZED,
-        description="How to inject recalled memories into context",
+        description="Order of recalled memories in context: CHRONOLOGICAL, RELEVANCE, or ATTENTION_OPTIMIZED (default).",
     )
 
     auto_store: bool = Field(
@@ -329,7 +336,7 @@ class Memory(BaseModel):
 
     scope: MemoryScope = Field(
         default=MemoryScope.USER,
-        description="USER or SESSION. Affects isolation.",
+        description="Isolation boundary: USER (default), SESSION (per conversation), AGENT, or GLOBAL.",
     )
 
     redact_pii: bool = Field(
@@ -826,7 +833,7 @@ class Memory(BaseModel):
             store.add_segment(ContextSegment(content=content, role=role_str))
 
     def _get_output_chunk_store(self) -> Any:
-        """Lazy-init internal output chunk store for stored output chunks (Step 11)."""
+        """Lazy-init internal output chunk store for stored output chunks."""
         if self._output_chunk_store is None:
             from syrin.context.store import InMemoryContextStore
 
@@ -841,7 +848,7 @@ class Memory(BaseModel):
         strategy: str = "paragraph",
         chunk_size: int = 300,
     ) -> None:
-        """Chunk assistant content and store for relevance retrieval (Step 11).
+        """Chunk assistant content and store for relevance retrieval.
 
         When store_output_chunks=True, the agent calls this after each assistant turn.
         Chunks are retrieved by relevance to the current query in build_messages.
@@ -867,7 +874,7 @@ class Memory(BaseModel):
         top_k: int = 5,
         threshold: float = 0.0,
     ) -> list[tuple[ContextSegment, float]]:
-        """Return output chunks most relevant to query, for stored output chunks (Step 11)."""
+        """Return output chunks most relevant to query, for stored output chunks."""
         from syrin.context.store import ContextSegment as _CS
 
         store = self._get_output_chunk_store()

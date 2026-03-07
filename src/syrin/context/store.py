@@ -1,4 +1,4 @@
-"""Context store for pull-based context formation (Step 10) and output chunks (Step 11).
+"""Context store for pull-based context formation and output chunks.
 
 Store conversation segments; retrieve by relevance to the current query.
 Memory uses InMemoryContextStore internally for formation_mode=PULL and output chunks.
@@ -21,7 +21,7 @@ class ContextSegment:
         content: Message content text.
         role: Message role (user, assistant, etc.).
         turn_id: Optional turn index for ordering.
-        embedding: Optional precomputed embedding vector.
+        embedding: Optional precomputed embedding vector. Used by custom RelevanceScorer implementations; SimpleTextScorer ignores it and uses token overlap.
     """
 
     content: str

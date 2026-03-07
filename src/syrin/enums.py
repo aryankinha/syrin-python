@@ -37,7 +37,7 @@ class ContextMode(StrEnum):
     Attributes:
         FULL: Full conversation history (default). Compaction when over capacity.
         FOCUSED: Keep only last N turns (user+assistant pairs). Reduces irrelevant history.
-        INTELLIGENT: Relevance-filtered (requires scorer; supported in Step 10).
+        INTELLIGENT: Relevance-filtered (requires scorer; not yet implemented).
     """
 
     FULL = "full"
@@ -492,7 +492,7 @@ class MemoryBackend(StrEnum):
 
 
 class MemoryScope(StrEnum):
-    """Scope boundary for memory isolation."""
+    """Scope boundary for memory isolation. USER (default): per-user; SESSION: per conversation; AGENT: per agent; GLOBAL: shared across all."""
 
     SESSION = "session"
     AGENT = "agent"
@@ -511,7 +511,11 @@ class DecayStrategy(StrEnum):
 
 
 class InjectionStrategy(StrEnum):
-    """How retrieved memories are placed in the context window."""
+    """How recalled memories are ordered when injected into context.
+
+    CHRONOLOGICAL: Oldest first. RELEVANCE: By relevance score (highest first).
+    ATTENTION_OPTIMIZED (default): Order optimized for model attention (e.g. most relevant near current turn).
+    """
 
     CHRONOLOGICAL = "chronological"
     RELEVANCE = "relevance"

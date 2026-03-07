@@ -1,4 +1,4 @@
-"""Persistent context map (Step 12).
+"""Persistent context map.
 
 Durable index/summary (topics, decisions, segment pointers) that survives
 context resets. Drives retrieval; optional file or Protocol backend.
@@ -22,8 +22,8 @@ class ContextMap:
     Attributes:
         topics: Topic labels (e.g. ["Syrin memory", "budget limits"]).
         decisions: Key decisions or facts (e.g. ["User prefers Python"]).
-        segment_ids: Opaque IDs pointing to stored segments (for custom backends).
-        summary: Session or conversation summary string.
+        segment_ids: Opaque IDs for custom backends that link to stored segments elsewhere (e.g. in a vector store). Syrin's file backend does not use these; implement ContextMapBackend to interpret them.
+        summary: Session or conversation summary string. Injected at prepare when inject_map_summary=True.
         last_updated: Unix timestamp of last update.
     """
 

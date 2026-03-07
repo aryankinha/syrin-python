@@ -116,13 +116,13 @@ class Context:
     max_tokens: int | None = None
     """Max tokens in context window. None = use model's context_window or 128k."""
     reserve: int = 2000
-    """Tokens reserved for model output; subtracted from max_tokens to get available. ≥ 0."""
+    """Tokens reserved for model output; subtracted from max_tokens to get available input budget. ≥ 0."""
     thresholds: list[ContextThreshold] = field(default_factory=list)
     """When utilization hits these percentages, actions run (e.g. compact at 75%)."""
     token_limits: TokenLimits | None = None
     """Token caps for this context (run and/or per period). Same names as Budget: run, per, on_exceeded."""
     encoding: str = "cl100k_base"
-    """TokenCounter encoding. Default context manager uses it for counting."""
+    """Tokenizer encoding for counting (e.g. cl100k_base for GPT-4). Override only if using a different tokenizer."""
     compactor: ContextCompactorProtocol | None = None
     """Custom compactor (compact(messages, budget) -> CompactionResult). Default: ContextCompactor."""
     compaction_prompt: str | None = None
@@ -136,27 +136,27 @@ class Context:
     runtime_inject: Callable[["PrepareInput"], list[dict[str, Any]]] | None = None
     """Optional callable to inject context at prepare time (e.g. RAG). Receives PrepareInput; returns list of message dicts. Not called when prepare(inject=...) is provided."""
     inject_placement: InjectPlacement = InjectPlacement.BEFORE_CURRENT_TURN
-    """Where to place injected messages: prepend_to_system, before_current_turn (default), after_current_turn."""
+    """Where to place injected messages: prepend_to_system (before first system msg), before_current_turn (default; between history and current user msg, good for RAG), after_current_turn (after current user msg)."""
     inject_source_detail: str = "injected"
-    """Provenance source_detail for injected messages (e.g. 'rag', 'dynamic_rules')."""
+    """Provenance label for injected messages in snapshot (e.g. 'rag', 'dynamic_rules'). Shown in ContextSnapshot provenance."""
     context_mode: ContextMode = ContextMode.FULL
-    """How to select conversation history: full (default), focused (last N turns), intelligent (relevance; Step 10)."""
+    """How to select conversation history: full (default), focused (last N turns), intelligent (relevance-based; requires scorer, not yet implemented)."""
     focused_keep: int = 10
-    """When context_mode=focused, number of turns (user+assistant pairs) to keep. Must be >= 1."""
+    """When context_mode=focused, number of turns (user+assistant pairs) to keep. Use focused mode for long chats with topic shifts. Must be >= 1."""
     formation_mode: FormationMode = FormationMode.PUSH
-    """Push = use conversation memory; Pull = use agent's Memory for segment storage and retrieval."""
+    """PUSH (default): Use full conversation from memory (last N or all). PULL: Retrieve segments by relevance to current query from Memory's segment store. PULL requires Memory; good for long conversations with topic shifts."""
     pull_top_k: int = 10
-    """When formation_mode=PULL, max segments to retrieve per turn."""
+    """When formation_mode=PULL, max segments to retrieve per turn. Higher = more context, higher cost."""
     pull_threshold: float = 0.0
     """When formation_mode=PULL, minimum relevance score (0.0-1.0) to include a segment."""
     store_output_chunks: bool = False
-    """When True, chunk assistant replies and retrieve by relevance to current query (Step 11)."""
+    """When True, chunk assistant replies and retrieve by relevance to current query. Reduces context bloat when prior answers were long. Requires Memory."""
     output_chunk_top_k: int = 5
     """Max output chunks to include per turn when store_output_chunks=True."""
     output_chunk_threshold: float = 0.0
     """Min relevance score (0.0-1.0) for output chunks to include."""
     output_chunk_strategy: OutputChunkStrategy = OutputChunkStrategy.PARAGRAPH
-    """How to split assistant content: paragraph (default) or fixed."""
+    """How to split assistant content: paragraph (split on blank lines; good for prose) or fixed (by output_chunk_size chars)."""
     output_chunk_size: int = 300
     """Character size per chunk when output_chunk_strategy=fixed."""
     map_backend: str | None = None
@@ -164,9 +164,9 @@ class Context:
     map_path: str | None = None
     """Path for file backend (e.g. '.syrin/context_map.json'). Used when map_backend='file'."""
     map_update_every_turns: int | None = None
-    """Update map every N completed turns. None = never auto-update (manual only)."""
+    """If set, update the context map every N completed turns. Not yet implemented; use agent.context.update_map() for manual updates."""
     inject_map_summary: bool = False
-    """When True, inject map.summary as context before current turn."""
+    """When True and map has non-empty summary, inject ContextMap.summary as a system block before the current turn. Use with agent.context.update_map({'summary': '...'}) to ground the model across restarts."""
 
     def __post_init__(self) -> None:
         if self.reserve < 0:
