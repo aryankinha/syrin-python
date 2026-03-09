@@ -1080,6 +1080,27 @@ body {
   border: 1px solid var(--border);
 }
 
+.trace-expand-btn {
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.7rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.trace-expand-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: var(--accent);
+}
+
+.trace-event-data-placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .trace-meta {
   margin: 0;
   font-size: 0.75rem;

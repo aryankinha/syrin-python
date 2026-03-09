@@ -8,6 +8,7 @@ import os
 import time
 from typing import Any
 
+from syrin.cost import calculate_image_cost, calculate_video_cost
 from syrin.generation._result import GenerationResult
 
 
@@ -89,12 +90,17 @@ def _generate_images_impl(
         try:
             mime = getattr(img, "mime_type", None) or output_mime_type
             data_url, content_bytes = _image_to_data_url(img, mime)
+            cost_usd = calculate_image_cost(model, number_of_images=1)
             results.append(
                 GenerationResult(
                     success=True,
                     url=data_url,
                     content_type=mime,
                     content_bytes=content_bytes,
+                    metadata={
+                        "cost_usd": cost_usd,
+                        "model_name": model,
+                    },
                 )
             )
         except Exception as e:
@@ -181,11 +187,16 @@ def _generate_video_impl(
         mime = getattr(v, "mime_type", None) or "video/mp4"
         b64 = base64.b64encode(raw).decode("ascii")
         data_url = f"data:{mime};base64,{b64}"
+        cost_usd = calculate_video_cost(model)
         return GenerationResult(
             success=True,
             url=data_url,
             content_type=mime,
             content_bytes=raw,
+            metadata={
+                "cost_usd": cost_usd,
+                "model_name": model,
+            },
         )
     except Exception as e:
         return GenerationResult(success=False, error=str(e))
@@ -270,11 +281,16 @@ async def _generate_video_impl_async(
         mime = getattr(v, "mime_type", None) or "video/mp4"
         b64 = base64.b64encode(raw).decode("ascii")
         data_url = f"data:{mime};base64,{b64}"
+        cost_usd = calculate_video_cost(model)
         return GenerationResult(
             success=True,
             url=data_url,
             content_type=mime,
             content_bytes=raw,
+            metadata={
+                "cost_usd": cost_usd,
+                "model_name": model,
+            },
         )
     except Exception as e:
         return GenerationResult(success=False, error=str(e))

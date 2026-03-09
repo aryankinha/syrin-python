@@ -16,7 +16,8 @@ class GenerationResult:
         content_type: MIME type (e.g. image/png, video/mp4).
         content_bytes: Raw bytes when url is a data URL or when no URL was returned.
         error: Error message when success is False.
-        metadata: Provider-specific extras (e.g. safety filters, revised prompt, seed).
+        metadata: Provider-specific extras. Built-in providers set cost_usd and model_name
+            for budget tracking when the agent has a budget.
     """
 
     success: bool

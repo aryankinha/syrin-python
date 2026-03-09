@@ -38,6 +38,91 @@ MODEL_PRICING: dict[str, tuple[float, float]] = {
     "gemini-3-flash-preview": (0.075, 0.30),  # gemini-3-flash pricing
 }
 
+# Per-image USD. Used by image generation providers to populate GenerationResult.metadata.
+# Keys: model_id or prefix (first match wins). Sources: OpenAI, Google public pricing.
+IMAGE_PRICING: dict[str, float] = {
+    "dall-e-3": 0.08,  # 1024x1024 standard
+    "imagen-4.0-generate-001": 0.067,  # 1024px default
+    "imagen-3": 0.04,  # legacy
+    "gpt-image-1": 0.10,
+    "gpt-image-1-mini": 0.02,
+}
+
+# Per-second USD for video. Used by video generation providers.
+VIDEO_PRICING: dict[str, float] = {
+    "veo-2.0-generate-001": 0.35,  # Gemini API
+    "veo-2": 0.35,
+}
+
+# Default video duration (seconds) when provider does not report it
+_DEFAULT_VIDEO_DURATION_SECONDS = 5.0
+
+
+def _resolve_image_pricing(model_id: str) -> float:
+    """Return USD per image for model_id. Strips provider prefix."""
+    if not model_id:
+        return 0.0
+    normalized = model_id.split("/")[-1] if "/" in model_id else model_id
+    for key, price in IMAGE_PRICING.items():
+        if normalized.startswith(key):
+            return price
+    return 0.0
+
+
+def _resolve_video_pricing(model_id: str) -> float:
+    """Return USD per second for model_id."""
+    if not model_id:
+        return 0.0
+    normalized = model_id.split("/")[-1] if "/" in model_id else model_id
+    for key, price in VIDEO_PRICING.items():
+        if normalized.startswith(key):
+            return price
+    return 0.0
+
+
+def calculate_image_cost(
+    model_id: str,
+    number_of_images: int = 1,
+) -> float:
+    """Compute cost in USD for image generation.
+
+    Used by providers to populate GenerationResult.metadata["cost_usd"].
+    Returns 0.0 if model is unknown or number_of_images <= 0.
+
+    Args:
+        model_id: Model identifier (e.g. dall-e-3, imagen-4.0-generate-001).
+        number_of_images: Number of images generated.
+
+    Returns:
+        Cost in USD, rounded to 6 decimal places.
+    """
+    if number_of_images <= 0:
+        return 0.0
+    price = _resolve_image_pricing(model_id)
+    return round(price * number_of_images, 6)
+
+
+def calculate_video_cost(
+    model_id: str,
+    duration_seconds: float = _DEFAULT_VIDEO_DURATION_SECONDS,
+) -> float:
+    """Compute cost in USD for video generation.
+
+    Used by providers to populate GenerationResult.metadata["cost_usd"].
+    Returns 0.0 if model is unknown or duration <= 0.
+
+    Args:
+        model_id: Model identifier (e.g. veo-2.0-generate-001).
+        duration_seconds: Video length in seconds. Default 5.0 when unknown.
+
+    Returns:
+        Cost in USD, rounded to 6 decimal places.
+    """
+    if duration_seconds <= 0:
+        return 0.0
+    price = _resolve_video_pricing(model_id)
+    return round(price * duration_seconds, 6)
+
 
 class ModelPricing:
     """Custom pricing per 1M tokens (input, output) in USD.
@@ -192,10 +277,14 @@ def estimate_cost_for_call(
 
 
 __all__ = [
+    "IMAGE_PRICING",
     "ModelPricing",
-    "Pricing",
     "MODEL_PRICING",
+    "Pricing",
+    "VIDEO_PRICING",
     "calculate_cost",
+    "calculate_image_cost",
+    "calculate_video_cost",
     "count_tokens",
     "estimate_cost_for_call",
 ]

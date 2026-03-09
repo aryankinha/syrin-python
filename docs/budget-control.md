@@ -12,6 +12,8 @@ How to **keep your AI costs under control**. Perfect for:
 
 AI API calls cost money. Syrin helps you manage and monitor every dollar.
 
+**What counts toward budget:** LLM token costs (input/output) plus image and video generation cost. When the agent has image/video generation tools and a budget, built-in providers (DALL·E, Imagen, Veo) populate `GenerationResult.metadata` with `cost_usd`, and the agent records it automatically. See [Multimodal: Budget and cost tracking](multimodal.md#budget-and-cost-tracking).
+
 **Budget** = cost limits ($). **Context** = token limits and formation policy (what goes in the window, compaction, mode). All limits and thresholds in this guide are about **spend**. Token usage caps live on **Context**: use **TokenLimits** (run, per, on_exceeded) and pass `config=AgentConfig(context=Context(token_limits=TokenLimits(...)))` on the agent, so Budget stays strictly about dollars.
 
 ## The Idea

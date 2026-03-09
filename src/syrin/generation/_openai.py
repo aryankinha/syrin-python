@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 from typing import Any
 
+from syrin.cost import calculate_image_cost
 from syrin.generation._result import GenerationResult
 
 # Aspect ratio to DALL-E 3 size: 1:1 -> 1024x1024, 16:9 -> 1792x1024, 9:16 -> 1024x1792
@@ -80,12 +81,17 @@ class DalleImageProvider:
                     raw = base64.b64decode(b64)
                     mime = "image/png" if "png" in output_mime_type.lower() else "image/png"
                     b64_url = f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
+                    cost_usd = calculate_image_cost(model_id, number_of_images=1)
                     results.append(
                         GenerationResult(
                             success=True,
                             url=b64_url,
                             content_type=mime,
                             content_bytes=raw,
+                            metadata={
+                                "cost_usd": cost_usd,
+                                "model_name": model_id,
+                            },
                         )
                     )
             return results if results else [GenerationResult(success=False, error="No image data")]

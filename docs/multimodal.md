@@ -104,8 +104,9 @@ if result.success:
     print(result.url)  # data:video/mp4;base64,...
 ```
 
-**`GenerationResult`**: `success`, `url`, `content_type`, `content_bytes`, `error`.  
-Default models: image `imagen-3.0-generate-002`, video `veo-2.0-generate-001`. Pass `model=` to override.
+**`GenerationResult`**: `success`, `url`, `content_type`, `content_bytes`, `error`, `metadata`.  
+Built-in providers populate `metadata` with `cost_usd` and `model_name` for budget tracking.  
+Default models: image `imagen-4.0-generate-001`, video `veo-2.0-generate-001`. Pass `model=` to override.
 
 ### Declarative generation with Agent
 
@@ -205,6 +206,26 @@ Generation lifecycle is observable:
 - **Video**: `Hook.GENERATION_VIDEO_START`, `GENERATION_VIDEO_END`, `Hook.GENERATION_VIDEO_ERROR`
 
 When the agent adds the generation tools, it passes its `_emit_event` into the generators so these hooks fire. Subscribe via `agent.events` or your event bus.
+
+### Budget and cost tracking
+
+When the agent has a **budget**, image and video generation cost is **automatically recorded** into the budget. Built-in providers (DALL·E, Imagen, Veo) populate `GenerationResult.metadata` with `cost_usd` and `model_name`. On `GENERATION_IMAGE_END` and `GENERATION_VIDEO_END`, the agent records this cost via `_record_cost_info`, so your run total includes LLM tokens plus any image/video generation.
+
+```python
+from syrin import Agent, Budget
+from syrin.enums import Media
+from syrin.model import Model
+
+agent = Agent(
+    model=Model.OpenAI("gpt-4o-mini"),
+    output_media={Media.TEXT, Media.IMAGE},
+    budget=Budget(run=5.0),
+)
+r = agent.response("Draw a sunset")
+# r.cost includes both LLM usage and image generation cost
+```
+
+Custom providers can add `metadata["cost_usd"]` and `metadata["model_name"]` to their `GenerationResult` to participate in budget tracking. Use `syrin.cost.calculate_image_cost` / `calculate_video_cost` for helper pricing, or compute cost yourself.
 
 ### Extending: custom providers
 

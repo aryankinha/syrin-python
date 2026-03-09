@@ -1597,6 +1597,36 @@ class Agent(Servable, metaclass=_AgentMeta):
         if event_bus is not None:
             _emit_domain_event_for_hook(hook, ctx, event_bus)
 
+        # Record media generation cost into budget (from GenerationResult.metadata)
+        if self._budget is not None and self._budget_tracker is not None:
+            if hook == Hook.GENERATION_IMAGE_END:
+                raw_results = ctx.get("results")
+                results = raw_results if isinstance(raw_results, (list, tuple)) else []
+                model = ctx.get("model", "")
+                for r in results:
+                    meta = getattr(r, "metadata", None)
+                    if getattr(r, "success", False) and isinstance(meta, dict):
+                        cost = meta.get("cost_usd", 0)
+                        name = meta.get("model_name", model)
+                        if cost and cost > 0:
+                            self._record_cost_info(
+                                CostInfo(cost_usd=cost, model_name=str(name or "image"))
+                            )
+            elif hook == Hook.GENERATION_VIDEO_END:
+                result = ctx.get("result")
+                meta = getattr(result, "metadata", None) if result is not None else None
+                if (
+                    result is not None
+                    and getattr(result, "success", False)
+                    and isinstance(meta, dict)
+                ):
+                    cost = meta.get("cost_usd", 0)
+                    name = meta.get("model_name", ctx.get("model", ""))
+                    if cost and cost > 0:
+                        self._record_cost_info(
+                            CostInfo(cost_usd=cost, model_name=str(name or "video"))
+                        )
+
     def _resolve_image_generator(self) -> Any:
         """Resolve image generator. Lazy init from stored key or env if None."""
         if self._image_generator is not None:

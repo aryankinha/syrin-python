@@ -4,6 +4,10 @@ Use static constructors:
   Image: ImageGenerator.Gemini() (Google), .DALLE() (OpenAI)
   Video: VideoGenerator.Gemini() (Google)
 
+Budget: When a budget is set, image and video generation cost is automatically
+recorded (built-in providers populate metadata). Response.cost includes both
+LLM tokens and generation.
+
 Run:
     python -m examples.18_multimodal.agent_explicit_generators
 
@@ -20,7 +24,7 @@ _root = Path(__file__).resolve().parents[2]
 if str(_root) not in sys.path:
     sys.path.insert(0, str(_root))
 
-from syrin import Agent, ImageGenerator, Model, VideoGenerator
+from syrin import Agent, Budget, ImageGenerator, Model, VideoGenerator
 
 
 def main() -> None:
@@ -40,6 +44,7 @@ def main() -> None:
         ),
         image_generation=img_gen,
         video_generation=vid_gen,
+        budget=Budget(run=5.0),  # Image/video generation cost is recorded automatically
     )
 
     tool_names = [t.name for t in agent._tools]
@@ -50,6 +55,7 @@ def main() -> None:
     if "generate_image" in tool_names:
         r = agent.response("Create a simple image of a blue square.")
         print("Image response:", (r.content or "")[:150])
+        print("Cost (includes LLM + image generation):", r.cost)
     else:
         print("No image/video tools (set GOOGLE_API_KEY for Gemini)")
 
