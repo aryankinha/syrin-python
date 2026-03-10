@@ -2,7 +2,7 @@
 
 Intelligent model routing selects the best model based on task type, modality, cost, and developer preferences — **before** any LLM call.
 
-Key components: Model (routing fields), ModalityDetector, RouterConfig, ModelRouter, RoutingReason, get_default_profiles, Agent integration, OpenRouter, response metadata, ROUTING_DECISION hook.
+Key components: Model (routing fields), ModalityDetector, RoutingConfig, ModelRouter, RoutingReason, get_default_profiles, Agent integration, OpenRouter, response metadata, ROUTING_DECISION hook.
 
 ## What Developers Can Build
 
@@ -19,11 +19,11 @@ With the routing system, you can:
 | **Tools-aware** | Exclude text-only models when Agent has tools (`supports_tools`) |
 | **Vision/Video routing** | `input_media` — route to vision models when messages have images |
 | **Budget-aware** | `prefer_cheaper_below_budget_ratio`, `force_cheapest_below_budget_ratio`, `budget_optimisation` — prefer cheap when low |
-| **Custom classifier** | Pass `classifier` to RouterConfig for custom task detection |
+| **Custom classifier** | Pass `classifier` to RoutingConfig for custom task detection |
 | **Production classification** | `classify_extended` — complexity, system alignment, LRU cache |
 | **Observability** | `Hook.ROUTING_DECISION`; `r.routing_reason`, `r.model_used`, `r.actual_cost` |
 
-Use Agent with `model=[...]` + `router_config=RouterConfig(...)` for automatic per-request routing. Or use `ModelRouter` standalone with custom profiles.
+Use Agent with `model=[...]` + `model_router=RoutingConfig(...)` for automatic per-request routing. Or use `ModelRouter` standalone with custom profiles.
 
 ## Enums
 
@@ -213,21 +213,21 @@ There you’ll find: content parts, `file_to_message`, PDF extraction, playgroun
 
 ## Agent Integration
 
-Pass a list of models and optional `router_config` to enable automatic routing:
+Pass a list of models and optional `model_router` to enable automatic routing:
 
 ```python
 from syrin import Agent, Budget
 from syrin.model import Model
-from syrin.router import RouterConfig, RoutingMode, TaskType
+from syrin.router import RoutingConfig, RoutingMode, TaskType
 
-# Simple: model list + router_config
+# Simple: model list + model_router
 agent = Agent(
     model=[
         Model.Anthropic("claude-sonnet-4-5", api_key="..."),
         Model.OpenAI("gpt-4o-mini", api_key="..."),
         Model.Google("gemini-2.0-flash", api_key="..."),
     ],
-    router_config=RouterConfig(routing_mode=RoutingMode.AUTO),
+    model_router=RoutingConfig(routing_mode=RoutingMode.AUTO),
     system_prompt="You are helpful.",
     budget=Budget(run=10.0),
 )
@@ -246,7 +246,7 @@ r = agent.response("Fix this", task_type=TaskType.CODE)
 # Force specific model (bypass routing)
 agent = Agent(
     model=[...],
-    router_config=RouterConfig(force_model=Model.Anthropic("claude-opus", api_key="...")),
+    model_router=RoutingConfig(force_model=Model.Anthropic("claude-opus", api_key="...")),
 )
 ```
 
@@ -275,21 +275,21 @@ gpt = builder.model("openai/gpt-4o-mini")
 
 agent = Agent(
     model=[claude, gpt],
-    router_config=RouterConfig(routing_mode=RoutingMode.COST_FIRST),
+    model_router=RoutingConfig(routing_mode=RoutingMode.COST_FIRST),
     system_prompt="You are helpful.",
 )
 ```
 
 OpenRouter response headers (`x-openrouter-total-cost`, `x-openrouter-model-used`) populate `response.actual_cost` and `response.model_used` when available.
 
-## RouterConfig
+## RoutingConfig
 
 Configuration for routing — use with Agent or pass to ModelRouter:
 
 ```python
-from syrin.router import RouterConfig, RoutingMode
+from syrin.router import RoutingConfig, RoutingMode
 
-config = RouterConfig(
+config = RoutingConfig(
     routing_mode=RoutingMode.AUTO,
     budget_optimisation=True,
     prefer_cheaper_below_budget_ratio=0.20,
@@ -320,7 +320,7 @@ def vip_routing(prompt: str, task_type: TaskType, profile_names: list[str]) -> s
 
 agent = Agent(
     model=[claude, gpt],
-    router_config=RouterConfig(routing_rule_callback=vip_routing),
+    model_router=RoutingConfig(routing_rule_callback=vip_routing),
 )
 ```
 
@@ -440,7 +440,7 @@ Use with `Budget(run=1.0)` for cost-sensitive agents.
 Pass a custom `PromptClassifier` to use your own task detection logic:
 
 ```python
-from syrin.router import PromptClassifier, RouterConfig, TaskType
+from syrin.router import PromptClassifier, RoutingConfig, TaskType
 
 classifier = PromptClassifier(
     examples={TaskType.CODE: ["write", "debug", "implement"], ...},
@@ -449,7 +449,7 @@ classifier = PromptClassifier(
 
 agent = Agent(
     model=[...],
-    router_config=RouterConfig(classifier=classifier),
+    model_router=RoutingConfig(classifier=classifier),
 )
 ```
 
@@ -469,6 +469,6 @@ See [Response Object](agent/response.md) for the full response reference.
 ## See Also
 
 - [Models Guide](models.md) — `Model.OpenRouter`, `OpenRouterBuilder`, built-in providers
-- [Agent: Model](agent/model.md) — `model` as list, `router_config` with Agent
+- [Agent: Model](agent/model.md) — `model` as list, `model_router` with Agent
 - [Response](agent/response.md) — Response fields including routing metadata
 - [Events & Hooks](agent/events-hooks.md) — `Hook.ROUTING_DECISION`

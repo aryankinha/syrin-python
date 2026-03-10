@@ -3,22 +3,21 @@
 from __future__ import annotations
 
 import json
-import threading
+from functools import lru_cache
 from typing import Any
 
-_client_cache: dict[tuple[str, str], Any] = {}
-_cache_lock = threading.Lock()
 
-
-def _get_client(api_key: str | None, base_url: str | None) -> Any:
+@lru_cache(maxsize=32)
+def _get_client(api_key: str, base_url: str) -> Any:
     """Get or create cached AsyncOpenAI client per (api_key, base_url)."""
     from openai import AsyncOpenAI
 
-    key = (api_key or "", base_url or "")
-    with _cache_lock:
-        if key not in _client_cache:
-            _client_cache[key] = AsyncOpenAI(api_key=api_key, base_url=base_url)
-        return _client_cache[key]
+    return AsyncOpenAI(api_key=api_key or None, base_url=base_url or None)
+
+
+def _get_client_for_config(api_key: str | None, base_url: str | None) -> Any:
+    """Resolve client for possibly-None api_key/base_url. lru_cache requires hashable args."""
+    return _get_client(api_key or "", base_url or "")
 
 
 from syrin.enums import MessageRole
@@ -117,7 +116,7 @@ class OpenAIProvider(Provider):
                 "Model.OpenAI('gpt-4o', api_key='sk-...') or api_key=os.getenv('OPENAI_API_KEY')"
             )
         api_messages = [_message_to_openai(m) for m in messages]
-        client = _get_client(api_key, model.base_url)
+        client = _get_client_for_config(api_key, model.base_url)
         request_kwargs: dict[str, Any] = {
             "model": model.model_id.split("/")[-1],  # Strip provider prefix
             "messages": api_messages,

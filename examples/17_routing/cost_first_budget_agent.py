@@ -17,7 +17,7 @@ from syrin import Agent, Budget
 from syrin.model import Model
 from syrin.router import (
     ModelRouter,
-    RouterConfig,
+    RoutingConfig,
     RoutingMode,
     TaskType,
 )
@@ -54,7 +54,7 @@ def main() -> None:
     use_trace = "--trace" in sys.argv
     agent = Agent(
         model=models_list,
-        router_config=RouterConfig(router=router),
+        model_router=RoutingConfig(router=router),
         system_prompt="You are helpful. Be concise.",
         budget=Budget(run=0.50),
         debug=use_trace,

@@ -19,13 +19,16 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import nullcontext
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from syrin.agent._run_context import AgentRunContext
+
+_log = logging.getLogger(__name__)
 from syrin.enums import Hook, LoopStrategy, MessageRole, StopReason
 
 
@@ -51,8 +54,47 @@ def _llm_span_context(ctx: Any, iteration: int, model_id: str) -> Any:
     )
 
 
-# Max chars for tool results containing base64 data URLs before truncating (avoids 429 from LLM token limits)
-_MAX_TOOL_RESULT_FOR_LLM = 2000
+# Default max chars for tool results before truncating (avoids 429 from LLM token limits)
+_DEFAULT_MAX_TOOL_RESULT_FOR_LLM = 2000
+
+
+def _is_transient_error(e: BaseException) -> bool:
+    """Return True if the error is transient and may succeed on retry."""
+    if isinstance(e, (asyncio.TimeoutError, TimeoutError, ConnectionError, OSError)):
+        return True
+    s = str(e).lower()
+    if "429" in s or "too many requests" in s or "rate limit" in s:
+        return True
+    if "503" in s or "502" in s or "service unavailable" in s or "bad gateway" in s:
+        return True
+    return "timeout" in s
+
+
+async def _execute_tool_with_retry(ctx: Any, tool_name: str, tool_args: dict[str, Any]) -> str:
+    """Execute tool with optional retry on transient errors."""
+    retry_on = getattr(ctx, "retry_on_transient", True)
+    max_retries = getattr(ctx, "max_retries", 3)
+    base = getattr(ctx, "retry_backoff_base", 1.0)
+    last_err: BaseException | None = None
+    for attempt in range(max_retries + 1):
+        try:
+            result: str = cast(str, await ctx.execute_tool(tool_name, tool_args))
+            return result
+        except Exception as e:
+            last_err = e
+            if not retry_on or attempt >= max_retries or not _is_transient_error(e):
+                raise
+            delay = base * (2**attempt)
+            _log.debug(
+                "Tool %s transient error (attempt %d/%d), retrying in %.1fs: %s",
+                tool_name,
+                attempt + 1,
+                max_retries + 1,
+                delay,
+                e,
+            )
+            await asyncio.sleep(delay)
+    raise last_err or RuntimeError("execute_tool retry loop ended without result")
 
 
 def _extract_media_url_from_tool_result(result: str) -> tuple[str | None, str | None]:
@@ -70,9 +112,13 @@ def _extract_media_url_from_tool_result(result: str) -> tuple[str | None, str | 
     return None, None
 
 
-def _truncate_tool_result_for_context(result: str) -> str:
+def _truncate_tool_result_for_context(
+    result: str, max_len: int = _DEFAULT_MAX_TOOL_RESULT_FOR_LLM, tool_name: str | None = None
+) -> str:
     """Truncate large base64 data URLs in tool results to avoid blowing up LLM context (429)."""
-    if not result or len(result) <= _MAX_TOOL_RESULT_FOR_LLM:
+    if not isinstance(max_len, int) or max_len <= 0:
+        max_len = _DEFAULT_MAX_TOOL_RESULT_FOR_LLM
+    if not result or len(result) <= max_len:
         return result
     if "data:image" in result or "data:video" in result:
         prefix = result.split(";base64,")[0] if ";base64," in result else result[:80]
@@ -82,7 +128,9 @@ def _truncate_tool_result_for_context(result: str) -> str:
             "The generation succeeded. Inform the user the image/video was created.]"
         )
     # Generic truncation for other large outputs
-    return result[:_MAX_TOOL_RESULT_FOR_LLM] + " [...] (truncated)"
+    label = f"Tool {tool_name!r} " if tool_name else ""
+    _log.info("%sresult truncated: %d -> %d chars", label, len(result), max_len)
+    return result[:max_len] + " [...] (truncated)"
 
 
 def _tool_span_context(ctx: Any, tool_name: str, tool_args: dict[str, Any], iteration: int) -> Any:
@@ -425,7 +473,7 @@ class ReactLoop(Loop):
 
                 try:
                     with _tool_span_context(ctx, tool_name, tool_args, iteration) as tool_span:
-                        result = await ctx.execute_tool(tool_name, tool_args)
+                        result = await _execute_tool_with_retry(ctx, tool_name, tool_args)
                         if tool_span is not None:
                             from syrin.observability import SemanticAttributes
 
@@ -433,7 +481,12 @@ class ReactLoop(Loop):
                                 SemanticAttributes.TOOL_OUTPUT, str(result)[:500]
                             )
                     result_str = str(result)
-                    content_for_llm = _truncate_tool_result_for_context(result_str)
+                    max_len = getattr(
+                        ctx, "max_tool_result_length", _DEFAULT_MAX_TOOL_RESULT_FOR_LLM
+                    )
+                    content_for_llm = _truncate_tool_result_for_context(
+                        result_str, max_len=max_len, tool_name=tool_name
+                    )
                     url, media_type = _extract_media_url_from_tool_result(result_str)
                     if url and media_type:
                         ct = "image/png" if media_type == "image" else "video/mp4"
@@ -666,9 +719,14 @@ class HumanInTheLoop(Loop):
                 )
 
                 try:
-                    result = await ctx.execute_tool(tool_name, tool_args)
+                    result = await _execute_tool_with_retry(ctx, tool_name, tool_args)
                     result_str = str(result)
-                    content_for_llm = _truncate_tool_result_for_context(result_str)
+                    max_len = getattr(
+                        ctx, "max_tool_result_length", _DEFAULT_MAX_TOOL_RESULT_FOR_LLM
+                    )
+                    content_for_llm = _truncate_tool_result_for_context(
+                        result_str, max_len=max_len, tool_name=tool_name
+                    )
                     url, media_type = _extract_media_url_from_tool_result(result_str)
                     if url and media_type:
                         ct = "image/png" if media_type == "image" else "video/mp4"
@@ -821,9 +879,14 @@ class PlanExecuteLoop(Loop):
                             tool_calls=response.tool_calls,
                         )
                     )
-                    tool_result = await ctx.execute_tool(tc.name, tc.arguments or {})
+                    tool_result = await _execute_tool_with_retry(ctx, tc.name, tc.arguments or {})
                     result_str = str(tool_result)
-                    content_for_llm = _truncate_tool_result_for_context(result_str)
+                    max_len = getattr(
+                        ctx, "max_tool_result_length", _DEFAULT_MAX_TOOL_RESULT_FOR_LLM
+                    )
+                    content_for_llm = _truncate_tool_result_for_context(
+                        result_str, max_len=max_len, tool_name=tc.name
+                    )
                     url, media_type = _extract_media_url_from_tool_result(result_str)
                     if url and media_type:
                         ct = "image/png" if media_type == "image" else "video/mp4"
@@ -888,9 +951,12 @@ class PlanExecuteLoop(Loop):
             )
 
             for tc in response.tool_calls:
-                tool_result = await ctx.execute_tool(tc.name, tc.arguments or {})
+                tool_result = await _execute_tool_with_retry(ctx, tc.name, tc.arguments or {})
                 result_str = str(tool_result)
-                content_for_llm = _truncate_tool_result_for_context(result_str)
+                max_len = getattr(ctx, "max_tool_result_length", _DEFAULT_MAX_TOOL_RESULT_FOR_LLM)
+                content_for_llm = _truncate_tool_result_for_context(
+                    result_str, max_len=max_len, tool_name=tc.name
+                )
                 url, media_type = _extract_media_url_from_tool_result(result_str)
                 if url and media_type:
                     ct = "image/png" if media_type == "image" else "video/mp4"

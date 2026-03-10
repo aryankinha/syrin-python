@@ -53,15 +53,23 @@ def test_model_repr() -> None:
 
 
 def test_model_env_var_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MY_MODEL", "anthropic/claude-3-5-sonnet")
-    m = Model("$MY_MODEL")
+    """Env vars with allowed prefixes (OPENAI_, ANTHROPIC_, SYRIN_, etc.) resolve."""
+    monkeypatch.setenv("SYRIN_MODEL", "anthropic/claude-3-5-sonnet")
+    m = Model("$SYRIN_MODEL")
     assert m.model_id == "anthropic/claude-3-5-sonnet"
     assert m.provider == "anthropic"
 
 
 def test_model_env_var_unset_returns_raw() -> None:
-    m = Model("$NONEXISTENT_VAR_12345")
-    assert m.model_id == "$NONEXISTENT_VAR_12345"
+    """Unset env var with allowed prefix returns the literal string."""
+    m = Model("$SYRIN_NONEXISTENT_VAR_12345")
+    assert m.model_id == "$SYRIN_NONEXISTENT_VAR_12345"
+
+
+def test_model_env_var_disallowed_prefix_raises() -> None:
+    """Env vars without allowed prefix raise ValueError to prevent leakage."""
+    with pytest.raises(ValueError, match="not in allowed prefixes"):
+        Model("$SECRET_KEY")
 
 
 def test_registry_singleton() -> None:

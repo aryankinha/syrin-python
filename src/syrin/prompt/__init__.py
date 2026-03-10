@@ -113,14 +113,17 @@ class Prompt:
         for name, param in self._signature.parameters.items():
             # Handle forward references and string annotations
             if param.annotation is inspect.Parameter.empty:
-                type_hint = str
+                type_hint: type[object] = str
             elif isinstance(param.annotation, str):
                 # Handle string annotations (from __future__ import annotations)
-                type_hint = (
-                    eval(param.annotation)
-                    if param.annotation in ("str", "int", "float", "bool")
-                    else str
-                )
+                # Safe lookup — no eval() for security
+                _SAFE_TYPES: dict[str, type[object]] = {
+                    "str": str,
+                    "int": int,
+                    "float": float,
+                    "bool": bool,
+                }
+                type_hint = _SAFE_TYPES.get(param.annotation, str)
             else:
                 type_hint = param.annotation
 

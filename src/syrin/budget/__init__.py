@@ -457,6 +457,7 @@ class BudgetReservationToken:
         self._tracker = tracker
         self._amount = amount
         self._released = False
+        self._lock = threading.Lock()
 
     def commit(self, actual_cost: float, token_usage: TokenUsage | None = None) -> None:
         """Record actual cost and release the reservation.
@@ -465,10 +466,11 @@ class BudgetReservationToken:
         Records the cost on the tracker and releases the reserved amount. Idempotent
         after the first call (further calls are no-op).
         """
-        if self._released:
-            return
-        self._tracker._release_reservation(self._amount)
-        self._released = True
+        with self._lock:
+            if self._released:
+                return
+            self._tracker._release_reservation(self._amount)
+            self._released = True
         self._tracker.record(
             CostInfo(
                 cost_usd=actual_cost,
@@ -483,10 +485,11 @@ class BudgetReservationToken:
         reserved amount so it is not counted toward the run limit. Idempotent
         after the first call.
         """
-        if self._released:
-            return
-        self._tracker._release_reservation(self._amount)
-        self._released = True
+        with self._lock:
+            if self._released:
+                return
+            self._tracker._release_reservation(self._amount)
+            self._released = True
 
 
 class BudgetTracker:

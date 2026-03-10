@@ -1,1 +1,196 @@
-:root{--bg:#0f0f12;--surface:#1a1a1f;--border:#2a2a32;--text:#e4e4e7;--text-muted:#71717a;--accent:#6366f1;--accent-hover:#818cf8;--user-bubble:#3b82f6;--assistant-bubble:#27272a;--success:#22c55e;--error:#ef4444}*{box-sizing:border-box}body,html{margin:0;padding:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}.footer{text-align:center;padding:1rem;font-size:.8rem;flex-shrink:0}.footer,.footer a{color:var(--text-muted)}.footer a{text-decoration:none}.footer a:hover{color:var(--accent)}.container{max-width:720px;margin:0 auto;padding:1rem;flex:1 1;display:flex;flex-direction:column;width:100%}.header{gap:1rem;margin-bottom:1rem}.agent-selector,.header{display:flex;align-items:center}.agent-selector{gap:.5rem}.agent-selector label{color:var(--text-muted);font-size:.875rem}.agent-selector select{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:.4rem .75rem;border-radius:6px;font-size:.9rem}.chat-area{min-height:0}.chat-area,.messages{flex:1 1;display:flex;flex-direction:column}.messages{overflow-y:auto;padding:1rem 0;gap:1rem}.message{max-width:90%;padding:.75rem 1rem;border-radius:12px;line-height:1.5;white-space:pre-wrap}.message.user{align-self:flex-end;background:var(--user-bubble);color:#fff}.message.assistant{align-self:flex-start;background:var(--assistant-bubble);border:1px solid var(--border)}.message.error{color:var(--error)}.message .meta{margin-top:.5rem;font-size:.75rem;color:var(--text-muted)}.input-row{display:flex;gap:.5rem;padding:1rem 0;border-top:1px solid var(--border)}.input-row input{flex:1 1;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:.6rem 1rem;border-radius:8px;font-size:1rem}.input-row input:focus{outline:none;border-color:var(--accent)}.input-row button{background:var(--accent);color:#fff;border:none;padding:.6rem 1.25rem;border-radius:8px;font-size:1rem;cursor:pointer}.input-row button:hover{background:var(--accent-hover)}.input-row button:disabled{opacity:.5;cursor:not-allowed}.budget-gauge{margin:.5rem 0;padding:.5rem;background:var(--surface);border-radius:6px;font-size:.8rem;color:var(--text-muted)}.observability-panel{margin-top:1rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.5rem 1rem}.observability-panel summary{cursor:pointer;color:var(--text-muted);font-size:.875rem}.observability-panel pre{margin:.5rem 0 0;font-size:.75rem;overflow-x:auto;white-space:pre-wrap;max-height:200px;overflow-y:auto}.loading{color:var(--text-muted);text-align:center;padding:2rem}.error{color:var(--error);margin-bottom:.5rem}.text-muted{color:var(--text-muted);font-size:.875rem}
+:root {
+  --bg: #0f0f12;
+  --surface: #1a1a1f;
+  --border: #2a2a32;
+  --text: #e4e4e7;
+  --text-muted: #71717a;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --user-bubble: #3b82f6;
+  --assistant-bubble: #27272a;
+  --success: #22c55e;
+  --error: #ef4444;
+}
+* {
+  box-sizing: border-box;
+}
+body,
+html {
+  margin: 0;
+  padding: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.footer {
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+.footer,
+.footer a {
+  color: var(--text-muted);
+}
+.footer a {
+  text-decoration: none;
+}
+.footer a:hover {
+  color: var(--accent);
+}
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1rem;
+  flex: 1 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+.header {
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.agent-selector,
+.header {
+  display: flex;
+  align-items: center;
+}
+.agent-selector {
+  gap: 0.5rem;
+}
+.agent-selector label {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+.agent-selector select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+.chat-area {
+  min-height: 0;
+}
+.chat-area,
+.messages {
+  flex: 1 1;
+  display: flex;
+  flex-direction: column;
+}
+.messages {
+  overflow-y: auto;
+  padding: 1rem 0;
+  gap: 1rem;
+}
+.message {
+  max-width: 90%;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.message.user {
+  align-self: flex-end;
+  background: var(--user-bubble);
+  color: #fff;
+}
+.message.assistant {
+  align-self: flex-start;
+  background: var(--assistant-bubble);
+  border: 1px solid var(--border);
+}
+.message.error {
+  color: var(--error);
+}
+.message .meta {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.input-row {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--border);
+}
+.input-row input {
+  flex: 1 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+.input-row input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.input-row button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.input-row button:hover {
+  background: var(--accent-hover);
+}
+.input-row button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.budget-gauge {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  background: var(--surface);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.observability-panel {
+  margin-top: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+}
+.observability-panel summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+.observability-panel pre {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.loading {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 2rem;
+}
+.error {
+  color: var(--error);
+  margin-bottom: 0.5rem;
+}
+.text-muted {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}

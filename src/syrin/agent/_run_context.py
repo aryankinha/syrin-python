@@ -131,6 +131,26 @@ class AgentRunContext(Protocol):
         """Optional tracer for observability; when set, loop creates LLM/tool spans."""
         ...
 
+    @property
+    def max_tool_result_length(self) -> int:
+        """Max chars for tool results before truncation. Default 2000."""
+        ...
+
+    @property
+    def retry_on_transient(self) -> bool:
+        """Whether to retry tool calls on transient errors (429, 503, timeouts)."""
+        ...
+
+    @property
+    def max_retries(self) -> int:
+        """Max retries for transient tool failures."""
+        ...
+
+    @property
+    def retry_backoff_base(self) -> float:
+        """Base delay in seconds for retry exponential backoff."""
+        ...
+
 
 class DefaultAgentRunContext:
     """Implements AgentRunContext by delegating to an Agent instance.
@@ -219,3 +239,19 @@ class DefaultAgentRunContext:
     def tracer(self) -> Any:
         """Return agent's tracer so loops can create LLM/tool child spans."""
         return getattr(self._agent, "_tracer", None)
+
+    @property
+    def max_tool_result_length(self) -> int:
+        return getattr(self._agent, "_max_tool_result_length", 2000)
+
+    @property
+    def retry_on_transient(self) -> bool:
+        return getattr(self._agent, "_retry_on_transient", True)
+
+    @property
+    def max_retries(self) -> int:
+        return getattr(self._agent, "_max_retries", 3)
+
+    @property
+    def retry_backoff_base(self) -> float:
+        return getattr(self._agent, "_retry_backoff_base", 1.0)

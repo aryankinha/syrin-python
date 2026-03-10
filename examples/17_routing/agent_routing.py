@@ -1,4 +1,4 @@
-"""Agent with Model Routing — model list, RouterConfig, ROUTING_DECISION hook.
+"""Agent with Model Routing — model list, RoutingConfig, ROUTING_DECISION hook.
 
 Uses Almock so no API key is required. Replace with real models for production.
 
@@ -14,7 +14,7 @@ from syrin import Agent, Budget, Hook
 from syrin.model import Model
 from syrin.router import (
     ModelRouter,
-    RouterConfig,
+    RoutingConfig,
     RoutingMode,
     TaskType,
 )
@@ -45,7 +45,7 @@ def main() -> None:
     use_trace = "--trace" in sys.argv
     agent = Agent(
         model=models_list,
-        router_config=RouterConfig(router=router),
+        model_router=RoutingConfig(router=router),
         system_prompt="You are helpful.",
         budget=Budget(run=1.0),
         debug=use_trace,

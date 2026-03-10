@@ -31,7 +31,7 @@ from syrin.context import Context
 from syrin.enums import DecayStrategy, Media, MemoryBackend, MemoryType, WriteMode
 from syrin.generation import ImageGenerator, VideoGenerator
 from syrin.guardrails import ContentFilter, LengthGuardrail
-from syrin.router import RouterConfig, RoutingMode, TaskType
+from syrin.router import RoutingConfig, RoutingMode, TaskType
 
 MEMORY_DB = _DIR / "chatbot_memory.db"
 MAP_PATH = _DIR / "chatbot_context_map.json"
@@ -97,7 +97,7 @@ def repeat_back(phrase: str) -> str:
 
 
 def _model_and_config():
-    """Model list + RouterConfig when OPENAI_API_KEY set; else single Almock."""
+    """Model list + RoutingConfig when OPENAI_API_KEY set; else single Almock."""
     if not os.getenv("OPENAI_API_KEY"):
         return [almock], None
     models = [
@@ -129,7 +129,7 @@ def _model_and_config():
             priority=95,
         ),
     ]
-    return models, RouterConfig(routing_mode=RoutingMode.AUTO)
+    return models, RoutingConfig(routing_mode=RoutingMode.AUTO)
 
 
 gen_key = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip() or None
@@ -140,7 +140,7 @@ class Chatbot(Agent):
     _agent_description = (
         "Chatbot with memory, context, guardrails, routing, multimodal, image/video gen"
     )
-    model, router_config = _model_and_config()
+    model, model_router = _model_and_config()
     input_media = {Media.TEXT, Media.IMAGE}
     output_media = {Media.TEXT, Media.IMAGE, Media.VIDEO}
     system_prompt = (

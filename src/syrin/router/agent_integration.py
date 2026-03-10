@@ -10,7 +10,7 @@ from syrin.model import Model
 if TYPE_CHECKING:
     from syrin.budget import Budget
 from syrin.enums import Media
-from syrin.router.config import RouterConfig
+from syrin.router.config import RoutingConfig
 from syrin.router.enums import TaskType
 from syrin.router.router import ModelRouter, _RoutingProfile
 
@@ -180,34 +180,34 @@ def _profiles_from_models(
 def build_router_from_models(
     models: list[Model],
     *,
-    router_config: RouterConfig | None = None,
+    routing_config: RoutingConfig | None = None,
     budget: Budget | None = None,
 ) -> ModelRouter:
-    """Build a ModelRouter from a list of models and optional RouterConfig.
+    """Build a ModelRouter from a list of models and optional RoutingConfig.
 
-    When router_config is provided, its routing_mode, force_model, budget
+    When routing_config is provided, its routing_mode, force_model, budget
     thresholds, etc. are applied. Otherwise defaults are used.
 
     Args:
         models: List of Model instances.
-        router_config: Optional RouterConfig for routing behavior.
+        routing_config: Optional RoutingConfig for routing behavior.
         budget: Optional Budget for cost-aware routing.
 
     Returns:
         ModelRouter ready for Agent use.
     """
-    if router_config is not None:
-        if router_config.router is not None:
-            return router_config.router
+    if routing_config is not None:
+        if routing_config.router is not None:
+            return routing_config.router
         return ModelRouter(
             models=models,
-            routing_mode=router_config.routing_mode,
-            classifier=router_config.classifier,
+            routing_mode=routing_config.routing_mode,
+            classifier=routing_config.classifier,
             budget=budget,
-            budget_optimisation=router_config.budget_optimisation,
-            prefer_cheaper_below_budget_ratio=router_config.prefer_cheaper_below_budget_ratio,
-            force_cheapest_below_budget_ratio=router_config.force_cheapest_below_budget_ratio,
-            force_model=router_config.force_model,
-            routing_rule_callback=router_config.routing_rule_callback,
+            budget_optimisation=routing_config.budget_optimisation,
+            prefer_cheaper_below_budget_ratio=routing_config.prefer_cheaper_below_budget_ratio,
+            force_cheapest_below_budget_ratio=routing_config.force_cheapest_below_budget_ratio,
+            force_model=routing_config.force_model,
+            routing_rule_callback=routing_config.routing_rule_callback,
         )
     return ModelRouter(models=models, budget=budget)

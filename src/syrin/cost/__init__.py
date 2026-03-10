@@ -149,10 +149,17 @@ Pricing = ModelPricing
 
 def _resolve_pricing(model_id: str) -> tuple[float, float]:
     """Return (input_per_1m, output_per_1m) for model_id. Strips provider prefix."""
+    import warnings
+
     normalized = model_id.split("/")[-1] if "/" in model_id else model_id
     for key, (inp, out) in MODEL_PRICING.items():
         if normalized.startswith(key):
             return (inp, out)
+    warnings.warn(
+        f"No pricing data for model '{model_id}'. Cost tracking will show $0.00. "
+        "Pass input_price/output_price to Model() or ModelPricing to set pricing.",
+        stacklevel=2,
+    )
     return (0.0, 0.0)
 
 

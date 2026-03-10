@@ -59,8 +59,8 @@ Learn by doing! Pick a use case that matches what you want to build:
 **[Models Guide](models.md)** - Complete guide to models
 
 **[Routing](routing.md)** - Task classification and model routing
-- PromptClassifier, ModelRouter, RouterConfig
-- Agent with model list + router_config
+- PromptClassifier, ModelRouter, RoutingConfig
+- Agent with model list + model_router
 - OpenRouter, get_default_profiles, ROUTING_DECISION hook (includes routing_latency_ms)
 
 **[Multimodal](multimodal.md)** - Images, files, and generation

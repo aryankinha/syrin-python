@@ -27,7 +27,7 @@ class ToolSpec(BaseModel):
 
     Attributes:
         name: Tool name. Model uses this in tool_calls.name.
-        description: Description for the model. Use syrin.doc() for compile-time safe docs.
+        description: Description for the model. Be specific about when and why to call.
         parameters_schema: JSON schema for parameters. Model uses this to generate args.
         func: Python function to run. Receives parsed arguments from the model.
         requires_approval: If True, block execution until human approval via ApprovalGate.

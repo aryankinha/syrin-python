@@ -100,7 +100,7 @@ See `docs/extension-points.md` for implementation examples.
 
 - All public functions and methods have full type annotations.
 - No `Any` in public API where a concrete type is possible (e.g. use `Tracer` instead of `Any` for tracer parameters where the type is known).
-- Tools use `syrin.doc()` for docs; other public APIs use docstrings with at least one example where helpful.
+- Tools use clear descriptions in the tool spec; other public APIs use docstrings with at least one example where helpful.
 
 ## 7. Config vs runtime (summary)
 

@@ -26,7 +26,7 @@ API keys must be passed explicitly — the library never auto-reads from environ
 
 **Quick rule:** Need tools, memory, or budget? Use `Agent(model=...)`. Otherwise, `model.complete(messages)` is enough.
 
-**Multiple models?** Pass `model=[M1, M2, M3]` plus `router_config=RouterConfig(...)` to route per request by task, cost, and modality. See [Routing](routing.md) and [Agent: Model](agent/model.md).
+**Multiple models?** Pass `model=[M1, M2, M3]` plus `model_router=RoutingConfig(...)` to route per request by task, cost, and modality. See [Routing](routing.md) and [Agent: Model](agent/model.md).
 
 **No API key?** Use `Model.Almock()` to run without any provider — ideal for local development, CI, or trying the library. See [Almock (An LLM Mock)](#almock-an-llm-mock) below.
 
@@ -131,7 +131,7 @@ model = Model.OpenRouter(
 import os
 from syrin import Agent
 from syrin.model import Model, OpenRouterBuilder
-from syrin.router import RouterConfig, RoutingMode
+from syrin.router import RoutingConfig, RoutingMode
 
 builder = OpenRouterBuilder(api_key=os.getenv("OPENROUTER_API_KEY"))
 claude = builder.model("anthropic/claude-sonnet-4-5")
@@ -139,7 +139,7 @@ gpt = builder.model("openai/gpt-4o-mini")
 
 agent = Agent(
     model=[claude, gpt],
-    router_config=RouterConfig(routing_mode=RoutingMode.COST_FIRST),
+    model_router=RoutingConfig(routing_mode=RoutingMode.COST_FIRST),
 )
 ```
 

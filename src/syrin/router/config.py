@@ -1,4 +1,4 @@
-"""RouterConfig — configuration for model selection and routing."""
+"""RoutingConfig — configuration for model selection and routing."""
 
 from __future__ import annotations
 
@@ -14,17 +14,17 @@ from syrin.router.enums import RoutingMode, TaskType
 from syrin.router.router import ModelRouter
 
 
-class RouterConfig(BaseModel):
-    """Configuration for model selection and routing. Use with Agent(router_config=...).
+class RoutingConfig(BaseModel):
+    """Configuration for model selection and routing. Use with Agent(model_router=...).
 
     Example::
 
-        config = RouterConfig(
+        config = RoutingConfig(
             routing_mode=RoutingMode.COST_FIRST,
             budget_optimisation=True,
             prefer_cheaper_below_budget_ratio=0.20,
         )
-        agent = Agent(model=[claude, gpt], router_config=config)
+        agent = Agent(model=[claude, gpt], model_router=config)
 
     Attributes:
         router: Explicit ModelRouter. If set, overrides auto-created router from model list.
@@ -83,7 +83,7 @@ class RouterConfig(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _warn_ignored_when_router_set(self) -> RouterConfig:
+    def _warn_ignored_when_router_set(self) -> RoutingConfig:
         import warnings
 
         if self.router is not None:
@@ -94,14 +94,14 @@ class RouterConfig(BaseModel):
                 ignored.append("classifier")
             if ignored:
                 warnings.warn(
-                    f"RouterConfig.router is set — {', '.join(ignored)} will be ignored. "
+                    f"RoutingConfig.router is set — {', '.join(ignored)} will be ignored. "
                     "Configure these on the ModelRouter directly.",
                     stacklevel=2,
                 )
         return self
 
     @model_validator(mode="after")
-    def _validate_cheapest_le_prefer(self) -> RouterConfig:
+    def _validate_cheapest_le_prefer(self) -> RoutingConfig:
         if self.force_cheapest_below_budget_ratio > self.prefer_cheaper_below_budget_ratio:
             raise ValueError(
                 f"force_cheapest_below_budget_ratio ({self.force_cheapest_below_budget_ratio}) "
@@ -111,4 +111,4 @@ class RouterConfig(BaseModel):
 
 
 # Resolve forward refs (Model, ModelRouter, etc.) after all types are imported
-RouterConfig.model_rebuild()
+RoutingConfig.model_rebuild()

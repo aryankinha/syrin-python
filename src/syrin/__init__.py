@@ -331,7 +331,7 @@ from syrin.router import (
     ModalityDetector,
     ModelRouter,
     PromptClassifier,
-    RouterConfig,
+    RoutingConfig,
     RoutingMode,
     RoutingReason,
     TaskType,
@@ -357,7 +357,17 @@ from syrin.threshold import (
 from syrin.tool import ToolSpec, tool
 from syrin.validation import ValidationPipeline, validate_output
 
-__version__ = "0.5.0"
+
+def _get_version() -> str:
+    try:
+        from importlib.metadata import version
+
+        return version("syrin")
+    except Exception:
+        return "0.0.0.dev"
+
+
+__version__ = _get_version()
 
 
 def run(
@@ -518,7 +528,7 @@ __all__ = [
     "ModelRouter",
     "PromptClassifier",
     "EmbeddingClassifier",
-    "RouterConfig",
+    "RoutingConfig",
     "RoutingMode",
     "RoutingReason",
     "TaskType",

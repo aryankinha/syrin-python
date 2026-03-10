@@ -69,6 +69,10 @@ class Events:
         - before: Run before the event, can modify context
         - after: Run after the event, for logging/metrics
 
+    Note: Handlers are synchronous and run in the agent's execution path. Keep them fast
+    (e.g. in-memory logging). Slow handlers (HTTP calls, DB writes) will block the agent.
+    Use fire-and-forget (thread/async) in the handler for non-blocking side effects.
+
     Example:
         # Register normal handler
         agent.events.on(Hook.AGENT_RUN_START, lambda ctx: print(f"Start: {ctx.input}"))

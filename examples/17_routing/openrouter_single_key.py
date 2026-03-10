@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 
 from syrin import Agent
 from syrin.model import OpenRouterBuilder
-from syrin.router import RouterConfig, RoutingMode
+from syrin.router import RoutingConfig, RoutingMode
 
 load_dotenv(Path(__file__).resolve().parent.parent.parent / "examples" / ".env")
 
@@ -35,7 +35,7 @@ def main() -> None:
 
     agent = Agent(
         model=[claude, gpt, gemini],
-        router_config=RouterConfig(routing_mode=RoutingMode.COST_FIRST),
+        model_router=RoutingConfig(routing_mode=RoutingMode.COST_FIRST),
         system_prompt="You are helpful. Be concise.",
     )
 

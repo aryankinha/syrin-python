@@ -193,7 +193,8 @@ class ImageGenerator(metaclass=_ImageGeneratorMeta):
             model: Override default image_model (for per-call override).
             number_of_images: Override default (1–4).
             output_mime_type: Override default MIME type.
-            emit: Optional (hook_name, ctx) callback for lifecycle hooks.
+            emit: Optional (hook_name, ctx) callback. Standalone use only; when generation
+                runs via Agent tools, use agent.events.on(Hook.GENERATION_IMAGE_END, handler) instead.
             **kwargs: Passed to provider.
 
         Returns:
@@ -304,7 +305,8 @@ class VideoGenerator(metaclass=_VideoGeneratorMeta):
             model: Override default video_model (for per-call override).
             poll_interval_seconds: Override default poll interval.
             poll_timeout_seconds: Override default timeout.
-            emit: Optional (hook_name, ctx) callback for lifecycle hooks.
+            emit: Optional (hook_name, ctx) callback. Standalone use only; when generation
+                runs via Agent tools, use agent.events.on(Hook.GENERATION_VIDEO_END, handler) instead.
             **kwargs: Passed to provider.
 
         Returns:

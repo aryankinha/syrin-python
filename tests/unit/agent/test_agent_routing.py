@@ -7,7 +7,7 @@ import pytest
 from syrin import Agent
 from syrin.enums import Media
 from syrin.model import Model
-from syrin.router import RouterConfig, RoutingMode, TaskType, register_model_capabilities
+from syrin.router import RoutingConfig, RoutingMode, TaskType, register_model_capabilities
 from syrin.router.agent_integration import _profiles_from_models, build_router_from_models
 
 
@@ -122,16 +122,16 @@ class TestBuildRouterFromModels:
         assert router is not None
         assert len(router._profiles) == 2
 
-    def test_build_with_router_config_uses_explicit_router(self) -> None:
+    def test_build_with_model_router_uses_explicit_router(self) -> None:
         explicit = build_router_from_models([_almock()])
-        cfg = RouterConfig(router=explicit)
-        router = build_router_from_models([_almock(), _almock()], router_config=cfg)
+        cfg = RoutingConfig(router=explicit)
+        router = build_router_from_models([_almock(), _almock()], routing_config=cfg)
         assert router is explicit
 
-    def test_build_with_router_config_force_model(self) -> None:
+    def test_build_with_model_router_force_model(self) -> None:
         forced = _almock("forced")
-        cfg = RouterConfig(force_model=forced)
-        router = build_router_from_models([_almock()], router_config=cfg)
+        cfg = RoutingConfig(force_model=forced)
+        router = build_router_from_models([_almock()], routing_config=cfg)
         model, _, reason = router.route("hello")
         assert model is forced
         assert reason.reason == "Routing bypassed via force_model"
@@ -147,10 +147,10 @@ class TestAgentModelList:
         assert r.content
         assert r.model
 
-    def test_model_list_with_router_config(self) -> None:
+    def test_model_list_with_model_router(self) -> None:
         agent = Agent(
             model=[Model.Almock(), Model.Almock(latency_min=0, latency_max=0)],
-            router_config=RouterConfig(routing_mode=RoutingMode.COST_FIRST),
+            model_router=RoutingConfig(routing_mode=RoutingMode.COST_FIRST),
             system_prompt="Hi",
         )
         assert agent._router is not None
@@ -179,7 +179,7 @@ class TestAgentTaskOverride:
         router = ModelRouter(models=models_list)
         agent = Agent(
             model=models_list,
-            router_config=RouterConfig(router=router),
+            model_router=RoutingConfig(router=router),
             system_prompt="Hi",
         )
         r = agent.response("hello", task_type=TaskType.CODE)
@@ -195,7 +195,7 @@ class TestAgentResponseRoutingMetadata:
     def test_response_has_routing_reason_when_routing(self) -> None:
         agent = Agent(
             model=[Model.Almock(), Model.Almock()],
-            router_config=RouterConfig(routing_mode=RoutingMode.COST_FIRST),
+            model_router=RoutingConfig(routing_mode=RoutingMode.COST_FIRST),
             system_prompt="Hi",
         )
         r = agent.response("hello")

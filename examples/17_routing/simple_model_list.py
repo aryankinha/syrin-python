@@ -1,9 +1,9 @@
-"""Minimal Agent routing — model list + RouterConfig.
+"""Minimal Agent routing — model list + RoutingConfig.
 
 All models get GENERAL strength
 by default. Best for simple cost/quality trade-off, not task-specific routing.
 
-Features: model=[M1, M2, M3], RouterConfig(routing_mode=...).
+Features: model=[M1, M2, M3], RoutingConfig(routing_mode=...).
 
 Run: python -m examples.17_routing.simple_model_list
 Run with traces: python -m examples.17_routing.simple_model_list --trace
@@ -15,7 +15,7 @@ import sys
 
 from syrin import Agent
 from syrin.model import Model
-from syrin.router import RouterConfig, RoutingMode
+from syrin.router import RoutingConfig, RoutingMode
 
 
 def main() -> None:
@@ -28,7 +28,7 @@ def main() -> None:
     use_trace = "--trace" in sys.argv
     agent = Agent(
         model=models,
-        router_config=RouterConfig(routing_mode=RoutingMode.COST_FIRST),
+        model_router=RoutingConfig(routing_mode=RoutingMode.COST_FIRST),
         system_prompt="You are helpful.",
         debug=use_trace,
     )

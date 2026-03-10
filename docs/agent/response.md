@@ -36,7 +36,7 @@ print(response.model)     # Model ID used
 | `iterations` | `int` | Loop iterations |
 | `report` | `AgentReport` | Run metrics and sub-reports |
 
-**Routing metadata** — When using Agent with `model=[...]` and `router_config`, the response includes `routing_reason`, `model_used`, `task_type`, and `actual_cost` (when the provider reports it). See [Routing](../routing.md).
+**Routing metadata** — When using Agent with `model=[...]` and `model_router`, the response includes `routing_reason`, `model_used`, `task_type`, and `actual_cost` (when the provider reports it). See [Routing](../routing.md).
 
 ## String Conversion
 

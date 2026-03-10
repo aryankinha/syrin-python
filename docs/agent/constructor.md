@@ -21,7 +21,7 @@ Agent(
     guardrails=None,
     context=None,
     rate_limit=None,
-    router_config=None,            # When model is list; RouterConfig for routing
+    model_router=None,            # When model is list; RoutingConfig for routing
     checkpoint=None,
     debug=False,
     tracer=None,
@@ -50,14 +50,14 @@ agent = Agent(
 )
 # Or: Model.Anthropic("claude-sonnet-4-5"), Model.Ollama("llama3"), etc.
 
-# Multiple models + router_config for per-request routing
+# Multiple models + model_router for per-request routing
 agent = Agent(
     model=[Model.Anthropic(...), Model.OpenAI(...)],
-    router_config=RouterConfig(routing_mode=RoutingMode.AUTO),
+    model_router=RoutingConfig(routing_mode=RoutingMode.AUTO),
 )
 ```
 
-Must be provided on the class or at construction. Raises `TypeError` if missing. When `model` is a list, use `router_config` to enable routing. See [Routing](../routing.md).
+Must be provided on the class or at construction. Raises `TypeError` if missing. When `model` is a list, use `model_router` to enable routing. See [Routing](../routing.md).
 
 ---
 
@@ -339,19 +339,19 @@ See [Rate Limiting](rate-limiting.md).
 
 ---
 
-### `router_config`
+### `model_router`
 
 Routing configuration when `model` is a list. Enables per-request model selection by task, cost, and modality.
 
-**Type:** `RouterConfig | None`  
+**Type:** `RoutingConfig | None`  
 **Default:** `None`
 
 ```python
-from syrin.router import RouterConfig, RoutingMode
+from syrin.router import RoutingConfig, RoutingMode
 
 agent = Agent(
     model=[claude, gpt],
-    router_config=RouterConfig(
+    model_router=RoutingConfig(
         routing_mode=RoutingMode.AUTO,
         budget_optimisation=True,
     ),

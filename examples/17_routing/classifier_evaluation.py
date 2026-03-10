@@ -192,7 +192,7 @@ def main() -> None:
   Developer optimization:
   - Custom examples: PromptClassifier(examples={TaskType.CODE: [...]})
   - min_confidence + low_confidence_fallback
-  - RouterConfig: routing_mode, budget thresholds
+  - RoutingConfig: routing_mode, budget thresholds
   - routing_rule_callback for manual overrides
   - Production: enable_cache=True, classify_extended(prompt, system_prompt)
 """)

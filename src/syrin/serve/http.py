@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from syrin.serve.config import ServeConfig
 
 
-def _add_startup_endpoint_logging(app: Any) -> None:
+def _add_startup_endpoint_logging(app: Any, config: ServeConfig | None = None) -> None:
     """Add startup event that prints endpoints with methods."""
 
     @app.on_event("startup")  # type: ignore[untyped-decorator]
@@ -28,6 +28,13 @@ def _add_startup_endpoint_logging(app: Any) -> None:
                 if "/mcp" in (route.path or ""):
                     has_mcp = True
         print("\n".join(lines) + "\n", flush=True)
+        if config is not None and config.protocol.value == "http":
+            import logging
+
+            logging.getLogger("syrin.serve").warning(
+                "Serving agent without authentication. Add auth middleware for production. "
+                "See docs: https://syrin.dev/docs/serving#auth"
+            )
         if has_mcp:
             import sys
 
@@ -101,11 +108,26 @@ def build_router(
     def _route(path: str) -> str:
         return f"{prefix}{path}" if prefix else path
 
+    def _message_length(msg: str | list[dict[str, Any]]) -> int:
+        """Total character length of message (str or sum of content parts)."""
+        if isinstance(msg, str):
+            return len(msg)
+        total = 0
+        for p in msg:
+            if isinstance(p, dict):
+                if "text" in p and isinstance(p["text"], str):
+                    total += len(p["text"])
+                if "image_url" in p and isinstance(p["image_url"], dict):
+                    url = p["image_url"].get("url", "")
+                    total += len(url) if isinstance(url, str) else 0
+        return total
+
     def _chat_body(r: dict[str, Any]) -> tuple[str | list[dict[str, Any]], str | None]:
         """Extract message (str or multimodal content parts) and conversation_id."""
         message = r.get("message") or r.get("input") or r.get("content")
         if isinstance(message, str):
-            return message.strip(), r.get("conversation_id")
+            msg = message.strip()
+            return msg, r.get("conversation_id")
         if isinstance(message, list) and all(isinstance(p, dict) for p in message):
             return message, r.get("conversation_id")
         return "", None
@@ -116,6 +138,8 @@ def build_router(
 
         _attach_event_collector(agent)
 
+    max_len = config.max_message_length
+
     @router.post(_route("/chat"))
     async def chat(body: dict[str, Any] | None = Body(default=None)) -> Any:  # noqa: B008
         """Run agent and return full response. POST body: {message: str}."""
@@ -124,6 +148,14 @@ def build_router(
             return JSONResponse(
                 status_code=400,
                 content={"error": "Missing 'message', 'input', or 'content' in body"},
+            )
+        if _message_length(msg) > max_len:
+            return JSONResponse(
+                status_code=413,
+                content={
+                    "error": f"Message exceeds {max_len} characters. "
+                    "Reduce message size or increase max_message_length in ServeConfig."
+                },
             )
         start = time.perf_counter()
         try:
@@ -171,6 +203,14 @@ def build_router(
             return JSONResponse(
                 status_code=400,
                 content={"error": "Missing 'message', 'input', or 'content' in body"},
+            )
+        if _message_length(msg) > max_len:
+            return JSONResponse(
+                status_code=413,
+                content={
+                    "error": f"Message exceeds {max_len} characters. "
+                    "Reduce message size or increase max_message_length in ServeConfig."
+                },
             )
 
         def _emit(d: dict[str, Any]) -> str:
@@ -704,5 +744,5 @@ def create_http_app(
         prefix = (config.route_prefix or "").strip().rstrip("/")
         mount_path = f"/{prefix}/playground" if prefix else "/playground"
         add_playground_static_mount(app, mount_path)
-    _add_startup_endpoint_logging(app)
+    _add_startup_endpoint_logging(app, config)
     return app

@@ -17,7 +17,7 @@ class OpenRouterBuilder:
         builder = OpenRouterBuilder(api_key="sk-or-...")
         claude = builder.model("anthropic/claude-sonnet-4-5")
         gpt = builder.model("openai/gpt-4o-mini")
-        agent = Agent(model=[claude, gpt], router_config=RouterConfig(...))
+        agent = Agent(model=[claude, gpt], model_router=RoutingConfig(...))
     """
 
     def __init__(self, api_key: str) -> None:

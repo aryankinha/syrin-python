@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -11,16 +12,21 @@ from syrin.enums import MemoryScope, MemoryType
 
 logger = logging.getLogger(__name__)
 
+# Valid PostgreSQL identifier: letter/underscore followed by alphanumeric/underscore
+_TABLE_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
 if TYPE_CHECKING:
     import psycopg2
 
 try:
     import psycopg2
+    from psycopg2 import sql
 
     POSTGRES_AVAILABLE = True
 except ImportError:
     POSTGRES_AVAILABLE = False
     psycopg2 = None
+    sql = None
 
 from syrin.memory.config import MemoryEntry
 
@@ -65,6 +71,11 @@ class PostgresBackend:
             raise ImportError(
                 "psycopg2-binary is not installed. Install with: pip install psycopg2-binary"
             )
+        if not _TABLE_NAME_RE.match(table):
+            raise ValueError(
+                f"Invalid table name {table!r}. "
+                "Must match ^[a-zA-Z_][a-zA-Z0-9_]*$ (valid PostgreSQL identifier)."
+            )
 
         self._host = host
         self._port = port
@@ -84,48 +95,50 @@ class PostgresBackend:
         self._conn.autocommit = True
         self._create_table()
 
+    def _table_ident(self) -> Any:
+        """Return sql.Identifier for the table. Safe against SQL injection."""
+        return sql.Identifier(self._table)
+
     def _create_table(self) -> None:
         """Create the memories table if it doesn't exist."""
         if self._vector_size > 0:
-            # Try to enable pgvector
             try:
                 self._conn.cursor().execute("CREATE EXTENSION IF NOT EXISTS vector")
             except Exception:
                 logger.warning("pgvector not available, vector search disabled")
 
-        # Create table
-        vector_col = f"embedding vector({self._vector_size})," if self._vector_size > 0 else ""
-
-        self._conn.cursor().execute(f"""
-            CREATE TABLE IF NOT EXISTS {self._table} (
-                id TEXT PRIMARY KEY,
-                content TEXT NOT NULL,
-                type TEXT NOT NULL,
-                importance REAL DEFAULT 1.0,
-                scope TEXT DEFAULT 'user',
-                source TEXT,
-                created_at TIMESTAMP NOT NULL,
-                last_accessed TIMESTAMP,
-                access_count INTEGER DEFAULT 0,
-                valid_from TIMESTAMP,
-                valid_until TIMESTAMP,
-                keywords TEXT DEFAULT '[]',
-                related_ids TEXT DEFAULT '[]',
-                supersedes TEXT,
-                metadata TEXT DEFAULT '{{}}',
-                {vector_col}
-                importance_idx REAL GENERATED ALWAYS AS (importance) STORED
-            )
-        """)
+        vector_part = f"embedding vector({self._vector_size})," if self._vector_size > 0 else ""
+        columns = (
+            "id TEXT PRIMARY KEY, content TEXT NOT NULL, type TEXT NOT NULL, "
+            "importance REAL DEFAULT 1.0, scope TEXT DEFAULT 'user', source TEXT, "
+            "created_at TIMESTAMP NOT NULL, last_accessed TIMESTAMP, "
+            "access_count INTEGER DEFAULT 0, valid_from TIMESTAMP, valid_until TIMESTAMP, "
+            "keywords TEXT DEFAULT '[]', related_ids TEXT DEFAULT '[]', supersedes TEXT, "
+            "metadata TEXT DEFAULT '{}', "
+            f"{vector_part} "
+            "importance_idx REAL GENERATED ALWAYS AS (importance) STORED"
+        )
+        cursor = self._conn.cursor()
+        cursor.execute(
+            sql.SQL("CREATE TABLE IF NOT EXISTS {} (" + columns + ")").format(self._table_ident())
+        )
         self._conn.commit()
 
-        # Create indexes
-        self._conn.cursor().execute(f"""
-            CREATE INDEX IF NOT EXISTS idx_{self._table}_type ON {self._table}(type)
-        """)
-        self._conn.cursor().execute(f"""
-            CREATE INDEX IF NOT EXISTS idx_{self._table}_importance ON {self._table}(importance_idx)
-        """)
+        idx_type_name = f"idx_{self._table}_type"
+        idx_importance_name = f"idx_{self._table}_importance"
+        cursor.execute(
+            sql.SQL("CREATE INDEX IF NOT EXISTS {} ON {} (type)").format(
+                sql.Identifier(idx_type_name),
+                self._table_ident(),
+            )
+        )
+        cursor.execute(
+            sql.SQL("CREATE INDEX IF NOT EXISTS {} ON {} (importance_idx)").format(
+                sql.Identifier(idx_importance_name),
+                self._table_ident(),
+            )
+        )
+        self._conn.commit()
 
     def _row_to_entry(self, row: tuple[Any, ...]) -> MemoryEntry:
         """Convert a database row to a MemoryEntry.
@@ -157,17 +170,15 @@ class PostgresBackend:
         """Add a memory to PostgreSQL."""
         cursor = self._conn.cursor()
         cursor.execute(
-            f"""
-            INSERT INTO {self._table}
-            (id, content, type, importance, scope, source, created_at, last_accessed,
-             access_count, valid_from, valid_until, keywords, related_ids, supersedes, metadata)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (id) DO UPDATE SET
-                content = EXCLUDED.content,
-                importance = EXCLUDED.importance,
-                access_count = EXCLUDED.access_count,
-                last_accessed = EXCLUDED.last_accessed
-            """,
+            sql.SQL(
+                "INSERT INTO {} (id, content, type, importance, scope, source, "
+                "created_at, last_accessed, access_count, valid_from, valid_until, "
+                "keywords, related_ids, supersedes, metadata) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                "ON CONFLICT (id) DO UPDATE SET "
+                "content = EXCLUDED.content, importance = EXCLUDED.importance, "
+                "access_count = EXCLUDED.access_count, last_accessed = EXCLUDED.last_accessed"
+            ).format(self._table_ident()),
             (
                 memory.id,
                 memory.content,
@@ -192,7 +203,7 @@ class PostgresBackend:
         """Get a memory by ID."""
         cursor = self._conn.cursor()
         cursor.execute(
-            f"SELECT * FROM {self._table} WHERE id = %s",
+            sql.SQL("SELECT * FROM {} WHERE id = %s").format(self._table_ident()),
             (memory_id,),
         )
         row = cursor.fetchone()
@@ -206,18 +217,19 @@ class PostgresBackend:
     ) -> list[MemoryEntry]:
         """Search memories by content (simple text search)."""
         cursor = self._conn.cursor()
-
-        sql = f"SELECT * FROM {self._table} WHERE content LIKE %s"
         params: list[Any] = [f"%{query}%"]
-
         if memory_type:
-            sql += " AND type = %s"
-            params.append(memory_type.value)
-
-        sql += " ORDER BY importance DESC LIMIT %s"
-        params.append(top_k)
-
-        cursor.execute(sql, params)
+            q = sql.SQL(
+                "SELECT * FROM {} WHERE content LIKE %s AND type = %s "
+                "ORDER BY importance DESC LIMIT %s"
+            ).format(self._table_ident())
+            params.extend([memory_type.value, top_k])
+        else:
+            q = sql.SQL(
+                "SELECT * FROM {} WHERE content LIKE %s ORDER BY importance DESC LIMIT %s"
+            ).format(self._table_ident())
+            params.append(top_k)
+        cursor.execute(q, params)
         return [self._row_to_entry(row) for row in cursor.fetchall()]
 
     def list(
@@ -228,24 +240,25 @@ class PostgresBackend:
     ) -> list[MemoryEntry]:
         """List all memories."""
         cursor = self._conn.cursor()
-
-        conditions = []
-        params = []
-
+        conditions: list[str] = []
+        params: list[Any] = []
         if memory_type:
             conditions.append("type = %s")
             params.append(memory_type.value)
         if scope:
             conditions.append("scope = %s")
             params.append(scope.value)
-
-        sql = f"SELECT * FROM {self._table}"
+        params.append(limit)
         if conditions:
-            sql += " WHERE " + " AND ".join(conditions)
-
-        sql += f" ORDER BY importance DESC LIMIT {limit}"
-
-        cursor.execute(sql, params)
+            where = " WHERE " + " AND ".join(conditions)
+            q = sql.SQL("SELECT * FROM {}" + where + " ORDER BY importance DESC LIMIT %s").format(
+                self._table_ident()
+            )
+        else:
+            q = sql.SQL("SELECT * FROM {} ORDER BY importance DESC LIMIT %s").format(
+                self._table_ident()
+            )
+        cursor.execute(q, params)
         return [self._row_to_entry(row) for row in cursor.fetchall()]
 
     def update(self, memory: MemoryEntry) -> None:
@@ -255,13 +268,16 @@ class PostgresBackend:
     def delete(self, memory_id: str) -> None:
         """Delete a memory by ID."""
         cursor = self._conn.cursor()
-        cursor.execute(f"DELETE FROM {self._table} WHERE id = %s", (memory_id,))
+        cursor.execute(
+            sql.SQL("DELETE FROM {} WHERE id = %s").format(self._table_ident()),
+            (memory_id,),
+        )
         self._conn.commit()
 
     def clear(self) -> None:
         """Clear all memories."""
         cursor = self._conn.cursor()
-        cursor.execute(f"DELETE FROM {self._table}")
+        cursor.execute(sql.SQL("DELETE FROM {}").format(self._table_ident()))
         self._conn.commit()
 
     def close(self) -> None:

@@ -1,6 +1,6 @@
 """Vision routing: router picks vision-capable model when message contains images.
 
-Use a model list + RouterConfig with one text-only profile and one profile that
+Use a model list + RoutingConfig with one text-only profile and one profile that
 has input_media={Media.TEXT, Media.IMAGE}. ModalityDetector.detect(messages)
 returns set[Media]; the router filters profiles by input_media. So when the user
 sends content parts with an image, the vision profile is selected.
@@ -28,7 +28,7 @@ from syrin.enums import Media
 from syrin.multimodal import file_to_message
 from syrin.router import (
     ModelRouter,
-    RouterConfig,
+    RoutingConfig,
     RoutingMode,
     TaskType,
 )
@@ -78,7 +78,7 @@ def main() -> None:
     router = ModelRouter(models=models_list, routing_mode=RoutingMode.AUTO)
     agent = Agent(
         model=models_list,
-        router_config=RouterConfig(router=router),
+        model_router=RoutingConfig(router=router),
         system_prompt="You are helpful. Describe images when given one.",
         input_media={Media.TEXT, Media.IMAGE},
     )

@@ -16,16 +16,12 @@ _log = logging.getLogger(__name__)
 
 warnings.filterwarnings("ignore", message=".*Event loop is closed.*")
 
-_default_loop: asyncio.AbstractEventLoop | None = None
-
 
 def _get_event_loop() -> asyncio.AbstractEventLoop:
-    """Get or create a persistent event loop to avoid 'Event loop is closed' errors."""
-    global _default_loop
-    if _default_loop is None or _default_loop.is_closed():
-        _default_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(_default_loop)
-    return _default_loop
+    """Get event loop for sync wrappers. Uses shared loop manager (no set_event_loop)."""
+    from syrin._loop import get_loop
+
+    return get_loop()
 
 
 class Provider(ABC):
@@ -70,8 +66,12 @@ class Provider(ABC):
             return result
         except RuntimeError as e:
             if "Event loop is closed" in str(e):
-                _log.debug("Async cleanup warning (non-fatal): %s", e)
-                return None
+                from syrin.exceptions import SyrinError
+
+                raise SyrinError(
+                    "Event loop closed unexpectedly. This usually happens during shutdown. "
+                    "If using syrin in an async framework, use await agent.arun() instead."
+                ) from e
             raise
         except asyncio.CancelledError:
             return None

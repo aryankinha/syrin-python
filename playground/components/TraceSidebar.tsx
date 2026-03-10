@@ -157,11 +157,7 @@ function ExpandableText({
   );
 }
 
-function formatCtxValue(
-  key: string,
-  val: unknown,
-  hook: string
-): React.ReactNode {
+function formatCtxValue(key: string, val: unknown, hook: string): React.ReactNode {
   if (val == null) return <span className="trace-event-val">{String(val)}</span>;
 
   // Generation results: show cost summary, avoid huge base64
@@ -194,7 +190,9 @@ function formatCtxValue(
     const kind = String(val).startsWith("data:video") ? "video" : "image";
     return (
       <span className="trace-event-val">
-        <code className="trace-event-data-placeholder">[{kind} data, {String(val).length} chars]</code>
+        <code className="trace-event-data-placeholder">
+          [{kind} data, {String(val).length} chars]
+        </code>
       </span>
     );
   }
@@ -203,13 +201,7 @@ function formatCtxValue(
   if (typeof val === "string" && val.startsWith("data:image") && val.length <= 2000) {
     return (
       <span className="trace-event-val">
-        <img
-          src={val}
-          alt=""
-          className="trace-event-img-preview"
-          width={80}
-          height={80}
-        />
+        <img src={val} alt="" className="trace-event-img-preview" width={80} height={80} />
         <code>{val.length > MAX_DATA_PREVIEW ? val.slice(0, MAX_DATA_PREVIEW) + "…" : val}</code>
       </span>
     );
@@ -263,13 +255,7 @@ function CopyButton({
   );
 }
 
-function EventCard({
-  hook,
-  ctx,
-}: {
-  hook: string;
-  ctx: Record<string, unknown>;
-}) {
+function EventCard({ hook, ctx }: { hook: string; ctx: Record<string, unknown> }) {
   const label = formatHookLabel(hook, ctx);
   const keys = Object.keys(ctx).filter(
     (k) => !["tokens", "token_usage"].includes(k) && ctx[k] != null

@@ -72,7 +72,7 @@ The playground sends `message` as either a string or a list of content parts. Th
 
 ### Routing and vision
 
-When you use a **model list and RouterConfig**, the router’s **ModalityDetector** inspects messages and can route to a vision-capable profile when content includes images. Ensure at least one Model has `input_media={Media.TEXT, Media.IMAGE}` (and optionally `TaskType.VISION` in strengths). See [Routing — ModalityDetector](routing.md#modalitydetector).
+When you use a **model list and RoutingConfig**, the router’s **ModalityDetector** inspects messages and can route to a vision-capable profile when content includes images. Ensure at least one Model has `input_media={Media.TEXT, Media.IMAGE}` (and optionally `TaskType.VISION` in strengths). See [Routing — ModalityDetector](routing.md#modalitydetector).
 
 ---
 

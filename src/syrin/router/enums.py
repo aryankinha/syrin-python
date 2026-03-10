@@ -6,15 +6,18 @@ from enum import StrEnum
 
 
 class TaskType(StrEnum):
-    """Detected task type for model routing. Used by PromptClassifier and ModelRouter.
+    """Task type for model routing. Used by PromptClassifier and ModelRouter.
+
+    Note: IMAGE_GENERATION and VIDEO_GENERATION are output intents (what the user
+    wants to create), not input classifications. Other values classify input.
 
     Attributes:
         CODE: Code generation, debugging, review, implementation.
         GENERAL: General conversation, Q&A, chitchat.
         VISION: Image understanding, OCR, image description (input).
-        IMAGE_GENERATION: Create, draw, or generate an image (output).
+        IMAGE_GENERATION: Output intent — create or generate an image.
         VIDEO: Video analysis, transcription (input).
-        VIDEO_GENERATION: Create or generate a video (output).
+        VIDEO_GENERATION: Output intent — create or generate a video.
         PLANNING: Complex reasoning, task decomposition, strategy.
         REASONING: Math, logic, analytical reasoning.
         CREATIVE: Writing, brainstorming, creative content.

@@ -48,11 +48,23 @@ _PROVIDER_PATTERNS = [
 ]
 
 
+_ALLOWED_ENV_PREFIXES = ("OPENAI_", "ANTHROPIC_", "GOOGLE_", "SYRIN_", "LITELLM_", "HUGGINGFACE_")
+
+
 def _resolve_env_var(value: str) -> str:
-    """Resolve $VAR or ${VAR} to environment variable if present."""
+    """Resolve $VAR or ${VAR} to environment variable if present.
+
+    Only resolves env vars with allowed prefixes to prevent arbitrary env leakage.
+    """
     if not value or value[0] != "$":
         return value
     name = value[1:].strip("{}")
+    if not any(name.startswith(p) for p in _ALLOWED_ENV_PREFIXES):
+        raise ValueError(
+            f"Environment variable {name!r} not in allowed prefixes: "
+            f"{_ALLOWED_ENV_PREFIXES}. Use a supported provider prefix or resolve the "
+            "value yourself."
+        )
     return os.environ.get(name, value)
 
 
@@ -69,6 +81,25 @@ def detect_provider(model_id: str) -> str:
 
 
 _detect_provider = detect_provider  # Internal alias for backward compatibility
+
+
+class _Secret:
+    """Wrapper for sensitive values. Prevents accidental display in repr/str."""
+
+    __slots__ = ("_value",)
+
+    def __init__(self, value: str) -> None:
+        self._value = value
+
+    def __repr__(self) -> str:
+        return "***"
+
+    def __str__(self) -> str:
+        return "***"
+
+    def get(self) -> str:
+        """Return the underlying value."""
+        return self._value
 
 
 class ModelVersion:
@@ -817,7 +848,7 @@ class Model:
         self._description = description
         self._version = version or ModelVersion(1, 0, 0)
 
-        self._api_key = api_key
+        self._api_key: _Secret | None = _Secret(api_key) if api_key else None
         self._api_base = api_base
 
         # Handle pricing
@@ -1015,7 +1046,7 @@ class Model:
 
         Pass when creating the model, e.g. ``api_key=os.getenv("OPENAI_API_KEY")``.
         """
-        return self._api_key
+        return self._api_key.get() if self._api_key else None
 
     @property
     def strengths(self) -> list[TaskType] | None:
@@ -1053,7 +1084,7 @@ class Model:
             name=self._name,
             provider=self._provider,
             model_id=self._model_id,
-            api_key=self._api_key,
+            api_key=self.api_key,
             base_url=self._api_base,
             output=self._output_type,
         )
@@ -1092,7 +1123,7 @@ class Model:
             top_p=top_p if top_p is not None else self._settings.top_p,
             top_k=top_k if top_k is not None else self._settings.top_k,
             stop=stop if stop is not None else self._settings.stop,
-            api_key=self._api_key,
+            api_key=self.api_key,
             api_base=self._api_base,
             context_window=context_window
             if context_window is not None
@@ -1137,7 +1168,7 @@ class Model:
             top_p=self._settings.top_p,
             top_k=self._settings.top_k,
             stop=self._settings.stop,
-            api_key=self._api_key,
+            api_key=self.api_key,
             api_base=self._api_base,
             context_window=self._settings.context_window,
             pricing=self._pricing,
@@ -1179,7 +1210,7 @@ class Model:
             top_p=self._settings.top_p,
             top_k=self._settings.top_k,
             stop=self._settings.stop,
-            api_key=self._api_key,
+            api_key=self.api_key,
             api_base=self._api_base,
             context_window=self._settings.context_window,
             pricing=self._pricing,
@@ -1229,7 +1260,7 @@ class Model:
             top_p=self._settings.top_p,
             top_k=self._settings.top_k,
             stop=self._settings.stop,
-            api_key=self._api_key,
+            api_key=self.api_key,
             api_base=self._api_base,
             context_window=self._settings.context_window,
             pricing=self._pricing,

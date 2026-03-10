@@ -3,11 +3,30 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel, Field
 
 from syrin.enums import MessageRole
+from syrin.tool import ToolSpec
+
+
+# TypedDicts for message content parts (extensible)
+class TextPart(TypedDict):
+    """Text content part."""
+
+    type: Literal["text"]
+    text: str
+
+
+class ImageUrlPart(TypedDict):
+    """Image URL content part."""
+
+    type: Literal["image_url"]
+    image_url: dict[str, str]
+
+
+ContentPart = TextPart | ImageUrlPart | dict[str, Any]
 
 # Multimodal input: plain text or list of content parts (e.g. OpenAI/Anthropic format).
 MultimodalInput = str | list[dict[str, Any]]
@@ -206,7 +225,7 @@ class AgentConfig(BaseModel):
         default="",
         description="System instructions. Sets agent personality and constraints.",
     )
-    tools: list[object] = Field(
+    tools: list[ToolSpec] = Field(
         default_factory=list,
         description="Tools the agent can call (ToolSpec from syrin.tool). Empty = no tools.",
     )

@@ -11,7 +11,7 @@ from syrin.enums import Media
 from syrin.model import Model
 from syrin.router import (
     ModelRouter,
-    RouterConfig,
+    RoutingConfig,
     RoutingMode,
     TaskType,
 )
@@ -46,7 +46,7 @@ def main() -> None:
     router = ModelRouter(models=models_list, routing_mode=RoutingMode.AUTO)
     agent = Agent(
         model=models_list,
-        router_config=RouterConfig(router=router),
+        model_router=RoutingConfig(router=router),
         system_prompt="You are helpful.",
     )
 

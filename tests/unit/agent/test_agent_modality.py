@@ -7,7 +7,7 @@ import pytest
 from syrin import Agent, Model
 from syrin.enums import Media
 from syrin.exceptions import ModalityNotSupportedError
-from syrin.router import ModelRouter, RouterConfig, TaskType
+from syrin.router import ModelRouter, RoutingConfig, TaskType
 
 
 class TestAgentMediaValidation:
@@ -38,7 +38,7 @@ class TestAgentMediaValidation:
         agent = Agent(
             model=[m],
             system_prompt="Hi",
-            router_config=RouterConfig(router=router),
+            model_router=RoutingConfig(router=router),
             input_media={Media.TEXT},
         )
         assert agent._router is not None
@@ -56,7 +56,7 @@ class TestAgentMediaValidation:
         agent = Agent(
             model=[m],
             system_prompt="Hi",
-            router_config=RouterConfig(router=router),
+            model_router=RoutingConfig(router=router),
             input_media={Media.TEXT, Media.IMAGE},
         )
         assert agent._router is not None
@@ -75,7 +75,7 @@ class TestAgentMediaValidation:
             Agent(
                 model=[m],
                 system_prompt="Hi",
-                router_config=RouterConfig(router=router),
+                model_router=RoutingConfig(router=router),
                 input_media={Media.IMAGE},
             )
 
@@ -93,7 +93,7 @@ class TestAgentMediaValidation:
             Agent(
                 model=[m],
                 system_prompt="Hi",
-                router_config=RouterConfig(router=router),
+                model_router=RoutingConfig(router=router),
                 output_media={Media.IMAGE},
             )
 
@@ -110,7 +110,7 @@ class TestAgentMediaValidation:
         agent = Agent(
             model=[m],
             system_prompt="Hi",
-            router_config=RouterConfig(router=router),
+            model_router=RoutingConfig(router=router),
         )
         assert agent._router is not None
         assert agent._input_media == {Media.TEXT}
@@ -129,7 +129,7 @@ class TestAgentMediaValidation:
         agent = Agent(
             model=[m],
             system_prompt="Hi",
-            router_config=RouterConfig(router=router),
+            model_router=RoutingConfig(router=router),
             input_media=None,
         )
         assert agent._router is not None

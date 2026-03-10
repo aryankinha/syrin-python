@@ -49,6 +49,19 @@ def test_prompt_metadata() -> None:
     assert expert_prompt.variables[0].type_hint is str
 
 
+def test_prompt_string_annotations_safe_types() -> None:
+    """String annotations str, int, float, bool resolved via safe dict (no eval)."""
+
+    @prompt
+    def typed_prompt(a: str, b: int, c: float, d: bool) -> str:
+        return f"{a} {b} {c} {d}"
+
+    assert typed_prompt.variables[0].type_hint is str
+    assert typed_prompt.variables[1].type_hint is int
+    assert typed_prompt.variables[2].type_hint is float
+    assert typed_prompt.variables[3].type_hint is bool
+
+
 def test_prompt_validation() -> None:
     """Test prompt parameter validation."""
 

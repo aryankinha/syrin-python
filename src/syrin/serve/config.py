@@ -53,6 +53,8 @@ class ServeConfig:
             a simple chat UI for testing. Requires debug=True for event collection.
         enable_discovery: Serve /.well-known/agent-card.json for discovery. None = auto
             (on when agent has name). Set False to disable.
+        max_message_length: Max characters for chat message body. Rejects with 413 if
+            exceeded. Default 100_000 (~25K tokens). Prevents DoS via oversized payloads.
     """
 
     protocol: ServeProtocol = ServeProtocol.HTTP
@@ -64,3 +66,4 @@ class ServeConfig:
     debug: bool = False
     enable_playground: bool = False
     enable_discovery: bool | None = None
+    max_message_length: int = 100_000

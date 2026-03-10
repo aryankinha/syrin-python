@@ -8,7 +8,7 @@ from syrin.router.classifier import (
     EmbeddingClassifier,
     PromptClassifier,
 )
-from syrin.router.config import RouterConfig
+from syrin.router.config import RoutingConfig
 from syrin.router.defaults import get_default_profiles
 from syrin.router.enums import ComplexityTier, RoutingMode, TaskType
 from syrin.router.modality import ModalityDetector
@@ -27,7 +27,7 @@ __all__ = [
     "ModalityDetector",
     "register_model_capabilities",
     "PromptClassifier",
-    "RouterConfig",
+    "RoutingConfig",
     "RoutingMode",
     "RoutingReason",
     "TaskType",

@@ -68,7 +68,12 @@ export function ImageViewerModal({
       >
         <div className="image-viewer-toolbar">
           <div className="image-viewer-zoom">
-            <button type="button" onClick={zoomOut} aria-label="Zoom out" disabled={zoom <= ZOOM_MIN}>
+            <button
+              type="button"
+              onClick={zoomOut}
+              aria-label="Zoom out"
+              disabled={zoom <= ZOOM_MIN}
+            >
               −
             </button>
             <span className="image-viewer-zoom-val">{Math.round(zoom * 100)}%</span>
@@ -86,12 +91,7 @@ export function ImageViewerModal({
           </div>
         </div>
         <div className="image-viewer-content" onClick={(e) => e.stopPropagation()}>
-          <img
-            src={src}
-            alt=""
-            style={{ transform: `scale(${zoom})` }}
-            draggable={false}
-          />
+          <img src={src} alt="" style={{ transform: `scale(${zoom})` }} draggable={false} />
         </div>
       </div>
     </>

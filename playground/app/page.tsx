@@ -74,8 +74,7 @@ export default function PlaygroundPage() {
       const parts: object[] = [];
       if (text) parts.push({ type: "text", text });
       for (const a of atts) {
-        if (a.type === "image")
-          parts.push({ type: "image_url", image_url: { url: a.url } });
+        if (a.type === "image") parts.push({ type: "image_url", image_url: { url: a.url } });
         else parts.push({ type: "text", text: `[File: ${a.contentType || "file"}]` });
       }
       return parts;
@@ -226,7 +225,17 @@ export default function PlaygroundPage() {
     } finally {
       setSending(false);
     }
-  }, [input, attachments, config, sending, streamUrl, buildMessageBody, refreshBudget, updateFromStream, showTrace]);
+  }, [
+    input,
+    attachments,
+    config,
+    sending,
+    streamUrl,
+    buildMessageBody,
+    refreshBudget,
+    updateFromStream,
+    showTrace,
+  ]);
 
   const closeTraceSidebar = useCallback(() => setTraceSidebar(null), []);
   const [agentModalOpen, setAgentModalOpen] = useState(false);
