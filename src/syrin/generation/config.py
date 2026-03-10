@@ -23,8 +23,12 @@ from dataclasses import dataclass
 # Avoid circular import; protocols are used for type hints only
 from typing import TYPE_CHECKING, Any, cast
 
-from syrin.enums import AspectRatio, Hook, OutputMimeType
-from syrin.generation._protocols import ImageGenerationProvider, VideoGenerationProvider
+from syrin.enums import AspectRatio, Hook, OutputMimeType, VoiceOutputFormat
+from syrin.generation._protocols import (
+    ImageGenerationProvider,
+    VideoGenerationProvider,
+    VoiceGenerationProvider,
+)
 from syrin.generation._result import GenerationResult
 
 if TYPE_CHECKING:
@@ -89,6 +93,50 @@ def _video_provider_factory(provider_name: str) -> Callable[..., VideoGenerator]
     return _create
 
 
+def _voice_provider_factory(provider_name: str) -> Callable[..., VoiceGenerator]:
+    """Return a callable that creates VoiceGenerator with the given provider."""
+
+    def _create(
+        *,
+        api_key: str | None = None,
+        voice_id: str | None = None,
+        voice_model: str | None = None,
+        speed: float = 1.0,
+        language: str = "en",
+        output_format: VoiceOutputFormat | str = VoiceOutputFormat.MP3,
+        **kwargs: Any,
+    ) -> VoiceGenerator:
+        from syrin.generation._registry import get_voice_provider
+
+        prov = get_voice_provider(provider_name, api_key=api_key, **kwargs)
+        _default_model = "default"
+        if provider_name == "openai":
+            _default_model = "tts-1"
+        elif provider_name == "elevenlabs":
+            _default_model = "eleven_flash_v2_5"
+        elif provider_name == "deepgram":
+            _default_model = "aura-asteria-en"
+        elif provider_name == "cartesia":
+            _default_model = "sonic-3"
+        elif provider_name == "sarvam":
+            _default_model = "bulbul:v3"
+        fmt = (
+            output_format.value
+            if isinstance(output_format, VoiceOutputFormat)
+            else str(output_format)
+        )
+        return VoiceGenerator(
+            provider=prov,
+            voice_model=voice_model or _default_model,
+            voice_id=voice_id or "default",
+            speed=speed,
+            language=language,
+            output_format=fmt,
+        )
+
+    return _create
+
+
 class _ImageGeneratorMeta(type):
     """Metaclass for dynamic provider namespaces: ImageGenerator.Leonardo() when registered."""
 
@@ -116,6 +164,21 @@ class _VideoGeneratorMeta(type):
         raise AttributeError(
             f"type object {cls.__name__!r} has no attribute {name!r}. "
             f"Register with register_video_provider({provider_name!r}, YourProvider) to use {cls.__name__}.{name}()"
+        )
+
+
+class _VoiceGeneratorMeta(type):
+    """Metaclass for dynamic provider namespaces: VoiceGenerator.ElevenLabs() when registered."""
+
+    def __getattr__(cls, name: str) -> Any:
+        from syrin.generation._registry import is_voice_provider_registered
+
+        provider_name = name.lower()
+        if is_voice_provider_registered(provider_name):
+            return _voice_provider_factory(provider_name)
+        raise AttributeError(
+            f"type object {cls.__name__!r} has no attribute {name!r}. "
+            f"Register with register_voice_provider({provider_name!r}, YourProvider) to use {cls.__name__}.{name}()"
         )
 
 
@@ -397,3 +460,150 @@ class VideoGenerator(metaclass=_VideoGeneratorMeta):
             if emit:
                 emit(Hook.GENERATION_VIDEO_ERROR, {**ctx, "error": str(e)})
             return GenerationResult(success=False, error=str(e))
+
+
+@dataclass
+class VoiceGenerator(metaclass=_VoiceGeneratorMeta):
+    """Declarative voice generation. Configure once, call generate(text).
+
+    Example::
+
+        gen = VoiceGenerator.OpenAI(api_key="...")
+        gen = VoiceGenerator.ElevenLabs(api_key="...")
+        result = gen.generate("Hello, how can I help you?")
+
+    Attributes:
+        provider: Backend that implements VoiceGenerationProvider.
+        voice_model: Voice model ID (e.g. tts-1, eleven_flash_v2_5).
+        voice_id: Voice identifier (provider-specific).
+        speed: Speech rate.
+        language: Language code.
+        output_format: Output format (mp3, wav, etc.).
+    """
+
+    provider: VoiceGenerationProvider
+    voice_model: str = "default"
+    voice_id: str = "default"
+    speed: float = 1.0
+    language: str = "en"
+    output_format: str = "mp3"
+
+    @classmethod
+    def from_provider(
+        cls,
+        name: str,
+        *,
+        api_key: str | None = None,
+        voice_id: str | None = None,
+        voice_model: str | None = None,
+        speed: float = 1.0,
+        language: str = "en",
+        output_format: str | VoiceOutputFormat = "mp3",
+        **kwargs: Any,
+    ) -> VoiceGenerator:
+        """Create VoiceGenerator from a registered provider by name."""
+        result: VoiceGenerator = _voice_provider_factory(name.lower())(
+            api_key=api_key,
+            voice_id=voice_id,
+            voice_model=voice_model,
+            speed=speed,
+            language=language,
+            output_format=output_format,
+            **kwargs,
+        )
+        return result
+
+    def generate(
+        self,
+        text: str,
+        *,
+        voice_id: str | None = None,
+        speed: float | None = None,
+        language: str | None = None,
+        output_format: str | None = None,
+        emit: Callable[[str, dict[str, Any]], None] | None = None,
+        **kwargs: Any,
+    ) -> GenerationResult:
+        """Generate speech from text."""
+        vid = voice_id if voice_id is not None else self.voice_id
+        spd = speed if speed is not None else self.speed
+        lang = language if language is not None else self.language
+        fmt = output_format if output_format is not None else self.output_format
+        ctx: dict[str, Any] = {
+            "text": text[:100] + "..." if len(text) > 100 else text,
+            "voice_id": vid,
+            "model": self.voice_model,
+        }
+        if emit:
+            emit(Hook.GENERATION_VOICE_START, ctx)
+        try:
+            result = self.provider.generate(
+                text,
+                voice_id=vid,
+                speed=spd,
+                language=lang,
+                output_format=fmt,
+                model=self.voice_model,
+                **kwargs,
+            )
+            if emit:
+                emit(Hook.GENERATION_VOICE_END, {**ctx, "result": result})
+            return result
+        except Exception as e:
+            if emit:
+                emit(Hook.GENERATION_VOICE_ERROR, {**ctx, "error": str(e)})
+            return GenerationResult(success=False, error=str(e))
+
+    async def generate_async(
+        self,
+        text: str,
+        *,
+        voice_id: str | None = None,
+        speed: float | None = None,
+        language: str | None = None,
+        output_format: str | None = None,
+        emit: Callable[[str, dict[str, Any]], None] | None = None,
+        **kwargs: Any,
+    ) -> GenerationResult:
+        """Async variant of generate."""
+        import asyncio
+
+        gen_async = getattr(self.provider, "generate_async", None)
+        if gen_async is not None:
+            vid = voice_id if voice_id is not None else self.voice_id
+            spd = speed if speed is not None else self.speed
+            lang = language if language is not None else self.language
+            fmt = output_format if output_format is not None else self.output_format
+            ctx: dict[str, Any] = {
+                "text": text[:100] + "..." if len(text) > 100 else text,
+                "model": self.voice_model,
+            }
+            if emit:
+                emit(Hook.GENERATION_VOICE_START, ctx)
+            try:
+                out = await gen_async(
+                    text,
+                    voice_id=vid,
+                    speed=spd,
+                    language=lang,
+                    output_format=fmt,
+                    **kwargs,
+                )
+                if emit:
+                    emit(Hook.GENERATION_VOICE_END, {**ctx, "result": out})
+                return cast(GenerationResult, out)
+            except Exception as e:
+                if emit:
+                    emit(Hook.GENERATION_VOICE_ERROR, {**ctx, "error": str(e)})
+                return GenerationResult(success=False, error=str(e))
+        sync_out = await asyncio.to_thread(
+            self.generate,
+            text,
+            voice_id=voice_id,
+            speed=speed,
+            language=language,
+            output_format=output_format,
+            emit=emit,
+            **kwargs,
+        )
+        return sync_out

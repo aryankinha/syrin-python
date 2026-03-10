@@ -32,6 +32,15 @@ def _mock_video_provider() -> MagicMock:
     return prov
 
 
+def _mock_voice_provider() -> MagicMock:
+    """Minimal mock VoiceGenerationProvider for tests."""
+    from syrin.generation._result import GenerationResult
+
+    prov = MagicMock()
+    prov.generate.return_value = GenerationResult(success=True, url="data:audio/mpeg;base64,x")
+    return prov
+
+
 class TestAgentImageVideoGenerationParams:
     """image_generation and video_generation as separate explicit params on Agent."""
 
@@ -112,6 +121,29 @@ class TestAgentImageVideoGenerationParams:
                 model=Model.Almock(),
                 system_prompt="Hi",
                 video_generation=123,
+            )
+
+    def test_voice_generation_explicit_adds_tool(self) -> None:
+        """voice_generation provided → generate_voice tool added."""
+        from syrin.generation import VoiceGenerator
+
+        prov = _mock_voice_provider()
+        gen = VoiceGenerator(provider=prov)
+        agent = Agent(
+            model=Model.Almock(),
+            system_prompt="Hi",
+            voice_generation=gen,
+        )
+        assert agent._voice_generator is gen
+        assert "generate_voice" in {t.name for t in agent._tools}
+
+    def test_voice_generation_invalid_type_raises(self) -> None:
+        """voice_generation with wrong type → TypeError."""
+        with pytest.raises(TypeError, match="voice_generation must be VoiceGenerator"):
+            Agent(
+                model=Model.Almock(),
+                system_prompt="Hi",
+                voice_generation="not_a_generator",
             )
 
 

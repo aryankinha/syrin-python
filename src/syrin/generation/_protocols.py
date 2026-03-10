@@ -1,6 +1,6 @@
-"""Protocols for image and video generation providers.
+"""Protocols for image, video, and voice generation providers.
 
-Implement these to plug in different backends (Gemini, DALL·E, Stability, etc.).
+Implement these to plug in different backends (Gemini, DALL·E, ElevenLabs, etc.).
 """
 
 from __future__ import annotations
@@ -66,4 +66,43 @@ class VideoGenerationProvider(Protocol):
         Returns:
             GenerationResult with url or content_bytes.
         """
+        ...
+
+
+class VoiceGenerationProvider(Protocol):
+    """Protocol for text-to-speech providers. Implement for ElevenLabs, OpenAI, etc."""
+
+    def generate(
+        self,
+        text: str,
+        *,
+        voice_id: str = "default",
+        speed: float = 1.0,
+        language: str = "en",
+        **kwargs: Any,
+    ) -> GenerationResult:
+        """Generate speech audio from text.
+
+        Args:
+            text: Text to speak.
+            voice_id: Voice identifier (provider-specific).
+            speed: Speech rate (e.g. 0.5–2.0).
+            language: Language code (e.g. en, hi).
+            **kwargs: Provider-specific options (output_format, etc.).
+
+        Returns:
+            GenerationResult with url (data URL) or content_bytes.
+        """
+        ...
+
+    async def generate_async(
+        self,
+        text: str,
+        *,
+        voice_id: str = "default",
+        speed: float = 1.0,
+        language: str = "en",
+        **kwargs: Any,
+    ) -> GenerationResult:
+        """Async variant of generate."""
         ...

@@ -205,6 +205,75 @@ def _make_generate_video_tool(
     )
 
 
+def _make_generate_voice_tool(
+    get_generator: Callable[[], object | None],
+    emit: Callable[[str, dict[str, object]], None] | None = None,
+) -> ToolSpec:
+    """Build a ToolSpec for generate_voice. Uses DI — no closure over agent."""
+
+    def generate_voice_tool(
+        text: str,
+        voice_id: str | None = None,
+        speed: float = 1.0,
+        language: str | None = None,
+    ) -> str:
+        gen = get_generator()
+        if gen is None:
+            return (
+                "Voice generation is not available. Pass voice_generation=VoiceGenerator.OpenAI(api_key=...) "
+                "or VoiceGenerator.ElevenLabs(api_key=...). Install: pip install syrin[voice] or syrin[openai]"
+            )
+        generate_fn = getattr(gen, "generate", None)
+        if generate_fn is None:
+            return "Voice generation failed: invalid generator."
+        try:
+            result = generate_fn(
+                text,
+                voice_id=voice_id or "default",
+                speed=speed,
+                language=language or "en",
+                emit=emit,
+            )
+        except Exception as e:
+            return f"Voice generation failed: {e!s}"
+        if result.success and result.url:
+            return f"Generated audio: {result.url}"
+        return result.error or "Voice generation failed."
+
+    schema: dict[str, object] = {
+        "type": "object",
+        "properties": {
+            "text": {
+                "type": "string",
+                "description": "Text to convert to speech.",
+            },
+            "voice_id": {
+                "type": "string",
+                "description": "Optional voice identifier (provider-specific).",
+            },
+            "speed": {
+                "type": "number",
+                "description": "Speech rate (e.g. 0.5–2.0). Default 1.0.",
+                "default": 1.0,
+            },
+            "language": {
+                "type": "string",
+                "description": "Optional language code (e.g. en, hi).",
+            },
+        },
+        "required": ["text"],
+    }
+    return ToolSpec(
+        name="generate_voice",
+        description=(
+            "Generate speech audio from text. Use when the user asks to speak, "
+            "say something aloud, or produce audio."
+        ),
+        parameters_schema=schema,
+        func=generate_voice_tool,
+    )
+
+
 def _make_search_knowledge_tool(
     get_knowledge: Callable[[], object],
     emit: Callable[[str, dict[str, object]], None] | None = None,

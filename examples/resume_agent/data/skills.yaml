@@ -1,0 +1,17 @@
+# Replace with your actual skills and proficiency
+
+skills:
+  - name: Python
+    level: expert
+    years: 6
+    details: Django, FastAPI, asyncio, data science
+  - name: AI/ML
+    level: intermediate
+    years: 2
+    details: LLMs, RAG, agent frameworks
+  - name: PostgreSQL
+    level: proficient
+  - name: Docker
+    level: proficient
+  - name: Git
+    level: expert

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from syrin import Agent, Budget, ImageGenerator, Model, VideoGenerator
+from syrin import Agent, Budget, ImageGenerator, Model, VideoGenerator, VoiceGenerator
 from syrin.enums import Hook
 from syrin.generation._result import GenerationResult
 from syrin.types import CostInfo
@@ -93,6 +93,48 @@ def test_agent_records_video_cost_on_generation_end_when_has_budget() -> None:
         )
 
     media_cost_calls = [c for c in recorded if c.cost_usd == 1.75 and "veo" in c.model_name]
+    assert len(media_cost_calls) >= 1
+
+
+def test_agent_records_voice_cost_on_generation_end_when_has_budget() -> None:
+    """When agent has budget and GENERATION_VOICE_END emits with cost in metadata, record it."""
+    from unittest.mock import MagicMock
+
+    mock_voice_gen = MagicMock()
+    result_with_cost = GenerationResult(
+        success=True,
+        url="data:audio/mpeg;base64,x",
+        content_type="audio/mpeg",
+        metadata={"cost_usd": 0.0015, "model_name": "eleven_flash_v2_5"},
+    )
+    mock_voice_gen.generate.return_value = result_with_cost
+
+    agent = Agent(
+        model=Model.Almock(),
+        system_prompt="Test.",
+        voice_generation=VoiceGenerator.OpenAI(api_key="test"),
+        budget=Budget(run=10.0),
+    )
+    agent._voice_generator = mock_voice_gen
+
+    recorded: list[CostInfo] = []
+    orig_record = agent._record_cost_info
+
+    def capture_record(c: CostInfo) -> None:
+        recorded.append(c)
+        orig_record(c)
+
+    with patch.object(agent, "_record_cost_info", side_effect=capture_record):
+        agent._emit_event(
+            Hook.GENERATION_VOICE_END,
+            {"result": result_with_cost, "model": "eleven_flash_v2_5"},
+        )
+
+    media_cost_calls = [
+        c
+        for c in recorded
+        if c.cost_usd == 0.0015 and ("eleven" in c.model_name or "voice" in c.model_name)
+    ]
     assert len(media_cost_calls) >= 1
 
 

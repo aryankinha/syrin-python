@@ -1,6 +1,6 @@
-"""Tests for image and video generation cost calculation.
+"""Tests for image, video, and voice generation cost calculation.
 
-TDD: tests for calculate_image_cost and calculate_video_cost.
+TDD: tests for calculate_image_cost, calculate_video_cost, calculate_voice_cost.
 """
 
 from __future__ import annotations
@@ -10,8 +10,10 @@ import pytest
 from syrin.cost import (
     IMAGE_PRICING,
     VIDEO_PRICING,
+    VOICE_PRICING,
     calculate_image_cost,
     calculate_video_cost,
+    calculate_voice_cost,
 )
 
 # =============================================================================
@@ -63,6 +65,33 @@ def test_image_pricing_has_entries() -> None:
 def test_video_pricing_has_entries() -> None:
     """VIDEO_PRICING contains expected models."""
     assert "veo-2.0-generate-001" in VIDEO_PRICING or any("veo" in k for k in VIDEO_PRICING)
+
+
+def test_calculate_voice_cost_known_model() -> None:
+    """Known voice model returns cost per character."""
+    cost = calculate_voice_cost("eleven_flash_v2_5", 100)
+    assert cost > 0
+    assert cost == round(cost, 6)
+    assert cost == pytest.approx(0.0015, rel=1e-5)
+
+
+def test_calculate_voice_cost_scales_with_characters() -> None:
+    """Voice cost scales linearly with character count."""
+    c100 = calculate_voice_cost("tts-1", 100)
+    c500 = calculate_voice_cost("tts-1", 500)
+    assert c500 == pytest.approx(c100 * 5, rel=1e-5)
+
+
+def test_calculate_voice_cost_model_with_prefix() -> None:
+    """Provider prefix in model_id is stripped for lookup."""
+    cost = calculate_voice_cost("openai/tts-1", 1000)
+    assert cost > 0
+
+
+def test_voice_pricing_has_entries() -> None:
+    """VOICE_PRICING contains expected models."""
+    assert "eleven_flash_v2_5" in VOICE_PRICING
+    assert "tts-1" in VOICE_PRICING
 
 
 # =============================================================================
@@ -118,6 +147,30 @@ def test_calculate_video_cost_empty_model_returns_zero() -> None:
     assert cost == 0.0
 
 
+def test_calculate_voice_cost_unknown_model_returns_zero() -> None:
+    """Unknown voice model returns 0.0."""
+    cost = calculate_voice_cost("unknown-voice-model", 100)
+    assert cost == 0.0
+
+
+def test_calculate_voice_cost_zero_characters_returns_zero() -> None:
+    """Zero characters returns 0 cost."""
+    cost = calculate_voice_cost("eleven_flash_v2_5", 0)
+    assert cost == 0.0
+
+
+def test_calculate_voice_cost_negative_characters_returns_zero() -> None:
+    """Negative character count returns 0 (defensive)."""
+    cost = calculate_voice_cost("tts-1", -1)
+    assert cost == 0.0
+
+
+def test_calculate_voice_cost_empty_model_returns_zero() -> None:
+    """Empty model_id returns 0."""
+    cost = calculate_voice_cost("", 100)
+    assert cost == 0.0
+
+
 # =============================================================================
 # EDGE CASES - TRY TO BREAK
 # =============================================================================
@@ -134,3 +187,10 @@ def test_calculate_video_cost_very_long_duration() -> None:
     """Long video duration scales correctly."""
     cost = calculate_video_cost("veo-2.0-generate-001", duration_seconds=300.0)
     assert cost > 0
+
+
+def test_calculate_voice_cost_very_long_text() -> None:
+    """Long text scales correctly."""
+    cost = calculate_voice_cost("eleven_flash_v2_5", 100_000)
+    assert cost > 0
+    assert cost == round(cost, 6)

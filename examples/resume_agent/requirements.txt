@@ -1,0 +1,4 @@
+# Resume Agent — install in .venv: pip install -r requirements.txt
+# Syrin must be installed from parent: pip install -e ../..
+
+pipecat-ai[deepgram,elevenlabs]>=0.0.90

@@ -1,21 +1,25 @@
-"""Provider registry for image and video generation.
+"""Provider registry for image, video, and voice generation.
 
-Holds _IMAGE_PROVIDERS and _VIDEO_PROVIDERS so ImageGenerator/VideoGenerator
-(config.py) can access them without circular imports.
-
-Built-in names: gemini (Google image), dalle (OpenAI image), gemini (Google video).
+Holds _IMAGE_PROVIDERS, _VIDEO_PROVIDERS, _VOICE_PROVIDERS so config classes
+can access them without circular imports.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from syrin.generation._cartesia_voice import CartesiaVoiceProvider
+from syrin.generation._deepgram_voice import DeepgramVoiceProvider
+from syrin.generation._elevenlabs_voice import ElevenLabsVoiceProvider
 from syrin.generation._gemini import GeminiImageProvider, GeminiVideoProvider
 from syrin.generation._openai import DalleImageProvider
+from syrin.generation._openai_voice import OpenAIVoiceProvider
 from syrin.generation._protocols import (
     ImageGenerationProvider,
     VideoGenerationProvider,
+    VoiceGenerationProvider,
 )
+from syrin.generation._sarvam_voice import SarvamVoiceProvider
 
 _IMAGE_PROVIDERS: dict[str, type[ImageGenerationProvider]] = {
     "gemini": GeminiImageProvider,
@@ -72,3 +76,36 @@ def is_image_provider_registered(name: str) -> bool:
 def is_video_provider_registered(name: str) -> bool:
     """Return True if a video provider is registered under this name."""
     return name.lower() in _VIDEO_PROVIDERS
+
+
+_VOICE_PROVIDERS: dict[str, type[VoiceGenerationProvider]] = {
+    "openai": OpenAIVoiceProvider,
+    "elevenlabs": ElevenLabsVoiceProvider,
+    "deepgram": DeepgramVoiceProvider,
+    "cartesia": CartesiaVoiceProvider,
+    "sarvam": SarvamVoiceProvider,
+}
+
+
+def register_voice_provider(name: str, cls: type[VoiceGenerationProvider]) -> None:
+    """Register a voice generation provider. Use VoiceGenerator.Custom() after."""
+    _VOICE_PROVIDERS[name.lower()] = cls
+
+
+def get_voice_provider(
+    name: str = "openai",
+    **kwargs: Any,
+) -> VoiceGenerationProvider:
+    """Create a voice provider instance by registered name."""
+    cls = _VOICE_PROVIDERS.get(name.lower())
+    if cls is None:
+        raise ValueError(
+            f"Unknown voice provider: {name!r}. Registered: {sorted(_VOICE_PROVIDERS)}. "
+            "Use register_voice_provider() to add custom providers."
+        )
+    return cls(**kwargs)
+
+
+def is_voice_provider_registered(name: str) -> bool:
+    """Return True if a voice provider is registered under this name."""
+    return name.lower() in _VOICE_PROVIDERS

@@ -371,6 +371,9 @@ class Hook(StrEnum):
     GENERATION_VIDEO_START = "generation.video.start"
     GENERATION_VIDEO_END = "generation.video.end"
     GENERATION_VIDEO_ERROR = "generation.video.error"
+    GENERATION_VOICE_START = "generation.voice.start"
+    GENERATION_VOICE_END = "generation.voice.end"
+    GENERATION_VOICE_ERROR = "generation.voice.error"
 
     HANDOFF_START = "handoff.start"
     HANDOFF_END = "handoff.end"
@@ -480,6 +483,15 @@ class OutputMimeType(StrEnum):
 
     IMAGE_PNG = "image/png"
     IMAGE_JPEG = "image/jpeg"
+
+
+class VoiceOutputFormat(StrEnum):
+    """Output format for generated voice/audio."""
+
+    MP3 = "mp3"
+    WAV = "wav"
+    PCM = "pcm"
+    OPUS = "opus"
 
 
 class DocFormat(StrEnum):

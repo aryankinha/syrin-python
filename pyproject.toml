@@ -52,6 +52,8 @@ knowledge-sqlite = ["sqlite-vec>=0.1"]
 generation = [
     "google-genai",
 ]
+voice = ["elevenlabs>=1.0", "deepgram-sdk>=3.0", "cartesia>=1.0"]
+voice-openai = ["openai"]
 dev = [
     "pytest",
     "pytest-asyncio",

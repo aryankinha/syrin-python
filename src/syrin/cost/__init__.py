@@ -54,6 +54,19 @@ VIDEO_PRICING: dict[str, float] = {
     "veo-2": 0.35,
 }
 
+# Per-character USD for voice/TTS. Used by voice generation providers.
+# Keys: model_id or prefix (first match wins). Sources: provider public pricing.
+VOICE_PRICING: dict[str, float] = {
+    "eleven_flash_v2_5": 0.000015,
+    "eleven_turbo_v2_5": 0.000030,
+    "eleven_multilingual_v2": 0.000030,
+    "tts-1": 0.000015,
+    "tts-1-hd": 0.000030,
+    "sonic-3": 0.000010,
+    "aura": 0.000005,
+    "bulbul:v3": 0.0000165,
+}
+
 # Per 1M tokens USD for embeddings. Used by embedding providers.
 # Keys: model_id or prefix (first match wins). Sources: OpenAI public pricing.
 EMBEDDING_PRICING: dict[str, float] = {
@@ -94,6 +107,17 @@ def _resolve_embedding_pricing(model_id: str) -> float:
         return 0.0
     normalized = model_id.split("/")[-1] if "/" in model_id else model_id
     for key, price in EMBEDDING_PRICING.items():
+        if normalized.startswith(key):
+            return price
+    return 0.0
+
+
+def _resolve_voice_pricing(model_id: str) -> float:
+    """Return USD per character for voice model_id."""
+    if not model_id:
+        return 0.0
+    normalized = model_id.split("/")[-1] if "/" in model_id else model_id
+    for key, price in VOICE_PRICING.items():
         if normalized.startswith(key):
             return price
     return 0.0
@@ -141,6 +165,29 @@ def calculate_video_cost(
         return 0.0
     price = _resolve_video_pricing(model_id)
     return round(price * duration_seconds, 6)
+
+
+def calculate_voice_cost(model_id: str, character_count: int) -> float:
+    """Compute cost in USD for voice/TTS generation.
+
+    Used by providers to populate GenerationResult.metadata["cost_usd"].
+    Returns 0.0 if model is unknown or character_count <= 0.
+
+    Args:
+        model_id: Model identifier (e.g. eleven_flash_v2_5, tts-1).
+        character_count: Number of characters spoken.
+
+    Returns:
+        Cost in USD, rounded to 6 decimal places.
+
+    Example:
+        >>> calculate_voice_cost("eleven_flash_v2_5", 100)
+        0.0015
+    """
+    if character_count <= 0:
+        return 0.0
+    price = _resolve_voice_pricing(model_id)
+    return round(price * character_count, 6)
 
 
 def calculate_embedding_cost(
@@ -332,6 +379,7 @@ __all__ = [
     "EMBEDDING_PRICING",
     "IMAGE_PRICING",
     "ModelPricing",
+    "VOICE_PRICING",
     "MODEL_PRICING",
     "Pricing",
     "VIDEO_PRICING",
@@ -339,6 +387,7 @@ __all__ = [
     "calculate_embedding_cost",
     "calculate_image_cost",
     "calculate_video_cost",
+    "calculate_voice_cost",
     "count_tokens",
     "estimate_cost_for_call",
 ]

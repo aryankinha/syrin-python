@@ -1,12 +1,12 @@
-# Multimodal: Images, Files, and Generation
+# Multimodal: Images, Video, Voice, and Files
 
-Syrin supports **multimodal input** (text + images or files) and **image/video generation** (output). Use vision-capable models for understanding, and optional Gemini (Imagen/Veo) for creating images and videos.
+Syrin supports **multimodal input** (text + images or files) and **image/video/voice generation** (output). Use vision-capable models for understanding, and optional providers (Gemini Imagen/Veo, OpenAI, ElevenLabs, etc.) for creating images, videos, and speech.
 
 **In this guide:**
 - **Media** — single enum (TEXT, IMAGE, VIDEO, AUDIO, FILE) for capabilities and content
 - **input_media** / **output_media** — what the agent accepts and can produce; **input_file_rules** when FILE is in input_media
 - Sending images and files with messages (content parts, `file_to_message`)
-- Image and video generation: standalone API and Agent `output_media`
+- Image, video, and voice generation: standalone API and Agent `output_media`
 - Hooks and options (StrEnums, no free strings)
 
 ## Multimodal Input
@@ -204,6 +204,7 @@ Generation lifecycle is observable:
 
 - **Image**: `Hook.GENERATION_IMAGE_START`, `GENERATION_IMAGE_END`, `Hook.GENERATION_IMAGE_ERROR`
 - **Video**: `Hook.GENERATION_VIDEO_START`, `GENERATION_VIDEO_END`, `Hook.GENERATION_VIDEO_ERROR`
+- **Voice**: `Hook.GENERATION_VOICE_START`, `GENERATION_VOICE_END`, `Hook.GENERATION_VOICE_ERROR`
 
 When the agent adds the generation tools, it passes its `_emit_event` into the generators so these hooks fire. Subscribe via `agent.events` or your event bus.
 
@@ -246,6 +247,41 @@ Implement the protocol, then `register_image_provider(name, cls)` / `register_vi
 
 ---
 
+## Voice Generation (TTS)
+
+Generate speech from text with **VoiceGenerator**. Built-in providers: OpenAI (tts-1), ElevenLabs, Deepgram, Cartesia, Sarvam. Optional dependency: `syrin[voice]` or `syrin[voice-openai]`.
+
+### Agent with voice generation
+
+Pass **voice_generation** and set **output_media** to include `Media.AUDIO`. There is **no default** voice provider — you must pass `VoiceGenerator.OpenAI()` or `VoiceGenerator.ElevenLabs()` explicitly:
+
+```python
+from syrin import Agent, Model, VoiceGenerator
+from syrin.enums import Media
+
+agent = Agent(
+    model=Model.OpenAI("gpt-4o-mini", api_key="..."),
+    output_media={Media.TEXT, Media.AUDIO},
+    voice_generation=VoiceGenerator.OpenAI(api_key="..."),
+    system_prompt="You are helpful. Use generate_voice when the user asks you to speak.",
+)
+# generate_voice tool is added; agent can produce audio responses
+```
+
+### Static constructors
+
+- `VoiceGenerator.OpenAI(api_key=...)` — OpenAI TTS (tts-1, tts-1-hd). Requires `syrin[voice-openai]` or `openai`.
+- `VoiceGenerator.ElevenLabs(api_key=...)` — ElevenLabs. Requires `syrin[voice]`.
+- `VoiceGenerator.Deepgram(api_key=...)` — Deepgram Aura.
+- `VoiceGenerator.Cartesia(api_key=...)` — Cartesia Sonic.
+
+### Voice hooks and budget
+
+- **Hooks**: `Hook.GENERATION_VOICE_START`, `GENERATION_VOICE_END`, `GENERATION_VOICE_ERROR`
+- **Budget**: Voice cost is recorded from `GenerationResult.metadata` (cost per character). Use `syrin.cost.calculate_voice_cost(model_id, character_count)` in custom providers.
+
+---
+
 ## Summary
 
 | Need | Use |
@@ -254,9 +290,11 @@ Implement the protocol, then `register_image_provider(name, cls)` / `register_vi
 | Paste/attach in UI | Playground with `enable_playground=True` |
 | Generate image/video in code | `generate_image` / `generate_video` |
 | Agent has image/video tools | `output_media={Media.IMAGE, Media.VIDEO}` or `image_generation=` / `video_generation=` |
+| Agent has voice tool | `output_media={Media.AUDIO}` + `voice_generation=VoiceGenerator.OpenAI(...)` |
 | Google image/video | `ImageGenerator.Gemini()`, `VideoGenerator.Gemini()` |
 | OpenAI image | `ImageGenerator.DALLE(api_key=...)` (DALL·E 3; requires `openai`) |
-| Custom provider | `register_image_provider("leonardo", Cls)` then `ImageGenerator.Leonardo()` |
-| Observe generation | `Hook.GENERATION_IMAGE_*`, `Hook.GENERATION_VIDEO_*` |
+| OpenAI / ElevenLabs voice | `VoiceGenerator.OpenAI(api_key=...)` / `VoiceGenerator.ElevenLabs(api_key=...)` |
+| Custom provider | `register_image_provider("leonardo", Cls)` etc.; `register_voice_provider(name, Cls)` |
+| Observe generation | `Hook.GENERATION_IMAGE_*`, `Hook.GENERATION_VIDEO_*`, `Hook.GENERATION_VOICE_*` |
 
 **See also:** [Routing](routing.md) (ModalityDetector, vision profiles), [Models](models.md) (vision-capable models), [Serving](serving.md) (playground and API).

@@ -15,17 +15,20 @@ from __future__ import annotations
 
 from typing import Any
 
-from syrin.enums import AspectRatio, OutputMimeType
+from syrin.enums import AspectRatio, OutputMimeType, VoiceOutputFormat
 from syrin.generation._gemini import GeminiImageProvider, GeminiVideoProvider
 from syrin.generation._openai import DalleImageProvider
 from syrin.generation._registry import (
     get_image_provider,
     get_video_provider,
+    get_voice_provider,
+    is_voice_provider_registered,
     register_image_provider,
     register_video_provider,
+    register_voice_provider,
 )
 from syrin.generation._result import GenerationResult
-from syrin.generation.config import ImageGenerator, VideoGenerator
+from syrin.generation.config import ImageGenerator, VideoGenerator, VoiceGenerator
 
 __all__ = [
     "AspectRatio",
@@ -45,6 +48,11 @@ __all__ = [
     "get_video_provider",
     "register_image_provider",
     "register_video_provider",
+    "VoiceGenerator",
+    "get_voice_provider",
+    "register_voice_provider",
+    "is_voice_provider_registered",
+    "VoiceOutputFormat",
 ]
 
 

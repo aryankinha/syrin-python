@@ -62,6 +62,7 @@ from syrin.agent._helpers import (
     _is_valid_system_prompt,
     _make_generate_image_tool,
     _make_generate_video_tool,
+    _make_generate_voice_tool,
     _make_search_knowledge_deep_tool,
     _make_search_knowledge_tool,
     _make_verify_knowledge_tool,
@@ -494,6 +495,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         input_file_rules: Any = None,
         image_generation: Any = None,
         video_generation: Any = None,
+        voice_generation: Any = None,
         knowledge: object | None = None,
     ) -> None:
         """Create an agent with model, prompt, tools, and optional config.
@@ -559,6 +561,8 @@ class Agent(Servable, metaclass=_AgentMeta):
                 of auto-created default (output_media + API key). Use for custom providers or config.
             video_generation: Explicit VideoGenerator for video generation. When set, used instead
                 of auto-created default (output_media + API key). Use for custom providers or config.
+            voice_generation: Explicit VoiceGenerator for TTS. When set with output_media={Media.AUDIO},
+                adds generate_voice tool. No default; pass VoiceGenerator.OpenAI(...) or ElevenLabs(...).
             knowledge: Knowledge instance for RAG. Adds search_knowledge tool. Requires embedding
                 and sources. Lazy ingest on first search.
 
@@ -719,6 +723,14 @@ class Agent(Servable, metaclass=_AgentMeta):
                     f"video_generation must be VideoGenerator or None, got {type(video_generation).__name__}. "
                     "Use VideoGenerator(provider=...) from syrin.generation."
                 )
+        if voice_generation is not None:
+            from syrin.generation import VoiceGenerator
+
+            if not isinstance(voice_generation, VoiceGenerator):
+                raise TypeError(
+                    f"voice_generation must be VoiceGenerator or None, got {type(voice_generation).__name__}. "
+                    "Use VoiceGenerator.OpenAI(api_key=...) or VoiceGenerator.ElevenLabs(api_key=...)."
+                )
         _knowledge = knowledge if knowledge is not None else getattr(cls, "knowledge", None)
         if _knowledge is not None:
             from syrin.knowledge import Knowledge as KnowledgeClass
@@ -803,14 +815,22 @@ class Agent(Servable, metaclass=_AgentMeta):
             if video_generation is not None
             else (get_default_video_generator(_api_key) if Media.VIDEO in _output_media else None)
         )
+        _voice_gen = (
+            voice_generation
+            if voice_generation is not None
+            else getattr(cls, "voice_generation", None)
+        )
         self._image_generator = _img_gen
         self._video_generator = _vid_gen
+        self._voice_generator = _voice_gen
         _tools_list: list[ToolSpec] = list(tools_final) if tools_final else []
         _tool_names = {t.name for t in _tools_list}
         # Add generation tools when: explicit generator, default generator, or output_media declares
         # IMAGE/VIDEO (tool added so model can call it; returns helpful error if no API key).
+        # Voice: no default; add tool when explicit voice_generation or Media.AUDIO in output_media.
         _add_image_tool = _img_gen is not None or Media.IMAGE in _output_media
         _add_video_tool = _vid_gen is not None or Media.VIDEO in _output_media
+        _add_voice_tool = _voice_gen is not None or Media.AUDIO in _output_media
         if _add_image_tool and "generate_image" not in _tool_names:
             _tools_list.append(
                 _make_generate_image_tool(
@@ -822,6 +842,13 @@ class Agent(Servable, metaclass=_AgentMeta):
             _tools_list.append(
                 _make_generate_video_tool(
                     get_generator=self._resolve_video_generator,
+                    emit=self._emit_event,
+                )
+            )
+        if _add_voice_tool and "generate_voice" not in _tool_names:
+            _tools_list.append(
+                _make_generate_voice_tool(
+                    get_generator=self._resolve_voice_generator,
                     emit=self._emit_event,
                 )
             )
@@ -1259,6 +1286,20 @@ class Agent(Servable, metaclass=_AgentMeta):
                         self._record_cost_info(
                             CostInfo(cost_usd=cost, model_name=str(name or "video"))
                         )
+            elif hook == Hook.GENERATION_VOICE_END:
+                result = ctx.get("result")
+                meta = getattr(result, "metadata", None) if result is not None else None
+                if (
+                    result is not None
+                    and getattr(result, "success", False)
+                    and isinstance(meta, dict)
+                ):
+                    cost = meta.get("cost_usd", 0)
+                    name = meta.get("model_name", ctx.get("model", ""))
+                    if cost and cost > 0:
+                        self._record_cost_info(
+                            CostInfo(cost_usd=cost, model_name=str(name or "voice"))
+                        )
 
     def _resolve_image_generator(self) -> Any:
         """Resolve image generator. Lazy init from stored key or env if None."""
@@ -1283,6 +1324,10 @@ class Agent(Servable, metaclass=_AgentMeta):
         if gen is not None:
             object.__setattr__(self, "_video_generator", gen)
         return gen
+
+    def _resolve_voice_generator(self) -> Any:
+        """Resolve voice generator. No default; returns configured VoiceGenerator or None."""
+        return getattr(self, "_voice_generator", None)
 
     def _print_event(self, event: str, ctx: EventContext) -> None:
         """Print event to console when debug=True."""
