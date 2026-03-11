@@ -48,6 +48,7 @@ agent = Agent(model=model, output=Output(UserInfo))
 
 | Attribute | Description |
 |-----------|-------------|
+| `response.parsed` | Convenience: parsed instance (same as `structured.parsed`) |
 | `response.structured.parsed` | Parsed Pydantic model |
 | `response.structured.raw` | Raw JSON string |
 | `response.structured._data` | Parsed dict |
@@ -86,18 +87,35 @@ agent = Agent(
 
 ## Using @structured
 
-For schema generation:
+For schema generation with nested types and Annotated descriptions:
 
 ```python
-from syrin.model.structured import structured
+from typing import Annotated
+
+from syrin import Agent, Output
+from syrin.model import structured
 
 @structured
-class Answer(BaseModel):
-    text: str
-    confidence: float
+class Shareholder:
+    name: str
+    category: str
+    shares: int
+    percentage: float
 
-agent = Agent(model=model, output=Output(type=Answer))
+@structured
+class CapitalStructure:
+    authorized_capital: Annotated[str, "Total authorized capital in ₹"]
+    shareholders: list[Shareholder]
+    missing_fields: Annotated[list[str], "Data not found in source documents"] = []
+
+agent = Agent(model=model, output=Output(CapitalStructure))
+response = agent.response("Extract capital structure")
+print(response.parsed)  # CapitalStructure instance
 ```
+
+- **Nested types:** `list[Shareholder]` produces proper JSON schema with `$defs`
+- **Annotated:** `Annotated[T, "description"]` adds field descriptions for the LLM
+- **Optional fields:** `Optional[T] = None` or default values make fields optional
 
 ## Report
 
@@ -108,6 +126,28 @@ Output validation is reflected in `response.report.output`:
 - `is_valid` — Validation succeeded
 - `final_error` — Error message if failed
 
+## Template Integration
+
+Combine structured output with templates for slot-based document generation:
+
+```python
+from syrin import OutputConfig, OutputFormat, Template, SlotConfig
+
+tpl = Template("cap", "Amount: {{amount}}", slots={"amount": SlotConfig("str")})
+agent = Agent(
+    model=model,
+    output=Output(CapitalData),
+    output_config=OutputConfig(format=OutputFormat.TEXT, template=tpl),
+)
+response = agent.response("...")
+# response.content = rendered template
+# response.template_data = {"amount": "..."}
+# response.file, response.file_bytes when output_config format produces file
+```
+
+Requires `output=Output(MyModel)`. See [Template Engine](../template-engine.md).
+
 ## See Also
 
 - [Structured Output](../structured-output.md) — Full guide, validators, Model-level config
+- [Template Engine](../template-engine.md) — Slot-based generation

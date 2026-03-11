@@ -19,6 +19,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
+    "chevron>=0.14.0",
     "pydantic>=2.0",
     "httpx",
     "tiktoken",
@@ -45,7 +46,7 @@ litellm = ["litellm"]
 vector = ["qdrant-client", "chromadb", "redis"]
 postgres = ["asyncpg>=0.29", "pgvector>=0.3"]
 sqlite = ["sqlite-vec>=0.1"]
-knowledge = ["chonkie>=1.0"]
+knowledge = ["chonkie>=1.0", "flatbuffers"]
 
 # Generation & Voice
 generation = ["google-genai"]
@@ -53,6 +54,10 @@ voice = ["elevenlabs>=1.0", "deepgram-sdk>=3.0", "cartesia>=1.0"]
 
 # Documents
 pdf = ["pypdf"]
+pdf-output = ["weasyprint>=60.0"]
+docling = ["docling>=2.70", "pandas", "tabulate"]
+docx = ["python-docx>=1.0.0"]
+excel = ["openpyxl>=3.1.0"]
 
 # Development
 dev = [
@@ -192,6 +197,16 @@ module = "chromadb.config"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = [
+    "docling",
+    "docling.document_converter",
+    "docx",
+    "openpyxl",
+    "weasyprint",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = "redis"
 ignore_missing_imports = true
 
@@ -213,6 +228,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "jsonschema"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "chevron"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

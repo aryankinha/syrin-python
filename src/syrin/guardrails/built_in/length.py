@@ -51,4 +51,8 @@ class LengthGuardrail(Guardrail):
                 metadata={"length": length, "max": self._max_length},
             )
 
-        return GuardrailDecision(passed=True)
+        return GuardrailDecision(
+            passed=True,
+            rule="length_ok",
+            metadata={"guardrail": self.name, "length": length},
+        )

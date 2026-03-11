@@ -277,6 +277,8 @@ def _make_generate_voice_tool(
 def _make_search_knowledge_tool(
     get_knowledge: Callable[[], object],
     emit: Callable[[str, dict[str, object]], None] | None = None,
+    get_model: Callable[[], object | None] | None = None,
+    get_budget_tracker: Callable[[], object | None] | None = None,
 ) -> ToolSpec:
     """Build a ToolSpec for search_knowledge. Uses DI — no closure over agent."""
 
@@ -296,6 +298,19 @@ def _make_search_knowledge_tool(
         results = await k.search(query, filter=filt)
         if not results:
             return "No relevant results found."
+        gconfig = getattr(k, "_grounding_config", None)
+        if gconfig is not None and gconfig.enabled:
+            from syrin.knowledge._grounding import apply_grounding
+
+            formatted, _ = await apply_grounding(
+                query=query,
+                results=results,
+                config=gconfig,
+                get_model=get_model or (lambda: None),
+                emit=emit,
+                get_budget_tracker=get_budget_tracker or (lambda: None),
+            )
+            return formatted
         lines: list[str] = []
         for r in results[:5]:
             lines.append(f"[{r.rank}] (score={r.score:.2f}) {r.chunk.content[:300]}")

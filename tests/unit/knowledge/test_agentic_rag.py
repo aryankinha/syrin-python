@@ -8,15 +8,14 @@ import pytest
 
 from syrin.knowledge._agentic import (
     AgenticRAGConfig,
-    _parse_grade,
     _parse_sub_queries,
-    _parse_verdict,
     grade_results,
     refine_query,
     verify_claim,
 )
 from syrin.knowledge._chunker import Chunk
 from syrin.knowledge._store import SearchResult
+from syrin.knowledge._verification import _parse_grade, _parse_verdict
 
 
 def _make_fake_chunk(content: str, doc_id: str = "test", idx: int = 0) -> Chunk:

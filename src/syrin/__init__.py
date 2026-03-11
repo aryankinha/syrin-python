@@ -202,7 +202,9 @@ from syrin.generation import (
 # Guardrails
 # =============================================================================
 from syrin.guardrails import (
+    CitationGuardrail,
     ContentFilter,
+    FactVerificationGuardrail,
     Guardrail,
     GuardrailChain,
     GuardrailResult,
@@ -222,6 +224,8 @@ from syrin.knowledge import (
     Chunk,
     Document,
     DocumentLoader,
+    GroundedFact,
+    GroundingConfig,
     Knowledge,
 )
 
@@ -307,6 +311,18 @@ from syrin.observability import (
 # Output & Validation
 # =============================================================================
 from syrin.output import Output
+from syrin.output_format import (
+    Citation,
+    CitationConfig,
+    CitationStyle,
+    OutputConfig,
+    OutputFormat,
+    OutputFormatter,
+    get_formatter,
+    save_as,
+    save_as_docx,
+    save_as_pdf,
+)
 
 # =============================================================================
 # Prompt
@@ -333,6 +349,7 @@ from syrin.response import (
 from syrin.run_context import RunContext
 from syrin.serve import ServeConfig
 from syrin.task import task
+from syrin.template import SlotConfig, Template
 from syrin.tool import ToolSpec, tool
 
 
@@ -454,6 +471,18 @@ __all__ = [
     "OutputType",
     "output",
     "Output",
+    "Citation",
+    "CitationConfig",
+    "CitationStyle",
+    "OutputConfig",
+    "OutputFormat",
+    "OutputFormatter",
+    "get_formatter",
+    "save_as",
+    "save_as_docx",
+    "save_as_pdf",
+    "Template",
+    "SlotConfig",
     # =============================================================================
     # Budget
     # =============================================================================
@@ -481,6 +510,8 @@ __all__ = [
     # =============================================================================
     "Knowledge",
     "AgenticRAGConfig",
+    "GroundedFact",
+    "GroundingConfig",
     "Chunk",
     "Document",
     "DocumentLoader",
@@ -506,7 +537,9 @@ __all__ = [
     "Guardrail",
     "GuardrailChain",
     "GuardrailResult",
+    "CitationGuardrail",
     "ContentFilter",
+    "FactVerificationGuardrail",
     "LengthGuardrail",
     # =============================================================================
     # Tools & Task

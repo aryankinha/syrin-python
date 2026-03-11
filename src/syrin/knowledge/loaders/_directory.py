@@ -27,6 +27,10 @@ def _get_loader_map() -> dict[str, str]:
             ".yaml": "YAMLLoader",
             ".yml": "YAMLLoader",
             ".py": "PythonLoader",
+            ".docx": "DOCXLoader",
+            ".csv": "CSVLoader",
+            ".xlsx": "ExcelLoader",
+            ".xls": "ExcelLoader",
         }
     return _LOADER_MAP
 
@@ -196,6 +200,18 @@ class DirectoryLoader:
             from syrin.knowledge.loaders._python import PythonLoader
 
             return PythonLoader(file_path)
+        if loader_name == "DOCXLoader":
+            from syrin.knowledge.loaders._docx import DOCXLoader
+
+            return DOCXLoader(file_path)
+        if loader_name == "CSVLoader":
+            from syrin.knowledge.loaders._csv import CSVLoader
+
+            return CSVLoader(file_path)
+        if loader_name == "ExcelLoader":
+            from syrin.knowledge.loaders._excel import ExcelLoader
+
+            return ExcelLoader(file_path)
         return None
 
     async def aload(self) -> list[Document]:

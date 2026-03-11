@@ -5,8 +5,8 @@ plus agentic retrieval (decompose, grade, refine, verify) and agent integration.
 
 Features demonstrated:
 - Document model (content, source, source_type, metadata)
-- Loaders: Knowledge.Text, Knowledge.Texts (also: .Markdown, .PDF, .Python, .YAML,
-  .JSON, .Directory, .URL, .GitHub, .TextFile)
+- Loaders: Knowledge.Text, Knowledge.Texts (also: .Markdown, .PDF, .Docling, .DOCX,
+  .CSV, .Excel, .Python, .YAML, .JSON, .Directory, .URL, .GitHub, .TextFile)
 - Chunking: ChunkConfig, ChunkStrategy (RECURSIVE, AUTO, PAGE, MARKDOWN, CODE,
   SENTENCE, TOKEN, SEMANTIC)
 - Knowledge: sources, embedding, backend (MEMORY|SQLITE|POSTGRES|QDRANT|CHROMA),
@@ -17,6 +17,8 @@ Features demonstrated:
 - Agentic: agentic=True adds search_knowledge_deep, verify_knowledge
 - AgenticRAGConfig: max_search_iterations, decompose_complex, grade_results,
   relevance_threshold, web_fallback
+- GroundingConfig: grounding layer for anti-hallucination (extract facts,
+  verify, cite sources)
 
 Run:
     uv run python examples/19_knowledge/full_rag_lifecycle.py
@@ -42,6 +44,7 @@ from syrin.knowledge import (
     ChunkConfig,
     ChunkStrategy,
     Document,
+    GroundingConfig,
     Knowledge,
     get_chunker,
 )
@@ -225,7 +228,36 @@ async def main() -> None:
     print(f"  Agent response (excerpt): {response.content[:120]}...")
 
     print("\n" + "=" * 60)
-    print("8. CLEANUP (clear, stats)")
+    print("8. GROUNDING (anti-hallucination layer)")
+    print("=" * 60)
+
+    knowledge_grounding = Knowledge(
+        sources=[
+            Knowledge.Text("Authorized capital is ₹50,00,000. Face value per share is ₹10."),
+            Knowledge.Text("RAG means Retrieval-Augmented Generation."),
+        ],
+        embedding=embedding,
+        backend=KnowledgeBackend.MEMORY,
+        agentic=True,
+        grounding=GroundingConfig(
+            enabled=True,
+            extract_facts=True,
+            cite_sources=True,
+            verify_before_use=True,
+            confidence_threshold=0.7,
+        ),
+    )
+    agent_grounding = Agent(
+        model=Model.OpenAI("gpt-4o-mini", api_key=api_key),
+        system_prompt="Use search_knowledge or search_knowledge_deep. Answer using only verified facts.",
+        knowledge=knowledge_grounding,
+    )
+    response_grounded = await agent_grounding.arun("What is the authorized capital?")
+    print(f"  Grounded response (excerpt): {response_grounded.content[:150]}...")
+    await knowledge_grounding.clear()
+
+    print("\n" + "=" * 60)
+    print("9. CLEANUP (clear, stats)")
     print("=" * 60)
 
     await knowledge.clear()
@@ -234,7 +266,7 @@ async def main() -> None:
     print(f"  Cleared. Final stats (agentic): {await knowledge_agentic.stats()}")
 
     print("\n" + "=" * 60)
-    print("OK: Full RAG + Agentic RAG lifecycle complete.")
+    print("OK: Full RAG + Agentic RAG + Grounding lifecycle complete.")
     print("=" * 60)
 
 

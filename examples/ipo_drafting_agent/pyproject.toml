@@ -1,0 +1,20 @@
+[project]
+name = "ipo-drafting-agent"
+version = "0.1.0"
+description = "DRHP Drafting Agent - Capital Structure & Shareholding Pattern section"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "syrin[knowledge,docx,serve]",
+    "python-dotenv>=1.2.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

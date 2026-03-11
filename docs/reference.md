@@ -206,7 +206,27 @@ knowledge = Knowledge(
 # Agent gets: search_knowledge, search_knowledge_deep, verify_knowledge
 ```
 
-**Hooks:** `KNOWLEDGE_AGENTIC_DECOMPOSE`, `KNOWLEDGE_AGENTIC_GRADE`, `KNOWLEDGE_AGENTIC_REFINE`, `KNOWLEDGE_AGENTIC_VERIFY`.
+**Grounding (anti-hallucination):** Set `grounding=GroundingConfig(...)` for fact extraction, verification, and citations. Search returns pre-extracted, pre-verified facts instead of raw chunks.
+
+```python
+from syrin.knowledge import GroundingConfig, Knowledge
+
+knowledge = Knowledge(
+    sources=[...],
+    embedding=...,
+    agentic=True,
+    grounding=GroundingConfig(
+        enabled=True,
+        extract_facts=True,
+        cite_sources=True,
+        verify_before_use=True,
+        confidence_threshold=0.7,
+    ),
+)
+# search_knowledge / search_knowledge_deep return verified facts with [Source: doc, Page N]
+```
+
+**Hooks:** `KNOWLEDGE_AGENTIC_DECOMPOSE`, `KNOWLEDGE_AGENTIC_GRADE`, `KNOWLEDGE_AGENTIC_REFINE`, `KNOWLEDGE_AGENTIC_VERIFY`, `GROUNDING_EXTRACT_START`, `GROUNDING_EXTRACT_END`, `GROUNDING_VERIFY`, `GROUNDING_COMPLETE`.
 
 **Knowledge Store (vector backends):** Store chunks with embeddings for semantic search. Use `get_knowledge_store(backend, ...)` or instantiate directly.
 
@@ -247,6 +267,44 @@ chunks = chunker.chunk(docs)
 
 ---
 
+## Template Engine & Output Format
+
+Slot-based templates constrain LLM output to reduce hallucination. Use `output_config` on Agent; when a template is set, structured output fills slots and `response.content` is the rendered text. File generation (TEXT, MARKDOWN, HTML, PDF, DOCX) produces `response.file` and `response.file_bytes`. When `citation` is set, citations are parsed from content, styled (inline, footnote, appendix), and `response.citations` is populated.
+```python
+from syrin import CitationConfig, CitationStyle, OutputConfig, OutputFormat, SlotConfig, Template
+
+# Standalone
+tpl = Template("cap", "Amount: {{amount}}", slots={"amount": SlotConfig("str")})
+tpl.render(amount="₹50L")
+
+# With Agent (requires output=Output(MyModel))
+agent = Agent(
+    model=model,
+    output=Output(CapitalData),
+    output_config=OutputConfig(format=OutputFormat.TEXT, template=tpl),
+)
+response = agent.response("...")
+# response.content = rendered template
+# response.template_data = slot values
+# response.file, response.file_bytes when output_config format produces file
+
+# With citations (financial, legal, medical)
+agent = Agent(
+    model=model,
+    output_config=OutputConfig(
+        format=OutputFormat.PDF,
+        citation=CitationConfig(style=CitationStyle.FOOTNOTE, include_page=True),
+    ),
+)
+# LLM output: "Cap is ₹50L [Source: moa.pdf, Page 3]"
+# response.content = content with [1], [2] footnotes + References section
+# response.citations = [Citation(text="...", source="moa.pdf", page=3)]
+```
+
+**Syntax:** Mustache-style — `{{var}}`, `{{#section}}...{{/section}}`, `{{#list}}{{.}}{{/list}}`. See [Template Engine](template-engine.md).
+
+---
+
 ## Response Object
 
 What you get back from `agent.response()`:
@@ -255,6 +313,7 @@ What you get back from `agent.response()`:
 response = agent.response("Hello")
 
 response.content          # The answer text
+response.citations        # Parsed citations when output_config.citation is set
 response.cost             # $ spent
 response.tokens           # Tokens used
 response.model            # Which model

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from syrin.knowledge._document import Document, DocumentMetadata
+
+_log = logging.getLogger(__name__)
 
 
 class PDFLoader:
@@ -28,7 +31,7 @@ class PDFLoader:
     def _check_dependency(self) -> None:
         """Check if pypdf is installed."""
         try:
-            import pypdf  # type: ignore[import-not-found]  # noqa: F401
+            import pypdf  # noqa: F401
         except ImportError as err:
             raise ImportError(
                 "pypdf is required for PDF loading. Install with: uv pip install pypdf"
@@ -63,7 +66,7 @@ class PDFLoader:
         docs: list[Document] = []
 
         for i, page in enumerate(reader.pages):
-            text = page.extract_text()
+            text = page.extract_text() or ""
             if text.strip():
                 metadata: DocumentMetadata = {
                     "page": i + 1,
@@ -81,6 +84,13 @@ class PDFLoader:
                         source_type="pdf",
                         metadata=metadata,
                     )
+                )
+            else:
+                _log.warning(
+                    "Page %d of %s produced no text (e.g. image-only or table). "
+                    "Consider using Knowledge.Docling(...) for better table/image extraction.",
+                    i + 1,
+                    self._path,
                 )
 
         return docs

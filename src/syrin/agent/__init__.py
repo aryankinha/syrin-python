@@ -348,6 +348,8 @@ class Agent(Servable, metaclass=_AgentMeta):
         "template_variables": None,
         "tools": None,
         "mcp": None,
+        "model": "_model",
+        "knowledge": "_knowledge",
     }
 
     def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:
@@ -478,7 +480,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         custom_loop: Loop | type[Loop] | None = None,
         guardrails: list[Guardrail] | GuardrailChain | None = NOT_PROVIDED,
         human_approval_timeout: int = 300,
-        max_tool_result_length: int = 2000,
+        max_tool_result_length: int = 0,
         retry_on_transient: bool = True,
         max_retries: int = 3,
         retry_backoff_base: float = 1.0,
@@ -497,6 +499,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         video_generation: Any = None,
         voice_generation: Any = None,
         knowledge: object | None = None,
+        output_config: object | None = None,  # OutputFormat | OutputConfig | None
     ) -> None:
         """Create an agent with model, prompt, tools, and optional config.
 
@@ -541,7 +544,8 @@ class Agent(Servable, metaclass=_AgentMeta):
                 Why: Quick visibility into agent behavior.
                 When: Development and debugging.
             human_approval_timeout: Seconds to wait for HITL approval. On timeout, reject. Default 300.
-            max_tool_result_length: Max chars for tool results before truncation (default 2000).
+            max_tool_result_length: Max chars for tool results sent to the LLM; 0 = no truncation
+                (default). Display in traces/playground is truncated to 2000 chars.
             retry_on_transient: Retry tool calls on transient errors (429, 503, timeouts). Default True.
             max_retries: Max retries for transient tool failures (default 3).
             retry_backoff_base: Base delay in seconds for exponential backoff (default 1.0).
@@ -563,8 +567,10 @@ class Agent(Servable, metaclass=_AgentMeta):
                 of auto-created default (output_media + API key). Use for custom providers or config.
             voice_generation: Explicit VoiceGenerator for TTS. When set with output_media={Media.AUDIO},
                 adds generate_voice tool. No default; pass VoiceGenerator.OpenAI(...) or ElevenLabs(...).
-            knowledge: Knowledge instance for RAG. Adds search_knowledge tool. Requires embedding
-                and sources. Lazy ingest on first search.
+            knowledge: Knowledge instance for RAG. Adds search_knowledge tool. Requires embedding.
+            output_config: OutputFormat enum or OutputConfig. When template is set,
+                requires output=Output(SomeModel). File generation (PDF, DOCX, etc.)
+                produces response.file and response.file_bytes.
 
         Example:
             >>> agent = Agent(
@@ -741,6 +747,33 @@ class Agent(Servable, metaclass=_AgentMeta):
                     "Use Knowledge(sources=[...], embedding=...) from syrin.knowledge."
                 )
         self._knowledge = _knowledge
+
+        # Resolve output_config: enum -> OutputConfig, or keep as-is
+        _output_config_raw = (
+            output_config if output_config is not None else getattr(cls, "output_config", None)
+        )
+        if _output_config_raw is not None:
+            from syrin.output_format import OutputConfig, OutputFormat
+
+            if isinstance(_output_config_raw, OutputConfig):
+                self._output_config: OutputConfig | None = _output_config_raw
+            elif isinstance(_output_config_raw, OutputFormat):
+                self._output_config = OutputConfig(format=_output_config_raw)
+            else:
+                self._output_config = OutputConfig(format=OutputFormat(str(_output_config_raw)))
+        else:
+            self._output_config = None
+
+        if (
+            self._output_config is not None
+            and self._output_config.template is not None
+            and output is None
+        ):
+            raise ValueError(
+                "output_config with template requires output=Output(SomeModel). "
+                "Structured output provides slot values for template rendering."
+            )
+
         self._input_media = _input_media
         self._output_media = _output_media
         self._input_file_rules = _input_file_rules_final
@@ -869,6 +902,8 @@ class Agent(Servable, metaclass=_AgentMeta):
                 _make_search_knowledge_tool(
                     get_knowledge=lambda: self._knowledge,
                     emit=self._emit_event,
+                    get_model=_get_model,
+                    get_budget_tracker=_get_bt,
                 )
             )
             if getattr(self._knowledge, "_agentic", False):

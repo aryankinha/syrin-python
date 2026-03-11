@@ -108,7 +108,40 @@ agent = Agent(
 
 result = agent.response("Extract user info")
 print(result.structured.parsed.name)
+print(result.parsed)  # Convenience: same as structured.parsed
 ```
+
+### Nested Types and Annotated
+
+`@structured` supports nested types and `Annotated` for field descriptions:
+
+```python
+from typing import Annotated
+
+from syrin.model import structured
+
+@structured
+class Shareholder:
+    name: str
+    category: str
+    shares: int
+    percentage: float
+
+@structured
+class CapitalStructure:
+    authorized_capital: Annotated[str, "Total authorized capital in ₹"]
+    face_value: Annotated[str, "Face value per equity share"]
+    shareholders: list[Shareholder]
+    missing_fields: Annotated[list[str], "Data not found in sources"] = []
+
+agent = Agent(model=model, output=Output(CapitalStructure))
+response = agent.response("Extract capital structure")
+# response.parsed is CapitalStructure with validated nested shareholders
+```
+
+- **Nested types:** `list[Shareholder]` produces JSON schema with `$defs` for proper validation
+- **Annotated descriptions:** `Annotated[T, "description"]` adds field descriptions (helps the LLM)
+- **Optional fields:** `Optional[T] = None` or default values make fields not required
 
 ### Using Model's output (Also Works)
 

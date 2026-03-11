@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 
 if TYPE_CHECKING:
     from syrin.context import Context, ContextStats
 
 from syrin.enums import StopReason
+from syrin.output_format._citation import Citation
 from syrin.types import TokenUsage
 from syrin.types.validation import ValidationAttempt
 
@@ -408,8 +410,13 @@ class Response(Generic[T]):
         model_used: Actual model ID from provider (e.g. OpenRouter header). Same as model if not set.
         task_type: TaskType used for routing when applicable.
         actual_cost: Actual cost from provider (e.g. OpenRouter). Same as cost if not set.
+        template_data: Slot values used to render template (when output_config.template is set).
+        file: Path to generated file when output_config.format produces a file (PDF, DOCX, etc.).
+        file_bytes: Raw bytes of generated file (for streaming/API). None when no file generated.
+        citations: Parsed citations when output_config.citation is set. Empty list when none.
 
     For structured output (output=Output(MyModel)):
+        result.parsed — Parsed instance (alias for structured.parsed)
         result.data — Parsed dict
         result.structured.parsed — Pydantic instance
         result.structured.is_valid — Validation succeeded
@@ -438,17 +445,31 @@ class Response(Generic[T]):
     report: AgentReport = field(default_factory=AgentReport)
     context_stats: ContextStats | None = None  # per-call context stats
     context: Context | None = None  # Context used for this call (overrides agent's when passed)
-    raw_response: Any = None  # Provider raw response; parsed Pydantic for structured output
-    routing_reason: Any = None  # RoutingReason when routing was used
+    raw_response: object = None  # Provider raw response; parsed Pydantic for structured output
+    routing_reason: object = None  # RoutingReason when routing was used
     model_used: str | None = None  # Actual model from provider (e.g. OpenRouter header)
-    task_type: Any = None  # TaskType used for routing
-    actual_cost: float | None = None  # Actual cost from provider header
+    task_type: object = None  # TaskType used for routing
+    actual_cost: float | None = None  # Actual cost from provider (e.g. OpenRouter header)
+    template_data: dict[str, object] | None = None  # Slot values when output_config.template used
+    file: Path | None = None  # Path to generated file when output_config produces file
+    file_bytes: bytes | None = None  # Raw bytes of generated file
+    citations: list[Citation] = field(default_factory=list)  # When output_config.citation set
 
     @property
     def data(self) -> dict[str, Any] | None:
         """Get parsed data as dictionary - fields from the structured output."""
         if self.structured is not None:
             return self.structured._data
+        return None
+
+    @property
+    def parsed(self) -> object | None:
+        """Convenience: parsed structured output, or None if not configured or invalid.
+
+        Equivalent to response.structured.parsed when output=Output(MyModel) is set.
+        """
+        if self.structured is not None:
+            return cast("object | None", self.structured.parsed)
         return None
 
     def __str__(self) -> str:

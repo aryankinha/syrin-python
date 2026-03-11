@@ -307,9 +307,9 @@ class ValidationPipeline:
                 text = text.strip()
 
             # Try to find JSON in the text if not pure JSON
-            # Handle common cases like "Here is the JSON: {...}"
-            if not text.startswith("{"):
-                # Try to find first { and last }
+            # Handle common cases like "Here is the JSON: {...}" or "```json\n{...}"
+            if not text.startswith("{") and not text.startswith("["):
+                # Try object first
                 start = text.find("{")
                 if start != -1:
                     # Find matching closing brace
@@ -325,6 +325,22 @@ class ValidationPipeline:
                                 break
                     if end > start:
                         text = text[start:end]
+                else:
+                    # Try array
+                    start = text.find("[")
+                    if start != -1:
+                        depth = 0
+                        end = start
+                        for i, char in enumerate(text[start:], start):
+                            if char == "[":
+                                depth += 1
+                            elif char == "]":
+                                depth -= 1
+                                if depth == 0:
+                                    end = i + 1
+                                    break
+                        if end > start:
+                            text = text[start:end]
 
             return json.loads(text), None
 
@@ -416,6 +432,43 @@ Required schema:
         if self.backoff_factor > 0 and attempt > 1:
             wait_time = self.backoff_factor * (attempt - 1)
             time.sleep(wait_time)
+
+
+def get_retry_prompt(output_type: type, error_message: str) -> str:
+    """Build the prompt to send to the LLM when structured output validation fails.
+
+    Use this when the agent runs validation and wants to retry by calling the model
+    again with the validation error so it can fix the output.
+
+    Args:
+        output_type: Pydantic model class used for structured output.
+        error_message: The validation error message to include.
+
+    Returns:
+        A prompt string to send as the next user message.
+    """
+    schema_str = _schema_str_for_type(output_type)
+    return f"""Previous output failed validation:
+
+Error: {error_message}
+
+Please fix and return valid JSON matching the required schema.
+
+Required schema:
+{schema_str}
+"""
+
+
+def _schema_str_for_type(output_type: type) -> str:
+    """Get JSON schema string for a Pydantic model type."""
+    try:
+        if hasattr(output_type, "model_json_schema"):
+            return json.dumps(output_type.model_json_schema(), indent=2)
+        if hasattr(output_type, "schema"):
+            return json.dumps(output_type.schema(), indent=2)
+    except Exception:
+        pass
+    return str(output_type)
 
 
 def validate_output(

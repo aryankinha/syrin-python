@@ -65,8 +65,12 @@ def main() -> None:
     finally:
         tmp.unlink(missing_ok=True)
 
-    # Knowledge.Directory, .PDF, .GitHub etc. work the same way:
+    # Knowledge.Directory, .PDF, .Docling, .DOCX, .CSV, .Excel, .GitHub etc.:
     # loader = Knowledge.Directory("./docs/", glob="**/*.md")
+    # loader = Knowledge.Docling("report.pdf")   # Best table extraction; requires syrin[docling]
+    # loader = Knowledge.DOCX("board.docx")      # Requires syrin[docx] or syrin[docling]
+    # loader = Knowledge.CSV("data.csv")         # No extra deps
+    # loader = Knowledge.Excel("sheet.xlsx")     # Requires syrin[excel]
     # loader = Knowledge.GitHub("org", repos=["repo1", "repo2"])
     # docs = loader.load()  # or await loader.aload() for async loaders
 

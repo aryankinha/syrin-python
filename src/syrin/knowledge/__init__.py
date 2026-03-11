@@ -20,22 +20,29 @@ Example:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import os
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from syrin.enums import Hook, KnowledgeBackend
 from syrin.knowledge._agentic import AgenticRAGConfig
 from syrin.knowledge._chunker import Chunk, ChunkConfig, Chunker, ChunkMetadata, ChunkStrategy
 from syrin.knowledge._document import Document, DocumentMetadata
+from syrin.knowledge._grounding import GroundedFact, GroundingConfig
 from syrin.knowledge._loader import DocumentLoader
 from syrin.knowledge._store import MetadataFilter, SearchResult
 from syrin.knowledge.chunkers import get_chunker
 from syrin.knowledge.loaders import (
+    CSVLoader,
     DirectoryLoader,
+    DoclingLoader,
+    DOCXLoader,
+    ExcelLoader,
     GitHubLoader,
+    GoogleDriveLoader,
     JSONLoader,
     MarkdownLoader,
     PDFLoader,
@@ -57,6 +64,8 @@ _log = logging.getLogger(__name__)
 
 __all__ = [
     "AgenticRAGConfig",
+    "GroundedFact",
+    "GroundingConfig",
     "Chunk",
     "ChunkConfig",
     "ChunkMetadata",
@@ -66,8 +75,13 @@ __all__ = [
     "DocumentMetadata",
     "DocumentLoader",
     "DirectoryLoader",
+    "DoclingLoader",
+    "CSVLoader",
+    "DOCXLoader",
+    "ExcelLoader",
     "get_chunker",
     "GitHubLoader",
+    "GoogleDriveLoader",
     "JSONLoader",
     "Knowledge",
     "MarkdownLoader",
@@ -83,6 +97,24 @@ __all__ = [
 def _default_sqlite_path() -> str:
     """Default path for SQLite backend: ~/.syrin/knowledge.db."""
     return os.path.expanduser("~/.syrin/knowledge.db")
+
+
+def _content_hash(content: str) -> str:
+    """Stable hash of chunk content for deduplication."""
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def _deduplicate_search_results(results: list[SearchResult]) -> list[SearchResult]:
+    """Remove duplicate results by content hash, preserving order and re-ranking."""
+    seen: set[str] = set()
+    deduped: list[SearchResult] = []
+    for r in results:
+        h = _content_hash(r.chunk.content)
+        if h in seen:
+            continue
+        seen.add(h)
+        deduped.append(SearchResult(chunk=r.chunk, score=r.score, rank=len(deduped) + 1))
+    return deduped
 
 
 class Knowledge:
@@ -123,6 +155,7 @@ class Knowledge:
         sync_interval: int = 0,
         agentic: bool = False,
         agentic_config: AgenticRAGConfig | None = None,
+        grounding: GroundingConfig | None = None,
         inject_system_prompt: bool = True,
         emit: Callable[[str, EventContext], None] | None = None,
         get_budget_tracker: Callable[[], object | None] | None = None,
@@ -146,6 +179,7 @@ class Knowledge:
             sync_interval: Seconds between sync checks (0 = file watcher).
             agentic: Enable agentic retrieval (decompose, grade, refine, verify tools).
             agentic_config: Config for agentic RAG. Defaults used when None and agentic=True.
+            grounding: Config for grounding layer (extract facts, verify, cite). None = disabled.
             inject_system_prompt: Inject knowledge context into agent system prompt.
             emit: Hook emitter (agent._emit_event when attached to agent).
             get_budget_tracker: Callable to get BudgetTracker for embedding cost tracking.
@@ -165,6 +199,7 @@ class Knowledge:
             if agentic_config is not None
             else (AgenticRAGConfig() if agentic else None)
         )
+        self._grounding_config = grounding
         self._get_model = get_model
 
         self._embedding = embedding
@@ -273,6 +308,8 @@ class Knowledge:
             filter=filter,
             score_threshold=thresh,
         )
+        # Deduplicate by content hash so overlapping chunks do not repeat
+        results = _deduplicate_search_results(results)
         max_preview = 200
         results_preview = [
             {
@@ -329,6 +366,130 @@ class Knowledge:
         self._emit = emit
         self._get_budget_tracker = get_budget_tracker
         self._get_model = get_model
+
+    def get_remote_config_schema(self, section_key: str) -> tuple[object, dict[str, object]]:
+        """RemoteConfigurable: return (schema, current_values) for the knowledge section."""
+        from syrin.remote._schema import extract_dataclass_schema
+        from syrin.remote._types import ConfigSchema, FieldSchema
+
+        if section_key != "knowledge":
+            return (ConfigSchema(section="knowledge", class_name="Knowledge", fields=[]), {})
+        prefix = "knowledge"
+        # Top-level scalars + nested configs
+        grounding_children = extract_dataclass_schema(GroundingConfig, f"{prefix}.grounding")
+        agentic_children = extract_dataclass_schema(AgenticRAGConfig, f"{prefix}.agentic_config")
+        agentic_children = [f for f in agentic_children if not f.remote_excluded]
+        chunk_children = extract_dataclass_schema(ChunkConfig, f"{prefix}.chunk_config")
+        chunk_children = [f for f in chunk_children if not f.remote_excluded]
+        fields: list[FieldSchema] = [
+            FieldSchema(name="top_k", path=f"{prefix}.top_k", type="int", default=5),
+            FieldSchema(
+                name="score_threshold", path=f"{prefix}.score_threshold", type="float", default=0.3
+            ),
+            FieldSchema(
+                name="grounding",
+                path=f"{prefix}.grounding",
+                type="object",
+                default=None,
+                children=grounding_children,
+            ),
+            FieldSchema(
+                name="agentic_config",
+                path=f"{prefix}.agentic_config",
+                type="object",
+                default=None,
+                children=agentic_children,
+            ),
+            FieldSchema(
+                name="chunk_config",
+                path=f"{prefix}.chunk_config",
+                type="object",
+                default=None,
+                children=chunk_children,
+            ),
+        ]
+        schema = ConfigSchema(section="knowledge", class_name="Knowledge", fields=fields)
+        # Build current_values from live state
+        current: dict[str, object] = {
+            f"{prefix}.top_k": self._top_k,
+            f"{prefix}.score_threshold": self._score_threshold,
+        }
+        if self._grounding_config is not None:
+            g = self._grounding_config
+            for f in grounding_children:
+                v = getattr(g, f.name, None)
+                if v is not None or f.default is not None:
+                    current[f.path] = v if v is not None else f.default
+        if self._agentic_config is not None:
+            a = self._agentic_config
+            for f in agentic_children:
+                v = getattr(a, f.name, None)
+                if v is not None or f.default is not None:
+                    current[f.path] = v if v is not None else f.default
+        c = self._chunk_config
+        for f in chunk_children:
+            v = getattr(c, f.name, None)
+            if v is not None or f.default is not None:
+                val: object = (
+                    v.value
+                    if v is not None and hasattr(v, "value") and not hasattr(v, "model_dump")
+                    else v
+                )
+                current[f.path] = val if val is not None else f.default
+        return (schema, current)
+
+    def apply_remote_overrides(
+        self,
+        agent: Any,
+        pairs: list[tuple[str, object]],
+        section_schema: object,
+    ) -> None:
+        """RemoteConfigurable: apply knowledge overrides to this Knowledge instance."""
+        import dataclasses
+
+        from syrin.remote._resolver_helpers import build_nested_update
+        from syrin.remote._types import ConfigSchema
+
+        schema = cast("ConfigSchema", section_schema)
+        section = getattr(schema, "section", None)
+        if section != "knowledge":
+            return
+        update = build_nested_update(schema, pairs, "knowledge")
+        if not update:
+            return
+        # Apply top-level scalars
+        if "top_k" in update:
+            object.__setattr__(self, "_top_k", int(cast("int | float | str", update["top_k"])))
+        if "score_threshold" in update:
+            object.__setattr__(
+                self,
+                "_score_threshold",
+                float(cast("int | float | str", update["score_threshold"])),
+            )
+        # Merge grounding
+        if "grounding" in update and isinstance(update["grounding"], dict):
+            g_update = update["grounding"]
+            base = self._grounding_config or GroundingConfig()
+            g_dict = dataclasses.asdict(base)
+            g_dict.update({k: v for k, v in g_update.items() if v is not None})
+            object.__setattr__(self, "_grounding_config", GroundingConfig(**g_dict))
+        # Merge agentic_config
+        if "agentic_config" in update and isinstance(update["agentic_config"], dict):
+            a_update = update["agentic_config"]
+            agentic_base: AgenticRAGConfig = (
+                AgenticRAGConfig() if self._agentic_config is None else self._agentic_config
+            )
+            a_dict = dataclasses.asdict(agentic_base)
+            a_dict.update({k: v for k, v in a_update.items() if v is not None})
+            object.__setattr__(self, "_agentic_config", AgenticRAGConfig(**a_dict))
+        # Merge chunk_config
+        if "chunk_config" in update and isinstance(update["chunk_config"], dict):
+            c_update = update["chunk_config"]
+            c_dict = dataclasses.asdict(self._chunk_config)
+            for k, v in c_update.items():
+                if v is not None:
+                    c_dict[k] = ChunkStrategy(v) if k == "strategy" and isinstance(v, str) else v
+            object.__setattr__(self, "_chunk_config", ChunkConfig(**c_dict))
 
     def _emit_hook(self, hook: Hook, ctx: dict[str, object]) -> None:
         """Emit hook if emitter configured. Pass Hook enum (not .value) so agent event system captures it."""
@@ -396,6 +557,104 @@ class Knowledge:
             MarkdownLoader instance.
         """
         return MarkdownLoader(path)
+
+    @staticmethod
+    def Docling(
+        path: str | Path,
+        *,
+        extract_tables: bool = True,
+        table_format: str = "markdown",
+        ocr: bool = False,
+        **_metadata: object,
+    ) -> DoclingLoader:
+        """Create Docling-powered source (PDF, DOCX, PPTX, XLSX, HTML, images).
+
+        Best-in-class table extraction via IBM Docling. Tables are extracted
+        as separate Documents with structured metadata (table_csv, table_html,
+        table_markdown).
+
+        Args:
+            path: Path to the document file.
+            extract_tables: If True, extract tables as separate Documents.
+            table_format: Primary format for table content: "markdown", "csv", "html".
+            ocr: Enable OCR for scanned documents.
+
+        Returns:
+            DoclingLoader instance.
+
+        Requires:
+            pip install syrin[docling]
+        """
+        return DoclingLoader(
+            path,
+            extract_tables=extract_tables,
+            table_format=table_format,
+            ocr=ocr,
+        )
+
+    @staticmethod
+    def DOCX(path: str | Path, **_metadata: object) -> DOCXLoader:
+        """Create DOCX file source.
+
+        Uses Docling when available (best table extraction), otherwise
+        python-docx. Extracts text and tables with structure preserved.
+
+        Args:
+            path: Path to DOCX file.
+            **metadata: Additional metadata (reserved for future use).
+
+        Returns:
+            DOCXLoader instance.
+
+        Requires:
+            pip install syrin[docx] or syrin[docling]
+        """
+        return DOCXLoader(path, use_docling=True)
+
+    @staticmethod
+    def CSV(
+        path: str | Path,
+        *,
+        rows_per_document: int | None = None,
+        encoding: str = "utf-8",
+        **_metadata: object,
+    ) -> CSVLoader:
+        """Create CSV file source. No extra deps.
+
+        Args:
+            path: Path to CSV file.
+            rows_per_document: Rows per Document; None = entire file.
+            encoding: File encoding.
+
+        Returns:
+            CSVLoader instance.
+        """
+        return CSVLoader(
+            path,
+            rows_per_document=rows_per_document,
+            encoding=encoding,
+        )
+
+    @staticmethod
+    def Excel(
+        path: str | Path,
+        *,
+        sheets: list[str] | None = None,
+        **_metadata: object,
+    ) -> ExcelLoader:
+        """Create Excel file source. Each sheet becomes Document(s).
+
+        Args:
+            path: Path to XLSX file.
+            sheets: Sheet names to load; None = all.
+
+        Returns:
+            ExcelLoader instance.
+
+        Requires:
+            pip install syrin[excel]
+        """
+        return ExcelLoader(path, sheets=sheets)
 
     @staticmethod
     def PDF(path: str | Path, **_metadata: object) -> PDFLoader:
@@ -526,4 +785,45 @@ class Knowledge:
             include_readme=include_readme,
             include_code=include_code,
             token=token,
+        )
+
+    @staticmethod
+    def GoogleDrive(
+        folder: str,
+        *,
+        recursive: bool = True,
+        pattern: str | None = None,
+        allowed_folder: list[str] | None = None,
+        excluded_folder: list[str] | None = None,
+        api_key: str | None = None,
+        **_metadata: object,
+    ) -> GoogleDriveLoader:
+        """Create Google Drive folder source (public links only).
+
+        Loads documents from a public Google Drive folder. Folder must be shared
+        as "Anyone with the link can view". Uses Google Drive API v3 with an
+        API key (no OAuth).
+
+        Args:
+            folder: Google Drive folder URL, folder ID, or single file URL.
+            recursive: If True, traverse subfolders. Default True.
+            pattern: Regex pattern for file names (e.g. r"\\.(txt|md)$").
+            allowed_folder: Only include files from these folder names or IDs.
+            excluded_folder: Exclude these folder names or IDs from traversal.
+            api_key: Google API key. Falls back to GOOGLE_API_KEY env.
+            **metadata: Additional metadata (reserved for future use).
+
+        Returns:
+            GoogleDriveLoader instance.
+
+        Requires:
+            Google Cloud API key with Drive API enabled.
+        """
+        return GoogleDriveLoader(
+            folder,
+            recursive=recursive,
+            pattern=pattern,
+            allowed_folder=allowed_folder,
+            excluded_folder=excluded_folder,
+            api_key=api_key,
         )

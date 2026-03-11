@@ -28,13 +28,19 @@ class GuardrailChain:
         >>> result = await chain.evaluate(context)
     """
 
-    def __init__(self, guardrails: list[Guardrail] | None = None):
+    def __init__(
+        self,
+        guardrails: list[Guardrail] | None = None,
+        timeout_s: float = 30.0,
+    ):
         """Initialize guardrail chain.
 
         Args:
             guardrails: List of guardrails to evaluate in order.
+            timeout_s: Max seconds per guardrail evaluation. Default 30. Prevents hanging.
         """
         self._guardrails = guardrails or []
+        self._timeout_s = timeout_s
 
     def add(self, guardrail: Guardrail) -> None:
         """Add a guardrail to the chain.
@@ -61,7 +67,10 @@ class GuardrailChain:
 
         for guardrail in self._guardrails:
             try:
-                decision = await guardrail.evaluate(context)
+                decision = await asyncio.wait_for(
+                    guardrail.evaluate(context),
+                    timeout=self._timeout_s,
+                )
                 decision.latency_ms = 0.0  # Will be set properly
                 decisions.append(decision)
                 total_budget += decision.budget_consumed
@@ -78,6 +87,23 @@ class GuardrailChain:
                         total_budget_consumed=total_budget,
                     )
 
+            except asyncio.TimeoutError:
+                elapsed = (time.time() - start_time) * 1000
+                timeout_decision = GuardrailDecision(
+                    passed=False,
+                    rule="timeout",
+                    reason=f"Guardrail '{guardrail.name}' timed out after {self._timeout_s}s",
+                    metadata={"guardrail": guardrail.name, "timeout_s": self._timeout_s},
+                )
+                decisions.append(timeout_decision)
+                return EvaluationResult(
+                    passed=False,
+                    decisions=decisions,
+                    rule="timeout",
+                    reason=f"Evaluation timed out after {self._timeout_s}s",
+                    total_latency_ms=elapsed,
+                    total_budget_consumed=total_budget,
+                )
             except Exception as e:
                 # Exception stops the chain
                 error_decision = GuardrailDecision(

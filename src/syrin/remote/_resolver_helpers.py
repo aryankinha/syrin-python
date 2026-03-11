@@ -64,6 +64,19 @@ def _normalize_enum_value(path: str, value: str, field: FieldSchema | None) -> s
         if norm in vals:
             return norm
         return None
+    if path.startswith("knowledge.chunk_config.") and field and field.name == "strategy":
+        from syrin.knowledge._chunker import ChunkStrategy
+
+        if value in (m.value for m in ChunkStrategy):
+            return value
+        try:
+            return ChunkStrategy[value].value
+        except KeyError:
+            pass
+        norm = normalized(value)
+        if norm in (m.value for m in ChunkStrategy):
+            return norm
+        return None
     return None
 
 
@@ -86,6 +99,10 @@ def _coerce_enum(value: object, field: FieldSchema | None) -> object:
         from syrin.checkpoint import CheckpointTrigger
 
         return CheckpointTrigger(value)
+    if path.startswith("knowledge.chunk_config.") and field.name == "strategy":
+        from syrin.knowledge._chunker import ChunkStrategy
+
+        return ChunkStrategy(value)
     return value
 
 

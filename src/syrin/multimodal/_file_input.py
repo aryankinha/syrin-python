@@ -42,7 +42,7 @@ def pdf_extract_text(data: bytes) -> str:
     if not data:
         return ""
     try:
-        from pypdf import PdfReader  # type: ignore[import-not-found]
+        from pypdf import PdfReader
     except ImportError as e:
         raise ImportError("syrin[pdf] required for PDF extraction. pip install syrin[pdf]") from e
 

@@ -7,13 +7,16 @@ response()/arun() so that agent/__init__.py stays focused on config and identity
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, cast
 
 from syrin.agent._context_builder import _user_input_to_search_str
-from syrin.enums import GuardrailStage, StopReason
+from syrin.enums import GuardrailStage, MessageRole, StopReason
 from syrin.loop import LoopResult
+from syrin.output_format._citation import Citation
 from syrin.response import Response
-from syrin.types import TokenUsage
+from syrin.types import Message, TokenUsage
+from syrin.validation import get_retry_prompt
 
 
 async def run_agent_loop_async(agent: Any, user_input: str | list[dict[str, Any]]) -> Response[str]:
@@ -87,13 +90,53 @@ async def run_agent_loop_async(agent: Any, user_input: str | list[dict[str, Any]
                     ),
                 )
 
-        # Build structured output with validation
-        structured = agent._build_output(
-            result.content,
-            validation_retries=agent._validation_retries,
-            validation_context=agent._validation_context,
-            validator=getattr(agent, "_output_validator", None),
+        # Build structured output with validation; retry via LLM when validation fails
+        structured, result_content = await _build_structured_with_llm_retry(
+            agent,
+            result.content or "",
+            user_input,
         )
+
+        # Apply template if output_config has template and we have structured data
+        content_for_response: str = result_content or ""
+        template_data: dict[str, object] | None = None
+        citations_list: list[Citation] = []
+        output_config = getattr(agent, "_output_config", None)
+        if (
+            output_config is not None
+            and output_config.template is not None
+            and structured is not None
+            and structured._data
+        ):
+            try:
+                rendered = output_config.template.render(**structured._data)
+                content_for_response = rendered
+                template_data = dict(structured._data)
+            except ValueError:
+                pass  # Slot validation failed; use raw content
+
+        # Apply citation parsing/styling when output_config.citation is set
+        if output_config is not None and output_config.citation is not None:
+            from syrin.output_format import apply_citation_to_content
+
+            content_for_response, citations_list = apply_citation_to_content(
+                content_for_response, output_config
+            )
+
+        # Generate file when output_config.format is set and content is non-empty
+        file_path: Path | None = None
+        file_bytes_val: bytes | None = None
+        if output_config is not None and content_for_response.strip():
+            try:
+                from syrin.output_format import format_to_file
+
+                file_path, file_bytes_val = format_to_file(
+                    content_for_response,
+                    output_config.format,
+                    title=output_config.title,
+                )
+            except ImportError:
+                pass  # Optional deps (WeasyPrint, python-docx) not installed
 
         # Populate report with final data
         agent._run_report.budget_remaining = agent._budget.remaining if agent._budget else None
@@ -111,9 +154,91 @@ async def run_agent_loop_async(agent: Any, user_input: str | list[dict[str, Any]
         return cast(
             Response[str],
             agent._with_context_on_response(
-                _response_from_loop_result(agent, result, tokens, tool_calls_list, structured),
+                _response_from_loop_result(
+                    agent,
+                    result,
+                    tokens,
+                    tool_calls_list,
+                    structured,
+                    content_override=content_for_response,
+                    template_data=template_data,
+                    file_path=file_path,
+                    file_bytes=file_bytes_val,
+                    citations=citations_list,
+                ),
             ),
         )
+
+
+async def _build_structured_with_llm_retry(
+    agent: Any,
+    initial_content: str,
+    user_input: str | list[dict[str, Any]],
+) -> tuple[Any, str]:
+    """Build structured output, retrying via LLM with validation error when validation fails.
+
+    Returns:
+        (structured_output, content_used) — content_used is the string that was validated
+        (may be from a retry round).
+    """
+    from syrin.agent._prompt_build import build_output
+
+    pydantic_model = _get_structured_output_model(agent)
+    if pydantic_model is None:
+        out = build_output(
+            agent,
+            initial_content,
+            validation_retries=1,
+            validation_context=getattr(agent, "_validation_context", None),
+            validator=getattr(agent, "_output_validator", None),
+        )
+        return (out, initial_content or "")
+
+    content = initial_content or ""
+    max_retries = getattr(agent, "_validation_retries", 3)
+    structured = None
+
+    for attempt in range(max_retries):
+        structured = build_output(
+            agent,
+            content,
+            validation_retries=1,
+            validation_context=getattr(agent, "_validation_context", None),
+            validator=getattr(agent, "_output_validator", None),
+        )
+        if structured is None or structured.final_error is None:
+            return (structured, content)
+        if attempt >= max_retries - 1:
+            return (structured, content)
+        retry_prompt = get_retry_prompt(pydantic_model, str(structured.final_error))
+        base_messages = agent._build_messages(user_input)
+        messages = base_messages + [
+            Message(role=MessageRole.ASSISTANT, content=content),
+            Message(role=MessageRole.USER, content=retry_prompt),
+        ]
+        response = await agent.complete(messages, tools=[])
+        content = (response.content or "").strip()
+        if not content:
+            return (structured, content)
+
+    return (structured, content)
+
+
+def _get_structured_output_model(agent: Any) -> type | None:
+    """Return the Pydantic model for structured output, or None if not set."""
+    output_type = getattr(agent._model_config, "output", None)
+    if output_type is None:
+        return None
+    if hasattr(output_type, "_structured_pydantic"):
+        return cast("type", output_type._structured_pydantic)
+    try:
+        from pydantic import BaseModel
+
+        if isinstance(output_type, type) and issubclass(output_type, BaseModel):
+            return cast("type", output_type)
+    except Exception:
+        pass
+    return None
 
 
 def _auto_store_turn(
@@ -201,6 +326,12 @@ def _response_from_loop_result(
     tokens: TokenUsage,
     tool_calls_list: list[Any],
     structured: Any,
+    *,
+    content_override: str | None = None,
+    template_data: dict[str, object] | None = None,
+    file_path: Path | None = None,
+    file_bytes: bytes | None = None,
+    citations: list[Citation] | None = None,
 ) -> Response[str]:
     from syrin.response import MediaAttachment
     from syrin.response import Response as ResponseClass
@@ -228,8 +359,10 @@ def _response_from_loop_result(
         for m in gen_media
         if isinstance(m, dict) and m.get("url")
     ]
+    content = content_override if content_override is not None else result.content
     return ResponseClass(
-        content=result.content,
+        content=content,
+        raw=result.content,
         attachments=attachments,
         cost=result.cost_usd,
         tokens=tokens,
@@ -247,4 +380,8 @@ def _response_from_loop_result(
         model_used=getattr(agent, "_last_model_used", None) or model_id,
         task_type=task_type,
         actual_cost=getattr(agent, "_last_actual_cost", None) or result.cost_usd,
+        template_data=template_data,
+        file=file_path,
+        file_bytes=file_bytes,
+        citations=citations or [],
     )

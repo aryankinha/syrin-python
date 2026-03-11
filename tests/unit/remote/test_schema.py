@@ -335,6 +335,85 @@ class TestExtractAgentSchema:
         # budget/memory etc. may be absent or present with empty current_values
         assert schema.sections["agent"].section == "agent"
 
+    def test_agent_schema_model_section_when_model_set(self) -> None:
+        """When agent has model, model section present with model_id, temperature, max_tokens."""
+        from syrin import Agent, Model
+
+        agent = Agent(model=Model.Ollama("llama3"))
+        schema = extract_agent_schema(agent)
+        assert "model" in schema.sections
+        model_section = schema.sections["model"]
+        assert model_section.class_name == "Model"
+        names = [f.name for f in model_section.fields]
+        assert "model_id" in names
+        assert "temperature" in names
+        assert "max_tokens" in names
+        assert "ollama/llama3" in str(schema.current_values.get("model.model_id", ""))
+
+    def test_agent_schema_model_section_absent_when_no_model(self) -> None:
+        """Agent with model_config only (no Model instance) has no model section."""
+        from syrin import Agent
+        from syrin.types import ModelConfig
+
+        agent = Agent(
+            model=ModelConfig(
+                name="gpt",
+                provider="openai",
+                model_id="openai/gpt-4o-mini",
+            ),
+            system_prompt="",
+        )
+        schema = extract_agent_schema(agent)
+        assert agent._model is None
+        assert "model" not in schema.sections
+
+    def test_agent_schema_knowledge_section_when_knowledge_set(self) -> None:
+        """When agent has knowledge, knowledge section present with top_k, score_threshold."""
+
+        def _fake_embedding():
+            class F:
+                dimensions = 4
+                model_id = "fake"
+
+                async def embed(self, texts, budget_tracker=None):
+                    return [[0.1] * 4 for _ in texts]
+
+            return F()
+
+        from syrin import Agent, Model
+        from syrin.enums import KnowledgeBackend
+        from syrin.knowledge import Knowledge
+
+        agent = Agent(
+            model=Model.Almock(),
+            knowledge=Knowledge(
+                sources=[Knowledge.Text("test")],
+                embedding=_fake_embedding(),
+                backend=KnowledgeBackend.MEMORY,
+                top_k=7,
+                score_threshold=0.5,
+            ),
+        )
+        schema = extract_agent_schema(agent)
+        assert "knowledge" in schema.sections
+        knowledge_section = schema.sections["knowledge"]
+        assert knowledge_section.class_name == "Knowledge"
+        names = [f.name for f in knowledge_section.fields]
+        assert "top_k" in names
+        assert "score_threshold" in names
+        assert "grounding" in names
+        assert "chunk_config" in names
+        assert schema.current_values.get("knowledge.top_k") == 7
+        assert schema.current_values.get("knowledge.score_threshold") == 0.5
+
+    def test_agent_schema_knowledge_section_absent_when_no_knowledge(self) -> None:
+        """Agent without knowledge has no knowledge section."""
+        from syrin import Agent, Model
+
+        agent = Agent(model=Model.Almock())
+        schema = extract_agent_schema(agent)
+        assert "knowledge" not in schema.sections
+
 
 # --- Edge cases ---
 

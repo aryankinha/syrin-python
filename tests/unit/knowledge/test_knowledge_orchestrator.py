@@ -11,8 +11,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from syrin.enums import KnowledgeBackend
-from syrin.knowledge import Knowledge
-from syrin.knowledge._chunker import ChunkConfig, ChunkStrategy
+from syrin.knowledge import Knowledge, _deduplicate_search_results
+from syrin.knowledge._chunker import Chunk, ChunkConfig, ChunkStrategy
+from syrin.knowledge._store import SearchResult
 from syrin.knowledge.loaders import RawTextLoader
 
 if TYPE_CHECKING:
@@ -265,6 +266,48 @@ class TestKnowledgeSearch:
         await k.ingest()
         results = await k.search("xyznonexistent")
         assert isinstance(results, list)
+
+
+class TestSearchResultDedup:
+    """Search results are deduplicated by content hash."""
+
+    def test_dedup_removes_duplicate_content(self) -> None:
+        """Results with identical content are deduplicated; order and rank preserved."""
+        chunk_a = Chunk(
+            content="Same text",
+            metadata={},
+            document_id="doc1",
+            chunk_index=0,
+            token_count=2,
+        )
+        chunk_b = Chunk(
+            content="Same text",
+            metadata={},
+            document_id="doc2",
+            chunk_index=0,
+            token_count=2,
+        )
+        chunk_c = Chunk(
+            content="Other text",
+            metadata={},
+            document_id="doc3",
+            chunk_index=0,
+            token_count=2,
+        )
+        results = [
+            SearchResult(chunk=chunk_a, score=0.9, rank=1),
+            SearchResult(chunk=chunk_b, score=0.85, rank=2),
+            SearchResult(chunk=chunk_c, score=0.8, rank=3),
+        ]
+        deduped = _deduplicate_search_results(results)
+        assert len(deduped) == 2
+        assert deduped[0].chunk.content == "Same text"
+        assert deduped[0].rank == 1
+        assert deduped[1].chunk.content == "Other text"
+        assert deduped[1].rank == 2
+
+    def test_dedup_empty_list(self) -> None:
+        assert _deduplicate_search_results([]) == []
 
 
 class TestKnowledgeLifecycle:

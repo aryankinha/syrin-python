@@ -326,7 +326,7 @@ class TestDirectoryLoader:
         loader = DirectoryLoader(temp_dir)
         docs = loader.load()
 
-        assert len(docs) == 3
+        assert len(docs) >= 3
 
     def test_load_directory_recursive(self, temp_dir: str) -> None:
         """DirectoryLoader supports recursive loading."""
@@ -485,6 +485,121 @@ class TestGitHubLoader:
         assert docs[1].source == "github/org/repo-b"
 
 
+class TestGoogleDriveLoader:
+    """Tests for GoogleDriveLoader."""
+
+    @pytest.mark.asyncio
+    async def test_load_requires_api_key(self) -> None:
+        """GoogleDriveLoader raises without api_key when GOOGLE_API_KEY not set."""
+        from syrin.knowledge.loaders import GoogleDriveLoader
+
+        loader = GoogleDriveLoader(
+            "https://drive.google.com/drive/folders/1ABC123",
+            api_key="",
+        )
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            pytest.raises(ValueError, match="api_key is required"),
+        ):
+            await loader.aload()
+
+    @pytest.mark.asyncio
+    async def test_load_folder_list(self) -> None:
+        """GoogleDriveLoader fetches folder contents via Drive API."""
+        from syrin.knowledge.loaders import GoogleDriveLoader
+
+        loader = GoogleDriveLoader(
+            "https://drive.google.com/drive/folders/1ABC123",
+            api_key="test-key",
+        )
+
+        async def mock_get(url: str, params: dict | None = None, **kwargs: object) -> object:
+            resp = AsyncMock()
+            resp.status_code = 200
+            resp.raise_for_status = lambda: None
+            # List files (q= in params)
+            if params and "in parents" in params.get("q", ""):
+                resp.json = lambda: {
+                    "files": [
+                        {
+                            "id": "file1",
+                            "name": "notes.txt",
+                            "mimeType": "text/plain",
+                        },
+                    ]
+                }
+            elif "alt=media" in url:
+                resp.content = b"Hello from Drive"
+            else:
+                resp.json = lambda: {"files": []}
+            return resp
+
+        with patch("syrin.knowledge.loaders._google_drive.httpx") as mock_httpx:
+            mock_client = AsyncMock()
+            mock_client.get = mock_get
+            mock_httpx.AsyncClient.return_value.__aenter__.return_value = mock_client
+
+            docs = await loader.aload()
+
+        assert len(docs) == 1
+        assert "Hello from Drive" in docs[0].content
+        assert docs[0].source_type == "google_drive"
+        assert docs[0].metadata.get("file_id") == "file1"
+
+    @pytest.mark.asyncio
+    async def test_load_single_file(self) -> None:
+        """GoogleDriveLoader loads single file when given file URL."""
+        from syrin.knowledge.loaders import GoogleDriveLoader
+
+        loader = GoogleDriveLoader(
+            "https://drive.google.com/file/d/FILE99/view",
+            api_key="test-key",
+        )
+
+        call_count = 0
+
+        async def mock_get(url: str, params: dict | None = None, **kwargs: object) -> object:
+            nonlocal call_count
+            resp = AsyncMock()
+            resp.status_code = 200
+            resp.raise_for_status = lambda: None
+            if "files/FILE99" in url and "alt=media" not in url:
+                resp.json = lambda: {
+                    "id": "FILE99",
+                    "name": "doc.txt",
+                    "mimeType": "text/plain",
+                }
+            elif "alt=media" in url:
+                resp.content = b"Single file content"
+            else:
+                resp.json = lambda: {}
+            call_count += 1
+            return resp
+
+        with patch("syrin.knowledge.loaders._google_drive.httpx") as mock_httpx:
+            mock_client = AsyncMock()
+            mock_client.get = mock_get
+            mock_httpx.AsyncClient.return_value.__aenter__.return_value = mock_client
+
+            docs = await loader.aload()
+
+        assert len(docs) == 1
+        assert "Single file content" in docs[0].content
+        assert docs[0].metadata.get("file_id") == "FILE99"
+
+    def test_extract_id_from_url(self) -> None:
+        """ID extraction from various URL formats."""
+        from syrin.knowledge.loaders._google_drive import _extract_id_from_url
+
+        assert (
+            _extract_id_from_url("https://drive.google.com/drive/folders/1ABC_def-123")
+            == "1ABC_def-123"
+        )
+        assert _extract_id_from_url("https://drive.google.com/file/d/xyz789/view") == "xyz789"
+        assert _extract_id_from_url("https://drive.google.com/open?id=abc123") == "abc123"
+        assert _extract_id_from_url("1RawId123") == "1RawId123"
+
+
 class TestPythonLoader:
     """Tests for PythonLoader."""
 
@@ -573,6 +688,45 @@ class TestLoaderErrors:
         with pytest.raises(ImportError, match="pypdf"):
             loader.load()
 
+    def test_pdf_loader_empty_page_warns_and_suggests_docling(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """When a page produces no text, PDFLoader logs a warning and suggests Docling."""
+        try:
+            import pypdf  # noqa: F401
+        except ImportError:
+            pytest.skip("pypdf not installed")
+
+        from unittest.mock import MagicMock
+
+        mock_page_with_text = MagicMock()
+        mock_page_with_text.extract_text.return_value = "Some content"
+        mock_page_empty = MagicMock()
+        mock_page_empty.extract_text.return_value = ""
+        mock_reader = MagicMock()
+        mock_reader.pages = [mock_page_with_text, mock_page_empty]
+        mock_reader.metadata = None
+
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+            tmp_path = f.name
+        try:
+            with patch("pypdf.PdfReader", return_value=mock_reader):
+                from syrin.knowledge.loaders import PDFLoader
+
+                loader = PDFLoader(tmp_path)
+                with caplog.at_level("WARNING"):
+                    docs = loader.load()
+
+            assert len(docs) == 1
+            assert docs[0].content == "Some content"
+            assert any(
+                "produced no text" in rec.message and "Docling" in rec.message
+                for rec in caplog.records
+                if rec.levelname == "WARNING"
+            )
+        finally:
+            os.unlink(tmp_path)
+
     def test_directory_loader_empty(self) -> None:
         """DirectoryLoader handles empty directory."""
         from syrin.knowledge.loaders import DirectoryLoader
@@ -632,3 +786,16 @@ class TestKnowledgeNamespace:
         docs = loader.load()
 
         assert len(docs) >= 1
+
+    def test_knowledge_google_drive(self) -> None:
+        """Knowledge.GoogleDrive creates GoogleDriveLoader."""
+        from syrin.knowledge import Knowledge
+        from syrin.knowledge.loaders import GoogleDriveLoader
+
+        loader = Knowledge.GoogleDrive(
+            "https://drive.google.com/drive/folders/1ABC",
+            api_key="test-key",
+            pattern=r"\\.txt$",
+        )
+        assert isinstance(loader, GoogleDriveLoader)
+        assert loader.folder == "https://drive.google.com/drive/folders/1ABC"

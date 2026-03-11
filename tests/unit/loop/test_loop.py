@@ -10,12 +10,15 @@ from syrin.agent._run_context import DefaultAgentRunContext
 from syrin.enums import MessageRole
 from syrin.loop import (
     HITL,
+    MAX_TOOL_RESULT_DISPLAY_LENGTH,
+    MAX_TOOL_RESULT_SAFETY_CAP,
     REACT,
     SINGLE_SHOT,
     HumanInTheLoop,
     LoopResult,
     ReactLoop,
     SingleShotLoop,
+    _truncate_tool_result_for_context,
 )
 from syrin.types import Message, ModelConfig, TokenUsage, ToolCall
 
@@ -989,3 +992,43 @@ class TestHITLApprovalGate:
         # Tool should have been executed
         mock_agent.execute_tool.assert_called_once()
         assert "search" in result.tools_used
+
+
+class TestToolResultTruncation:
+    """Tool result truncation: no truncation for LLM by default; display uses 2000."""
+
+    def test_empty_result_unchanged(self) -> None:
+        assert _truncate_tool_result_for_context("", max_len=0) == ""
+        assert _truncate_tool_result_for_context("", max_len=100) == ""
+
+    def test_short_text_no_truncation_when_max_len_zero(self) -> None:
+        text = "Short search result."
+        assert _truncate_tool_result_for_context(text, max_len=0) == text
+
+    def test_long_text_capped_at_safety_when_max_len_zero(self) -> None:
+        text = "x" * (MAX_TOOL_RESULT_SAFETY_CAP + 1000)
+        out = _truncate_tool_result_for_context(text, max_len=0)
+        assert len(out) == MAX_TOOL_RESULT_SAFETY_CAP + len(" [...] (truncated)")
+        assert out.endswith(" [...] (truncated)")
+
+    def test_text_truncated_when_max_len_positive(self) -> None:
+        text = "a" * 5000
+        out = _truncate_tool_result_for_context(text, max_len=100, tool_name="search")
+        assert len(out) == 100 + len(" [...] (truncated)")
+        assert out.endswith(" [...] (truncated)")
+
+    def test_image_data_url_replaced_with_short_message(self) -> None:
+        result = "Generated image: data:image/png;base64," + ("A" * 5000)
+        out = _truncate_tool_result_for_context(result, max_len=0)
+        assert "base64 data omitted" in out
+        assert "image" in out or "png" in out
+        assert "A" not in out or out.count("A") < 100
+
+    def test_video_data_url_replaced_with_short_message(self) -> None:
+        result = "Generated video: data:video/mp4;base64," + ("B" * 5000)
+        out = _truncate_tool_result_for_context(result, max_len=0)
+        assert "base64 data omitted" in out
+        assert "video" in out
+
+    def test_display_length_constant_for_observability(self) -> None:
+        assert MAX_TOOL_RESULT_DISPLAY_LENGTH == 2000

@@ -54,8 +54,12 @@ def _llm_span_context(ctx: Any, iteration: int, model_id: str) -> Any:
     )
 
 
-# Default max chars for tool results before truncating (avoids 429 from LLM token limits)
-_DEFAULT_MAX_TOOL_RESULT_FOR_LLM = 2000
+# Max chars for tool results when displayed in traces/playground/terminal (observability only).
+# Full result is sent to the LLM unless max_tool_result_length > 0 on the agent.
+MAX_TOOL_RESULT_DISPLAY_LENGTH = 2000
+
+# Safety cap when no truncation: avoid sending unbounded text and blowing context.
+MAX_TOOL_RESULT_SAFETY_CAP = 128_000
 
 
 def _is_transient_error(e: BaseException) -> bool:
@@ -113,13 +117,19 @@ def _extract_media_url_from_tool_result(result: str) -> tuple[str | None, str | 
 
 
 def _truncate_tool_result_for_context(
-    result: str, max_len: int = _DEFAULT_MAX_TOOL_RESULT_FOR_LLM, tool_name: str | None = None
+    result: str,
+    max_len: int = 0,
+    tool_name: str | None = None,
 ) -> str:
-    """Truncate large base64 data URLs in tool results to avoid blowing up LLM context (429)."""
-    if not isinstance(max_len, int) or max_len <= 0:
-        max_len = _DEFAULT_MAX_TOOL_RESULT_FOR_LLM
-    if not result or len(result) <= max_len:
+    """Prepare tool result for LLM context.
+
+    - Image/video data URLs: always replaced with a short message (base64 omitted).
+    - When max_len is 0: full text is sent, capped at MAX_TOOL_RESULT_SAFETY_CAP for safety.
+    - When max_len > 0: text is truncated at max_len chars (legacy/custom limit).
+    """
+    if not result:
         return result
+    # Always replace large base64 media with short message
     if "data:image" in result or "data:video" in result:
         prefix = result.split(";base64,")[0] if ";base64," in result else result[:80]
         size_kb = len(result) // 1024
@@ -127,10 +137,15 @@ def _truncate_tool_result_for_context(
             f"{prefix}; [base64 data omitted, ~{size_kb}KB - exceeds context limit. "
             "The generation succeeded. Inform the user the image/video was created.]"
         )
-    # Generic truncation for other large outputs
-    label = f"Tool {tool_name!r} " if tool_name else ""
-    _log.info("%sresult truncated: %d -> %d chars", label, len(result), max_len)
-    return result[:max_len] + " [...] (truncated)"
+    effective_max = (
+        max_len if isinstance(max_len, int) and max_len > 0 else MAX_TOOL_RESULT_SAFETY_CAP
+    )
+    if len(result) <= effective_max:
+        return result
+    if max_len > 0:
+        label = f"Tool {tool_name!r} " if tool_name else ""
+        _log.info("%sresult truncated: %d -> %d chars", label, len(result), max_len)
+    return result[:effective_max] + " [...] (truncated)"
 
 
 def _tool_span_context(ctx: Any, tool_name: str, tool_args: dict[str, Any], iteration: int) -> Any:
@@ -478,12 +493,11 @@ class ReactLoop(Loop):
                             from syrin.observability import SemanticAttributes
 
                             tool_span.set_attribute(
-                                SemanticAttributes.TOOL_OUTPUT, str(result)[:500]
+                                SemanticAttributes.TOOL_OUTPUT,
+                                str(result)[:MAX_TOOL_RESULT_DISPLAY_LENGTH],
                             )
                     result_str = str(result)
-                    max_len = getattr(
-                        ctx, "max_tool_result_length", _DEFAULT_MAX_TOOL_RESULT_FOR_LLM
-                    )
+                    max_len = getattr(ctx, "max_tool_result_length", 0)
                     content_for_llm = _truncate_tool_result_for_context(
                         result_str, max_len=max_len, tool_name=tool_name
                     )
@@ -721,9 +735,7 @@ class HumanInTheLoop(Loop):
                 try:
                     result = await _execute_tool_with_retry(ctx, tool_name, tool_args)
                     result_str = str(result)
-                    max_len = getattr(
-                        ctx, "max_tool_result_length", _DEFAULT_MAX_TOOL_RESULT_FOR_LLM
-                    )
+                    max_len = getattr(ctx, "max_tool_result_length", 0)
                     content_for_llm = _truncate_tool_result_for_context(
                         result_str, max_len=max_len, tool_name=tool_name
                     )
@@ -881,9 +893,7 @@ class PlanExecuteLoop(Loop):
                     )
                     tool_result = await _execute_tool_with_retry(ctx, tc.name, tc.arguments or {})
                     result_str = str(tool_result)
-                    max_len = getattr(
-                        ctx, "max_tool_result_length", _DEFAULT_MAX_TOOL_RESULT_FOR_LLM
-                    )
+                    max_len = getattr(ctx, "max_tool_result_length", 0)
                     content_for_llm = _truncate_tool_result_for_context(
                         result_str, max_len=max_len, tool_name=tc.name
                     )
@@ -953,7 +963,7 @@ class PlanExecuteLoop(Loop):
             for tc in response.tool_calls:
                 tool_result = await _execute_tool_with_retry(ctx, tc.name, tc.arguments or {})
                 result_str = str(tool_result)
-                max_len = getattr(ctx, "max_tool_result_length", _DEFAULT_MAX_TOOL_RESULT_FOR_LLM)
+                max_len = getattr(ctx, "max_tool_result_length", 0)
                 content_for_llm = _truncate_tool_result_for_context(
                     result_str, max_len=max_len, tool_name=tc.name
                 )
@@ -1229,4 +1239,6 @@ __all__ = [
     "SINGLE_SHOT",
     "HITL",
     "ToolApprovalFn",
+    "MAX_TOOL_RESULT_DISPLAY_LENGTH",
+    "MAX_TOOL_RESULT_SAFETY_CAP",
 ]

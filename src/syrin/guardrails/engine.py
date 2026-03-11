@@ -65,12 +65,12 @@ class ParallelEvaluationEngine:
     """
 
     def __init__(
-        self, timeout: float = 10.0, short_circuit: bool = False, fail_on_timeout: bool = True
+        self, timeout: float = 30.0, short_circuit: bool = False, fail_on_timeout: bool = True
     ):
         """Initialize evaluation engine.
 
         Args:
-            timeout: Maximum time (seconds) to wait for all guardrails.
+            timeout: Maximum time (seconds) to wait for all guardrails. Default 30.
             short_circuit: If True, stop as soon as one guardrail fails.
             fail_on_timeout: If True, timeout counts as failure.
         """

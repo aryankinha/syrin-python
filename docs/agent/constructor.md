@@ -150,6 +150,41 @@ See [Structured Output](structured-output.md).
 
 ---
 
+### `output_config`
+
+Output configuration: format (TEXT, MARKDOWN, HTML, PDF, DOCX), optional template for slot-based generation, optional citation styling, and title. When `template` is set, requires `output=Output(SomeModel)`. File generation produces `response.file` and `response.file_bytes`. When `citation` is set, citations are parsed from content and `response.citations` is populated.
+
+**Type:** `OutputFormat | OutputConfig | None`  
+**Default:** `None`
+
+```python
+from syrin import CitationConfig, CitationStyle, OutputConfig, OutputFormat, Template, SlotConfig
+
+# Bare format (file generation)
+agent = Agent(model=model, output_config=OutputFormat.TEXT)
+
+# With template (requires output=)
+tpl = Template("cap", "Amount: {{amount}}", slots={"amount": SlotConfig("str")})
+agent = Agent(
+    model=model,
+    output=Output(CapitalData),
+    output_config=OutputConfig(format=OutputFormat.MARKDOWN, template=tpl),
+)
+
+# With citations (financial, legal, medical)
+agent = Agent(
+    model=model,
+    output_config=OutputConfig(
+        format=OutputFormat.PDF,
+        citation=CitationConfig(style=CitationStyle.FOOTNOTE, include_page=True),
+    ),
+)
+```
+
+See [Template Engine](../template-engine.md).
+
+---
+
 ### `max_tool_iterations`
 
 Maximum tool-call loop iterations.

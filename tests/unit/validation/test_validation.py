@@ -10,7 +10,7 @@ from syrin.types.validation import (
     ValidationAttempt,
     ValidationResult,
 )
-from syrin.validation import ValidationPipeline
+from syrin.validation import ValidationPipeline, get_retry_prompt
 
 # =============================================================================
 # TEST MODELS - Simple and Complex
@@ -679,3 +679,24 @@ class TestBackwardsCompatibility:
         assert parsed is not None
         assert parsed.name == "John"
         assert error is None
+
+
+class TestGetRetryPrompt:
+    """get_retry_prompt builds prompt for LLM retry when validation fails."""
+
+    def test_retry_prompt_includes_error_and_schema(self) -> None:
+        """Retry prompt includes the error message and schema."""
+        prompt = get_retry_prompt(
+            SimpleUser,
+            "1 validation error for SimpleUser\nname\n  Field required",
+        )
+        assert "Field required" in prompt
+        assert "Previous output failed validation" in prompt
+        assert "Required schema" in prompt
+        assert "name" in prompt or "SimpleUser" in prompt
+
+    def test_retry_prompt_empty_error(self) -> None:
+        """Retry prompt with empty error still contains schema."""
+        prompt = get_retry_prompt(SimpleUser, "")
+        assert "Previous output failed validation" in prompt
+        assert "Error:" in prompt

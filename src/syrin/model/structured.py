@@ -13,9 +13,67 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Annotated, Any, TypeVar, cast, get_type_hints
+from typing import Annotated, Any, TypeVar, Union, cast, get_args, get_origin, get_type_hints
 
 T = TypeVar("T")
+
+_PRIMITIVE_JSON_TYPES: dict[type, dict[str, str]] = {
+    str: {"type": "string"},
+    int: {"type": "integer"},
+    float: {"type": "number"},
+    bool: {"type": "boolean"},
+    list: {"type": "array"},
+    dict: {"type": "object"},
+}
+
+
+def _is_optional(hint: type) -> bool:
+    """True if type is Optional[T] or T | None."""
+    origin = get_origin(hint)
+    if origin is Union:
+        args = get_args(hint)
+        return type(None) in args
+    return False
+
+
+def _unwrap_optional(hint: type) -> type:
+    """Return non-None part of Optional[T] or T | None."""
+    origin = get_origin(hint)
+    if origin is Union:
+        args = get_args(hint)
+        non_none = [a for a in args if a is not type(None)]
+        return non_none[0] if len(non_none) == 1 else hint
+    return hint
+
+
+def _extract_description(metadata: tuple[object, ...]) -> str | None:
+    """Extract description from Annotated metadata (string or Field)."""
+    if not metadata:
+        return None
+    first = metadata[0]
+    if isinstance(first, str):
+        return first
+    desc = getattr(first, "description", None)
+    if isinstance(desc, str):
+        return desc
+    return None
+
+
+def _has_default(cls: type, name: str) -> bool:
+    """True if field has a default (class attribute or dataclass default)."""
+    if hasattr(cls, "__dataclass_fields__"):
+        fields = getattr(cls, "__dataclass_fields__", {})
+        if name in fields:
+            return (
+                getattr(fields[name], "default", None) is not type(None)
+                or getattr(fields[name], "default_factory", None) is not None
+            )
+    # Plain class: attribute exists and is not a type
+    try:
+        val = getattr(cls, name)
+        return not (callable(val) or isinstance(val, type))
+    except AttributeError:
+        return False
 
 
 class StructuredOutput:
@@ -38,82 +96,152 @@ class StructuredOutput:
             self._pydantic_model = self._create_pydantic_model_from_schema(schema)
 
     def _class_to_schema(self, cls: type) -> dict[str, Any]:
-        """Convert a Python class to JSON schema."""
+        """Convert a Python class to JSON schema with $defs for nested types."""
         schema: dict[str, Any] = {
             "type": "object",
             "properties": {},
             "required": [],
             "additionalProperties": False,
         }
+        defs: dict[str, dict[str, Any]] = {}
 
-        for name, hint in get_type_hints(cls).items():
-            if hasattr(hint, "__args__"):
-                args = hint.__args__
-                origin = getattr(hint, "__origin__", None)
+        for name, hint in get_type_hints(cls, include_extras=True).items():
+            prop_schema, nested_defs = self._hint_to_schema(hint, defs)
+            schema["properties"][name] = prop_schema
+            defs.update(nested_defs)
 
-                if origin is list:
-                    item_type = self._python_type_to_json_type(args[0] if args else str)
-                    schema["properties"][name] = {"type": "array", "items": item_type}
-                elif origin is dict:
-                    schema["properties"][name] = {"type": "object"}
-                elif origin is Annotated:
-                    meta = hint.__metadata__[0] if hint.__metadata__ else {}
-                    json_type = self._python_type_to_json_type(args[0] if args else str)
-                    schema["properties"][name] = {**json_type, **meta}
-                else:
-                    schema["properties"][name] = self._python_type_to_json_type(hint)
-            else:
-                schema["properties"][name] = self._python_type_to_json_type(hint)
-
-            default = getattr(cls, name, None)
-            if default is None:
+            if not self._is_field_optional(cls, name, hint):
                 schema["required"].append(name)
+
+        if defs:
+            schema["$defs"] = defs
 
         return schema
 
-    def _python_type_to_json_type(self, py_type: type) -> dict[str, str]:
-        """Convert Python type to JSON Schema type."""
-        type_map = {
-            str: {"type": "string"},
-            int: {"type": "integer"},
-            float: {"type": "number"},
-            bool: {"type": "boolean"},
-            list: {"type": "array"},
-            dict: {"type": "object"},
-        }
+    def _hint_to_schema(
+        self,
+        hint: type,
+        defs: dict[str, dict[str, Any]],
+    ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+        """Convert type hint to JSON schema property. Returns (prop, additional_defs)."""
+        description: str | None = None
+        effective_hint = hint
 
-        if py_type in type_map:
-            return type_map[py_type]
+        origin = get_origin(hint)
+        if origin is Annotated:
+            args = get_args(hint)
+            effective_hint = args[0] if args else str
+            meta = args[1:] if len(args) > 1 else ()
+            if meta:
+                description = _extract_description(meta)
 
-        if hasattr(py_type, "__origin__") and py_type.__origin__ is None:
-            return {"type": "string"}
+        inner_defs: dict[str, dict[str, Any]] = {}
 
-        return {"type": "string"}
+        origin = get_origin(effective_hint)
+        args = get_args(effective_hint)
+
+        if origin is list:
+            item_type = args[0] if args else str
+            item_schema, item_defs = self._inner_type_to_schema(item_type, defs)
+            inner_defs.update(item_defs)
+            prop: dict[str, Any] = {"type": "array", "items": item_schema}
+        elif origin is dict:
+            prop = {"type": "object"}
+        else:
+            prop, inner_defs = self._inner_type_to_schema(effective_hint, defs)
+
+        if description is not None:
+            prop["description"] = description
+
+        return prop, inner_defs
+
+    def _inner_type_to_schema(
+        self,
+        py_type: type,
+        defs: dict[str, dict[str, Any]],
+    ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+        """Convert inner type to schema. Handles primitives and @structured classes."""
+        if py_type in _PRIMITIVE_JSON_TYPES:
+            return _PRIMITIVE_JSON_TYPES[py_type].copy(), {}
+
+        if getattr(py_type, "_is_structured", False):
+            name = getattr(py_type, "__name__", "Unknown")
+            nested = StructuredOutput(py_type)
+            nested_schema = nested._schema
+            nested_defs = nested_schema.pop("$defs", {})
+            ref_schema: dict[str, Any] = {"$ref": f"#/$defs/{name}"}
+            all_defs: dict[str, dict[str, Any]] = {name: nested_schema, **nested_defs}
+            return ref_schema, all_defs
+
+        return {"type": "string"}, {}
+
+    def _is_field_optional(self, cls: type, name: str, hint: type) -> bool:
+        """True if field is optional (Optional, default value)."""
+        return _is_optional(hint) or _has_default(cls, name)
 
     def _create_pydantic_model(self, cls: type) -> type:
-        """Create a Pydantic model from a Python class."""
+        """Create a Pydantic model from a Python class, including nested @structured."""
         try:
-            from typing import get_type_hints
-
             from pydantic import BaseModel, create_model
 
-            # Get the type hints for the class
-            hints = get_type_hints(cls) if hasattr(cls, "__annotations__") else {}
-
+            hints = (
+                get_type_hints(cls, include_extras=True) if hasattr(cls, "__annotations__") else {}
+            )
             if not hints:
-                # Fallback: create fields from class attributes
-                hints = {}
-                for name in dir(cls):
-                    if not name.startswith("_"):
-                        val = getattr(cls, name, None)
-                        if val is not None:
-                            hints[name] = type(val)
+                hints = self._fallback_hints(cls)
 
-            if hints:
-                return create_model(cls.__name__, **hints, __base__=BaseModel)
+            resolved: dict[str, Any] = {}
+            for name, hint in hints.items():
+                python_type = self._resolve_hint_to_python_type(hint)
+                if self._is_field_optional(cls, name, hint):
+                    resolved[name] = (python_type | None, None)
+                else:
+                    resolved[name] = (python_type, ...)
+
+            if resolved:
+                return create_model(cls.__name__, **resolved, __base__=BaseModel)
             return cls
         except Exception:
             return cls
+
+    def _resolve_hint_to_python_type(self, hint: type) -> type:
+        """Resolve hint to a Python type Pydantic accepts (handles list[Shareholder])."""
+        if get_origin(hint) is Annotated:
+            args = get_args(hint)
+            hint = args[0] if args else hint
+        effective = _unwrap_optional(hint) if _is_optional(hint) else hint
+        origin = get_origin(effective)
+        args = get_args(effective)
+
+        if origin is list:
+            item_type = args[0] if args else str
+            if getattr(item_type, "_is_structured", False):
+                nested_pydantic = getattr(item_type, "_structured_pydantic", None)
+                if nested_pydantic is not None:
+                    return list[nested_pydantic]  # type: ignore[valid-type]
+            return list[item_type]  # type: ignore[valid-type]
+        if origin is dict:
+            return dict[str, str]
+        if origin is Annotated:
+            return self._resolve_hint_to_python_type(args[0] if args else str)
+
+        if getattr(effective, "_is_structured", False):
+            nested_pydantic = getattr(effective, "_structured_pydantic", None)
+            if nested_pydantic is not None:
+                return cast(type, nested_pydantic)
+
+        return effective
+
+    def _fallback_hints(self, cls: type) -> dict[str, type]:
+        """Fallback when no annotations: infer from class attributes."""
+        hints: dict[str, type] = {}
+        for name in dir(cls):
+            if name.startswith("_"):
+                continue
+            val = getattr(cls, name, None)
+            if val is not None and not callable(val):
+                hints[name] = type(val)
+        return hints
 
     def _create_pydantic_model_from_schema(self, schema: dict[str, Any]) -> type:
         """Create a Pydantic model from JSON schema."""
@@ -133,12 +261,12 @@ class StructuredOutput:
 
             return create_model("StructuredOutput", **field_definitions)  # type: ignore[no-any-return]
         except Exception:
-            return type
+            return type  # Fallback on schema parse failure; callers must handle
 
     def _json_type_to_python_type(self, prop: dict[str, Any]) -> type:
         """Convert JSON Schema type to Python type."""
         json_type = prop.get("type", "string")
-        type_map = {
+        type_map: dict[str, type] = {
             "string": str,
             "integer": int,
             "number": float,
@@ -162,6 +290,9 @@ class StructuredOutput:
 def structured(cls: type[T]) -> type[T]:
     """Decorator to define structured output schema.
 
+    Supports nested types (list[Shareholder]), Annotated descriptions, and
+    proper required/optional based on Optional and defaults.
+
     Usage:
         @structured
         class Sentiment:
@@ -169,13 +300,13 @@ def structured(cls: type[T]) -> type[T]:
             confidence: float  # 0.0 to 1.0
             explanation: str = ""  # Optional field
 
-        # Use with model
         model = Model.OpenAI("gpt-4o", output=Sentiment)
     """
     obj = cast(Any, cls)
     obj._is_structured = True
-    obj._structured_schema = StructuredOutput(cls).schema
-    obj._structured_pydantic = StructuredOutput(cls).pydantic_model
+    so = StructuredOutput(cls)
+    obj._structured_schema = so.schema
+    obj._structured_pydantic = so.pydantic_model
     return cls
 
 
@@ -217,18 +348,7 @@ class OutputType:
 
 
 def output(output_cls: type[T]) -> OutputType:
-    """Shorthand to create OutputType from a Pydantic model or class.
-
-    Use with Agent(output=OutputType(MyModel)) or Model(output=OutputType(MyModel)).
-    Equivalent to OutputType(output_cls).
-
-    Example:
-        >>> from syrin.model import output
-        >>> @output
-        ... class Sentiment:
-        ...     sentiment: str
-        ...     confidence: float
-    """
+    """Shorthand to create OutputType from a Pydantic model or class."""
     return OutputType(output_cls)
 
 

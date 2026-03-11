@@ -45,7 +45,7 @@ class ElevenLabsVoiceProvider(BaseVoiceProvider):
         model_id: str,
         **kwargs: Any,
     ) -> tuple[bytes, str, str]:
-        from elevenlabs.client import ElevenLabs  # type: ignore[import-not-found]
+        from elevenlabs.client import ElevenLabs
 
         vid = voice_id if voice_id != "default" else self.voice_id
         fmt = "mp3_44100_128" if output_format == "mp3" else f"{output_format}_44100_128"

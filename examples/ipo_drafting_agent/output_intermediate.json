@@ -1,0 +1,42 @@
+{
+  "company_name": "Nexus Brightlearn Solutions Private Limited",
+  "cin": "U85123DL2018PTC312456",
+  "registered_office": "Krishna Tower, GF, Sector-12 Dwarka, New Delhi 110075",
+  "authorized_capital": "Rs. 3,00,000",
+  "issued_capital": "Rs. 1,93,210 post-allotment",
+  "subscribed_paidup_capital": "Rs. 1,93,210",
+  "face_value_per_share": "Rs. 10",
+  "total_equity_shares": 19321,
+  "shareholding_pattern": [
+    {
+      "name": "Rohit Sharma",
+      "category": "Public",
+      "shares": 192,
+      "percentage": "0.99%",
+      "source": "List of Allottees"
+    },
+    {
+      "name": "Suresh Sharma",
+      "category": "Public",
+      "shares": 192,
+      "percentage": "0.99%",
+      "source": "List of Allottees"
+    },
+    {
+      "name": "Sunrise Engineering Works",
+      "category": "Public",
+      "shares": 576,
+      "percentage": "2.98%",
+      "source": "List of Allottees"
+    }
+  ],
+  "debt_structure": "",
+  "sources_used": [
+    "MOA",
+    "PAS-3",
+    "List of Allottees"
+  ],
+  "needs_human_review": [
+    "Confirmation of shareholding percentages"
+  ]
+}

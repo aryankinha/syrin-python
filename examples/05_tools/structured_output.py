@@ -2,6 +2,8 @@
 
 Demonstrates:
 - @structured decorator for output schemas
+- Nested types (list[Shareholder]) and Annotated descriptions
+- response.parsed convenience property
 - Output(output_type, validation_retries) configuration
 - Pydantic models as output types
 - Custom OutputValidator with ValidationResult
@@ -12,6 +14,8 @@ Run: python examples/05_tools/structured_output.py
 """
 
 from __future__ import annotations
+
+from typing import Annotated
 
 from pydantic import BaseModel, field_validator
 
@@ -43,8 +47,41 @@ class UserInfo:
 agent = Agent(model=Model.Almock(), output=Output(UserInfo, validation_retries=3))
 result = agent.response("Extract: John Doe, 35, john@example.com, San Francisco")
 print(f"  is_valid: {result.structured.is_valid}")
-if result.structured.parsed:
-    print(f"  parsed.name: {result.structured.parsed.name}")
+if result.parsed:
+    print(f"  parsed.name: {result.parsed.name}")
+
+
+# --- 1b. Nested types and Annotated ---
+
+print("\n" + "=" * 50)
+print("1b. Nested types and Annotated descriptions")
+print("=" * 50)
+
+
+@structured
+class Shareholder:
+    name: str
+    category: str
+    shares: int
+    percentage: float
+
+
+@structured
+class CapitalStructure:
+    authorized_capital: Annotated[str, "Total authorized capital"]
+    shareholders: list[Shareholder]
+    missing_fields: Annotated[list[str], "Data not found"] = []
+
+
+agent = Agent(model=Model.Almock(), output=Output(CapitalStructure, validation_retries=3))
+result = agent.response(
+    "Extract: authorized capital 5 Cr, Promoter 62.5% (12.5L shares), Public 37.5% (7.5L)"
+)
+print(f"  is_valid: {result.structured.is_valid}")
+if result.parsed:
+    print(f"  parsed.authorized_capital: {result.parsed.authorized_capital}")
+    if result.parsed.shareholders:
+        print(f"  parsed.shareholders[0].name: {result.parsed.shareholders[0].name}")
 
 
 # --- 2. Pydantic model as output ---

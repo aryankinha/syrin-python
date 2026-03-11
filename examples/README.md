@@ -121,6 +121,18 @@ Knowledge management and RAG (Retrieval-Augmented Generation).
 - **postgres_backend.py** — PostgreSQL vector store.
 - **serve_agentic_postgres.py** — Serve RAG agent.
 
+### 20_template/
+Template engine for slot-based generation.
+- **template_standalone.py** — Template with slots, render(), slot_schema(), from_file/from_string
+- **template_with_agent.py** — Agent with output_config.template; response.content = rendered, response.template_data = slot values
+- **output_file_generation.py** — output_config format (TEXT/MARKDOWN/PDF/DOCX); citation parsing (`CitationConfig`); response.file, response.file_bytes, response.citations; save_as_pdf, save_as_docx
+
+### ipo_drafting_agent/
+Real-world example: DRHP Drafting Agent for Capital Structure & Shareholding Pattern section.
+- **run.py** — Single command to draft a DRHP section from ROC filings (PAS-3, SH-7, MOA, etc.)
+- Uses Knowledge (RAG), agentic retrieval, structured output, automation transparency
+- Outputs: intermediate JSON, draft Markdown/DOCX, sources used, items requiring review
+
 ### resume_agent/
 Real-world example: Voice AI agent for recruiter calls using Syrin + Pipecat.
 

@@ -11,7 +11,9 @@ from syrin.guardrails.built_in import (
     AuthorityCheck,
     BudgetEnforcer,
     CapabilityGuardrail,
+    CitationGuardrail,
     ContentFilter,
+    FactVerificationGuardrail,
     HumanApproval,
     LengthGuardrail,
     PIIScanner,
@@ -49,7 +51,9 @@ __all__ = [
     "GuardrailStage",
     "DecisionAction",
     # Built-in guardrails
+    "CitationGuardrail",
     "ContentFilter",
+    "FactVerificationGuardrail",
     "PIIScanner",
     # Authority layer
     "AuthorityCheck",

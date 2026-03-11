@@ -158,8 +158,18 @@ class DecisionAction(StrEnum):
     PASS = "pass"
     BLOCK = "block"
     WARN = "warn"
+    FLAG = "flag"  # Annotate without blocking; mark uncited/unverified claims
     REQUEST_APPROVAL = "request_approval"
     REDACT = "redact"
+
+
+class VerificationStatus(StrEnum):
+    """Verification status for a grounded fact."""
+
+    VERIFIED = "VERIFIED"
+    UNVERIFIED = "UNVERIFIED"
+    CONTRADICTED = "CONTRADICTED"
+    NOT_FOUND = "NOT_FOUND"
 
 
 class SwitchReason(StrEnum):
@@ -423,6 +433,10 @@ class Hook(StrEnum):
         KNOWLEDGE_AGENTIC_GRADE: Agentic RAG graded retrieved chunks for relevance.
         KNOWLEDGE_AGENTIC_REFINE: Agentic RAG refined query for better retrieval.
         KNOWLEDGE_AGENTIC_VERIFY: Agentic RAG verified final answer.
+        GROUNDING_EXTRACT_START: Grounding fact extraction starting.
+        GROUNDING_EXTRACT_END: Grounding fact extraction completed.
+        GROUNDING_VERIFY: Single fact verified (verdict, confidence).
+        GROUNDING_COMPLETE: Grounded context ready for agent.
         CHECKPOINT_SAVE: Agent state checkpointed to storage.
         CHECKPOINT_LOAD: Agent state restored from checkpoint.
         REMOTE_CONFIG_UPDATE: Remote configuration updated successfully.
@@ -549,6 +563,12 @@ class Hook(StrEnum):
     KNOWLEDGE_AGENTIC_GRADE = "knowledge.agentic.grade"
     KNOWLEDGE_AGENTIC_REFINE = "knowledge.agentic.refine"
     KNOWLEDGE_AGENTIC_VERIFY = "knowledge.agentic.verify"
+
+    # — Grounding Layer —
+    GROUNDING_EXTRACT_START = "grounding.extract.start"
+    GROUNDING_EXTRACT_END = "grounding.extract.end"
+    GROUNDING_VERIFY = "grounding.verify"
+    GROUNDING_COMPLETE = "grounding.complete"
 
     # — Checkpoint —
     CHECKPOINT_SAVE = "checkpoint.save"

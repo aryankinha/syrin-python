@@ -1183,6 +1183,92 @@ class Model:
             **self._provider_kwargs,
         )
 
+    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:
+        """RemoteConfigurable: return (schema, current_values) for the model section."""
+        from syrin.remote._types import ConfigSchema, FieldSchema
+
+        if section_key != "model":
+            return (ConfigSchema(section="model", class_name="Model", fields=[]), {})
+        prefix = "model"
+        fields: list[FieldSchema] = [
+            FieldSchema(name="model_id", path=f"{prefix}.model_id", type="str", default=None),
+            FieldSchema(
+                name="temperature",
+                path=f"{prefix}.temperature",
+                type="float",
+                default=getattr(self._settings, "temperature", None),
+            ),
+            FieldSchema(
+                name="max_tokens",
+                path=f"{prefix}.max_tokens",
+                type="int",
+                default=getattr(self._settings, "max_output_tokens", None),
+            ),
+        ]
+        schema = ConfigSchema(section="model", class_name="Model", fields=fields)
+        current: dict[str, object] = {
+            f"{prefix}.model_id": self._model_id,
+            f"{prefix}.temperature": self._settings.temperature,
+            f"{prefix}.max_tokens": self._settings.max_output_tokens,
+        }
+        return (schema, current)
+
+    def apply_remote_overrides(
+        self,
+        agent: Any,
+        pairs: list[tuple[str, object]],
+        section_schema: Any,
+    ) -> None:
+        """RemoteConfigurable: apply model overrides via agent.switch_model."""
+        from syrin.remote._resolver_helpers import build_nested_update
+
+        section = getattr(section_schema, "section", None)
+        if section != "model":
+            return
+        update = build_nested_update(section_schema, pairs, "model")
+        if not update:
+            return
+        new_model: Model | None = None
+        if "model_id" in update:
+            mid = str(update["model_id"])
+            if "/" in mid:
+                provider, model_name = mid.split("/", 1)
+            else:
+                provider = self._provider
+                model_name = mid
+            from syrin.model.factory import create_model
+
+            new_model = create_model(
+                provider,
+                model_name,
+                api_key=self.api_key,
+                base_url=self._api_base,
+                temperature=cast(
+                    "float | None",
+                    update.get("temperature", self._settings.temperature),
+                ),
+                max_tokens=cast(
+                    "int | None",
+                    update.get("max_tokens", self._settings.max_output_tokens),
+                ),
+            )
+            if self._output_type is not None:
+                new_model = new_model.with_output(self._output_type)
+        elif "temperature" in update or "max_tokens" in update:
+            temp = (
+                float(update["temperature"])
+                if "temperature" in update
+                else self._settings.temperature
+            )
+            max_tok = (
+                int(update["max_tokens"])
+                if "max_tokens" in update
+                else self._settings.max_output_tokens
+            )
+            new_model = self.with_params(temperature=temp, max_tokens=max_tok)
+        if new_model is not None and hasattr(agent, "switch_model"):
+            agent.switch_model(new_model)
+
     def with_routing(
         self,
         *,

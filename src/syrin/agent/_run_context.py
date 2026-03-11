@@ -133,7 +133,7 @@ class AgentRunContext(Protocol):
 
     @property
     def max_tool_result_length(self) -> int:
-        """Max chars for tool results before truncation. Default 2000."""
+        """Max chars for tool results sent to the LLM; 0 = no truncation."""
         ...
 
     @property
@@ -242,7 +242,7 @@ class DefaultAgentRunContext:
 
     @property
     def max_tool_result_length(self) -> int:
-        return getattr(self._agent, "_max_tool_result_length", 2000)
+        return getattr(self._agent, "_max_tool_result_length", 0)
 
     @property
     def retry_on_transient(self) -> bool:

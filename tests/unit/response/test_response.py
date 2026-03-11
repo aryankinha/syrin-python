@@ -120,3 +120,25 @@ def test_response_repr() -> None:
     """Response repr should contain content."""
     r = Response(content="Hello world")
     assert "Hello world" in repr(r)
+
+
+def test_response_parsed_convenience_when_no_structured() -> None:
+    """response.parsed is None when no structured output configured."""
+    r = Response(content="plain text")
+    assert r.parsed is None
+
+
+def test_response_parsed_returns_structured_parsed() -> None:
+    """response.parsed returns structured.parsed when structured is set."""
+    from syrin.response import StructuredOutput
+
+    mock_parsed = type("MockParsed", (), {"name": "Alice"})()
+    r = Response(
+        content="{}",
+        structured=StructuredOutput(
+            raw='{"name": "Alice"}',
+            parsed=mock_parsed,
+            _data={"name": "Alice"},
+        ),
+    )
+    assert r.parsed is mock_parsed

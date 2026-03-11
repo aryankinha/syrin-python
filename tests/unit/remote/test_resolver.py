@@ -31,6 +31,53 @@ def _make_agent(
     )
 
 
+def _make_fake_embedding(dim: int = 4):
+    """Minimal EmbeddingProvider for knowledge tests."""
+
+    class FakeEmbedding:
+        dimensions = dim
+        model_id = "fake"
+
+        async def embed(self, texts, budget_tracker=None):
+            return [[0.1] * dim for _ in texts]
+
+    return FakeEmbedding()
+
+
+def _make_agent_with_knowledge(
+    *,
+    top_k: int = 5,
+    grounding: bool = False,
+) -> Agent:
+    """Agent with Knowledge for resolver tests."""
+    from syrin.enums import KnowledgeBackend
+    from syrin.knowledge import Knowledge
+    from syrin.knowledge._grounding import GroundingConfig
+
+    knowledge = Knowledge(
+        sources=[Knowledge.Text("test content")],
+        embedding=_make_fake_embedding(),
+        backend=KnowledgeBackend.MEMORY,
+        top_k=top_k,
+        grounding=GroundingConfig() if grounding else None,
+    )
+    return Agent(
+        model=Model.Almock(),
+        name="resolver_knowledge_test",
+        budget=Budget(run=1.0),
+        knowledge=knowledge,
+    )
+
+
+def _make_agent_with_model() -> Agent:
+    """Agent with Model.Ollama for resolver tests."""
+    return Agent(
+        model=Model.Ollama("llama3"),
+        name="resolver_model_test",
+        budget=Budget(run=1.0),
+    )
+
+
 def _payload(agent_id: str, *overrides: tuple[str, object]) -> OverridePayload:
     """Build OverridePayload from (path, value) pairs."""
     return OverridePayload(
@@ -150,6 +197,116 @@ class TestValidOverrides:
         assert type(agent._loop).__name__ == "SingleShotLoop"
         reg.unregister(agent_id)
 
+    def test_apply_knowledge_top_k(self) -> None:
+        """Apply knowledge.top_k=10 -> agent._knowledge._top_k == 10."""
+        agent = _make_agent_with_knowledge()
+        reg = get_registry()
+        reg.register(agent)
+        agent_id = reg.make_agent_id(agent)
+        schema = reg.get_schema(agent_id)
+        assert schema is not None
+        payload = _payload(agent_id, ("knowledge.top_k", 10))
+        result = ConfigResolver().apply_overrides(agent, payload, schema=schema)
+        assert "knowledge.top_k" in result.accepted
+        assert agent._knowledge is not None
+        assert agent._knowledge._top_k == 10
+        reg.unregister(agent_id)
+
+    def test_apply_knowledge_score_threshold(self) -> None:
+        """Apply knowledge.score_threshold=0.6 -> _score_threshold updated."""
+        agent = _make_agent_with_knowledge()
+        reg = get_registry()
+        reg.register(agent)
+        agent_id = reg.make_agent_id(agent)
+        schema = reg.get_schema(agent_id)
+        assert schema is not None
+        payload = _payload(agent_id, ("knowledge.score_threshold", 0.6))
+        result = ConfigResolver().apply_overrides(agent, payload, schema=schema)
+        assert "knowledge.score_threshold" in result.accepted
+        assert agent._knowledge is not None
+        assert agent._knowledge._score_threshold == 0.6
+        reg.unregister(agent_id)
+
+    def test_apply_knowledge_grounding_extract_facts(self) -> None:
+        """Apply knowledge.grounding.extract_facts=False creates/updates GroundingConfig."""
+        agent = _make_agent_with_knowledge(grounding=True)
+        reg = get_registry()
+        reg.register(agent)
+        agent_id = reg.make_agent_id(agent)
+        schema = reg.get_schema(agent_id)
+        assert schema is not None
+        payload = _payload(agent_id, ("knowledge.grounding.extract_facts", False))
+        result = ConfigResolver().apply_overrides(agent, payload, schema=schema)
+        assert "knowledge.grounding.extract_facts" in result.accepted
+        assert agent._knowledge is not None
+        assert agent._knowledge._grounding_config is not None
+        assert agent._knowledge._grounding_config.extract_facts is False
+        reg.unregister(agent_id)
+
+    def test_apply_knowledge_grounding_creates_config_when_none(self) -> None:
+        """Apply knowledge.grounding.extract_facts when grounding=None creates GroundingConfig."""
+        agent = _make_agent_with_knowledge(grounding=False)
+        assert agent._knowledge is not None
+        assert agent._knowledge._grounding_config is None
+        reg = get_registry()
+        reg.register(agent)
+        agent_id = reg.make_agent_id(agent)
+        schema = reg.get_schema(agent_id)
+        assert schema is not None
+        payload = _payload(agent_id, ("knowledge.grounding.extract_facts", False))
+        result = ConfigResolver().apply_overrides(agent, payload, schema=schema)
+        assert "knowledge.grounding.extract_facts" in result.accepted
+        assert agent._knowledge._grounding_config is not None
+        assert agent._knowledge._grounding_config.extract_facts is False
+        reg.unregister(agent_id)
+
+    def test_apply_knowledge_chunk_config_strategy(self) -> None:
+        """Apply knowledge.chunk_config.strategy='markdown' -> ChunkStrategy.MARKDOWN."""
+        from syrin.knowledge._chunker import ChunkStrategy
+
+        agent = _make_agent_with_knowledge()
+        reg = get_registry()
+        reg.register(agent)
+        agent_id = reg.make_agent_id(agent)
+        schema = reg.get_schema(agent_id)
+        assert schema is not None
+        payload = _payload(agent_id, ("knowledge.chunk_config.strategy", "markdown"))
+        result = ConfigResolver().apply_overrides(agent, payload, schema=schema)
+        assert "knowledge.chunk_config.strategy" in result.accepted
+        assert agent._knowledge is not None
+        assert agent._knowledge._chunk_config.strategy == ChunkStrategy.MARKDOWN
+        reg.unregister(agent_id)
+
+    def test_apply_model_temperature(self) -> None:
+        """Apply model.temperature=0.9 -> model updated via switch_model."""
+        agent = _make_agent_with_model()
+        reg = get_registry()
+        reg.register(agent)
+        agent_id = reg.make_agent_id(agent)
+        schema = reg.get_schema(agent_id)
+        assert schema is not None
+        payload = _payload(agent_id, ("model.temperature", 0.9))
+        result = ConfigResolver().apply_overrides(agent, payload, schema=schema)
+        assert "model.temperature" in result.accepted
+        assert agent._model is not None
+        assert agent._model.settings.temperature == 0.9
+        reg.unregister(agent_id)
+
+    def test_apply_model_max_tokens(self) -> None:
+        """Apply model.max_tokens=2048 -> model updated via switch_model."""
+        agent = _make_agent_with_model()
+        reg = get_registry()
+        reg.register(agent)
+        agent_id = reg.make_agent_id(agent)
+        schema = reg.get_schema(agent_id)
+        assert schema is not None
+        payload = _payload(agent_id, ("model.max_tokens", 2048))
+        result = ConfigResolver().apply_overrides(agent, payload, schema=schema)
+        assert "model.max_tokens" in result.accepted
+        assert agent._model is not None
+        assert agent._model.settings.max_output_tokens == 2048
+        reg.unregister(agent_id)
+
     def test_apply_agent_loop_strategy_accepts_enum_name(self) -> None:
         """agent.loop_strategy with enum name (e.g. REACT) is normalized and accepted."""
         agent = _make_agent()
@@ -213,6 +370,20 @@ class TestValidationRejection:
         result = ConfigResolver().apply_overrides(agent, payload, schema=schema)
         assert "memory.top_k" not in result.accepted
         assert any(p == "memory.top_k" for p, _ in result.rejected)
+        reg.unregister(agent_id)
+
+    def test_invalid_chunk_strategy_rejected(self) -> None:
+        """knowledge.chunk_config.strategy='invalid' -> rejected."""
+        agent = _make_agent_with_knowledge()
+        reg = get_registry()
+        reg.register(agent)
+        agent_id = reg.make_agent_id(agent)
+        schema = reg.get_schema(agent_id)
+        assert schema is not None
+        payload = _payload(agent_id, ("knowledge.chunk_config.strategy", "invalid_strategy"))
+        result = ConfigResolver().apply_overrides(agent, payload, schema=schema)
+        assert "knowledge.chunk_config.strategy" not in result.accepted
+        assert any(p == "knowledge.chunk_config.strategy" for p, _ in result.rejected)
         reg.unregister(agent_id)
 
     def test_invalid_enum_value_rejected(self) -> None:

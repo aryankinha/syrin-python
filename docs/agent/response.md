@@ -31,7 +31,12 @@ print(response.model)     # Model ID used
 | `trace` | `list[TraceStep]` | Per-step trace |
 | `tool_calls` | `list` | Tool calls made |
 | `stop_reason` | `StopReason` | Why the run stopped |
+| `parsed` | `object \| None` | Convenience: parsed structured output (same as `structured.parsed`) |
 | `structured` | `StructuredOutput \| None` | Parsed structured output |
+| `template_data` | `dict \| None` | Slot values when `output_config.template` is used |
+| `file` | `Path \| None` | Path to generated file when output_config format is TEXT/MARKDOWN/HTML/PDF/DOCX |
+| `file_bytes` | `bytes \| None` | Raw bytes of generated file |
+| `citations` | `list[Citation]` | Parsed citations when `output_config.citation` is set; empty otherwise |
 | `raw_response` | `Any` | Provider raw response; parsed Pydantic for structured output |
 | `iterations` | `int` | Loop iterations |
 | `report` | `AgentReport` | Run metrics and sub-reports |

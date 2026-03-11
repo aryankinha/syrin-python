@@ -304,6 +304,27 @@ class TestPageChunker:
 class TestAutoChunker:
     """Tests for AutoChunker strategy selection."""
 
+    def test_document_metadata_propagates_to_chunks(self) -> None:
+        """Chunk metadata includes all document metadata (page, title, etc.)."""
+        from syrin.knowledge import get_chunker
+
+        config = ChunkConfig(strategy=ChunkStrategy.AUTO, min_chunk_size=0)
+        chunker = get_chunker(config)
+        doc = Document(
+            content="PDF page content. " * 20,
+            source="report.pdf",
+            source_type="pdf",
+            metadata={"page": 3, "total_pages": 10, "has_pages": True, "title": "Annual Report"},
+        )
+        chunks = chunker.chunk([doc])
+        assert len(chunks) >= 1
+        for c in chunks:
+            assert c.metadata.get("page") == 3
+            assert c.metadata.get("total_pages") == 10
+            assert c.metadata.get("title") == "Annual Report"
+            assert c.metadata.get("source") == "report.pdf"
+            assert c.metadata.get("source_type") == "pdf"
+
     def test_pdf_with_has_pages_uses_page_strategy(self) -> None:
         """Document with source_type pdf and has_pages uses PAGE chunker."""
         from syrin.knowledge import get_chunker
