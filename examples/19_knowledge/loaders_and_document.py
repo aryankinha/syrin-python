@@ -37,7 +37,7 @@ def main() -> None:
     raw = RawTextLoader("One fact.")
     docs = raw.load()
     assert len(docs) == 1
-    assert docs[0].source == "user_provided"
+    assert docs[0].source.startswith("user_provided")  # user_provided_1, user_provided_2, etc.
     assert docs[0].source_type == "text"
 
     raw_multi = RawTextLoader(["Fact A", "Fact B"])
@@ -47,7 +47,7 @@ def main() -> None:
     # Via Knowledge namespace
     k_text = Knowledge.Text("Inline fact for RAG.")
     k_docs = k_text.load()
-    assert k_docs[0].source == "user_provided"
+    assert k_docs[0].source.startswith("user_provided")  # user_provided_N format
 
     k_texts = Knowledge.Texts(["Fact 1", "Fact 2"])
     assert len(k_texts.load()) == 2
