@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 # Registry: maps backend name to (module_path, class_name) for lazy imports,
 # or directly to a class.
 _STORE_REGISTRY: dict[str, type[Any] | tuple[str, str]] = {
-    KnowledgeBackend.MEMORY: InMemoryKnowledgeStore,  # type: ignore[dict-item]
+    KnowledgeBackend.MEMORY: InMemoryKnowledgeStore,
     KnowledgeBackend.POSTGRES: ("syrin.knowledge.stores._postgres", "PostgresKnowledgeStore"),
     KnowledgeBackend.QDRANT: ("syrin.knowledge.stores._qdrant", "QdrantKnowledgeStore"),
     KnowledgeBackend.CHROMA: ("syrin.knowledge.stores._chroma", "ChromaKnowledgeStore"),
@@ -121,4 +121,4 @@ def get_knowledge_store(
         # Custom backends: pass all non-None kwargs
         filtered = {k: v for k, v in all_kwargs.items() if v is not None}
 
-    return cls(**filtered)  # type: ignore[return-value]
+    return cls(**filtered)  # type: ignore[no-any-return]

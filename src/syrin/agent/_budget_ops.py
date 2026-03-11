@@ -104,10 +104,7 @@ def check_and_apply_budget(agent: Any) -> None:
         on_exceeded = agent._token_limits.on_exceeded
     if limit_key == BudgetLimitType.RUN:
         current = agent._budget_tracker.current_run_cost
-        if agent._budget is None:
-            limit = 0.0
-        else:
-            limit = agent._budget.effective_run_limit or 0.0
+        limit = 0.0 if agent._budget is None else agent._budget.effective_run_limit or 0.0
         msg = f"Budget exceeded: run cost ${current:.4f} >= ${limit:.4f}"
     elif limit_key == BudgetLimitType.RUN_TOKENS:
         current = agent._budget_tracker.current_run_tokens
