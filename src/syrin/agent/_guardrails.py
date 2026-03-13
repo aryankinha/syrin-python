@@ -31,13 +31,20 @@ def run_guardrails(agent: Any, text: str, stage: GuardrailStage) -> GuardrailRes
         ),
     )
 
+    metadata: dict[str, object] = {}
+    runtime = getattr(agent, "_runtime", None)
+    if runtime is not None and getattr(runtime, "grounded_facts", None):
+        metadata["grounded_facts"] = list(runtime.grounded_facts)
+
     tracer = agent._tracer
     with tracer.span(
         f"guardrails.{stage.value}",
         kind=SpanKind.GUARDRAIL,
         attributes={SemanticAttributes.GUARDRAIL_STAGE: stage.value},
     ) as guardrail_span:
-        result = effective_chain.check(text, stage, budget=agent._budget, agent=agent)
+        result = effective_chain.check(
+            text, stage, budget=agent._budget, agent=agent, metadata=metadata or None
+        )
 
         guardrail_span.set_attribute(SemanticAttributes.GUARDRAIL_PASSED, result.passed)
 

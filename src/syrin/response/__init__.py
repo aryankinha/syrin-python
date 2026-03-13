@@ -23,6 +23,7 @@ __all__ = [
     "Response",
     "BudgetStatus",
     "GuardrailReport",
+    "GroundingReport",
     "ContextReport",
     "MemoryReport",
     "TokenReport",
@@ -343,6 +344,24 @@ class CheckpointReport:
 
 
 @dataclass
+class GroundingReport:
+    """Report of grounding (verified facts) for a single run.
+
+    Populated when the agent uses knowledge search with grounding enabled.
+    None when no grounding was used.
+
+    Attributes:
+        verified_count: Number of facts verified against sources.
+        total_facts: Total facts extracted (before verification filter).
+        sources: Unique source document identifiers used.
+    """
+
+    verified_count: int = 0
+    total_facts: int = 0
+    sources: list[str] = field(default_factory=list)
+
+
+@dataclass
 class AgentReport:
     """Aggregated report of all agent operations for a single run.
 
@@ -357,6 +376,7 @@ class AgentReport:
         result.report.output         # OutputReport
         result.report.ratelimits     # RateLimitReport
         result.report.checkpoints    # CheckpointReport
+        result.report.grounding      # GroundingReport | None
     """
 
     guardrail: GuardrailReport = field(default_factory=GuardrailReport)
@@ -368,6 +388,7 @@ class AgentReport:
     output: OutputReport = field(default_factory=OutputReport)
     ratelimits: RateLimitReport = field(default_factory=RateLimitReport)
     checkpoints: CheckpointReport = field(default_factory=CheckpointReport)
+    grounding: GroundingReport | None = None
 
     @property
     def budget(self) -> BudgetStatus:

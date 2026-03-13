@@ -8,6 +8,9 @@ AI agent that drafts the **Capital Structure and Shareholding Pattern** section 
 - **Agentic retrieval**: Multi-query search via `search_knowledge`
 - **Structured output**: `@structured` `DraftOutput` (Syrin schema, OpenAI-compatible)
 - **Automation transparency**: Sources used, auto-extracted parts, items needing review
+- **Grounding**: Fact extraction and verification from source documents
+- **Guardrails**: FactVerificationGuardrail to verify grounded facts
+- **Budget**: Cost limits per run
 - **Output**: Markdown (`.md`) and optional DOCX
 - **HTTP serving**: `serve.py` for `/chat` and `/playground`
 
@@ -68,13 +71,15 @@ Add documents under `data/`:
 
 ## Syrin Components Used
 
-| Component | Purpose |
-|-----------|---------|
-| `Knowledge` | Document loaders, chunking, embedding, vector store |
-| `Agent` | LLM + tools, structured output |
-| `search_knowledge` | RAG retrieval (auto-added via `knowledge=`) |
-| `Output(DraftOutput)` | `@structured` output |
-| `GroundingConfig(extract_facts=False)` | Fast grounding path (raw chunks, no per-search LLM) |
+| Component                   | Purpose                                             |
+| --------------------------- | --------------------------------------------------- |
+| `Knowledge`                 | Document loaders, chunking, embedding, vector store |
+| `Agent`                     | LLM + tools, structured output                      |
+| `search_knowledge`          | RAG retrieval (auto-added via `knowledge=`)         |
+| `Output(DraftOutput)`       | `@structured` output                                |
+| `GroundingConfig`           | Fact extraction and verification                    |
+| `FactVerificationGuardrail` | Verify grounded facts                               |
+| `Budget`                    | Cost limits per run                                 |
 
 ## Tests
 

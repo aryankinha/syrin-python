@@ -108,6 +108,7 @@ print(status.cost)
 | Sub-report | Description |
 |------------|-------------|
 | `report.guardrail` | Guardrail results |
+| `report.grounding` | `GroundingReport \| None` — when knowledge search with grounding was used: `verified_count`, `total_facts`, `sources` |
 | `report.context` | Context usage |
 | `report.memory` | Memory operations |
 | `report.tokens` | Token usage |

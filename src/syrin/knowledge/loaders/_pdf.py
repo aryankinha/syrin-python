@@ -1,4 +1,4 @@
-"""PDF loader using pypdf."""
+"""PDF loader using docling."""
 
 from __future__ import annotations
 
@@ -11,9 +11,10 @@ _log = logging.getLogger(__name__)
 
 
 class PDFLoader:
-    """Load PDF files using pypdf.
+    """Load PDF files using docling.
 
     Extracts text from each page. Each page becomes a separate Document.
+    Uses docling for better table and image extraction.
 
     Example:
         loader = PDFLoader("path/to/file.pdf")
@@ -29,13 +30,13 @@ class PDFLoader:
         self._path = Path(path)
 
     def _check_dependency(self) -> None:
-        """Check if pypdf is installed."""
-        try:
-            import pypdf  # noqa: F401
-        except ImportError as err:
+        """Check if docling is installed."""
+        import importlib.util
+
+        if importlib.util.find_spec("docling") is None:
             raise ImportError(
-                "pypdf is required for PDF loading. Install with: uv pip install pypdf"
-            ) from err
+                "docling is required for PDF loading. Install with: uv pip install syrin[pdf]"
+            )
 
     @property
     def path(self) -> Path:
@@ -49,37 +50,35 @@ class PDFLoader:
             List of Documents, one per page.
 
         Raises:
-            ImportError: If pypdf is not installed.
+            ImportError: If docling is not installed.
             FileNotFoundError: If the PDF file does not exist.
         """
-        try:
-            import pypdf
-        except ImportError as err:
-            raise ImportError(
-                "pypdf is required for PDF loading. Install with: uv pip install pypdf"
-            ) from err
-
         if not self._path.exists():
             raise FileNotFoundError(f"PDF file not found: {self._path}")
 
-        reader = pypdf.PdfReader(str(self._path))
+        # Import docling here to get proper error message
+        try:
+            from docling.document_converter import DocumentConverter
+        except ImportError as err:
+            raise ImportError(
+                "docling is required for PDF loading. Install with: uv pip install syrin[pdf]"
+            ) from err
+
+        converter = DocumentConverter()
+        result = converter.convert(str(self._path))
         docs: list[Document] = []
 
-        for i, page in enumerate(reader.pages):
-            text = page.extract_text() or ""
-            if text.strip():
+        for i, page in enumerate(result.document.pages):
+            page_text = getattr(page, "text", "") or ""
+            if page_text.strip():
                 metadata: DocumentMetadata = {
                     "page": i + 1,
-                    "total_pages": len(reader.pages),
+                    "total_pages": len(result.document.pages),
                     "has_pages": True,
                 }
-                if reader.metadata and "/Title" in reader.metadata:
-                    title = reader.metadata["/Title"]
-                    if isinstance(title, str):
-                        metadata["title"] = title
                 docs.append(
                     Document(
-                        content=text,
+                        content=page_text,
                         source=str(self._path),
                         source_type="pdf",
                         metadata=metadata,
@@ -87,8 +86,7 @@ class PDFLoader:
                 )
             else:
                 _log.warning(
-                    "Page %d of %s produced no text (e.g. image-only or table). "
-                    "Consider using Knowledge.Docling(...) for better table/image extraction.",
+                    "Page %d of %s produced no text.",
                     i + 1,
                     self._path,
                 )

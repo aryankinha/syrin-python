@@ -58,3 +58,25 @@ async def test_passes_with_empty_facts() -> None:
     ctx = GuardrailContext(text="Some text.", metadata={"grounded_facts": []})
     result = await guard.evaluate(ctx)
     assert result.passed is True
+
+
+def test_chain_check_accepts_metadata_and_passes_to_context() -> None:
+    """GuardrailChain.check(metadata=...) passes metadata into context (2B)."""
+    from syrin.guardrails import GuardrailChain
+    from syrin.guardrails.enums import GuardrailStage
+
+    facts = [
+        GroundedFact(
+            "The capital is ₹50L.",
+            "moa.pdf",
+            confidence=0.9,
+            verification=VerificationStatus.VERIFIED,
+        ),
+    ]
+    chain = GuardrailChain([FactVerificationGuardrail()])
+    result = chain.check(
+        "The capital is ₹50L.",
+        stage=GuardrailStage.OUTPUT,
+        metadata={"grounded_facts": facts},
+    )
+    assert result.passed is True

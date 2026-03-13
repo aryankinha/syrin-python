@@ -5,6 +5,7 @@ Used by both agentic RAG (_agentic) and grounding layer (_grounding).
 
 from __future__ import annotations
 
+import asyncio
 import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING
@@ -70,40 +71,47 @@ async def _call_model(
     prompt: str,
     *,
     budget_tracker: BudgetTracker | None = None,
+    timeout: float = 30.0,
 ) -> str:
     """Call model with a simple user prompt, return content string.
 
     Shared by agentic RAG and grounding layer. Records cost and tokens to
-    budget_tracker when provided so grounding/agentic LLM calls count toward
-    the agent's budget.
+    budget_tracker when provided. On timeout returns empty string (callers fall back).
     """
     messages = [Message(role=MessageRole.USER, content=prompt)]
-    response = await model.acomplete(messages, max_tokens=512, stream=False)
-    if response is None or not hasattr(response, "content"):
-        return ""
 
-    if budget_tracker is not None:
-        from syrin.cost import calculate_cost
+    async def _do_complete() -> str:
+        response = await model.acomplete(messages, max_tokens=512, stream=False)
+        if response is None or not hasattr(response, "content"):
+            return ""
+        if budget_tracker is not None:
+            from syrin.cost import calculate_cost
 
-        token_usage = getattr(response, "token_usage", None) or TokenUsage()
-        if not isinstance(token_usage, TokenUsage):
-            token_usage = TokenUsage(
-                input_tokens=getattr(token_usage, "input_tokens", 0),
-                output_tokens=getattr(token_usage, "output_tokens", 0),
-                total_tokens=getattr(token_usage, "total_tokens", 0),
+            token_usage = getattr(response, "token_usage", None) or TokenUsage()
+            if not isinstance(token_usage, TokenUsage):
+                token_usage = TokenUsage(
+                    input_tokens=getattr(token_usage, "input_tokens", 0),
+                    output_tokens=getattr(token_usage, "output_tokens", 0),
+                    total_tokens=getattr(token_usage, "total_tokens", 0),
+                )
+            model_id = getattr(model, "model_id", None) or str(
+                getattr(model, "_model_id", "unknown")
             )
-        model_id = getattr(model, "model_id", None) or str(getattr(model, "_model_id", "unknown"))
-        pricing = getattr(model, "pricing", None)
-        cost_usd = calculate_cost(model_id, token_usage, pricing_override=pricing)
-        cost_info = CostInfo(
-            token_usage=token_usage,
-            cost_usd=cost_usd,
-            model_name=model_id,
-        )
-        budget_tracker.record(cost_info)
+            pricing = getattr(model, "pricing", None)
+            cost_usd = calculate_cost(model_id, token_usage, pricing_override=pricing)
+            cost_info = CostInfo(
+                token_usage=token_usage,
+                cost_usd=cost_usd,
+                model_name=model_id,
+            )
+            budget_tracker.record(cost_info)
+        content = getattr(response, "content", None)
+        return (content or "").strip() if isinstance(content, str) else ""
 
-    content = getattr(response, "content", None)
-    return (content or "").strip() if isinstance(content, str) else ""
+    try:
+        return await asyncio.wait_for(_do_complete(), timeout=timeout)
+    except asyncio.TimeoutError:
+        return ""
 
 
 async def grade_results(

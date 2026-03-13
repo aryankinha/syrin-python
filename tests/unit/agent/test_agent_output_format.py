@@ -142,6 +142,54 @@ class TestAgentOutputConfigFileGeneration:
         assert r.file is None
         assert r.file_bytes is None
 
+    def test_output_config_pdf_missing_deps_graceful(self) -> None:
+        """PDF format without WeasyPrint: no crash, response.file is None."""
+        agent = Agent(
+            model=Model.Almock(latency_min=0, latency_max=0),
+            system_prompt="Return content.",
+            output_config=OutputFormat.PDF,
+        )
+        with (
+            patch(
+                "syrin.output_format.format_to_file",
+                side_effect=ImportError("No module named 'weasyprint'"),
+            ),
+            patch.object(
+                agent._provider,
+                "complete",
+                new_callable=AsyncMock,
+                return_value=_mock_provider_response(content="PDF content here"),
+            ),
+        ):
+            r = agent.response("Generate PDF")
+        assert r.content == "PDF content here"
+        assert r.file is None
+        assert r.file_bytes is None
+
+    def test_output_config_docx_missing_deps_graceful(self) -> None:
+        """DOCX format without python-docx: no crash, response.file is None."""
+        agent = Agent(
+            model=Model.Almock(latency_min=0, latency_max=0),
+            system_prompt="Return content.",
+            output_config=OutputFormat.DOCX,
+        )
+        with (
+            patch(
+                "syrin.output_format.format_to_file",
+                side_effect=ImportError("No module named 'docx'"),
+            ),
+            patch.object(
+                agent._provider,
+                "complete",
+                new_callable=AsyncMock,
+                return_value=_mock_provider_response(content="DOCX content here"),
+            ),
+        ):
+            r = agent.response("Generate DOCX")
+        assert r.content == "DOCX content here"
+        assert r.file is None
+        assert r.file_bytes is None
+
 
 class TestAgentOutputConfigCitation:
     """Agent with output_config.citation parses and styles citations."""

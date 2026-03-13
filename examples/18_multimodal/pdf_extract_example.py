@@ -1,7 +1,7 @@
 """PDF text extraction and sending to agent.
 
 Use pdf_extract_text() to get text from PDF bytes, then send that text to the
-agent. Requires optional dependency: pip install syrin[pdf] (pypdf).
+agent. Requires optional dependency: pip install syrin[pdf] (docling).
 Without it, the example shows the ImportError and suggests installation.
 
 Run:
@@ -64,7 +64,7 @@ startxref
             r = agent.response("I have a PDF with no extractable text. Say 'No text'.")
             print("Agent response:", (r.content or "")[:200])
     except ImportError as e:
-        print("pdf_extract_text requires pypdf. Install with: pip install syrin[pdf]")
+        print("pdf_extract_text requires docling. Install with: pip install syrin[pdf]")
         print("  Error:", e)
 
 

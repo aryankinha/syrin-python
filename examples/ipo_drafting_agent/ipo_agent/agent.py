@@ -5,7 +5,13 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from syrin import Agent, Output
+from dotenv import load_dotenv
+
+# Load .env file from the same directory as this file
+_env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(_env_path)
+
+from syrin import Agent, Budget, FactVerificationGuardrail, Output
 from syrin.embedding import Embedding
 from syrin.enums import KnowledgeBackend
 from syrin.knowledge import (
@@ -33,10 +39,10 @@ CRITICAL - Call search_knowledge FIRST. Use these queries: "capital structure", 
 
 RULES:
 - Copy numbers and names EXACTLY from search results. Do not invent or approximate.
-- For shareholding: List of Allottees has Rohit Sharma 192, Suresh Sharma 192, Sunrise Engineering Works 576. MOA subscribers have different numbers - use List of Allottees for post-allotment allottees.
-- Post-allotment: total 19,321 shares, Rs. 1,93,210 (from PAS-3 capital structure table).
+- Use the company name exactly as it appears in the documents.
+- For shareholding: Use the latest shareholding pattern from the documents.
 - draft_section MUST be paragraph-style legal disclosure using ONLY facts from search results.
-- Do NOT use "Example Limited" or any invented company name. Use the company name from the documents.
+- Do NOT use example company names or invented numbers. Use facts from retrieved documents only.
 
 Output a single valid JSON object (no markdown, no code blocks):
 {
@@ -107,4 +113,6 @@ def create_agent(
         knowledge=knowledge,
         output=Output(DraftOutput, validation_retries=3),
         max_tool_iterations=15,
+        budget=Budget(run=1.0),
+        guardrails=[FactVerificationGuardrail()],
     )

@@ -904,6 +904,7 @@ class Agent(Servable, metaclass=_AgentMeta):
                     emit=self._emit_event,
                     get_model=_get_model,
                     get_budget_tracker=_get_bt,
+                    get_runtime=lambda: self._runtime,
                 )
             )
             if getattr(self._knowledge, "_agentic", False):
@@ -916,6 +917,7 @@ class Agent(Servable, metaclass=_AgentMeta):
                                 get_model=_get_model,
                                 get_budget_tracker=_get_bt,
                                 emit=self._emit_event,
+                                get_runtime=lambda: self._runtime,
                             )
                         )
                         _tool_names.add("search_knowledge_deep")

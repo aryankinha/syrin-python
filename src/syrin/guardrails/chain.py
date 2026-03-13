@@ -140,6 +140,7 @@ class GuardrailChain:
         *,
         budget: object = None,
         agent: object = None,
+        metadata: dict[str, object] | None = None,
     ) -> GuardrailCheckResult:
         """Sync check method for running guardrails in sync context.
 
@@ -148,6 +149,7 @@ class GuardrailChain:
             stage: Guardrail stage (for compatibility).
             budget: Optional budget for BudgetEnforcer guardrails.
             agent: Optional agent reference for guardrail context.
+            metadata: Optional metadata (e.g. grounded_facts) merged into context.
 
         Returns:
             GuardrailCheckResult with passed status.
@@ -159,7 +161,10 @@ class GuardrailChain:
         from syrin.guardrails.enums import GuardrailStage
 
         stage = GuardrailStage.INPUT if stage is None else cast(GuardrailStage, stage)
-        context = GuardrailContext(text=text, stage=stage, budget=budget, agent=agent)
+        context_metadata = dict(metadata) if metadata else {}
+        context = GuardrailContext(
+            text=text, stage=stage, budget=budget, agent=agent, metadata=context_metadata
+        )
 
         # Run async evaluate in sync context
         try:

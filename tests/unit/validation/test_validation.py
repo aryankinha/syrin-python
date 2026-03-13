@@ -700,3 +700,11 @@ class TestGetRetryPrompt:
         prompt = get_retry_prompt(SimpleUser, "")
         assert "Previous output failed validation" in prompt
         assert "Error:" in prompt
+
+    def test_retry_prompt_includes_missing_field_error(self) -> None:
+        """Retry prompt includes validation error so LLM can fix (3A)."""
+        error = "1 validation error for DraftOutput\nsources_used\n  Field required"
+        prompt = get_retry_prompt(SimpleUser, error)
+        assert "sources_used" in prompt or "Field required" in prompt
+        assert "Previous output failed validation" in prompt
+        assert "Error:" in prompt

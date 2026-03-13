@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import base64
+import tempfile
+from pathlib import Path
 
 
 def file_to_message(data: bytes, mimetype: str, role: str = "user") -> str:
@@ -26,9 +28,9 @@ def file_to_message(data: bytes, mimetype: str, role: str = "user") -> str:
 
 
 def pdf_extract_text(data: bytes) -> str:
-    """Extract text from PDF bytes using pypdf.
+    """Extract text from PDF bytes using docling.
 
-    Requires the pypdf package (pip install syrin[pdf]).
+    Requires the docling package (pip install syrin[pdf]).
 
     Args:
         data: Raw PDF file bytes.
@@ -37,21 +39,27 @@ def pdf_extract_text(data: bytes) -> str:
         Extracted text as string. Empty string for empty input.
 
     Raises:
-        ImportError: When pypdf is not installed. Install with pip install syrin[pdf].
+        ImportError: When docling is not installed. Install with pip install syrin[pdf].
     """
     if not data:
         return ""
     try:
-        from pypdf import PdfReader
+        from docling.document_converter import DocumentConverter
     except ImportError as e:
         raise ImportError("syrin[pdf] required for PDF extraction. pip install syrin[pdf]") from e
 
-    from io import BytesIO
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp.write(data)
+        tmp_path = Path(tmp.name)
 
-    reader = PdfReader(BytesIO(data))
-    parts: list[str] = []
-    for page in reader.pages:
-        text = page.extract_text()
-        if text:
-            parts.append(text)
-    return "\n".join(parts)
+    try:
+        converter = DocumentConverter()
+        result = converter.convert(str(tmp_path))
+        parts: list[str] = []
+        for page in result.document.pages:
+            page_text = getattr(page, "text", "") or ""
+            if page_text:
+                parts.append(page_text)
+        return "\n".join(parts)
+    finally:
+        tmp_path.unlink(missing_ok=True)

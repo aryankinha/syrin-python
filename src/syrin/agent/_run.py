@@ -27,6 +27,7 @@ async def run_agent_loop_async(agent: Any, user_input: str | list[dict[str, Any]
     """
     from syrin.observability import SemanticAttributes, SpanKind
 
+    agent._runtime.grounded_facts.clear()
     input_str = _user_input_to_search_str(user_input)
     with agent._tracer.span(
         f"{agent._agent_name}.response",
@@ -145,6 +146,21 @@ async def run_agent_loop_async(agent: Any, user_input: str | list[dict[str, Any]
         agent._run_report.tokens.output_tokens = tokens.output_tokens
         agent._run_report.tokens.total_tokens = tokens.total_tokens
         agent._run_report.tokens.cost_usd = result.cost_usd
+
+        facts = getattr(agent._runtime, "grounded_facts", None)
+        if facts:
+            from syrin.enums import VerificationStatus
+            from syrin.response import GroundingReport
+
+            verified_count = sum(1 for f in facts if f.verification == VerificationStatus.VERIFIED)
+            sources = list(dict.fromkeys(f.source for f in facts if f.source))
+            agent._run_report.grounding = GroundingReport(
+                verified_count=verified_count,
+                total_facts=len(facts),
+                sources=sources,
+            )
+        else:
+            agent._run_report.grounding = None
 
         agent._last_iteration = result.iterations
 

@@ -19,13 +19,14 @@ class MyAgent(Agent):
     model = Model.Almock()  # No API Key needed
     system_prompt = "You are helpful"
     tools = []  # Optional tools
-    
+
     def __init__(self):
         super().__init__()
         # Optional: add memory, budget, etc.
 ```
 
 **Key Methods:**
+
 - `agent.response(prompt)` - Get a response
 - `agent.astream(prompt)` - Stream response piece by piece
 - `agent.aresponse(prompt)` - Async get response
@@ -35,6 +36,7 @@ class MyAgent(Agent):
 ## Models
 
 See **[Models Guide](models.md)** for the complete documentation:
+
 - Built-in models (OpenAI, Anthropic, Google, Ollama, LiteLLM)
 - Model.Custom for third-party OpenAI-compatible APIs
 - Custom models via inheritance and `make_model()`
@@ -75,6 +77,7 @@ class MyAgent(Agent):
 **Group tools in MCP, use MCP in agents:** Define an MCP with `@tool`, add to `tools=[ProductMCP()]`. See [MCP](mcp.md).
 
 **Supported Types:**
+
 - `str` - Text
 - `int` - Whole numbers
 - `float` - Decimals
@@ -126,12 +129,14 @@ class MemoryAgent(Agent):
 ```
 
 **Memory Types:**
+
 - `CORE` - User identity/preferences
 - `EPISODIC` - Specific events
 - `SEMANTIC` - General facts
 - `PROCEDURAL` - Learned behaviors
 
 **Decay Strategies:**
+
 - `EXPONENTIAL` - Old memories fade fast
 - `LINEAR` - Fade at constant rate
 - `LOGARITHMIC` - Fade slowly
@@ -209,6 +214,7 @@ knowledge = Knowledge(
 **Grounding (anti-hallucination):** Set `grounding=GroundingConfig(...)` for fact extraction, verification, and citations. Search returns pre-extracted, pre-verified facts instead of raw chunks.
 
 ```python
+from syrin.model import Model
 from syrin.knowledge import GroundingConfig, Knowledge
 
 knowledge = Knowledge(
@@ -221,9 +227,13 @@ knowledge = Knowledge(
         cite_sources=True,
         verify_before_use=True,
         confidence_threshold=0.7,
+        max_chunk_preview=800,  # max chars per chunk sent to fact extraction (default 800)
+        model=Model.OpenAI("gpt-4o-mini"),  # separate cheaper model for grounding (optional)
     ),
 )
 # search_knowledge / search_knowledge_deep return verified facts with [Source: doc, Page N]
+# Grounded facts are stored on the agent runtime and passed to output guardrails (e.g. FactVerificationGuardrail).
+# response.report.grounding contains verified_count, total_facts, and sources when grounding was used.
 ```
 
 **Hooks:** `KNOWLEDGE_AGENTIC_DECOMPOSE`, `KNOWLEDGE_AGENTIC_GRADE`, `KNOWLEDGE_AGENTIC_REFINE`, `KNOWLEDGE_AGENTIC_VERIFY`, `GROUNDING_EXTRACT_START`, `GROUNDING_EXTRACT_END`, `GROUNDING_VERIFY`, `GROUNDING_COMPLETE`.
@@ -270,6 +280,7 @@ chunks = chunker.chunk(docs)
 ## Template Engine & Output Format
 
 Slot-based templates constrain LLM output to reduce hallucination. Use `output_config` on Agent; when a template is set, structured output fills slots and `response.content` is the rendered text. File generation (TEXT, MARKDOWN, HTML, PDF, DOCX) produces `response.file` and `response.file_bytes`. When `citation` is set, citations are parsed from content, styled (inline, footnote, appendix), and `response.citations` is populated.
+
 ```python
 from syrin import CitationConfig, CitationStyle, OutputConfig, OutputFormat, SlotConfig, Template
 
@@ -388,21 +399,27 @@ LoopStrategy.CODE_ACTION  # Generate and execute code
 ## Examples by Task
 
 ### Simple Q&A
+
 See [Use Case 1: Simple Q&A Agent](simple-qa-agent.md)
 
 ### With Tools
+
 See [Use Case 2: Research Agent with Tools](research-agent-with-tools.md)
 
 ### With Memory
+
 See [Use Case 3: Agent with Memory](agent-with-memory.md)
 
 ### Budget Control
+
 See [Use Case 4: Budget Control](budget-control.md)
 
 ### Multi-Agent Teams
+
 See [Use Case 5: Multi-Agent Orchestration](multi-agent.md)
 
 ### Streaming
+
 See [Use Case 6: Streaming](streaming.md)
 
 ---
@@ -454,7 +471,7 @@ from syrin import Agent, Memory, Model
 class MemoryAgent(Agent):
     # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
     model = Model.Almock()  # No API Key needed
-    
+
     def __init__(self):
         super().__init__()
         self.memory = Memory()
@@ -473,7 +490,7 @@ from syrin import Agent, Budget, Model, raise_on_exceeded
 class BudgetAgent(Agent):
     # model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
     model = Model.Almock()  # No API Key needed
-    
+
     def __init__(self):
         super().__init__()
         self.budget = Budget(
@@ -530,20 +547,24 @@ for chunk in agent.astream("Your prompt"):
 ## Troubleshooting
 
 **"API key not found"**
+
 - Pass `api_key` explicitly: `Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))`
 - The library does not auto-read API keys from environment variables
 
 **"Model not found"**
+
 - Check model name spelling
 - Make sure API credentials are valid
 - Verify you have API credits
 
 **"Budget exceeded"**
+
 - Check your budget settings
 - Use cheaper models (gpt-4o-mini, claude-3-haiku)
 - Reduce the scope of requests
 
 **"Tool not working"**
+
 - Make sure tool returns a dict
 - Check parameter types match usage
 - Verify tool is in agent.tools list
@@ -594,6 +615,7 @@ Configuration overrides from a backend (Syrin Cloud or self-hosted) without code
 ## Examples Repository
 
 All examples are in `/examples/` directory:
+
 - `examples/phase1_basic_agent.py` - Basic agent
 - `examples/phase2_memory_system.py` - Memory
 - `examples/phase3_multi_agent.py` - Multi-agent

@@ -1,42 +1,331 @@
 {
-  "company_name": "Nexus Brightlearn Solutions Private Limited",
-  "cin": "U85123DL2018PTC312456",
-  "registered_office": "Krishna Tower, GF, Sector-12 Dwarka, New Delhi 110075",
-  "authorized_capital": "Rs. 3,00,000",
-  "issued_capital": "Rs. 1,93,210 post-allotment",
-  "subscribed_paidup_capital": "Rs. 1,93,210",
-  "face_value_per_share": "Rs. 10",
-  "total_equity_shares": 19321,
-  "shareholding_pattern": [
+  "prompt": "Draft the Capital Structure and Shareholding Pattern section for the DRHP.",
+  "draft_section": "The capital structure of the company has undergone recent changes as reflected in the latest amendments made to the Memorandum of Association and various resolutions. The authorized share capital of the company is now Rs. 300,000 divided into 30,000 equity shares with a nominal value of Rs. 10 per share. This represents an increase from the previous authorized capital which was Rs. 150,000 comprising 15,000 equity shares.\n\nThe issued and subscribed capital of the company stands at Rs. 150,000, consisting of 15,000 equity shares, each with a nominal value of Rs. 10. The entire issued and subscribed capital has been fully paid up.\n\nAs per the most recent share allotment, three allottees were issued equity shares inclusive of a share premium of INR 7,850 per share. Mr. Rohit Sharma and Mr. Suresh Sharma were each issued 192 equity shares, while Sunrise Engineering Works Pvt. Ltd. received 576 shares. The issued equity shares will rank pari-passu with existing shares, conferring similar voting and dividend rights upon the allottees.\n\nThe latest adjustments to the capital structure have been duly documented in the Board Resolutions and are compliant with the regulations stipulated under the Companies Act, 2013. The company's Articles of Association have been updated to reflect these changes accordingly.",
+  "sources_used": [
+    "SH-7/SH7.md",
+    "SH-7/EGM.md",
+    "PAS-3/Board Resolution Allotment of Shares.md",
+    "PAS-3/List of Allottees.md"
+  ],
+  "auto_extracted_parts": [
+    "Authorized capital of the company: Rs. 300,000",
+    "Number of equity shares in authorized capital: 30,000",
+    "Nominal value per equity share: Rs. 10",
+    "Issued and subscribed capital: Rs. 150,000",
+    "Number of issued equity shares: 15,000",
+    "Recent share allotment: 3 allottees including Mr. Rohit Sharma, Mr. Suresh Sharma, and Sunrise Engineering Works Pvt. Ltd."
+  ],
+  "requires_review": [
+    "Verification of any updates post-document retrieval date"
+  ],
+  "grounded_facts": [
     {
-      "name": "Rohit Sharma",
-      "category": "Public",
-      "shares": 192,
-      "percentage": "0.99%",
-      "source": "List of Allottees"
+      "content": "Revised capital structure after taking into consideration the changes vide points 4, 5, 6 and 8 above\n\n(a) Authorised capital of the company (in Rs.) 300,000.00\n\nBreak up of Authorised capital\n\n<table>\n  <tbody>\n    <tr>\n        <td>Number of equity shares</td>\n<td>30,000</td>\n<td>Total amount of equity shares (in Rs.)</td>\n<td>300,000.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per equity share</td>\n<td>10</td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n        <td>Number of preference shares</td...",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.736,
+      "verification": "VERIFIED"
     },
     {
-      "name": "Suresh Sharma",
-      "category": "Public",
-      "shares": 192,
-      "percentage": "0.99%",
-      "source": "List of Allottees"
+      "content": "value, character and circumstances of any business concerns and undertakings and generally of any assets properties or rights which the Company purpose to acquire.\n",
+      "source": "SH-7/MOA.md",
+      "confidence": 0.728,
+      "verification": "VERIFIED"
     },
     {
-      "name": "Sunrise Engineering Works",
-      "category": "Public",
-      "shares": 576,
-      "percentage": "2.98%",
-      "source": "List of Allottees"
+      "content": "The additional capital (taking into consideration the addition above) is divided as follows\n\n(a) Number of equity shares | 15,000 | Total amount of equity shares (in Rs.) | 150,000.00\n(b) Number of preference shares | 0 | Total amount of preference shares |\nTotal addition | (in Rs.) | 150,000.00 | | (in Rs.) |\n\nThe conditions (e.g. voting rights, dividend rights, winding-up rights, etc.) subject to which new shares have been issued, are as follows\n\nPage 1 of 5\n\n\n---\n\n\n\nPage 2 of 5\n\n9. ",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.707,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "TO INCREASE THE AUTHORISED CAPITAL\nThe Company is having an existing authorized share capital of Rs. 1,50,000/-(One Lakh Fifty Thousand only) consisting of 15,000 (Fifteen thousand only) equity Shares of Rs. 10/-(Rupees Ten) each. Since the company would require more funds for expanding its business and meeting its current expenditure it was necessary to raise the authorized share capital of the company from Rs. 1,50,000 /-(One Lakh Fifty Thousand) to Rs. ",
+      "source": "SH-7/EGM.md",
+      "confidence": 0.768,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "The additional capital (taking into consideration the addition above) is divided as follows\n\n(a) Number of equity shares | 15,000 | Total amount of equity shares (in Rs.) | 150,000.00\n(b) Number of preference shares | 0 | Total amount of preference shares |\nTotal addition | (in Rs.) | 150,000.00 | | (in Rs.) |\n\nThe conditions (e.g. voting rights, dividend rights, winding-up rights, etc.) subject to which new shares have been issued, are as follows\n\nPage 1 of 5\n\n\n---\n\n\n\nPage 2 of 5\n\n9. ",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.742,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "Revised capital structure after taking into consideration the changes vide points 4, 5, 6 and 8 above\n\n(a) Authorised capital of the company (in Rs.) 300,000.00\n\nBreak up of Authorised capital\n\n<table>\n  <tbody>\n    <tr>\n        <td>Number of equity shares</td>\n<td>30,000</td>\n<td>Total amount of equity shares (in Rs.)</td>\n<td>300,000.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per equity share</td>\n<td>10</td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n        <td>Number of preference shares</td...",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.741,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "INCREASE IN AUTHORISED SHARE CAPITAL & ALTERATION IN THE CAPITAL CLAUSE OF MEMORANDUM OF ASSOCIATION\n1. \"RESOLVED THAT pursuant to the provisions of Section 61 and 64 and other applicable provisions, if any, of the Companies Act, 2013 (including any amendment thereto or re-enactment thereof) and the rules framed there under, the consent of the Board of Directors of the Company be and is hereby accorded, subject to the approvals of shareholders in the General meeting, to increase the Authorized S...",
+      "source": "SH-7/Board Meeting.md",
+      "confidence": 0.74,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "ak up of Subscribed capital\n\n<table>\n  <tbody>\n    <tr>\n        <td>Number of equity shares</td>\n<td>15,000</td>\n<td>Total amount of equity shares (in Rs.)</td>\n<td>150,000.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per equity share</td>\n<td>10</td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n        <td>Number of preference shares</td>\n<td>0</td>\n<td>Total amount of preference shares (in Rs.)</td>\n<td>0.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per preference share</td>\n<td>0</td>\n       ...",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.724,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "33. To appoint agents, sub-agents, dealers, managers canvassers, sales, representatives or salesmen for transacting all or any kind of the main business of which this Company is authorised to carry on and to constitute agencies of the Company in India or in any other country and establish depots and agencies in different parts of the world.\nV. The Authorised Share Capital of the Company is Rs. /- 3,00,000 (Rupees Three Lakh) divided into 30000 (Thirty thousand) Equity Shares of Rs. 10/- (Rupees ...",
+      "source": "SH-7/MOA.md",
+      "confidence": 0.718,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "2. RESOLVED FURTHER THAT pursuant to the provisions of Section 13, 61 and 64 and other applicable provisions of the Companies Act, 2013 (including any amendment thereto or re-enactment thereof) and the rules framed there under, the consent of the Board of Directors of the Company be and is hereby accorded, subject to the approvals of shareholders in the General meeting, for substituting Clause V of the Memorandum of Association of the Company with the following clause:\n\nV. The Authorised Share C...",
+      "source": "SH-7/Board Meeting.md",
+      "confidence": 0.717,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "TO AMEND THE MEMORANDUM OF ASSOCIATION\nIn order to reflect the increase authorised share capital of the Company, and in order to conform to the requirements of the Companies Act, 2013, Clause V of the Memorandum of Association of the Company must be amended.\n\nA draft of the amended Memorandum of Association with the following Clause V was tabled for discussion:\n\n**\"V. The Authorized Share Capital of the Company is Rs. 3,00,000/- (Rupees Three Lakh) divided into 30,000 (Thirty thousand) Equity Sh...",
+      "source": "SH-7/Notice of EGM.md",
+      "confidence": 0.716,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "\n<td>Total amount of preference shares (in Rs.)</td>\n<td>0.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per preference share</td>\n<td>0</td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n        <td>Number of unclassified shares</td>\n<td></td>\n<td>Total amount of unclassified shares (inRs.)</td>\n<td></td>\n    </tr>\n  </tbody>\n</table>\n\n(b) Issued capital of the company (in Rs.) 150,000.00\n\nBreak up of Issued capital\n\n<table>\n  <tbody>\n    <tr>\n        <td>Number of equity shares</td>\n<td>15,000</td>\n<...",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.715,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "unt of equity shares (in Rs.) (in Rs.)</td>\n<td>150,000.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per equity share</td>\n<td>10</td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n        <td>Number of preference shares</td>\n<td>0</td>\n<td>Total amount of preference shares</td>\n<td>0.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per preference share</td>\n<td>0</td>\n        <td colspan=\"2\"></td>\n    </tr>\n  </tbody>\n</table>\n\n\n\n---\n\n\n\nPage 3 of 5\n\n(c) Subscribed capital of the company (in Rs.) 150...",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.715,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "TO INCREASE THE AUTHORISED CAPITAL\nThe Company is having an existing authorized share capital of Rs. 1,50,000/-(One Lakh Fifty Thousand only) consisting of 15,000 (Fifteen thousand only) equity Shares of Rs. 10/-(Rupees Ten) each. Since the company would require more funds for expanding its business and meeting its current expenditure it was necessary to raise the authorized share capital of the company from Rs. 1,50,000 /-(One Lakh Fifty Thousand) to Rs. ",
+      "source": "SH-7/EGM.md",
+      "confidence": 0.771,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "The additional capital (taking into consideration the addition above) is divided as follows\n\n(a) Number of equity shares | 15,000 | Total amount of equity shares (in Rs.) | 150,000.00\n(b) Number of preference shares | 0 | Total amount of preference shares |\nTotal addition | (in Rs.) | 150,000.00 | | (in Rs.) |\n\nThe conditions (e.g. voting rights, dividend rights, winding-up rights, etc.) subject to which new shares have been issued, are as follows\n\nPage 1 of 5\n\n\n---\n\n\n\nPage 2 of 5\n\n9. ",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.754,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "Revised capital structure after taking into consideration the changes vide points 4, 5, 6 and 8 above\n\n(a) Authorised capital of the company (in Rs.) 300,000.00\n\nBreak up of Authorised capital\n\n<table>\n  <tbody>\n    <tr>\n        <td>Number of equity shares</td>\n<td>30,000</td>\n<td>Total amount of equity shares (in Rs.)</td>\n<td>300,000.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per equity share</td>\n<td>10</td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n        <td>Number of preference shares</td...",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.744,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "\n<td>Total amount of preference shares (in Rs.)</td>\n<td>0.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per preference share</td>\n<td>0</td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n        <td>Number of unclassified shares</td>\n<td></td>\n<td>Total amount of unclassified shares (inRs.)</td>\n<td></td>\n    </tr>\n  </tbody>\n</table>\n\n(b) Issued capital of the company (in Rs.) 150,000.00\n\nBreak up of Issued capital\n\n<table>\n  <tbody>\n    <tr>\n        <td>Number of equity shares</td>\n<td>15,000</td>\n<...",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.738,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "unt of equity shares (in Rs.) (in Rs.)</td>\n<td>150,000.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per equity share</td>\n<td>10</td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n        <td>Number of preference shares</td>\n<td>0</td>\n<td>Total amount of preference shares</td>\n<td>0.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per preference share</td>\n<td>0</td>\n        <td colspan=\"2\"></td>\n    </tr>\n  </tbody>\n</table>\n\n\n\n---\n\n\n\nPage 3 of 5\n\n(c) Subscribed capital of the company (in Rs.) 150...",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.727,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "ak up of Subscribed capital\n\n<table>\n  <tbody>\n    <tr>\n        <td>Number of equity shares</td>\n<td>15,000</td>\n<td>Total amount of equity shares (in Rs.)</td>\n<td>150,000.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per equity share</td>\n<td>10</td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n        <td>Number of preference shares</td>\n<td>0</td>\n<td>Total amount of preference shares (in Rs.)</td>\n<td>0.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per preference share</td>\n<td>0</td>\n       ...",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.724,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "INCREASE IN AUTHORISED SHARE CAPITAL & ALTERATION IN THE CAPITAL CLAUSE OF MEMORANDUM OF ASSOCIATION\n1. \"RESOLVED THAT pursuant to the provisions of Section 61 and 64 and other applicable provisions, if any, of the Companies Act, 2013 (including any amendment thereto or re-enactment thereof) and the rules framed there under, the consent of the Board of Directors of the Company be and is hereby accorded, subject to the approvals of shareholders in the General meeting, to increase the Authorized S...",
+      "source": "SH-7/Board Meeting.md",
+      "confidence": 0.72,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "=\"2\"></td>\n    </tr>\n  </tbody>\n</table>\n\n(d) Paid up capital of the company (in Rs.) 150,000\n\nBreak up of Paid up capital\n\n<table>\n  <tbody>\n    <tr>\n        <td>Number of equity shares</td>\n<td>15,000</td>\n<td>Total amount of equity shares (in Rs.)</td>\n<td>150,000.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per equity share</td>\n<td>10</td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n        <td>Number of preference shares</td>\n<td>0</td>\n<td>Total amount of preference shares (in Rs.)</td>\n<td>0...",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.714,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "TO AMEND THE MEMORANDUM OF ASSOCIATION\nIn order to reflect the increase authorised share capital of the Company, and in order to conform to the requirements of the Companies Act, 2013, Clause V of the Memorandum of Association of the Company must be amended.\n\nA draft of the amended Memorandum of Association with the following Clause V was tabled for discussion:\n\n**\"V. The Authorized Share Capital of the Company is Rs. 3,00,000/- (Rupees Three Lakh) divided into 30,000 (Thirty thousand) Equity Sh...",
+      "source": "SH-7/Notice of EGM.md",
+      "confidence": 0.713,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "2. RESOLVED FURTHER THAT pursuant to the provisions of Section 13, 61 and 64 and other applicable provisions of the Companies Act, 2013 (including any amendment thereto or re-enactment thereof) and the rules framed there under, the consent of the Board of Directors of the Company be and is hereby accorded, subject to the approvals of shareholders in the General meeting, for substituting Clause V of the Memorandum of Association of the Company with the following clause:\n\nV. The Authorised Share C...",
+      "source": "SH-7/Board Meeting.md",
+      "confidence": 0.708,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "22. To distribute as dividend or bonus among the member or to place to reserve or otherwise to apply, as the Company may, from time to time, determine any money received by way of premium on debentures issued at a premium by the Company and any money received in respect of forfeited shares, money arising from the sale by the Company of forfeited shares subject to the provisions of Sec. 52 of the Companies Act, 2013.\n4\n23. To employ agents or experts to investigate and examine into the conditions...",
+      "source": "SH-7/MOA.md",
+      "confidence": 0.742,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "\t28. To pay for any property or rights acquired by or for any services rendered to the Company and in particular to remunerate any person, firm or company introducing business to the company either in cash or fully or partly-paid up shares with or without preferred or deferred rights in respect of dividend or repayment of capital or otherwise or by any securities which the company has power to issue or by the grant of any rights or options or partly in one mode and partly in another and generall...",
+      "source": "SH-7/MOA.md",
+      "confidence": 0.733,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "clusive of a share premium of INR 7,850 per Equity Shares) to the below mentioned Investors:\nEquity Shares\n| Name of the Allottee                | No. Equity<br />Share   | Folio No.   | Share<br />certificate<br />number   | Distinctive numbers   |\n|-|-|-|-|-|\n| Mr. Rohit Sharma                  | 192                     | 8           | 9                                    | 18362-18553           |\n| Mr. Suresh Sharma                    | 192                     | 9           | 10              ...",
+      "source": "PAS-3/Board Resolution Allotment of Shares.md",
+      "confidence": 0.73,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "20. To sell, mortgage, exchange, grant licenses and other rights improve, manage, develop and dispose of undertakings, properties, assets and effects of the company or any part thereof for such consideration as may be expedient and in particular for any shares, stocks, debentures or other securities of any other such company having main objects altogether or in part similar to those of the Company.\n21. Subject to the Provisions of Companies Act 2013, to distribute among the members in specie or ...",
+      "source": "SH-7/MOA.md",
+      "confidence": 0.73,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "\"RESOLVED THAT pursuant to Section 62(1) of the Companies Act, 2013 and any other applicable provisions of the Companies Act, 2013 and the Memorandum and Articles of Association of the Company and based on the renunciation letters received from all the equity shareholders of the Company, the approval of the Board be and is hereby accorded to the allotment of 960 (Nine Hundred and Sixty) equity shares of face value INR 10 each, at INR 7,860 (Indian Rupees Seven Thousand Eight Hundred and Sixty) p...",
+      "source": "PAS-3/Board Resolution Allotment of Shares.md",
+      "confidence": 0.73,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "7,850                                  |\n| Total number of allottees                                                    | Three                                      |\n| Brief particulars in respect of terms and condition, voting<br />rights, etc | Shall rank pari-passu with existing shares |\nTable B (List of allottees, applicable in case of allotment of shares payable in cash)\n<table><tr><th>Sr.no.</th><th>Name and\noccupation of\nallottee</th><th>Address of\nAllottee</th><th>Nationality\nof the\nall...",
+      "source": "PAS-3/List of Allottees.md",
+      "confidence": 0.727,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "The additional capital (taking into consideration the addition above) is divided as follows\n\n(a) Number of equity shares | 15,000 | Total amount of equity shares (in Rs.) | 150,000.00\n(b) Number of preference shares | 0 | Total amount of preference shares |\nTotal addition | (in Rs.) | 150,000.00 | | (in Rs.) |\n\nThe conditions (e.g. voting rights, dividend rights, winding-up rights, etc.) subject to which new shares have been issued, are as follows\n\nPage 1 of 5\n\n\n---\n\n\n\nPage 2 of 5\n\n9. ",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.722,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "RESOLVED FURTHER THAT the requisite share certificates be issued to the above allottees pursuant to the provisions of the Companies (Share Capital and Debenture) Rules, 2014 under the Common Seal of the Company which shall be affixed in the presence of and under the signature of any two directors of the Company and Mr. Vikram Sethi who is authorized by the Board in this behalf.\n",
+      "source": "PAS-3/Board Resolution Allotment of Shares.md",
+      "confidence": 0.72,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "8. To take over the whole or any part of the business, goodwill, trade-marks properties and liabilities of any person or persons, firm, companies or undertakings either existing or new, engaged in or carrying on or proposing to carry on business this Company is authorised to carry on, possession of any\nDjan\n2\nproperty or rights suitable for the purpose of the Company and to pay for the same either in cash or in shares or partly in cash and partly in shares or otherwise.\n",
+      "source": "SH-7/MOA.md",
+      "confidence": 0.717,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": " of the Company from existing Rs. 1,50,000 (Rupees One Lakh Fifty Thousand) divided into 15,000 (Fifteen thousand) Equity Shares of Rs. 10/- each to Rs. 3,00,000 (Rupees Three Lakh) divided into 30,000 (Thirty thousand) Equity Shares of Rs. 10/- each.\n\n",
+      "source": "SH-7/Board Meeting.md",
+      "confidence": 0.715,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "7,850                                  |\n| Total number of allottees                                                    | Three                                      |\n| Brief particulars in respect of terms and condition, voting<br />rights, etc | Shall rank pari-passu with existing shares |\nTable B (List of allottees, applicable in case of allotment of shares payable in cash)\n<table><tr><th>Sr.no.</th><th>Name and\noccupation of\nallottee</th><th>Address of\nAllottee</th><th>Nationality\nof the\nall...",
+      "source": "PAS-3/List of Allottees.md",
+      "confidence": 0.842,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "Introduction\nNEXUS BRIGHTLEARN SOLUTIONS PVT LTD\nKrishna Tower, GF, Sector-12 Dwarka, New Delhi 110075\nList of Allottees\nTable A\n| Name of the Company                                                          | Nexus Brightlearn Solutions Private Limited   |\n|-|-|\n| Date of the allotment                                                        | 15 May, 2019                          |\n| Type of share allotted (Equity/Preference)                                   | Equity Shares                     ...",
+      "source": "PAS-3/List of Allottees.md",
+      "confidence": 0.764,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "clusive of a share premium of INR 7,850 per Equity Shares) to the below mentioned Investors:\nEquity Shares\n| Name of the Allottee                | No. Equity<br />Share   | Folio No.   | Share<br />certificate<br />number   | Distinctive numbers   |\n|-|-|-|-|-|\n| Mr. Rohit Sharma                  | 192                     | 8           | 9                                    | 18362-18553           |\n| Mr. Suresh Sharma                    | 192                     | 9           | 10              ...",
+      "source": "PAS-3/Board Resolution Allotment of Shares.md",
+      "confidence": 0.748,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "RESOLVED FURTHER THAT the requisite share certificates be issued to the above allottees pursuant to the provisions of the Companies (Share Capital and Debenture) Rules, 2014 under the Common Seal of the Company which shall be affixed in the presence of and under the signature of any two directors of the Company and Mr. Vikram Sethi who is authorized by the Board in this behalf.\n",
+      "source": "PAS-3/Board Resolution Allotment of Shares.md",
+      "confidence": 0.721,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "of\nshares\nallotted</th><th>Total amount\npaid including\npremium (Rs.\nIn amount)\n\n,</th><th>Total amount\nto be paid on\ncalls\n(including\nPremium)\noutstanding\n(in Rs.)</th></tr><tr><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td></tr><tr><td>1.</td><td>Mr. Rohit\nSharma</td><td>12/45, Sunrise\nApartments,\nSector-15,\nRohini,\nNew Delhi 110085</td><td>Indian</td><td>192</td><td>15,09,120</td><td>Nil</td></tr><tr><td>2.</td><td>Mr. Suresh\nSharma</td><td>12/45, Sunrise\nApartments,\nSec...",
+      "source": "PAS-3/List of Allottees.md",
+      "confidence": 0.708,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "| Name Address, Description and<br />occupation of subscriber                                                                                                                                                                  | Number of<br />shares taken<br />by each<br />subscriber   | Signature of the<br />Subscriber   |\n|-|-|-|\n",
+      "source": "SH-7/MOA.md",
+      "confidence": 0.7,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "7,850                                  |\n| Total number of allottees                                                    | Three                                      |\n| Brief particulars in respect of terms and condition, voting<br />rights, etc | Shall rank pari-passu with existing shares |\nTable B (List of allottees, applicable in case of allotment of shares payable in cash)\n<table><tr><th>Sr.no.</th><th>Name and\noccupation of\nallottee</th><th>Address of\nAllottee</th><th>Nationality\nof the\nall...",
+      "source": "PAS-3/List of Allottees.md",
+      "confidence": 0.758,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "unt of equity shares (in Rs.) (in Rs.)</td>\n<td>150,000.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per equity share</td>\n<td>10</td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n        <td>Number of preference shares</td>\n<td>0</td>\n<td>Total amount of preference shares</td>\n<td>0.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per preference share</td>\n<td>0</td>\n        <td colspan=\"2\"></td>\n    </tr>\n  </tbody>\n</table>\n\n\n\n---\n\n\n\nPage 3 of 5\n\n(c) Subscribed capital of the company (in Rs.) 150...",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.792,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "clusive of a share premium of INR 7,850 per Equity Shares) to the below mentioned Investors:\nEquity Shares\n| Name of the Allottee                | No. Equity<br />Share   | Folio No.   | Share<br />certificate<br />number   | Distinctive numbers   |\n|-|-|-|-|-|\n| Mr. Rohit Sharma                  | 192                     | 8           | 9                                    | 18362-18553           |\n| Mr. Suresh Sharma                    | 192                     | 9           | 10              ...",
+      "source": "PAS-3/Board Resolution Allotment of Shares.md",
+      "confidence": 0.78,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "e Company is Rs. 3,00,000/- (Rupees Three Lakh) divided into 30,000 (Thirty thousand) Equity Shares of Rs. 10/- (Rupees Ten) each.\"\n\n3. FURTHER RESOLVED THAT Mr. ",
+      "source": "SH-7/Board Meeting.md",
+      "confidence": 0.779,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": " of the Company from existing Rs. 1,50,000 (Rupees One Lakh Fifty Thousand) divided into 15,000 (Fifteen thousand) Equity Shares of Rs. 10/- each to Rs. 3,00,000 (Rupees Three Lakh) divided into 30,000 (Thirty thousand) Equity Shares of Rs. 10/- each.\n\n",
+      "source": "SH-7/Board Meeting.md",
+      "confidence": 0.778,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "The additional capital (taking into consideration the addition above) is divided as follows\n\n(a) Number of equity shares | 15,000 | Total amount of equity shares (in Rs.) | 150,000.00\n(b) Number of preference shares | 0 | Total amount of preference shares |\nTotal addition | (in Rs.) | 150,000.00 | | (in Rs.) |\n\nThe conditions (e.g. voting rights, dividend rights, winding-up rights, etc.) subject to which new shares have been issued, are as follows\n\nPage 1 of 5\n\n\n---\n\n\n\nPage 2 of 5\n\n9. ",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.776,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "\"RESOLVED THAT pursuant to Section 62(1) of the Companies Act, 2013 and any other applicable provisions of the Companies Act, 2013 and the Memorandum and Articles of Association of the Company and based on the renunciation letters received from all the equity shareholders of the Company, the approval of the Board be and is hereby accorded to the allotment of 960 (Nine Hundred and Sixty) equity shares of face value INR 10 each, at INR 7,860 (Indian Rupees Seven Thousand Eight Hundred and Sixty) p...",
+      "source": "PAS-3/Board Resolution Allotment of Shares.md",
+      "confidence": 0.775,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "         | 18554-18745           |\n| Sunrise Engineering Works<br />Pvt. Ltd | 576                     | 10          | 11                                   | 18746-19321           |\nRESOLVED FURTHER THAT the said Equity Shares pursuant to this resolution shall rank pari passu with the existing equity shares of the Company.\n",
+      "source": "PAS-3/Board Resolution Allotment of Shares.md",
+      "confidence": 0.774,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "0,000 (Rupees Three Lakh) divided into 30,000 (Thirty thousand) Equity Shares of Rs. 10/- each\n\nRESOLVED FURTHER THAT the Memorandum of Association of the Company be altered in the following manner i.e. existing Clause V of the Memorandum of Association be deleted and the same be substituted with the following new clause as Clause V:\n\nV. The Authorised Share Capital of the Company is Rs. 3,00,000/- (Rupees Three Lakh) divided into 30,000 (Thirty thousand) Equity Shares of Rs. 10/- (Rupees Ten) e...",
+      "source": "SH-7/EGM.md",
+      "confidence": 0.771,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "ak up of Subscribed capital\n\n<table>\n  <tbody>\n    <tr>\n        <td>Number of equity shares</td>\n<td>15,000</td>\n<td>Total amount of equity shares (in Rs.)</td>\n<td>150,000.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per equity share</td>\n<td>10</td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n        <td>Number of preference shares</td>\n<td>0</td>\n<td>Total amount of preference shares (in Rs.)</td>\n<td>0.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per preference share</td>\n<td>0</td>\n       ...",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.755,
+      "verification": "VERIFIED"
+    },
+    {
+      "content": "=\"2\"></td>\n    </tr>\n  </tbody>\n</table>\n\n(d) Paid up capital of the company (in Rs.) 150,000\n\nBreak up of Paid up capital\n\n<table>\n  <tbody>\n    <tr>\n        <td>Number of equity shares</td>\n<td>15,000</td>\n<td>Total amount of equity shares (in Rs.)</td>\n<td>150,000.00</td>\n    </tr>\n<tr>\n        <td>Nominal amount per equity share</td>\n<td>10</td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n        <td>Number of preference shares</td>\n<td>0</td>\n<td>Total amount of preference shares (in Rs.)</td>\n<td>0...",
+      "source": "SH-7/SH7.md",
+      "confidence": 0.728,
+      "verification": "VERIFIED"
     }
   ],
-  "debt_structure": "",
-  "sources_used": [
-    "MOA",
-    "PAS-3",
-    "List of Allottees"
-  ],
-  "needs_human_review": [
-    "Confirmation of shareholding percentages"
-  ]
+  "metrics": {
+    "cost": 0.0688,
+    "total_facts": 50,
+    "verified": 50,
+    "contradicted": 0,
+    "not_found": 0,
+    "unverified": 0
+  }
 }

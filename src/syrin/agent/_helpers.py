@@ -12,6 +12,7 @@ from syrin.context.snapshot import ContextSnapshot
 from syrin.enums import Hook, Media, MemoryBackend, MemoryPreset, MemoryType
 from syrin.events import EventContext
 from syrin.exceptions import ModalityNotSupportedError
+from syrin.knowledge._grounding import GroundedFact
 from syrin.memory import Memory
 from syrin.memory.backends import InMemoryBackend, get_backend
 from syrin.model import Model
@@ -50,13 +51,20 @@ class _ContextFacade:
 class _AgentRuntime:
     """Internal runtime state. Not part of public API."""
 
-    __slots__ = ("remote_baseline", "remote_overrides", "mcp_tool_indices", "budget_tracker_shared")
+    __slots__ = (
+        "remote_baseline",
+        "remote_overrides",
+        "mcp_tool_indices",
+        "budget_tracker_shared",
+        "grounded_facts",
+    )
 
     def __init__(self) -> None:
         self.remote_baseline: dict[str, object] | None = None
         self.remote_overrides: dict[str, object] = {}
         self.mcp_tool_indices: dict[str, int] = {}
         self.budget_tracker_shared: bool = False
+        self.grounded_facts: list[GroundedFact] = []
 
 
 def _validate_agent_media(
@@ -279,6 +287,7 @@ def _make_search_knowledge_tool(
     emit: Callable[[str, dict[str, object]], None] | None = None,
     get_model: Callable[[], object | None] | None = None,
     get_budget_tracker: Callable[[], object | None] | None = None,
+    get_runtime: Callable[[], _AgentRuntime] | None = None,
 ) -> ToolSpec:
     """Build a ToolSpec for search_knowledge. Uses DI — no closure over agent."""
 
@@ -302,7 +311,7 @@ def _make_search_knowledge_tool(
         if gconfig is not None and gconfig.enabled:
             from syrin.knowledge._grounding import apply_grounding
 
-            formatted, _ = await apply_grounding(
+            formatted, facts = await apply_grounding(
                 query=query,
                 results=results,
                 config=gconfig,
@@ -310,6 +319,8 @@ def _make_search_knowledge_tool(
                 emit=emit,
                 get_budget_tracker=get_budget_tracker or (lambda: None),
             )
+            if get_runtime is not None and facts:
+                get_runtime().grounded_facts.extend(facts)
             return formatted
         lines: list[str] = []
         for r in results[:5]:
@@ -346,6 +357,7 @@ def _make_search_knowledge_deep_tool(
     get_model: Callable[[], object | None],
     get_budget_tracker: Callable[[], object | None],
     emit: Callable[[str, dict[str, object]], None] | None = None,
+    get_runtime: Callable[[], _AgentRuntime] | None = None,
 ) -> ToolSpec:
     """Build a ToolSpec for search_knowledge_deep (agentic multi-step retrieval)."""
 
@@ -362,6 +374,13 @@ def _make_search_knowledge_deep_tool(
         if config is None:
             return "search_knowledge_deep requires agentic=True on Knowledge."
         emit_fn = getattr(kb, "_emit", None)
+        append_facts: Callable[[list[GroundedFact]], None] | None = None
+        if get_runtime is not None:
+
+            def _append(facts: list[GroundedFact]) -> None:
+                get_runtime().grounded_facts.extend(facts)
+
+            append_facts = _append
         return await search_knowledge_deep(
             knowledge=kb,
             query=query,
@@ -370,6 +389,7 @@ def _make_search_knowledge_deep_tool(
             get_model=get_model,
             emit=emit_fn,
             get_budget_tracker=get_budget_tracker,
+            append_grounded_facts=append_facts,
         )
 
     schema: dict[str, object] = {

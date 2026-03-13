@@ -57,6 +57,8 @@ class TestOutputReport:
         """Test that output validation failure is tracked."""
         from pydantic import BaseModel
 
+        from syrin.types import ProviderResponse, TokenUsage
+
         class OutputModel(BaseModel):
             result: str
 
@@ -65,20 +67,16 @@ class TestOutputReport:
 
         agent = TestAgent()
 
-        # Return invalid JSON
-        with patch.object(
-            agent._loop,
-            "run",
-            return_value=Mock(
-                content="not valid json",
-                cost_usd=0.001,
-                token_usage={"input": 10, "output": 5, "total": 15},
-                tool_calls=[],
-                stop_reason="end_turn",
-                iterations=1,
-                latency_ms=100,
-            ),
-        ):
+        # Mock the provider to return invalid JSON
+        mock_response = ProviderResponse(
+            content="not valid json",
+            token_usage=TokenUsage(input_tokens=10, output_tokens=5, total_tokens=15),
+            tool_calls=[],
+            stop_reason="end_turn",
+            metadata={},
+        )
+
+        with patch.object(agent._provider, "complete", return_value=mock_response):
             result = agent.response("Test")
 
         # Output report should show failure
@@ -135,6 +133,8 @@ class TestOutputReportEdgeCases:
         """Test OutputReport when max retries are exceeded."""
         from pydantic import BaseModel
 
+        from syrin.types import ProviderResponse, TokenUsage
+
         class OutputModel(BaseModel):
             result: str
 
@@ -143,20 +143,16 @@ class TestOutputReportEdgeCases:
 
         agent = TestAgent()
 
-        # Return invalid JSON that will fail all retries
-        with patch.object(
-            agent._loop,
-            "run",
-            return_value=Mock(
-                content="not valid json",
-                cost_usd=0.001,
-                token_usage={"input": 10, "output": 5, "total": 15},
-                tool_calls=[],
-                stop_reason="end_turn",
-                iterations=1,
-                latency_ms=100,
-            ),
-        ):
+        # Mock the provider to return invalid JSON that will fail all retries
+        mock_response = ProviderResponse(
+            content="not valid json",
+            token_usage=TokenUsage(input_tokens=10, output_tokens=5, total_tokens=15),
+            tool_calls=[],
+            stop_reason="end_turn",
+            metadata={},
+        )
+
+        with patch.object(agent._provider, "complete", return_value=mock_response):
             result = agent.response("Test")
 
         # Should show validation attempts were made

@@ -24,6 +24,8 @@ if TYPE_CHECKING:
     from syrin.knowledge._store import SearchResult
     from syrin.model import Model
 
+# Used in search_knowledge_deep signature for append_grounded_facts callback
+from syrin.knowledge._grounding import GroundedFact
 
 _BUDGET_RATIO_THRESHOLD = 0.85  # Stop refinement when run_usage >= 0.85 * effective_run
 
@@ -181,6 +183,7 @@ async def search_knowledge_deep(
     get_model: Callable[[], object | None],
     emit: Callable[[str, EventContext], None] | None = None,
     get_budget_tracker: Callable[[], object | None] | None = None,
+    append_grounded_facts: Callable[[list[GroundedFact]], None] | None = None,
 ) -> str:
     """Deep search: decompose, search sub-queries, grade, refine if needed, consolidate."""
     model = cast(
@@ -277,7 +280,7 @@ async def search_knowledge_deep(
     if gconfig is not None and gconfig.enabled:
         from syrin.knowledge._grounding import apply_grounding
 
-        formatted, _ = await apply_grounding(
+        formatted, facts = await apply_grounding(
             query=query,
             results=results_final,
             config=gconfig,
@@ -285,6 +288,8 @@ async def search_knowledge_deep(
             emit=emit,
             get_budget_tracker=get_budget_tracker,
         )
+        if append_grounded_facts is not None and facts:
+            append_grounded_facts(facts)
         return formatted
     return _format_results(results_final)
 

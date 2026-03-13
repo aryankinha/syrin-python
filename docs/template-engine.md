@@ -61,13 +61,13 @@ print(response.file)          # Path to generated .txt file (when output_config 
 
 ## Slot Configuration
 
-| Type | JSON Schema | Example |
-|------|-------------|---------|
-| `str` | string | `SlotConfig("str")` |
-| `int` | integer | `SlotConfig("int", required=True)` |
-| `float` | number | `SlotConfig("float")` |
-| `bool` | boolean | `SlotConfig("bool", default=False)` |
-| `list[str]` | array of strings | `SlotConfig("list[str]")` |
+| Type        | JSON Schema      | Example                             |
+| ----------- | ---------------- | ----------------------------------- |
+| `str`       | string           | `SlotConfig("str")`                 |
+| `int`       | integer          | `SlotConfig("int", required=True)`  |
+| `float`     | number           | `SlotConfig("float")`               |
+| `bool`      | boolean          | `SlotConfig("bool", default=False)` |
+| `list[str]` | array of strings | `SlotConfig("list[str]")`           |
 
 Or use a dict:
 
@@ -100,6 +100,33 @@ tpl = Template.from_file("templates/capital.md", slots={...})
 # From string
 tpl = Template.from_string("Hi {{name}}", name="greet", slots={"name": SlotConfig("str")})
 ```
+
+### YAML Frontmatter
+
+Templates loaded from files can define slots via YAML frontmatter:
+
+```yaml
+# templates/capital.md
+---
+name:
+  type: str
+  required: true
+amount:
+  type: int
+  required: false
+  default: 0
+---
+Authorized capital: {{name}} = ₹{{amount}}
+```
+
+```python
+tpl = Template.from_file("templates/capital.md")
+# Slots are auto-parsed from frontmatter!
+tpl.slots["name"].required  # True
+tpl.render(name="Test", amount=50000)  # "Authorized capital: Test = ₹50000"
+```
+
+Explicit `slots` parameter overrides frontmatter slots:
 
 ## slot_schema()
 

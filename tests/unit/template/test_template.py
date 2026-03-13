@@ -224,6 +224,158 @@ class TestTemplateFactories:
         finally:
             Path(path).unlink()
 
+    def test_from_file_with_yaml_frontmatter(self) -> None:
+        """Template from file with YAML frontmatter containing slot definitions (6B)."""
+        content = """---
+name:
+  type: str
+  required: true
+amount:
+  type: int
+  required: false
+  default: 0
+---
+Hello {{name}}, amount: {{amount}}"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            f.write(content)
+            path = f.name
+        try:
+            t = Template.from_file(path)
+            assert t.name == Path(path).stem
+            assert "name" in t.slots
+            assert t.slots["name"].required is True
+            assert t.slots["name"].slot_type == "str"
+            assert "amount" in t.slots
+            assert t.slots["amount"].required is False
+            assert t.slots["amount"].default == 0
+            assert t.render(name="Alice", amount=100) == "Hello Alice, amount: 100"
+            assert t.render(name="Bob") == "Hello Bob, amount: 0"
+        finally:
+            Path(path).unlink()
+
+    def test_from_file_with_yaml_frontmatter_list_slot(self) -> None:
+        """Frontmatter with list[str] slot type."""
+        content = """---
+items:
+  type: list[str]
+  required: false
+---
+{{#items}}{{.}}, {{/items}}"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write(content)
+            path = f.name
+        try:
+            t = Template.from_file(path)
+            assert "items" in t.slots
+            assert t.slots["items"].slot_type == "list[str]"
+            assert t.render(items=["a", "b"]) == "a, b, "
+            assert t.render() == ""
+        finally:
+            Path(path).unlink()
+
+    def test_from_file_with_yaml_frontmatter_bool_slot(self) -> None:
+        """Frontmatter with bool slot type."""
+        content = """---
+active:
+  type: bool
+  required: true
+---
+{{#active}}ACTIVE{{/active}}"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write(content)
+            path = f.name
+        try:
+            t = Template.from_file(path)
+            assert t.slots["active"].slot_type == "bool"
+            assert t.render(active=True) == "ACTIVE"
+            assert t.render(active=False) == ""
+        finally:
+            Path(path).unlink()
+
+    def test_from_file_without_frontmatter_still_works(self) -> None:
+        """Plain file without frontmatter loads with explicit slots."""
+        content = "Hello {{name}}"
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write(content)
+            path = f.name
+        try:
+            t = Template.from_file(path, slots={"name": SlotConfig("str")})
+            assert t.render(name="World") == "Hello World"
+        finally:
+            Path(path).unlink()
+
+    def test_from_file_frontmatter_with_explicit_slots_merged(self) -> None:
+        """Explicit slots parameter merged with frontmatter slots."""
+        content = """---
+title:
+  type: str
+  required: true
+---
+{{title}}: {{name}}"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            f.write(content)
+            path = f.name
+        try:
+            t = Template.from_file(path, slots={"name": SlotConfig("str", required=True)})
+            assert "title" in t.slots
+            assert "name" in t.slots
+            assert t.render(title="Dr", name="Alice") == "Dr: Alice"
+        finally:
+            Path(path).unlink()
+
+    def test_from_file_frontmatter_override_by_explicit_slots(self) -> None:
+        """Explicit slots override frontmatter slots with same name."""
+        content = """---
+name:
+  type: str
+  required: false
+---
+Hello {{name}}"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            f.write(content)
+            path = f.name
+        try:
+            t = Template.from_file(
+                path, slots={"name": SlotConfig("str", required=True, default="Guest")}
+            )
+            assert t.slots["name"].required is True
+            assert t.slots["name"].default == "Guest"
+        finally:
+            Path(path).unlink()
+
+    def test_from_file_yaml_frontmatter_invalid_yaml(self) -> None:
+        """Invalid YAML in frontmatter falls back gracefully."""
+        content = """---
+this is: invalid yaml
+not: good
+---
+Hello {{name}}"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            f.write(content)
+            path = f.name
+        try:
+            t = Template.from_file(path, slots={"name": SlotConfig("str")})
+            assert t.render(name="World") == "Hello World"
+        finally:
+            Path(path).unlink()
+
+    def test_from_file_frontmatter_with_float_slot(self) -> None:
+        """Frontmatter with float slot type."""
+        content = """---
+price:
+  type: float
+---
+Price: {{price}}"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write(content)
+            path = f.name
+        try:
+            t = Template.from_file(path)
+            assert t.slots["price"].slot_type == "float"
+            assert t.render(price=99.99) == "Price: 99.99"
+        finally:
+            Path(path).unlink()
+
 
 # -----------------------------------------------------------------------------
 # Edge cases

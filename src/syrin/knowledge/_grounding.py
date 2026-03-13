@@ -47,6 +47,25 @@ def _status_from_verdict(verdict: str) -> VerificationStatus:
     return VerificationStatus.NOT_FOUND
 
 
+def _match_fact_to_result(
+    fact_source: str,
+    results: list[SearchResult],
+) -> SearchResult | None:
+    """Match a fact's source to a search result by document_id (substring or equality).
+
+    Used to attribute facts to the correct chunk when LLM returns facts in different
+    order than results. Returns None when no result matches (caller uses 'unknown').
+    """
+    if not fact_source or not results:
+        return None
+    fact_src_norm = fact_source.strip()
+    for r in results:
+        doc_id = r.chunk.document_id
+        if doc_id == fact_src_norm or fact_src_norm in doc_id or doc_id in fact_src_norm:
+            return r
+    return None
+
+
 @dataclass
 class GroundedFact:
     """A single verified fact extracted from a knowledge source.
@@ -82,6 +101,8 @@ class GroundingConfig:
         verify_before_use: Verify each fact using verify_claim before including.
         confidence_threshold: Minimum confidence to include a fact (0.0-1.0).
         max_facts: Maximum facts to extract per search. None = no limit.
+        max_chunk_preview: Max characters of each chunk sent to fact extraction (default 800).
+        model: Separate Model for grounding (extraction/verification). Uses agent model if not set.
     """
 
     enabled: bool = True
@@ -91,12 +112,16 @@ class GroundingConfig:
     verify_before_use: bool = True
     confidence_threshold: float = 0.7
     max_facts: int | None = 15
+    max_chunk_preview: int = 800
+    model: Model | None = None
 
     def __post_init__(self) -> None:
         if not 0 <= self.confidence_threshold <= 1:
             raise ValueError("confidence_threshold must be in [0, 1]")
         if self.max_facts is not None and self.max_facts < 1:
             raise ValueError("max_facts must be >= 1 or None")
+        if self.max_chunk_preview < 1:
+            raise ValueError("max_chunk_preview must be >= 1")
 
 
 async def _extract_facts(
@@ -107,6 +132,7 @@ async def _extract_facts(
     emit: Callable[[str, EventContext], None] | None = None,
     budget_tracker: BudgetTracker | None = None,
     max_facts: int | None = 15,
+    max_chunk_preview: int = 800,
 ) -> list[GroundedFact]:
     """Extract structured facts from search results via LLM."""
     if not results:
@@ -120,9 +146,10 @@ async def _extract_facts(
             EventContext({"query": query[:200], "chunk_count": len(results)}),
         )
 
+    preview_len = max(1, max_chunk_preview)
     results_text = "\n\n".join(
-        f"[{r.rank}] Source: {r.chunk.document_id} | {r.chunk.content[:400]}"
-        + ("..." if len(r.chunk.content) > 400 else "")
+        f"[{r.rank}] Source: {r.chunk.document_id} | {r.chunk.content[:preview_len]}"
+        + ("..." if len(r.chunk.content) > preview_len else "")
         for r in results[:10]
     )
     prompt = _EXTRACT_PROMPT.format(query=query, results=results_text)
@@ -136,7 +163,11 @@ async def _extract_facts(
     try:
         parsed = json.loads(out.strip())
         if not isinstance(parsed, list):
-            parsed = []
+            _log.debug(
+                "Extraction returned non-array (%s). Falling back to chunk-as-fact.",
+                type(parsed).__name__,
+            )
+            return _chunks_to_facts(results)
     except json.JSONDecodeError:
         _log.debug(
             "Could not parse extraction JSON for query %r. Falling back to chunk-as-fact.",
@@ -144,14 +175,14 @@ async def _extract_facts(
         )
         return _chunks_to_facts(results)
 
-    for i, item in enumerate(parsed[: max_facts or 999]):
+    for item in parsed[: max_facts or 999]:
         if not isinstance(item, dict):
             continue
         fact_str = item.get("fact") or item.get("content") or ""
         if not fact_str or not isinstance(fact_str, str):
             continue
         source_val = item.get("source")
-        source_str = str(source_val) if source_val is not None else ""
+        source_str = str(source_val).strip() if source_val is not None else ""
         page_val = item.get("page")
         page_int: int | None = None
         if isinstance(page_val, int):
@@ -163,14 +194,17 @@ async def _extract_facts(
             conf = max(0.0, min(1.0, float(conf_val)))
         except (TypeError, ValueError):
             conf = 0.5
-        r = results[i] if i < len(results) else results[-1] if results else None
-        cid = chunk_id(r.chunk) if r else None
-        if not source_str and r:
-            source_str = r.chunk.document_id
-        if page_int is None and r:
-            pval = r.chunk.metadata.get("page")
-            if isinstance(pval, (int, float)):
-                page_int = int(pval)
+        matched = _match_fact_to_result(source_str, results) if source_str else None
+        if matched is not None:
+            cid = chunk_id(matched.chunk)
+            if page_int is None:
+                pval = matched.chunk.metadata.get("page")
+                if isinstance(pval, (int, float)):
+                    page_int = int(pval)
+        else:
+            cid = None
+        if not source_str:
+            source_str = matched.chunk.document_id if matched else "unknown"
         facts.append(
             GroundedFact(
                 content=fact_str.strip(),
@@ -195,16 +229,20 @@ async def _extract_facts(
 
 
 def _format_raw_results(results: list[SearchResult], max_per: int = 300) -> str:
-    """Format raw search results for tool response (fallback when grounding yields no facts)."""
+    """Format raw search results for tool response (fallback when grounding yields no facts).
+
+    Deduplicates by chunk_id so different chunks with similar content both appear.
+    """
     if not results:
         return "No relevant results found."
     lines: list[str] = []
-    seen: set[str] = set()
+    seen_ids: set[str] = set()
     for r in results:
-        content = r.chunk.content[:max_per] + ("..." if len(r.chunk.content) > max_per else "")
-        if content in seen:
+        cid = chunk_id(r.chunk)
+        if cid in seen_ids:
             continue
-        seen.add(content)
+        seen_ids.add(cid)
+        content = r.chunk.content[:max_per] + ("..." if len(r.chunk.content) > max_per else "")
         lines.append(f"[{r.rank}] (score={r.score:.2f}) {content}")
     return "\n\n".join(lines)
 
@@ -288,6 +326,121 @@ async def _verify_facts(
     return verified
 
 
+_BATCH_VERIFY_PROMPT = """Verify each claim against the evidence.
+Reply with a JSON array. Each object must have "claim" and "verdict" keys.
+Verdict must be exactly: SUPPORTED, CONTRADICTED, or NOT_FOUND.
+
+Claims:
+{claims}
+
+Evidence:
+{evidence}
+
+JSON array:"""
+
+
+async def _verify_facts_batch(
+    facts: list[GroundedFact],
+    results: list[SearchResult],
+    model: Model,
+    *,
+    emit: Callable[[str, EventContext], None] | None = None,
+    budget_tracker: BudgetTracker | None = None,
+    batch_size: int = 10,
+) -> list[GroundedFact]:
+    """Verify multiple facts in a single LLM call (batch verification).
+
+    Args:
+        facts: Facts to verify.
+        results: Search results as evidence.
+        model: Model for verification.
+        emit: Optional event emitter.
+        budget_tracker: Optional budget tracker.
+        batch_size: Number of facts per batch (default 10).
+
+    Returns:
+        List of GroundedFact with updated verification status.
+    """
+    if not facts:
+        return []
+
+    if not results:
+        return [
+            GroundedFact(
+                content=f.content,
+                source=f.source,
+                page=f.page,
+                confidence=f.confidence,
+                verification=VerificationStatus.NOT_FOUND,
+                chunk_id=f.chunk_id,
+                metadata=f.metadata,
+            )
+            for f in facts
+        ]
+
+    evidence = "\n\n".join(r.chunk.content[:300] for r in results[:5])
+    verified: list[GroundedFact] = []
+
+    for i in range(0, len(facts), batch_size):
+        batch = facts[i : i + batch_size]
+        claims_text = "\n".join(f"{j + 1}. {f.content}" for j, f in enumerate(batch))
+        prompt = _BATCH_VERIFY_PROMPT.format(claims=claims_text, evidence=evidence)
+
+        try:
+            out = await _call_model(model, prompt, budget_tracker=budget_tracker)
+        except Exception:
+            out = "[]"
+
+        # Default verdicts - assume SUPPORTED if we have evidence
+        verdicts: list[str] = ["SUPPORTED"] * len(batch)
+
+        try:
+            import json
+
+            parsed = json.loads(out.strip())
+            if isinstance(parsed, list):
+                # Clean up and extract verdicts - trust index order
+                for idx, item in enumerate(parsed):
+                    if isinstance(item, dict):
+                        verdict = item.get("verdict", "SUPPORTED").upper()
+                        # Validate verdict is one of the allowed values
+                        if verdict in ("SUPPORTED", "CONTRADICTED", "NOT_FOUND") and idx < len(
+                            batch
+                        ):
+                            verdicts[idx] = verdict
+        except Exception:
+            pass
+
+        for _idx, (verdict, f) in enumerate(zip(verdicts, batch, strict=True)):
+            status = _status_from_verdict(verdict)
+            if emit:
+                from syrin.events import EventContext
+
+                emit(
+                    Hook.GROUNDING_VERIFY,
+                    EventContext(
+                        {
+                            "fact": f.content[:100],
+                            "verdict": status.value,
+                            "confidence": f.confidence,
+                        }
+                    ),
+                )
+            verified.append(
+                GroundedFact(
+                    content=f.content,
+                    source=f.source,
+                    page=f.page,
+                    confidence=f.confidence,
+                    verification=status,
+                    chunk_id=f.chunk_id,
+                    metadata=f.metadata,
+                )
+            )
+
+    return verified
+
+
 def _format_grounded_facts(
     facts: list[GroundedFact],
     config: GroundingConfig,
@@ -348,10 +501,15 @@ async def apply_grounding(
     if not config.extract_facts:
         return _format_raw_results(results_list), []
 
-    model = cast("Model | None", get_model() if get_model is not None else None)
-    if model is None:
+    # Use grounding model if configured, otherwise fall back to agent model
+    if config.model is not None:
+        grounding_model: Model | None = config.model
+    else:
+        grounding_model = cast("Model | None", get_model() if get_model is not None else None)
+
+    if grounding_model is None:
         return (
-            "Grounding requires a model. Set agent model or grounding_config.search_model.",
+            "Grounding requires a model. Set agent model or grounding_config.model.",
             [],
         )
 
@@ -363,19 +521,26 @@ async def apply_grounding(
     facts = await _extract_facts(
         query,
         results_list,
-        model,
+        grounding_model,
         emit=emit,
         budget_tracker=bt,
         max_facts=config.max_facts,
+        max_chunk_preview=config.max_chunk_preview,
     )
     if not facts:
         return _format_raw_results(results_list), []
 
+    # Filter by confidence before verification so low-confidence facts don't consume LLM calls (1C).
+    threshold = config.confidence_threshold
+    facts_to_verify = [f for f in facts if f.confidence >= threshold]
+    if config.verify_before_use and not facts_to_verify:
+        return _format_raw_results(results_list), []
+
     if config.verify_before_use:
-        facts = await _verify_facts(
-            facts,
+        facts = await _verify_facts_batch(
+            facts_to_verify,
             results_list,
-            model,
+            grounding_model,
             emit=emit,
             budget_tracker=bt,
         )

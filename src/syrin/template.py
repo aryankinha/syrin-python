@@ -2,18 +2,105 @@
 
 Uses Mustache-style syntax ({{variable}}, {{#section}}...{{/section}}, {{#list}}{{.}}{{/list}})
 to reduce hallucination by constraining LLM output to filling predefined slots.
+Supports YAML frontmatter for slot definitions in template files.
 """
 
 from __future__ import annotations
 
 import json
+import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
 import chevron
 
+_log = logging.getLogger(__name__)
+
 __all__ = ["Template", "SlotConfig"]
+
+
+FRONTMATTER_REGEX = re.compile(
+    r"^---\s*\n(.*?)\n---\s*\n(.*)",
+    re.DOTALL,
+)
+
+
+def _parse_simple_yaml(content: str) -> dict[str, Any] | None:
+    """Parse simple YAML frontmatter for slot definitions.
+
+    Supports flat format where each top-level key is a slot name,
+    and nested keys are slot properties:
+        name:
+          type: str
+          required: true
+        amount:
+          type: int
+          default: 0
+    """
+    if not content.strip():
+        return None
+
+    lines = content.split("\n")
+    slots: dict[str, Any] = {}
+    current_slot: str | None = None
+    current_props: dict[str, Any] | None = None
+    base_indent = 0
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        if ":" not in line:
+            continue
+
+        leading = len(line) - len(line.lstrip())
+        key, _, value = line.partition(":")
+        key = key.strip()
+        value = value.strip()
+
+        if leading == 0:
+            if current_slot and current_props:
+                slots[current_slot] = current_props
+            current_slot = key
+            current_props = {"type": "str"}
+            base_indent = leading
+        elif leading > base_indent and current_props is not None:
+            if value:
+                current_props[key] = _parse_yaml_value(value)
+
+    if current_slot and current_props:
+        slots[current_slot] = current_props
+
+    if not slots:
+        return None
+    return slots
+
+
+def _parse_yaml_value(value: str) -> Any:
+    """Parse a YAML value string into appropriate Python type."""
+    value = value.strip()
+    if not value:
+        return None
+    if value.lower() in ("true", "yes", "on"):
+        return True
+    if value.lower() in ("false", "no", "off"):
+        return False
+    if value.lower() == "null":
+        return None
+    try:
+        if "." in value:
+            return float(value)
+        return int(value)
+    except ValueError:
+        pass
+    if (value.startswith("'") and value.endswith("'")) or (
+        value.startswith('"') and value.endswith('"')
+    ):
+        return value[1:-1]
+    return value
 
 
 @dataclass(frozen=True)
@@ -207,9 +294,21 @@ class Template:
     def from_file(cls, path: str | Path, **kwargs: Any) -> Template:
         """Load template from file.
 
+        Supports YAML frontmatter for slot definitions:
+            ---
+            slots:
+              name:
+                type: str
+                required: true
+              amount:
+                type: int
+                default: 0
+            ---
+            Hello {{name}}, amount: {{amount}}
+
         Args:
             path: Path to template file.
-            **kwargs: Passed to Template constructor (slots, strict).
+            **kwargs: Explicit slots override frontmatter slots.
 
         Returns:
             Template instance. Name defaults to stem of path.
@@ -217,7 +316,29 @@ class Template:
         p = Path(path)
         if not p.exists():
             raise FileNotFoundError(f"Template file not found: {path}")
-        content = p.read_text(encoding="utf-8")
+        raw_content = p.read_text(encoding="utf-8")
+
+        frontmatter_slots: dict[str, SlotConfig | dict[str, Any]] | None = None
+        content = raw_content
+
+        match = FRONTMATTER_REGEX.match(raw_content)
+        if match:
+            yaml_content = match.group(1)
+            content = match.group(2)
+            parsed = _parse_simple_yaml(yaml_content)
+            if parsed:
+                frontmatter_slots = parsed
+
+        explicit_slots = kwargs.pop("slots", None)
+        if explicit_slots and frontmatter_slots:
+            merged: dict[str, SlotConfig | dict[str, Any]] = dict(frontmatter_slots)
+            merged.update(explicit_slots)
+            kwargs["slots"] = merged
+        elif frontmatter_slots:
+            kwargs["slots"] = frontmatter_slots
+        elif explicit_slots:
+            kwargs["slots"] = explicit_slots
+
         name = kwargs.pop("name", p.stem)
         return cls(name=name, content=content, **kwargs)
 
