@@ -115,4 +115,5 @@ def create_agent(
         max_tool_iterations=15,
         budget=Budget(run=1.0),
         guardrails=[FactVerificationGuardrail()],
+        debug=True,
     )
