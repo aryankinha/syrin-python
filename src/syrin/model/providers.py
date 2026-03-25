@@ -11,7 +11,7 @@ Usage:
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from syrin.model.core import Model
@@ -33,7 +33,7 @@ def _make_openai(
     input_price: float | None = None,
     output_price: float | None = None,
     fallback: list[Model] | None = None,
-    **kwargs: Any,
+    **kwargs: object,
 ) -> Model:
     """Create an OpenAI model.
 
@@ -81,7 +81,7 @@ def _make_openai(
         input_price=input_price,
         output_price=output_price,
         fallback=fallback,
-        **kwargs,
+        **kwargs,  # type: ignore[arg-type]
     )
 
 
@@ -101,7 +101,7 @@ def _make_anthropic(
     input_price: float | None = None,
     output_price: float | None = None,
     fallback: list[Model] | None = None,
-    **kwargs: Any,
+    **kwargs: object,
 ) -> Model:
     """Create an Anthropic Claude model.
 
@@ -141,7 +141,7 @@ def _make_anthropic(
         input_price=input_price,
         output_price=output_price,
         fallback=fallback,
-        **kwargs,
+        **kwargs,  # type: ignore[arg-type]
     )
 
 
@@ -161,7 +161,7 @@ def _make_ollama(
     input_price: float | None = None,
     output_price: float | None = None,
     fallback: list[Model] | None = None,
-    **kwargs: Any,
+    **kwargs: object,
 ) -> Model:
     """Create an Ollama (local) model.
 
@@ -196,7 +196,7 @@ def _make_ollama(
         input_price=input_price,
         output_price=output_price,
         fallback=fallback,
-        **kwargs,
+        **kwargs,  # type: ignore[arg-type]
     )
 
 
@@ -216,7 +216,7 @@ def _make_google(
     input_price: float | None = None,
     output_price: float | None = None,
     fallback: list[Model] | None = None,
-    **kwargs: Any,
+    **kwargs: object,
 ) -> Model:
     """Create a Google Gemini model.
 
@@ -255,7 +255,7 @@ def _make_google(
         input_price=input_price,
         output_price=output_price,
         fallback=fallback,
-        **kwargs,
+        **kwargs,  # type: ignore[arg-type]
     )
 
 
@@ -275,7 +275,7 @@ def _make_litellm(
     input_price: float | None = None,
     output_price: float | None = None,
     fallback: list[Model] | None = None,
-    **kwargs: Any,
+    **kwargs: object,
 ) -> Model:
     """Create a LiteLLM model (100+ providers).
 
@@ -313,7 +313,7 @@ def _make_litellm(
         input_price=input_price,
         output_price=output_price,
         fallback=fallback,
-        **kwargs,
+        **kwargs,  # type: ignore[arg-type]
     )
 
 

@@ -38,10 +38,10 @@ def _main() -> None:
     )
 
     # First turn: long answer about Syrin memory (multiple paragraphs)
-    agent.response("Explain Syrin's memory system in 3 short paragraphs.")
+    agent.run("Explain Syrin's memory system in 3 short paragraphs.")
 
     # Second turn: ask about relevance -- only relevant paragraphs should be in context
-    result = agent.response("What about the relevance threshold?")
+    result = agent.run("What about the relevance threshold?")
     snap = agent.context.snapshot()
     print(f"Response: {result.content}")
     print(f"output_chunks count: {len(snap.output_chunks)}")

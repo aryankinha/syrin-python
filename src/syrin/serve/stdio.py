@@ -54,7 +54,7 @@ def run_stdio_protocol(
         try:
             if conversation_id is not None:
                 object.__setattr__(agent, "_conversation_id", conversation_id)
-            r = agent.response(msg.strip())
+            r = agent.run(msg.strip())
             payload = {
                 "content": str(r.content),
                 "cost": r.cost,

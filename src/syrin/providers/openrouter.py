@@ -6,13 +6,13 @@ import json
 import threading
 from typing import Any
 
-_client_cache: dict[tuple[str, str], Any] = {}
+_client_cache: dict[tuple[str, str], Any] = {}  # type: ignore[explicit-any]
 _cache_lock = threading.Lock()
 
 OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 
 
-def _get_openrouter_client(api_key: str | None, base_url: str | None) -> Any:
+def _get_openrouter_client(api_key: str | None, base_url: str | None) -> object:
     """Get or create cached AsyncOpenAI client for OpenRouter."""
     from openai import AsyncOpenAI
 
@@ -36,7 +36,7 @@ from .openai import (
 )
 
 
-def _extract_openrouter_metadata(response: Any) -> dict[str, object]:
+def _extract_openrouter_metadata(response: object) -> dict[str, object]:
     """Extract OpenRouter metadata from response headers if available."""
     meta: dict[str, object] = {}
     raw = getattr(response, "_raw_response", None) or getattr(response, "headers", None)
@@ -63,14 +63,14 @@ class OpenRouterProvider(Provider):
     x-openrouter-model-used, x-openrouter-id from response headers when available.
     """
 
-    async def complete(
+    async def complete(  # type: ignore[override]
         self,
         messages: list[Message],
         model: ModelConfig,
         tools: list[ToolSpec] | None = None,
         *,
         max_tokens: int = 1024,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> ProviderResponse:
         try:
             import importlib.util
@@ -93,7 +93,7 @@ class OpenRouterProvider(Provider):
         client = _get_openrouter_client(api_key, model.base_url)
         # OpenRouter expects full model ID (e.g. anthropic/claude-sonnet-4-5)
         model_id = model.model_id
-        request_kwargs: dict[str, Any] = {
+        request_kwargs: dict[str, object] = {
             "model": model_id,
             "messages": api_messages,
             "max_tokens": max_tokens,
@@ -113,7 +113,7 @@ class OpenRouterProvider(Provider):
             request_kwargs["tools"] = _tools_to_openai(tools)
             request_kwargs["tool_choice"] = "auto"
 
-        response = await client.chat.completions.create(**request_kwargs)
+        response = await client.chat.completions.create(**request_kwargs)  # type: ignore[attr-defined]
         meta = _extract_openrouter_metadata(response)
         choice = response.choices[0] if response.choices else None
         if not choice:

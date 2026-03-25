@@ -66,7 +66,7 @@ if __name__ == "__main__":
     print("=== Team with shared budget ===\n")
     team = AgentTeam(
         agents=[Researcher(), Writer()],
-        budget=Budget(run=0.50, shared=True),
+        budget=Budget(max_cost=0.50, shared=True),
     )
     result = team.run_task("Research AI trends")
     print(f"Result: {result.content[:80]}...")

@@ -70,7 +70,7 @@ class TestHandoff:
         class Target(Agent):
             model = _almock()
 
-        budget = Budget(run=10.0, shared=True)
+        budget = Budget(max_cost=10.0, shared=True)
         source = Agent(model=_almock(), budget=budget, memory=Memory())
         result = source.handoff(Target, "Do task", transfer_budget=True)
         assert result.content is not None
@@ -128,15 +128,15 @@ class TestSpawn:
         child = parent.spawn(Child)
         assert isinstance(child, Agent)
         # Child can then be used independently
-        r = child.response("Hello from child")
+        r = child.run("Hello from child")
         assert r.content is not None
 
     def test_spawn_with_budget(self) -> None:
         class Child(Agent):
             model = _almock()
 
-        parent = Agent(model=_almock(), budget=Budget(run=10.0))
-        child_budget = Budget(run=2.0)
+        parent = Agent(model=_almock(), budget=Budget(max_cost=10.0))
+        child_budget = Budget(max_cost=2.0)
         result = parent.spawn(Child, task="Budget task", budget=child_budget)
         assert result.content is not None
 
@@ -144,9 +144,9 @@ class TestSpawn:
         class Child(Agent):
             model = _almock()
 
-        parent = Agent(model=_almock(), budget=Budget(run=1.0))
+        parent = Agent(model=_almock(), budget=Budget(max_cost=1.0))
         with pytest.raises(ValueError, match="cannot exceed"):
-            parent.spawn(Child, task="Expensive", budget=Budget(run=100.0))
+            parent.spawn(Child, task="Expensive", budget=Budget(max_cost=100.0))
 
     def test_spawn_max_children_limit(self) -> None:
         class Child(Agent):
@@ -165,7 +165,7 @@ class TestSpawn:
         class Child(Agent):
             model = _almock()
 
-        parent = Agent(model=_almock(), budget=Budget(run=10.0, shared=True))
+        parent = Agent(model=_almock(), budget=Budget(max_cost=10.0, shared=True))
         result = parent.spawn(Child, task="Shared budget task")
         assert result.content is not None
         # Parent's budget should reflect child's spend
@@ -243,7 +243,7 @@ class TestPipeline:
         class Step2(Agent):
             model = _almock()
 
-        pipeline = Pipeline(budget=Budget(run=10.0))
+        pipeline = Pipeline(budget=Budget(max_cost=10.0))
         result = pipeline.run(
             [
                 (Step1, "Step 1"),
@@ -399,7 +399,7 @@ class TestMultiAgentFullFeatures:
         source = Agent(
             model=_almock(),
             memory=Memory(),
-            budget=Budget(run=10.0, shared=True),
+            budget=Budget(max_cost=10.0, shared=True),
         )
         source.events.on(Hook.AGENT_RUN_START, lambda _: events.append("source_start"))
 
@@ -442,7 +442,7 @@ class TestMultiAgentFullFeatures:
         class Step2(Agent):
             model = _almock()
 
-        pipeline = Pipeline(budget=Budget(run=10.0))
+        pipeline = Pipeline(budget=Budget(max_cost=10.0))
         result = pipeline.run(
             [
                 (Step1, "Step 1"),

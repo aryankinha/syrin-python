@@ -71,9 +71,9 @@ class TestFormationModePullAgentFlow:
                 )
             ),
         )
-        agent.response("Tell me about Python")
-        agent.response("What about JavaScript?")
-        r = agent.response("Remember Python?")
+        agent.run("Tell me about Python")
+        agent.run("What about JavaScript?")
+        r = agent.run("Remember Python?")
         assert r.content is not None
         snap = agent.context.snapshot()
         assert hasattr(snap, "pulled_segments")
@@ -96,7 +96,7 @@ class TestFormationModePullAgentFlow:
                 )
             ),
         )
-        agent.response("Tell me about Python")
+        agent.run("Tell me about Python")
         snap = agent.context.snapshot()
         assert isinstance(snap.pulled_segments, list)
         assert isinstance(snap.pull_scores, list)

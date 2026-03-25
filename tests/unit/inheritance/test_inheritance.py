@@ -273,7 +273,7 @@ class TestInheritanceEdgeCases:
         class Child(Base):
             pass
 
-        budget = Budget(run=10.0)
+        budget = Budget(max_cost=10.0)
         agent = Child(budget=budget)
         assert agent._budget is not None
 
@@ -284,7 +284,7 @@ class TestInheritanceEdgeCases:
 
         class Base(Agent):
             model = Model("openai/gpt-4")
-            budget = Budget(run=0.000001, on_exceeded=raise_on_exceeded)
+            budget = Budget(max_cost=0.000001, on_exceeded=raise_on_exceeded)
 
         class Child(Base):
             pass
@@ -303,4 +303,4 @@ class TestInheritanceEdgeCases:
             ),
             pytest.raises(BudgetExceededError),
         ):
-            agent.response("test")
+            agent.run("test")

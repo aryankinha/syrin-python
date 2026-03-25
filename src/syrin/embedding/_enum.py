@@ -11,7 +11,7 @@ class EmbeddingBackend(StrEnum):
     Attributes:
         OPENAI: OpenAI text embeddings (text-embedding-3-small/large).
         OLLAMA: Local embeddings via Ollama server.
-        LITELLM: Any embedding provider via LiteLLM (Cohere, Voyage, Mistral).
+        LITELLM: object embedding provider via LiteLLM (Cohere, Voyage, Mistral).
     """
 
     OPENAI = "openai"

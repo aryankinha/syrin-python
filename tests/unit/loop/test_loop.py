@@ -616,7 +616,7 @@ class TestAgentRunLoopResponse:
             custom_loop=TestLoop(),
         )
 
-        result = agent.response("test")
+        result = agent.run("test")
 
         assert result.cost == 0.0015
 
@@ -643,7 +643,7 @@ class TestAgentRunLoopResponse:
             custom_loop=TestLoop(),
         )
 
-        result = agent.response("test")
+        result = agent.run("test")
 
         assert result.tokens.input_tokens == 200
         assert result.tokens.output_tokens == 100
@@ -672,7 +672,7 @@ class TestAgentRunLoopResponse:
             custom_loop=TestLoop(),
         )
 
-        result = agent.response("test")
+        result = agent.run("test")
 
         assert len(result.tool_calls) == 1
         assert result.tool_calls[0].name == "search"
@@ -701,7 +701,7 @@ class TestAgentRunLoopResponse:
             custom_loop=TestLoop(),
         )
 
-        result = agent.response("test")
+        result = agent.run("test")
 
         assert result.stop_reason.value == "max_iterations"
 
@@ -728,7 +728,7 @@ class TestAgentRunLoopResponse:
             custom_loop=TestLoop(),
         )
 
-        result = agent.response("test")
+        result = agent.run("test")
 
         assert result.duration == 2.5  # 2500ms = 2.5 seconds
 

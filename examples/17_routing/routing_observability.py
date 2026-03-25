@@ -61,8 +61,8 @@ def main() -> None:
 
     agent.events.on(Hook.ROUTING_DECISION, log_routing)
 
-    agent.response("hello", task_type=TaskType.GENERAL)
-    agent.response("write a function", task_type=TaskType.CODE)
+    agent.run("hello", task_type=TaskType.GENERAL)
+    agent.run("write a function", task_type=TaskType.CODE)
 
     print(f"\nLogged to {log_path}")
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 # A2A Agent Card path — https://{agent-server-domain}/.well-known/agent-card.json
 AGENT_CARD_PATH = "/.well-known/agent-card.json"
@@ -51,11 +51,11 @@ class AgentCard:
     url: str = ""
     version: str = "0.4.0"
     provider: AgentCardProvider | None = None
-    capabilities: dict[str, Any] = field(
+    capabilities: dict[str, object] = field(
         default_factory=lambda: {"streaming": True, "pushNotifications": False}
     )
     authentication: AgentCardAuth | None = None
-    skills: list[dict[str, Any]] = field(default_factory=list)
+    skills: list[dict[str, object]] = field(default_factory=list)
     default_input_modes: list[str] = field(default_factory=lambda: ["application/json"])
     default_output_modes: list[str] = field(default_factory=lambda: ["application/json"])
 
@@ -71,7 +71,7 @@ class AgentCard:
     ) -> AgentCard:
         """Build Agent Card from agent metadata and tools."""
         tools = getattr(agent, "tools", None) or []
-        skills: list[dict[str, Any]] = []
+        skills: list[dict[str, object]] = []
         for t in tools:
             desc = getattr(t, "description", None) or ""
             skills.append(
@@ -93,9 +93,9 @@ class AgentCard:
             skills=skills,
         )
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Convert to JSON-serializable dict for /.well-known/agent-card.json."""
-        out: dict[str, Any] = {
+        out: dict[str, object] = {
             "name": self.name,
             "description": self.description,
             "url": self.url,
@@ -123,7 +123,9 @@ class AgentCard:
         return out
 
 
-def build_agent_card_json(agent: Agent, base_url: str = "http://localhost:8000") -> dict[str, Any]:
+def build_agent_card_json(
+    agent: Agent, base_url: str = "http://localhost:8000"
+) -> dict[str, object]:
     """Build A2A Agent Card JSON from agent for /.well-known/agent-card.json.
 
     Uses AgentCard.from_agent(); if agent has agent_card class attr, merges overrides.
@@ -157,12 +159,12 @@ def build_agent_card_json(agent: Agent, base_url: str = "http://localhost:8000")
             "url": override.provider.url,
         }
     if override.authentication:
-        auth: dict[str, Any] = {"schemes": override.authentication.schemes}
+        auth: dict[str, object] = {"schemes": override.authentication.schemes}
         if override.authentication.oauth_url:
             auth["oauth_url"] = override.authentication.oauth_url
         out["authentication"] = auth
     if override.capabilities:
-        out["capabilities"] = {**out.get("capabilities", {}), **override.capabilities}
+        out["capabilities"] = {**out.get("capabilities", {}), **override.capabilities}  # type: ignore[dict-item]
     if override.default_input_modes:
         out["defaultInputModes"] = override.default_input_modes
     if override.default_output_modes:
@@ -170,7 +172,7 @@ def build_agent_card_json(agent: Agent, base_url: str = "http://localhost:8000")
     return out
 
 
-def should_enable_discovery(agent: Agent, config: Any) -> bool:
+def should_enable_discovery(agent: Agent, config: object) -> bool:
     """Return True if discovery (/.well-known/agent-card.json) should be enabled.
 
     True when config.enable_discovery is True, or when None (auto) and agent has name.

@@ -166,7 +166,7 @@ class Context:
     """Model for summarization. None = placeholder (no LLM). Passed to default ContextCompactor."""
     auto_compact_at: float | None = None
     """Proactive compaction: when utilization (0.0–1.0) >= this value, compact once before evaluating thresholds. None = no proactive compaction."""
-    runtime_inject: Callable[["PrepareInput"], list[dict[str, Any]]] | None = None
+    runtime_inject: Callable[["PrepareInput"], list[dict[str, object]]] | None = None
     """Optional callable to inject context at prepare time (e.g. RAG). Receives PrepareInput; returns list of message dicts. Not called when prepare(inject=...) is provided."""
     inject_placement: InjectPlacement = InjectPlacement.BEFORE_CURRENT_TURN
     """Where to place injected messages: prepend_to_system (before first system msg), before_current_turn (default; between history and current user msg, good for RAG), after_current_turn (after current user msg)."""
@@ -286,10 +286,10 @@ class Context:
 
     def apply(
         self,
-        messages: list[Any],
+        messages: list[object],
         model: "Model | None" = None,
         max_tokens: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, object]]:
         """Apply compaction to messages so they fit within the context budget.
 
         Uses the context compactor (or default). Use before sending to the LLM
@@ -310,7 +310,7 @@ class Context:
         available = max_tokens if max_tokens is not None else capacity.available
         if available <= 0:
             return []
-        msgs: list[dict[str, Any]] = []
+        msgs: list[dict[str, object]] = []
         for m in messages:
             if hasattr(m, "model_dump"):
                 d = m.model_dump()
@@ -331,7 +331,7 @@ class Context:
         result = compactor.compact(msgs, available)
         return result.messages
 
-    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:
+    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:  # type: ignore[explicit-any]
         """RemoteConfigurable: return (schema, current_values) for the context section."""
         from syrin.remote._schema import build_section_schema_from_obj
         from syrin.remote._types import ConfigSchema
@@ -342,15 +342,15 @@ class Context:
 
     def apply_remote_overrides(
         self,
-        agent: Any,
+        agent: object,
         pairs: list[tuple[str, object]],
-        section_schema: Any,
+        section_schema: object,
     ) -> None:
         """RemoteConfigurable: apply context overrides to agent._context.context."""
         from syrin.context import DefaultContextManager
         from syrin.remote._resolver_helpers import build_nested_update
 
-        update = build_nested_update(section_schema, pairs, "context")
+        update = build_nested_update(section_schema, pairs, "context")  # type: ignore[arg-type]
         if not update:
             return
         ctx_manager = getattr(agent, "_context", None)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import cast
 
 from syrin.guardrails.base import Guardrail
 from syrin.guardrails.context import GuardrailContext
@@ -29,7 +29,7 @@ class EvaluationResult:
     reason: str = ""
     """Primary reason for failure (if any)."""
 
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
     """Additional metadata about the evaluation."""
 
     total_latency_ms: float = 0.0
@@ -38,7 +38,7 @@ class EvaluationResult:
     total_budget_consumed: float = 0.0
     """Total budget consumed across all guardrails."""
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Convert result to dictionary."""
         return {
             "passed": self.passed,

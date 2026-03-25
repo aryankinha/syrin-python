@@ -86,7 +86,7 @@ def test_budget_threshold_should_trigger_boundary() -> None:
 def test_run_with_empty_input_string() -> None:
     """run() with empty input string does not crash (valid edge case)."""
     with patch("syrin.Agent") as MockAgent:
-        MockAgent.return_value.response.return_value = Response(
+        MockAgent.return_value.run.return_value = Response(
             content="",
             cost=0.0,
             tokens=0,

@@ -6,7 +6,6 @@ import base64
 import random
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
 
 from syrin.guardrails.base import Guardrail
 
@@ -27,7 +26,7 @@ class AttackResult:
     payload: str
     blocked: bool
     bypassed: bool
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass
@@ -166,7 +165,7 @@ class AttackSimulator:
 
         return "none", text
 
-    def detect_bypass_patterns(self, texts: list[str]) -> list[dict[str, Any]]:
+    def detect_bypass_patterns(self, texts: list[str]) -> list[dict[str, object]]:
         """Detect bypass patterns in text.
 
         Args:
@@ -226,7 +225,7 @@ class RedTeamEvaluator:
 
     async def evaluate(
         self, guardrail: Guardrail, attack_types: list[str], iterations: int = 10
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         """Evaluate guardrail against attacks.
 
         Args:

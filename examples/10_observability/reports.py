@@ -47,7 +47,7 @@ class Assistant(Agent):
 
 
 agent = Assistant()
-result = agent.response("Hello, how are you?")
+result = agent.run("Hello, how are you?")
 print("Guardrail:", result.report.guardrail.input_passed, result.report.guardrail.output_passed)
 print("Tokens:", result.report.tokens.total_tokens, f"${result.report.tokens.cost_usd:.6f}")
 print("Budget:", result.report.budget.used, result.report.budget.remaining)
@@ -62,7 +62,7 @@ class GuardedAssistant(Agent):
 
 
 agent = GuardedAssistant()
-result = agent.response("How do I hack into someone's password?")
+result = agent.run("How do I hack into someone's password?")
 print("Blocked:", result.report.guardrail.blocked, result.report.guardrail.blocked_stage)
 
 # 3. Memory operations in reports
@@ -77,12 +77,12 @@ class FullAgent(Agent):
     model = almock
     system_prompt = "You are a helpful assistant with memory."
     guardrails = [ContentFilter(blocked_words=["blocked"])]
-    budget = Budget(run=5.0)
+    budget = Budget(max_cost=5.0)
 
 
 agent = FullAgent()
 agent.remember("User likes Python", memory_type=MemoryType.CORE)
-result = agent.response("Tell me about Python.")
+result = agent.run("Tell me about Python.")
 print(
     "Report:",
     result.report.guardrail.passed,
@@ -92,8 +92,8 @@ print(
 
 # 5. Report resets between calls
 agent = Assistant()
-r1 = agent.response("What is 2+2?")
-r2 = agent.response("What is 3+3?")
+r1 = agent.run("What is 2+2?")
+r2 = agent.run("What is 3+3?")
 print("Call 1 tokens:", r1.report.tokens.total_tokens, "Call 2:", r2.report.tokens.total_tokens)
 
 if __name__ == "__main__":

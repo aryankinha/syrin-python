@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from syrin.model import Model
 
 
@@ -45,7 +43,7 @@ class OpenRouterBuilder:
         output: type | None = None,
         input_price: float | None = None,
         output_price: float | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> Model:
         """Create an OpenRouter Model with this builder's API key.
 
@@ -67,5 +65,5 @@ class OpenRouterBuilder:
             output=output,
             input_price=input_price,
             output_price=output_price,
-            **kwargs,
+            **kwargs,  # type: ignore[arg-type]
         )

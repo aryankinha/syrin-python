@@ -24,10 +24,10 @@ class TestAgentWithWithoutBudget:
     def test_agent_with_budget_almock_real_flow(self) -> None:
         """Agent with budget (Almock) — real flow, cost tracked."""
         model = _almock()
-        budget = Budget(run=10.0)
+        budget = Budget(max_cost=10.0)
         agent = Agent(model=model, system_prompt="You are helpful.", budget=budget)
 
-        response = agent.response("Hello")
+        response = agent.run("Hello")
 
         assert response.content is not None
         assert response.cost >= 0
@@ -39,7 +39,7 @@ class TestAgentWithWithoutBudget:
         model = _almock()
         agent = Agent(model=model, system_prompt="You are helpful.")
 
-        response = agent.response("Hello")
+        response = agent.run("Hello")
 
         assert response.content is not None
         assert response.cost >= 0
@@ -60,7 +60,7 @@ class TestAgentWithWithoutMemory:
         mem.add_conversation_segment("Hello Alice!", role="assistant")
         agent = Agent(model=model, system_prompt="You are helpful.", memory=mem)
 
-        response = agent.response("What is my name?")
+        response = agent.run("What is my name?")
 
         assert response.content is not None
         assert len(mem.get_conversation_messages()) >= 2
@@ -72,7 +72,7 @@ class TestAgentWithWithoutMemory:
         agent = Agent(model=model, system_prompt="You are helpful.", memory=mem)
 
         agent.remember("User prefers Python over Java", memory_type=MemoryType.CORE)
-        response = agent.response("What do I prefer?")
+        response = agent.run("What do I prefer?")
 
         assert response.content is not None
 
@@ -81,7 +81,7 @@ class TestAgentWithWithoutMemory:
         model = _almock()
         agent = Agent(model=model, system_prompt="You are helpful.", memory=None)
 
-        response = agent.response("Hello")
+        response = agent.run("Hello")
 
         assert response.content is not None
 
@@ -110,7 +110,7 @@ class TestAgentWithWithoutTools:
             tools=[search],
         )
 
-        response = agent.response("Search for AI trends")
+        response = agent.run("Search for AI trends")
 
         assert response.content is not None
 
@@ -119,6 +119,6 @@ class TestAgentWithWithoutTools:
         model = _almock()
         agent = Agent(model=model, system_prompt="You are helpful.")
 
-        response = agent.response("What is 2+2?")
+        response = agent.run("What is 2+2?")
 
         assert response.content is not None

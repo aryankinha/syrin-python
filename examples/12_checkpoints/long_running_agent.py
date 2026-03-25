@@ -43,8 +43,8 @@ def main() -> None:
         )
 
         # Simulate multi-turn conversation
-        agent.response("What is 2+2?")
-        agent.response("And 3+3?")
+        agent.run("What is 2+2?")
+        agent.run("And 3+3?")
         print(f"After 2 turns: {len(agent.messages)} messages")
 
         # Save checkpoint
@@ -73,7 +73,7 @@ def main() -> None:
         print(f"After restore: {len(agent2.messages)} messages, iteration={agent2.iteration}")
 
         # Continue conversation
-        r = agent2.response("What did we discuss?")
+        r = agent2.run("What did we discuss?")
         print(f"Follow-up reply: {r.content[:80]}...")
         print("Long-running agent demo complete.")
 

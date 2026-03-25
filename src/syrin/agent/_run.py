@@ -8,7 +8,10 @@ response()/arun() so that agent/__init__.py stays focused on config and identity
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from syrin.agent import Agent
 
 from syrin.agent._context_builder import _user_input_to_search_str
 from syrin.enums import GuardrailStage, MessageRole, StopReason
@@ -19,7 +22,9 @@ from syrin.types import Message, TokenUsage
 from syrin.validation import get_retry_prompt
 
 
-async def run_agent_loop_async(agent: Any, user_input: str | list[dict[str, Any]]) -> Response[str]:
+async def run_agent_loop_async(
+    agent: Agent, user_input: str | list[dict[str, object]]
+) -> Response[str]:
     """Run the configured loop with full observability and build Response.
 
     Performs: input guardrails → loop.run(ctx, user_input) → checkpoint →
@@ -43,16 +48,13 @@ async def run_agent_loop_async(agent: Any, user_input: str | list[dict[str, Any]
         # Input guardrails check (use text for guardrails)
         input_guardrail = agent._run_guardrails(input_str, GuardrailStage.INPUT)
         if not input_guardrail.passed:
-            return cast(
-                Response[str],
-                agent._with_context_on_response(
-                    _guardrail_response(
-                        agent,
-                        0.0,
-                        0.0,
-                        TokenUsage(input_tokens=0, output_tokens=0, total_tokens=0),
-                        [],
-                    ),
+            return agent._with_context_on_response(
+                _guardrail_response(
+                    agent,
+                    0.0,
+                    0.0,
+                    TokenUsage(input_tokens=0, output_tokens=0, total_tokens=0),
+                    [],
                 ),
             )
 
@@ -78,16 +80,13 @@ async def run_agent_loop_async(agent: Any, user_input: str | list[dict[str, Any]
             output_guardrail = agent._run_guardrails(result.content or "", GuardrailStage.OUTPUT)
             if not output_guardrail.passed:
                 agent._last_iteration = result.iterations
-                return cast(
-                    Response[str],
-                    agent._with_context_on_response(
-                        _guardrail_response(
-                            agent,
-                            result.cost_usd,
-                            result.latency_ms / 1000,
-                            tokens,
-                            tool_calls_list,
-                        ),
+                return agent._with_context_on_response(
+                    _guardrail_response(
+                        agent,
+                        result.cost_usd,
+                        result.latency_ms / 1000,
+                        tokens,
+                        tool_calls_list,
                     ),
                 )
 
@@ -167,29 +166,26 @@ async def run_agent_loop_async(agent: Any, user_input: str | list[dict[str, Any]
         # Auto-store user input and assistant response as episodic memories
         _auto_store_turn(agent, user_input, result.content)
 
-        return cast(
-            Response[str],
-            agent._with_context_on_response(
-                _response_from_loop_result(
-                    agent,
-                    result,
-                    tokens,
-                    tool_calls_list,
-                    structured,
-                    content_override=content_for_response,
-                    template_data=template_data,
-                    file_path=file_path,
-                    file_bytes=file_bytes_val,
-                    citations=citations_list,
-                ),
+        return agent._with_context_on_response(
+            _response_from_loop_result(
+                agent,
+                result,
+                tokens,
+                tool_calls_list,
+                structured,
+                content_override=content_for_response,
+                template_data=template_data,
+                file_path=file_path,
+                file_bytes=file_bytes_val,
+                citations=citations_list,
             ),
         )
 
 
-async def _build_structured_with_llm_retry(
-    agent: Any,
+async def _build_structured_with_llm_retry(  # type: ignore[explicit-any]
+    agent: Agent,
     initial_content: str,
-    user_input: str | list[dict[str, Any]],
+    user_input: str | list[dict[str, object]],
 ) -> tuple[Any, str]:
     """Build structured output, retrying via LLM with validation error when validation fails.
 
@@ -240,7 +236,7 @@ async def _build_structured_with_llm_retry(
     return (structured, content)
 
 
-def _get_structured_output_model(agent: Any) -> type | None:
+def _get_structured_output_model(agent: Agent) -> type | None:
     """Return the Pydantic model for structured output, or None if not set."""
     output_type = getattr(agent._model_config, "output", None)
     if output_type is None:
@@ -258,7 +254,7 @@ def _get_structured_output_model(agent: Any) -> type | None:
 
 
 def _auto_store_turn(
-    agent: Any, user_input: str | list[dict[str, Any]], assistant_content: str | None
+    agent: Agent, user_input: str | list[dict[str, object]], assistant_content: str | None
 ) -> None:
     """Store user input and assistant response as episodic memories when auto_store is enabled."""
     pm = getattr(agent, "_persistent_memory", None)
@@ -295,27 +291,27 @@ def _tokens_from_result(result: LoopResult) -> TokenUsage:
     )
 
 
-def _tool_calls_from_result(result: LoopResult) -> list[Any]:
+def _tool_calls_from_result(result: LoopResult) -> list[object]:
     from syrin.types import ToolCall
 
-    out: list[Any] = []
+    out: list[object] = []
     for tc in result.tool_calls or []:
         out.append(
             ToolCall(
-                id=tc.get("id", ""),
-                name=tc.get("name", ""),
-                arguments=tc.get("arguments", {}),
+                id=tc.get("id", ""),  # type: ignore[arg-type]
+                name=tc.get("name", ""),  # type: ignore[arg-type]
+                arguments=tc.get("arguments", {}),  # type: ignore[arg-type]
             )
         )
     return out
 
 
 def _guardrail_response(
-    agent: Any,
+    agent: Agent,
     cost_usd: float,
     duration_sec: float,
     tokens: TokenUsage,
-    tool_calls: list[Any],
+    tool_calls: list[object],
 ) -> Response[str]:
     from syrin.response import Response as ResponseClass
 
@@ -337,11 +333,11 @@ def _guardrail_response(
 
 
 def _response_from_loop_result(
-    agent: Any,
+    agent: Agent,
     result: LoopResult,
     tokens: TokenUsage,
-    tool_calls_list: list[Any],
-    structured: Any,
+    tool_calls_list: list[object],
+    structured: object,
     *,
     content_override: str | None = None,
     template_data: dict[str, object] | None = None,
@@ -389,13 +385,16 @@ def _response_from_loop_result(
         budget_remaining=agent._budget.remaining if agent._budget else None,
         budget_used=agent._budget._spent if agent._budget else 0.0,
         iterations=result.iterations,
-        structured=structured,
+        structured=structured,  # type: ignore[arg-type]
         report=agent._run_report,
         raw_response=result.raw_response,
         routing_reason=routing_reason,
         model_used=getattr(agent, "_last_model_used", None) or model_id,
         task_type=task_type,
         actual_cost=getattr(agent, "_last_actual_cost", None) or result.cost_usd,
+        cost_estimated=getattr(agent, "_last_cost_estimated", None),
+        cache_hit=bool(getattr(agent, "_last_cache_hit", False)),
+        cache_savings=float(getattr(agent, "_last_cache_savings", 0.0)),
         template_data=template_data,
         file=file_path,
         file_bytes=file_bytes,

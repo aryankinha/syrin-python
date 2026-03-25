@@ -42,7 +42,7 @@ class TestReactLoopRequiresApproval:
             tools=[delete, tool(lambda q: f"Results: {q}", name="search", description="Search")],
         )
         # Almock will return tool_calls; delete requires approval, no gate -> reject
-        r = agent.response("Delete item 123")
+        r = agent.run("Delete item 123")
         assert r.content is not None
 
     def test_requires_approval_with_gate_approves_executes(self) -> None:
@@ -64,7 +64,7 @@ class TestReactLoopRequiresApproval:
             tools=[dangerous_op],
             config=AgentConfig(approval_gate=gate),
         )
-        r = agent.response("Run dangerous_op with x=test")
+        r = agent.run("Run dangerous_op with x=test")
         assert r.content is not None
         if approvals:
             assert any("dangerous_op" in str(a) for a in approvals)
@@ -86,7 +86,7 @@ class TestReactLoopRequiresApproval:
             tools=[risky],
             config=AgentConfig(approval_gate=gate),
         )
-        r = agent.response("Do risky thing")
+        r = agent.run("Do risky thing")
         assert r.content is not None
 
 

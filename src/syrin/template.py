@@ -12,7 +12,7 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 import chevron
 
@@ -27,7 +27,7 @@ FRONTMATTER_REGEX = re.compile(
 )
 
 
-def _parse_simple_yaml(content: str) -> dict[str, Any] | None:
+def _parse_simple_yaml(content: str) -> dict[str, object] | None:
     """Parse simple YAML frontmatter for slot definitions.
 
     Supports flat format where each top-level key is a slot name,
@@ -43,9 +43,9 @@ def _parse_simple_yaml(content: str) -> dict[str, Any] | None:
         return None
 
     lines = content.split("\n")
-    slots: dict[str, Any] = {}
+    slots: dict[str, object] = {}
     current_slot: str | None = None
-    current_props: dict[str, Any] | None = None
+    current_props: dict[str, object] | None = None
     base_indent = 0
 
     for line in lines:
@@ -79,7 +79,7 @@ def _parse_simple_yaml(content: str) -> dict[str, Any] | None:
     return slots
 
 
-def _parse_yaml_value(value: str) -> Any:
+def _parse_yaml_value(value: str) -> object:
     """Parse a YAML value string into appropriate Python type."""
     value = value.strip()
     if not value:
@@ -115,7 +115,7 @@ class SlotConfig:
 
     slot_type: str
     required: bool = False
-    default: Any = None
+    default: object = None
 
     def to_json_schema_type(self) -> str:
         """Map slot_type to JSON schema type string."""
@@ -130,7 +130,7 @@ class SlotConfig:
         return mapping.get(self.slot_type, "string")
 
 
-def _coerce_value(value: Any, slot_type: str) -> Any:
+def _coerce_value(value: object, slot_type: str) -> object:
     """Coerce value to slot type for template rendering."""
     if value is None:
         return None
@@ -171,11 +171,11 @@ def _coerce_value(value: Any, slot_type: str) -> Any:
 
 def _prepare_context(
     slots: dict[str, SlotConfig],
-    data: dict[str, Any],
+    data: dict[str, object],
     strict: bool,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Prepare Mustache context from slot config and provided data."""
-    ctx: dict[str, Any] = {}
+    ctx: dict[str, object] = {}
     for name, config in slots.items():
         if name in data:
             ctx[name] = _coerce_value(data[name], config.slot_type)
@@ -211,7 +211,7 @@ class Template:
         name: str,
         content: str,
         *,
-        slots: dict[str, SlotConfig | dict[str, Any]] | None = None,
+        slots: dict[str, SlotConfig | dict[str, object]] | None = None,
         strict: bool = False,
     ) -> None:
         """Create a template.
@@ -255,7 +255,7 @@ class Template:
         """Slot configuration by name."""
         return dict(self._slots)
 
-    def render(self, **kwargs: Any) -> str:
+    def render(self, **kwargs: object) -> str:
         """Render template with provided slot values.
 
         Args:
@@ -270,19 +270,19 @@ class Template:
         ctx = _prepare_context(self._slots, kwargs, self._strict)
         return cast(str, chevron.render(self._content, ctx))
 
-    def slot_schema(self) -> dict[str, Any]:
+    def slot_schema(self) -> dict[str, object]:
         """Return JSON schema for slots (for LLM extraction)."""
-        props: dict[str, Any] = {}
+        props: dict[str, object] = {}
         required: list[str] = []
         for name, config in self._slots.items():
             t = config.to_json_schema_type()
-            prop: dict[str, Any] = {"type": t, "description": f"Slot: {name}"}
+            prop: dict[str, object] = {"type": t, "description": f"Slot: {name}"}
             if t == "array":
                 prop["items"] = {"type": "string"}
             props[name] = prop
             if config.required:
                 required.append(name)
-        schema: dict[str, Any] = {
+        schema: dict[str, object] = {
             "type": "object",
             "properties": props,
         }
@@ -291,7 +291,7 @@ class Template:
         return schema
 
     @classmethod
-    def from_file(cls, path: str | Path, **kwargs: Any) -> Template:
+    def from_file(cls, path: str | Path, **kwargs: object) -> Template:
         """Load template from file.
 
         Supports YAML frontmatter for slot definitions:
@@ -318,7 +318,7 @@ class Template:
             raise FileNotFoundError(f"Template file not found: {path}")
         raw_content = p.read_text(encoding="utf-8")
 
-        frontmatter_slots: dict[str, SlotConfig | dict[str, Any]] | None = None
+        frontmatter_slots: dict[str, SlotConfig | dict[str, object]] | None = None
         content = raw_content
 
         match = FRONTMATTER_REGEX.match(raw_content)
@@ -327,12 +327,12 @@ class Template:
             content = match.group(2)
             parsed = _parse_simple_yaml(yaml_content)
             if parsed:
-                frontmatter_slots = parsed
+                frontmatter_slots = parsed  # type: ignore[assignment]
 
         explicit_slots = kwargs.pop("slots", None)
         if explicit_slots and frontmatter_slots:
-            merged: dict[str, SlotConfig | dict[str, Any]] = dict(frontmatter_slots)
-            merged.update(explicit_slots)
+            merged: dict[str, SlotConfig | dict[str, object]] = dict(frontmatter_slots)
+            merged.update(explicit_slots)  # type: ignore[call-overload]
             kwargs["slots"] = merged
         elif frontmatter_slots:
             kwargs["slots"] = frontmatter_slots
@@ -340,10 +340,10 @@ class Template:
             kwargs["slots"] = explicit_slots
 
         name = kwargs.pop("name", p.stem)
-        return cls(name=name, content=content, **kwargs)
+        return cls(name=name, content=content, **kwargs)  # type: ignore[arg-type]
 
     @classmethod
-    def from_string(cls, content: str, name: str = "unnamed", **kwargs: Any) -> Template:
+    def from_string(cls, content: str, name: str = "unnamed", **kwargs: object) -> Template:
         """Create template from string.
 
         Args:
@@ -354,4 +354,4 @@ class Template:
         Returns:
             Template instance.
         """
-        return cls(name=name, content=content, **kwargs)
+        return cls(name=name, content=content, **kwargs)  # type: ignore[arg-type]

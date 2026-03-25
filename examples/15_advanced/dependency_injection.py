@@ -85,7 +85,7 @@ if __name__ == "__main__":
         user_id="alice",
     )
     agent = SearchAgent(config=AgentConfig(dependencies=real_deps))
-    result = agent.response("Search for AI trends")
+    result = agent.run("Search for AI trends")
     print(f"Result: {result.content[:150]}...")
     print(f"Cost: ${result.cost:.6f}")
 
@@ -97,7 +97,7 @@ if __name__ == "__main__":
         user_id="test-user",
     )
     test_agent = SearchAgent(config=AgentConfig(dependencies=mock_deps))
-    test_result = test_agent.response("Search for testing")
+    test_result = test_agent.run("Search for testing")
     print(f"\nWith mock: {test_result.content[:100]}...")
     print("Serving at http://localhost:8000/playground")
     agent.serve(port=8000, enable_playground=True, debug=True)

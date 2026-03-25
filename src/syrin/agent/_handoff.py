@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from syrin.enums import Hook
 from syrin.events import EventContext
@@ -23,7 +23,7 @@ _log = logging.getLogger(__name__)
 
 
 def handoff(
-    agent: Any,
+    agent: Agent,
     target_agent: type[Agent],
     task: str,
     *,
@@ -109,7 +109,7 @@ def handoff(
 
     t0 = time.perf_counter()
     try:
-        resp = target.response(task)
+        resp = target.run(task)
     except HandoffRetryRequested:
         raise
     duration = time.perf_counter() - t0

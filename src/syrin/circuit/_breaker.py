@@ -167,7 +167,7 @@ class CircuitBreaker:
         if self._on_trip is not None:
             self._on_trip(self.get_state())
 
-    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:
+    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:  # type: ignore[explicit-any]
         """RemoteConfigurable: return (schema, current_values) for the circuit_breaker section."""
         from syrin.remote._schema import build_section_schema_from_obj
         from syrin.remote._types import ConfigSchema
@@ -179,18 +179,23 @@ class CircuitBreaker:
             )
         return build_section_schema_from_obj(self, "circuit_breaker", "CircuitBreaker")
 
+    #: Public configuration attributes allowed via remote overrides.
+    _REMOTE_ALLOWED_KEYS: frozenset[str] = frozenset(
+        {"failure_threshold", "recovery_timeout", "half_open_max"}
+    )
+
     def apply_remote_overrides(
         self,
-        agent: Any,
+        agent: object,
         pairs: list[tuple[str, object]],
-        section_schema: Any,
+        section_schema: object,
     ) -> None:
         """RemoteConfigurable: apply circuit_breaker overrides (self is agent._circuit_breaker)."""
         from syrin.remote._resolver_helpers import build_nested_update
 
-        update = build_nested_update(section_schema, pairs, "circuit_breaker")
+        update = build_nested_update(section_schema, pairs, "circuit_breaker")  # type: ignore[arg-type]
         if not update:
             return
         for key, value in update.items():
-            if hasattr(self, key):
+            if key in self._REMOTE_ALLOWED_KEYS:
                 setattr(self, key, value)

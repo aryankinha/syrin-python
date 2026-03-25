@@ -60,7 +60,7 @@ if __name__ == "__main__":
     print("Discovered tools:", [t.name for t in tools])
 
     agent = ProductAgent()
-    result = agent.response("What shoes do you have?")
+    result = agent.run("What shoes do you have?")
     preview = result.content[:300] + "..." if len(result.content) > 300 else result.content
     print("\nAgent response:", preview)
     print("Serving at http://localhost:8000/playground")

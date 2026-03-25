@@ -44,7 +44,7 @@ class SpecializedAgent(BaseAgent):
 
 base = BaseAgent()
 specialized = SpecializedAgent()
-result = specialized.response("Say hello")
+result = specialized.run("Say hello")
 print(
     f"Specialized tools: {[t.name for t in specialized._tools]}, response: {result.content[:60]}..."
 )
@@ -68,11 +68,11 @@ print(f"GreetingAgent tools: {[t.name for t in agent._tools]}")
 # 3. Budget override
 class BudgetBase(Agent):
     model = almock
-    budget = Budget(run=10.0, on_exceeded=warn_on_exceeded)
+    budget = Budget(max_cost=10.0, on_exceeded=warn_on_exceeded)
 
 
 class TightBudgetAgent(BudgetBase):
-    budget = Budget(run=0.10, on_exceeded=warn_on_exceeded)
+    budget = Budget(max_cost=0.10, on_exceeded=warn_on_exceeded)
 
 
 base = BudgetBase()

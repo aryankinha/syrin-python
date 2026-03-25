@@ -26,13 +26,13 @@ class Writer(Agent):
     @task
     def research(self, topic: str) -> str:
         """Research a topic and return key points."""
-        r = self.response(f"Research {topic}. List 3-5 key points.")
+        r = self.run(f"Research {topic}. List 3-5 key points.")
         return r.content or ""
 
     @task
     def write(self, topic: str, style: str = "professional") -> str:
         """Write about a topic in the given style."""
-        r = self.response(f"Write a short paragraph about {topic} in a {style} style.")
+        r = self.run(f"Write a short paragraph about {topic} in a {style} style.")
         return r.content or ""
 
 

@@ -161,7 +161,7 @@ class TestAgentEvents:
 
         with patch.object(agent, "_provider") as mock_provider_obj:
             mock_provider_obj.complete = mock_complete
-            agent.response("Hi")
+            agent.run("Hi")
 
         assert len(received) == 1
         assert received[0].input == "Hi"
@@ -187,7 +187,7 @@ class TestAgentEvents:
 
         with patch.object(agent, "_provider") as mock_provider_obj:
             mock_provider_obj.complete = mock_complete
-            agent.response("Hi")
+            agent.run("Hi")
 
         assert len(received) == 1
         assert "cost" in received[0]
@@ -213,7 +213,7 @@ class TestAgentEvents:
 
         with patch.object(agent, "_provider") as mock_provider_obj:
             mock_provider_obj.complete = mock_complete
-            agent.response("Hi")
+            agent.run("Hi")
 
         assert len(received) == 1
 
@@ -238,7 +238,7 @@ class TestAgentEvents:
 
         with patch.object(agent, "_provider") as mock_provider_obj:
             mock_provider_obj.complete = mock_complete
-            agent.response("Hi")
+            agent.run("Hi")
 
         assert len(received) == 1
 
@@ -263,7 +263,7 @@ class TestAgentEvents:
 
         with patch.object(agent, "_provider") as mock_provider_obj:
             mock_provider_obj.complete = mock_complete
-            agent.response("Hi")
+            agent.run("Hi")
 
         events_received = [e for e, _ in received]
         assert Hook.AGENT_RUN_START in events_received
@@ -358,7 +358,7 @@ class TestHookEmissionAudit:
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
-            agent.response("Hello")
+            agent.run("Hello")
 
         for h in emitted:
             assert isinstance(h, Hook), f"Expected Hook enum, got {type(h).__name__}: {h}"

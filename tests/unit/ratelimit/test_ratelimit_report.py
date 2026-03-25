@@ -68,7 +68,7 @@ class TestRateLimitReport:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test")
+            result = agent.run("Test")
 
         # Should have defaults
         assert result.report.ratelimits.checks == 0
@@ -131,7 +131,7 @@ class TestRateLimitReportEdgeCases:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test")
+            result = agent.run("Test")
 
         assert hasattr(result.report, "ratelimits")
         assert isinstance(result.report.ratelimits, RateLimitReport)

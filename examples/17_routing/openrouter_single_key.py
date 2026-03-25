@@ -35,7 +35,7 @@ def main() -> None:
         system_prompt="You are helpful. Be concise.",
     )
 
-    r = agent.response("Say hello in one sentence")
+    r = agent.run("Say hello in one sentence")
     print(f"Model used: {r.model_used or r.model}")
     print(f"Content: {r.content[:80]}...")
     if r.routing_reason:

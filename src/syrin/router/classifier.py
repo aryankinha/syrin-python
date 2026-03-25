@@ -13,7 +13,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from threading import Lock
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, PrivateAttr, model_validator
 
@@ -182,7 +182,7 @@ class ClassificationResult:
 def _load_sentence_transformers(
     model_name: str,
     cache_dir: str | None,
-) -> Any:
+) -> object:
     """Lazy load SentenceTransformer. Raises ImportError with install hint if missing."""
     try:
         from sentence_transformers import SentenceTransformer
@@ -258,9 +258,9 @@ def _complexity_heuristic(prompt: str) -> float:
     return min(1.0, max(0.0, score))
 
 
-def _to_emb_list(emb: Any) -> list[float]:
+def _to_emb_list(emb: object) -> list[float]:
     """Normalize embedding to list[float]."""
-    return emb.tolist() if hasattr(emb, "tolist") else list(emb)
+    return emb.tolist() if hasattr(emb, "tolist") else list(emb)  # type: ignore[call-overload, no-any-return]
 
 
 class EmbeddingClassifier:
@@ -278,7 +278,7 @@ class EmbeddingClassifier:
         self._cache_dir = cache_dir
         self._examples = examples or _DEFAULT_EXAMPLES
         self._embedding_provider = embedding_provider
-        self._model: Any = None
+        self._model: object = None
         self._task_embeddings: dict[TaskType, list[list[float]]] | None = None
         self._simple_emb: list[list[float]] | None = None
         self._complex_emb: list[list[float]] | None = None
@@ -287,7 +287,7 @@ class EmbeddingClassifier:
         """Encode texts to embeddings. Uses provider or sentence-transformers."""
         if self._embedding_provider is not None:
             return [[float(x) for x in e] for e in self._embedding_provider.encode(texts)]
-        return [_to_emb_list(e) for e in self._model.encode(texts)]
+        return [_to_emb_list(e) for e in self._model.encode(texts)]  # type: ignore[attr-defined]
 
     def _ensure_loaded(self) -> None:
         if self._task_embeddings is not None:
@@ -363,7 +363,7 @@ class EmbeddingClassifier:
         return _cosine_sim(prompt_emb, system_emb)
 
 
-class PromptClassifier(BaseModel):
+class PromptClassifier(BaseModel):  # type: ignore[explicit-any]
     """Embedding-based prompt classifier for model routing. Production-ready.
 
     Example::
@@ -422,7 +422,7 @@ class PromptClassifier(BaseModel):
         description="Try keyword-based detection for image/video generation before embeddings. "
         "Works without sentence-transformers.",
     )
-    embedding_provider: Any = Field(
+    embedding_provider: object = Field(
         default=None,
         description="Optional custom embedding provider. Implement encode(texts: list[str]) -> list[list[float]]. "
         "When set, used instead of sentence-transformers (OpenAI, Cohere, etc.).",
@@ -458,7 +458,7 @@ class PromptClassifier(BaseModel):
                 model=self.embedding_model,
                 cache_dir=self.cache_dir,
                 examples=self.examples or _DEFAULT_EXAMPLES,
-                embedding_provider=self.embedding_provider,
+                embedding_provider=self.embedding_provider,  # type: ignore[arg-type]
             )
         return self._embedding_classifier
 

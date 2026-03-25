@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from syrin.audit.models import AuditEntry, AuditLog
 from syrin.enums import AuditEventType, Hook
@@ -84,7 +84,7 @@ def _should_log(audit_config: AuditLog, event_type: str) -> bool:
     )
 
 
-def _ctx_val(ctx: EventContext, key: str, default: Any = None) -> Any:
+def _ctx_val(ctx: EventContext, key: str, default: object = None) -> object:
     return ctx.get(key, default)
 
 
@@ -93,7 +93,7 @@ def _ctx_float(ctx: EventContext, key: str) -> float | None:
     if v is None:
         return None
     try:
-        return float(v)
+        return float(v)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return None
 
@@ -103,7 +103,7 @@ def _ctx_int(ctx: EventContext, key: str) -> int | None:
     if v is None:
         return None
     try:
-        return int(v)
+        return int(v)  # type: ignore[call-overload, no-any-return]
     except (TypeError, ValueError):
         return None
 
@@ -126,7 +126,7 @@ def _build_entry(
     elif isinstance(tokens_val, (int, float)):
         tokens = {"total": int(tokens_val)}
 
-    extra: dict[str, Any] = {}
+    extra: dict[str, object] = {}
     if audit_config.include_user_input and "input" in ctx:
         extra["input"] = str(ctx["input"])[:500]
     if audit_config.include_model_output and "content" in ctx:
@@ -135,7 +135,7 @@ def _build_entry(
     return AuditEntry(
         source=source,
         event=event_type,
-        model=_ctx_val(ctx, "model") if isinstance(_ctx_val(ctx, "model"), str) else None,
+        model=_ctx_val(ctx, "model") if isinstance(_ctx_val(ctx, "model"), str) else None,  # type: ignore[arg-type]
         tokens=tokens,
         cost_usd=cost,
         budget_percent=_ctx_float(ctx, "budget_percent"),
@@ -143,9 +143,9 @@ def _build_entry(
         trace_id=str(_ctx_val(ctx, "trace_id")) if _ctx_val(ctx, "trace_id") else None,
         run_id=str(_ctx_val(ctx, "run_id")) if _ctx_val(ctx, "run_id") else None,
         iteration=_ctx_int(ctx, "iteration"),
-        tool_name=_ctx_val(ctx, "name") if isinstance(_ctx_val(ctx, "name"), str) else None,
-        tool_error=_ctx_val(ctx, "error") if isinstance(_ctx_val(ctx, "error"), str) else None,
-        stop_reason=_ctx_val(ctx, "stop_reason")
+        tool_name=_ctx_val(ctx, "name") if isinstance(_ctx_val(ctx, "name"), str) else None,  # type: ignore[arg-type]
+        tool_error=_ctx_val(ctx, "error") if isinstance(_ctx_val(ctx, "error"), str) else None,  # type: ignore[arg-type]
+        stop_reason=_ctx_val(ctx, "stop_reason")  # type: ignore[arg-type]
         if isinstance(_ctx_val(ctx, "stop_reason"), str)
         else None,
         extra=extra if extra else None,
@@ -169,7 +169,7 @@ class AuditHookHandler:
             return
         try:
             entry = _build_entry(self._source, event_type, hook, ctx, self._config)
-            self._backend.write(entry)
+            self._backend.write(entry)  # type: ignore[attr-defined]
         except Exception:
             pass  # Audit must not break execution
 

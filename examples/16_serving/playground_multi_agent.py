@@ -31,7 +31,7 @@ class Researcher(Agent):
     _agent_description = "Researches topics and summarizes findings"
     model = almock
     system_prompt = "You are a researcher. Be thorough but concise."
-    budget = Budget(run=0.3)
+    budget = Budget(max_cost=0.3)
 
 
 class Writer(Agent):
@@ -39,7 +39,7 @@ class Writer(Agent):
     _agent_description = "Writes content in a professional style"
     model = gpt4_mini
     system_prompt = "You are a writer. Be clear and engaging."
-    budget = Budget(run=0.3)
+    budget = Budget(max_cost=0.3)
     debug = True
 
 

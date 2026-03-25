@@ -32,7 +32,7 @@ class TestEmptyTools:
             new_callable=AsyncMock,
             return_value=_mock_provider_response(content="Hi"),
         ):
-            r = agent.response("Hello")
+            r = agent.run("Hello")
         assert r.content == "Hi"
         assert r.tool_calls == []
 
@@ -50,7 +50,7 @@ class TestNoBudget:
             new_callable=AsyncMock,
             return_value=_mock_provider_response(),
         ):
-            r = agent.response("Hi")
+            r = agent.run("Hi")
         assert r.cost >= 0
         assert agent._budget is None or r.budget_used is not None
 

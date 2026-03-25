@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from typing import Any
 
 import litellm
 
@@ -68,7 +67,7 @@ class LiteLLMEmbedding:
     async def embed(
         self,
         texts: list[str],
-        budget_tracker: Any | None = None,
+        budget_tracker: object | None = None,
     ) -> list[list[float]]:
         """Embed texts into vectors.
 
@@ -82,7 +81,7 @@ class LiteLLMEmbedding:
         if not texts:
             return []
 
-        kwargs: dict[str, Any] = {
+        kwargs: dict[str, object] = {
             "model": self._model,
             "input": texts,
         }
@@ -103,7 +102,7 @@ class LiteLLMEmbedding:
                 from syrin.cost import calculate_embedding_cost
 
                 cost = calculate_embedding_cost(self._model, token_count)
-                budget_tracker.record_external(
+                budget_tracker.record_external(  # type: ignore[attr-defined]
                     service="litellm_embedding",
                     cost_usd=cost,
                     metadata={

@@ -58,10 +58,10 @@ def main() -> None:
         system_prompt="You are helpful.",
     )
 
-    r1 = agent.response("What is 2+2?", task_type=TaskType.GENERAL)
+    r1 = agent.run("What is 2+2?", task_type=TaskType.GENERAL)
     print(f"Normal prompt -> {r1.routing_reason.selected_model}")
 
-    r2 = agent.response("URGENT: Fix this bug now", task_type=TaskType.CODE)
+    r2 = agent.run("URGENT: Fix this bug now", task_type=TaskType.CODE)
     print(f"VIP prompt -> {r2.routing_reason.selected_model}")
 
 

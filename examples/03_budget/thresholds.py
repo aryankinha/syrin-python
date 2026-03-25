@@ -21,6 +21,11 @@ from syrin.threshold import BudgetThreshold, ThresholdContext
 # Create a mock model — no API key needed
 model = Model.Almock()
 
+# NOTE: Almock returns near-zero costs (~$0.00004 per call).
+# Thresholds fire when cumulative spending crosses a percentage of max_cost.
+# With Almock you need a very small max_cost (e.g. $0.00003) to trigger them.
+# In production with real LLMs the thresholds fire naturally at your configured %.
+
 # ---------------------------------------------------------------------------
 # 1. Simple threshold — warn at 50%
 # ---------------------------------------------------------------------------
@@ -39,14 +44,14 @@ def on_50_pct(ctx: ThresholdContext) -> None:
 agent = Agent(
     model=model,
     budget=Budget(
-        run=0.10,
+        max_cost=0.10,
         thresholds=[
             BudgetThreshold(at=50, action=on_50_pct, metric=ThresholdMetric.COST),
         ],
         on_exceeded=warn_on_exceeded,
     ),
 )
-agent.response("Hello!")
+agent.run("Hello!")
 print(f"   Events collected: {events}")
 
 # ---------------------------------------------------------------------------
@@ -70,7 +75,7 @@ def make_handler(pct: int):
 agent = Agent(
     model=model,
     budget=Budget(
-        run=0.10,
+        max_cost=0.10,
         thresholds=[
             BudgetThreshold(at=25, action=make_handler(25)),
             BudgetThreshold(at=50, action=make_handler(50)),
@@ -80,7 +85,7 @@ agent = Agent(
         on_exceeded=warn_on_exceeded,
     ),
 )
-agent.response("Tell me about AI")
+agent.run("Tell me about AI")
 print(f"   Thresholds triggered: {levels}")
 
 # ---------------------------------------------------------------------------
@@ -98,7 +103,7 @@ class MonitoredAgent(Agent):
     _agent_description = "Agent with budget thresholds (warn at 80%)"
     model = model
     budget = Budget(
-        run=1.00,
+        max_cost=1.00,
         thresholds=[
             BudgetThreshold(
                 at=80,
@@ -111,7 +116,7 @@ class MonitoredAgent(Agent):
 
 
 agent = MonitoredAgent()
-result = agent.response("Explain gradient descent.")
+result = agent.run("Explain gradient descent.")
 print(f"   Cost:         ${result.cost:.6f}")
 print(f"   Budget state: {agent.budget_state}")
 

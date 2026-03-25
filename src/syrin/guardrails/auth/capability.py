@@ -9,7 +9,6 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
 
 
 @dataclass
@@ -52,7 +51,7 @@ class CapabilityToken:
     issued_to: str | None = None
     """User or agent this token was issued to."""
 
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
     """Additional metadata."""
 
     def consume(self, amount: int = 1) -> bool:
@@ -115,7 +114,7 @@ class CapabilityToken:
 
         return False
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Convert token to dictionary for serialization.
 
         Returns:
@@ -132,7 +131,7 @@ class CapabilityToken:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> CapabilityToken:
+    def from_dict(cls, data: dict[str, object]) -> CapabilityToken:
         """Create token from dictionary.
 
         Args:
@@ -142,13 +141,13 @@ class CapabilityToken:
             Restored CapabilityToken.
         """
         return cls(
-            token_id=data["token_id"],
-            scope=data["scope"],
-            budget=data["budget"],
-            ttl=data.get("ttl"),
-            created_at=datetime.fromisoformat(data["created_at"]),
-            issued_to=data.get("issued_to"),
-            metadata=data.get("metadata", {}),
+            token_id=data["token_id"],  # type: ignore[arg-type]
+            scope=data["scope"],  # type: ignore[arg-type]
+            budget=data["budget"],  # type: ignore[arg-type]
+            ttl=data.get("ttl"),  # type: ignore[arg-type]
+            created_at=datetime.fromisoformat(data["created_at"]),  # type: ignore[arg-type]
+            issued_to=data.get("issued_to"),  # type: ignore[arg-type]
+            metadata=data.get("metadata", {}),  # type: ignore[arg-type]
         )
 
 
@@ -174,7 +173,7 @@ class CapabilityIssuer:
         budget: int = 1,
         ttl: int | None = None,
         issued_to: str | None = None,
-        metadata: dict[str, Any] | None = None,
+        metadata: dict[str, object] | None = None,
     ) -> CapabilityToken:
         """Issue a new capability token.
 

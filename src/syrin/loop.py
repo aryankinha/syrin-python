@@ -32,19 +32,19 @@ _log = logging.getLogger(__name__)
 from syrin.enums import Hook, LoopStrategy, MessageRole, StopReason
 
 
-def _get_tracer(ctx: Any) -> Any:
+def _get_tracer(ctx: object) -> object:
     """Return tracer from context if available, else None (no span creation)."""
     return getattr(ctx, "tracer", None)
 
 
-def _llm_span_context(ctx: Any, iteration: int, model_id: str) -> Any:
+def _llm_span_context(ctx: object, iteration: int, model_id: str) -> object:
     """Context manager for LLM span when ctx.tracer is set; else no-op."""
     tracer = _get_tracer(ctx)
     if tracer is None:
         return nullcontext()
     from syrin.observability import SemanticAttributes, SpanKind
 
-    return tracer.span(
+    return tracer.span(  # type: ignore[attr-defined]
         f"llm.iteration_{iteration}",
         kind=SpanKind.LLM,
         attributes={
@@ -74,7 +74,9 @@ def _is_transient_error(e: BaseException) -> bool:
     return "timeout" in s
 
 
-async def _execute_tool_with_retry(ctx: Any, tool_name: str, tool_args: dict[str, Any]) -> str:
+async def _execute_tool_with_retry(
+    ctx: object, tool_name: str, tool_args: dict[str, object]
+) -> str:
     """Execute tool with optional retry on transient errors."""
     retry_on = getattr(ctx, "retry_on_transient", True)
     max_retries = getattr(ctx, "max_retries", 3)
@@ -82,7 +84,7 @@ async def _execute_tool_with_retry(ctx: Any, tool_name: str, tool_args: dict[str
     last_err: BaseException | None = None
     for attempt in range(max_retries + 1):
         try:
-            result: str = cast(str, await ctx.execute_tool(tool_name, tool_args))
+            result: str = cast(str, await ctx.execute_tool(tool_name, tool_args))  # type: ignore[attr-defined]
             return result
         except Exception as e:
             last_err = e
@@ -148,7 +150,9 @@ def _truncate_tool_result_for_context(
     return result[:effective_max] + " [...] (truncated)"
 
 
-def _tool_span_context(ctx: Any, tool_name: str, tool_args: dict[str, Any], iteration: int) -> Any:
+def _tool_span_context(
+    ctx: object, tool_name: str, tool_args: dict[str, object], iteration: int
+) -> object:
     """Context manager for tool span when ctx.tracer is set; else no-op."""
     tracer = _get_tracer(ctx)
     if tracer is None:
@@ -157,7 +161,7 @@ def _tool_span_context(ctx: Any, tool_name: str, tool_args: dict[str, Any], iter
 
     from syrin.observability import SemanticAttributes, SpanKind
 
-    return tracer.span(
+    return tracer.span(  # type: ignore[attr-defined]
         f"tool.{tool_name}",
         kind=SpanKind.TOOL,
         attributes={
@@ -193,13 +197,13 @@ class LoopResult:
     token_usage: dict[str, int] = field(
         default_factory=lambda: {"input": 0, "output": 0, "total": 0}
     )
-    tool_calls: list[dict[str, Any]] = field(default_factory=list)
-    raw_response: Any = None
-    generated_media: list[dict[str, Any]] = field(default_factory=list)
+    tool_calls: list[dict[str, object]] = field(default_factory=list)
+    raw_response: object = None
+    generated_media: list[dict[str, object]] = field(default_factory=list)
 
 
 # Type for tool approval callback: (tool_name, args) -> approved
-ToolApprovalFn = Callable[[str, dict[str, Any]], Awaitable[bool]]
+ToolApprovalFn = Callable[[str, dict[str, object]], Awaitable[bool]]
 
 
 class Loop:
@@ -215,8 +219,8 @@ class Loop:
 
     name: str = "base"
 
-    async def run(
-        self, ctx: AgentRunContext | Any, user_input: str | list[dict[str, Any]]
+    async def run(  # type: ignore[explicit-any]
+        self, ctx: AgentRunContext | Any, user_input: str | list[dict[str, object]]
     ) -> LoopResult:
         """Execute the loop. Override in subclasses.
 
@@ -239,8 +243,8 @@ class SingleShotLoop(Loop):
 
     name = "single_shot"
 
-    async def run(
-        self, ctx: AgentRunContext | Any, user_input: str | list[dict[str, Any]]
+    async def run(  # type: ignore[explicit-any]
+        self, ctx: AgentRunContext | Any, user_input: str | list[dict[str, object]]
     ) -> LoopResult:
         """Execute single LLM call. No tool execution or iteration."""
         from syrin.cost import calculate_cost
@@ -259,8 +263,8 @@ class SingleShotLoop(Loop):
         )
 
         ctx.check_and_apply_rate_limit()
-        ctx.pre_call_budget_check(messages, max_output_tokens=ctx.max_output_tokens)
-        with _llm_span_context(ctx, 1, ctx.model_id) as llm_span:
+        ctx.pre_call_budget_check(messages, max_output_tokens=ctx.max_output_tokens)  # type: ignore[arg-type]
+        with _llm_span_context(ctx, 1, ctx.model_id) as llm_span:  # type: ignore[attr-defined]
             response = await ctx.complete(messages)
             if llm_span is not None:
                 from syrin.observability import SemanticAttributes
@@ -283,7 +287,7 @@ class SingleShotLoop(Loop):
         content = response.content or ""
 
         u = response.token_usage
-        cost_usd = calculate_cost(ctx.model_id, u, pricing_override=ctx.pricing_override)
+        cost_usd = calculate_cost(ctx.model_id, u, pricing_override=ctx.pricing_override)  # type: ignore[arg-type]
 
         tool_calls = []
         tool_names = []
@@ -351,8 +355,8 @@ class ReactLoop(Loop):
             )
         self.max_iterations = max_iterations
 
-    async def run(
-        self, ctx: AgentRunContext | Any, user_input: str | list[dict[str, Any]]
+    async def run(  # type: ignore[explicit-any]
+        self, ctx: AgentRunContext | Any, user_input: str | list[dict[str, object]]
     ) -> LoopResult:
         """Execute REACT loop."""
         from syrin.cost import calculate_cost
@@ -364,7 +368,7 @@ class ReactLoop(Loop):
         iteration = 0
         tools_used = []
         tool_calls_all = []
-        generated_media: list[dict[str, Any]] = []
+        generated_media: list[dict[str, object]] = []
         run_start = time.perf_counter()
 
         ctx.emit_event(
@@ -380,11 +384,11 @@ class ReactLoop(Loop):
             iteration += 1
             ctx.check_and_apply_budget()
             ctx.check_and_apply_rate_limit()
-            ctx.pre_call_budget_check(messages, max_output_tokens=ctx.max_output_tokens)
+            ctx.pre_call_budget_check(messages, max_output_tokens=ctx.max_output_tokens)  # type: ignore[arg-type]
 
             ctx.emit_event(Hook.LLM_REQUEST_START, EventContext(iteration=iteration))
 
-            with _llm_span_context(ctx, iteration, ctx.model_id) as llm_span:
+            with _llm_span_context(ctx, iteration, ctx.model_id) as llm_span:  # type: ignore[attr-defined]
                 response = await ctx.complete(messages, tools)
                 if llm_span is not None:
                     from syrin.observability import SemanticAttributes
@@ -487,7 +491,7 @@ class ReactLoop(Loop):
                 )
 
                 try:
-                    with _tool_span_context(ctx, tool_name, tool_args, iteration) as tool_span:
+                    with _tool_span_context(ctx, tool_name, tool_args, iteration) as tool_span:  # type: ignore[attr-defined]
                         result = await _execute_tool_with_retry(ctx, tool_name, tool_args)
                         if tool_span is not None:
                             from syrin.observability import SemanticAttributes
@@ -550,7 +554,7 @@ class ReactLoop(Loop):
                 output_tokens=total_output,
                 total_tokens=total_input + total_output,
             ),
-            pricing_override=ctx.pricing_override,
+            pricing_override=ctx.pricing_override,  # type: ignore[arg-type]
         )
 
         total_tokens = total_input + total_output
@@ -600,7 +604,7 @@ class HumanInTheLoop(Loop):
 
     def __init__(
         self,
-        approval_gate: Any = None,
+        approval_gate: object = None,
         approve: ToolApprovalFn | None = None,
         timeout: int = 300,
         max_iterations: int = 10,
@@ -611,8 +615,8 @@ class HumanInTheLoop(Loop):
             self._gate = approval_gate
         elif approve is not None:
 
-            async def _wrap(msg: str, t: int, ctx: dict[str, Any]) -> bool:
-                return await approve(ctx.get("tool_name", ""), ctx.get("arguments", {}))
+            async def _wrap(msg: str, t: int, ctx: dict[str, object]) -> bool:
+                return await approve(ctx.get("tool_name", ""), ctx.get("arguments", {}))  # type: ignore[arg-type]
 
             self._gate = ApprovalGate(_wrap)
         else:
@@ -620,8 +624,8 @@ class HumanInTheLoop(Loop):
         self._timeout = timeout
         self.max_iterations = max_iterations
 
-    async def run(
-        self, ctx: AgentRunContext | Any, user_input: str | list[dict[str, Any]]
+    async def run(  # type: ignore[explicit-any]
+        self, ctx: AgentRunContext | Any, user_input: str | list[dict[str, object]]
     ) -> LoopResult:
         """Execute loop with human approval."""
         from syrin.cost import calculate_cost
@@ -633,7 +637,7 @@ class HumanInTheLoop(Loop):
         iteration = 0
         tools_used = []
         tool_calls_all = []
-        generated_media: list[dict[str, Any]] = []
+        generated_media: list[dict[str, object]] = []
         run_start = time.perf_counter()
 
         ctx.emit_event(
@@ -648,7 +652,7 @@ class HumanInTheLoop(Loop):
         while iteration < self.max_iterations:
             iteration += 1
             ctx.check_and_apply_rate_limit()
-            ctx.pre_call_budget_check(messages, max_output_tokens=ctx.max_output_tokens)
+            ctx.pre_call_budget_check(messages, max_output_tokens=ctx.max_output_tokens)  # type: ignore[arg-type]
 
             response = await ctx.complete(messages, tools)
 
@@ -683,7 +687,7 @@ class HumanInTheLoop(Loop):
                 )
                 try:
                     approved = await asyncio.wait_for(
-                        self._gate.request(
+                        self._gate.request(  # type: ignore[attr-defined]
                             message=f"Tool {tool_name!r} with args: {tool_args}",
                             timeout=self._timeout,
                             context={"tool_name": tool_name, "arguments": tool_args},
@@ -772,7 +776,7 @@ class HumanInTheLoop(Loop):
                 output_tokens=total_output,
                 total_tokens=total_input + total_output,
             ),
-            pricing_override=ctx.pricing_override,
+            pricing_override=ctx.pricing_override,  # type: ignore[arg-type]
         )
 
         total_tokens = total_input + total_output
@@ -825,15 +829,15 @@ class PlanExecuteLoop(Loop):
         self.max_plan_iterations = max_plan_iterations
         self.max_execution_iterations = max_execution_iterations
 
-    async def run(
-        self, ctx: AgentRunContext | Any, user_input: str | list[dict[str, Any]]
+    async def run(  # type: ignore[explicit-any]
+        self, ctx: AgentRunContext | Any, user_input: str | list[dict[str, object]]
     ) -> LoopResult:
         """Execute PLAN → EXECUTE → REVIEW loop."""
         from syrin.cost import calculate_cost
         from syrin.events import EventContext
         from syrin.types import Message, TokenUsage
 
-        plan_prompt: str | list[dict[str, Any]] = (
+        plan_prompt: str | list[dict[str, object]] = (
             user_input
             + "\n\nPlease provide a detailed plan with numbered steps to accomplish this task."
             if isinstance(user_input, str)
@@ -847,7 +851,7 @@ class PlanExecuteLoop(Loop):
         )
         messages = ctx.build_messages(plan_prompt)
         tools = ctx.tools
-        generated_media: list[dict[str, Any]] = []
+        generated_media: list[dict[str, object]] = []
         run_start = time.perf_counter()
         total_input = 0
         total_output = 0
@@ -868,7 +872,7 @@ class PlanExecuteLoop(Loop):
         while plan_iteration < self.max_plan_iterations:
             plan_iteration += 1
             ctx.check_and_apply_rate_limit()
-            ctx.pre_call_budget_check(messages, max_output_tokens=ctx.max_output_tokens)
+            ctx.pre_call_budget_check(messages, max_output_tokens=ctx.max_output_tokens)  # type: ignore[arg-type]
             ctx.emit_event(Hook.LLM_REQUEST_START, EventContext(iteration=plan_iteration))
 
             response = await ctx.complete(messages, tools)
@@ -932,7 +936,7 @@ class PlanExecuteLoop(Loop):
             exec_iteration += 1
             ctx.check_and_apply_budget()
             ctx.check_and_apply_rate_limit()
-            ctx.pre_call_budget_check(messages, max_output_tokens=ctx.max_output_tokens)
+            ctx.pre_call_budget_check(messages, max_output_tokens=ctx.max_output_tokens)  # type: ignore[arg-type]
             ctx.emit_event(
                 Hook.LLM_REQUEST_START, EventContext(iteration=plan_iteration + exec_iteration)
             )
@@ -995,7 +999,7 @@ class PlanExecuteLoop(Loop):
                 output_tokens=total_output,
                 total_tokens=total_input + total_output,
             ),
-            pricing_override=ctx.pricing_override,
+            pricing_override=ctx.pricing_override,  # type: ignore[arg-type]
         )
 
         total_tokens = total_input + total_output
@@ -1047,8 +1051,8 @@ class CodeActionLoop(Loop):
         self.max_iterations = max_iterations
         self.timeout_seconds = timeout_seconds
 
-    async def run(
-        self, ctx: AgentRunContext | Any, user_input: str | list[dict[str, Any]]
+    async def run(  # type: ignore[explicit-any]
+        self, ctx: AgentRunContext | Any, user_input: str | list[dict[str, object]]
     ) -> LoopResult:
         """Execute CODE → EXECUTE → INTERPRET loop."""
         import re
@@ -1087,7 +1091,7 @@ class CodeActionLoop(Loop):
             iteration += 1
             ctx.check_and_apply_budget()
             ctx.check_and_apply_rate_limit()
-            ctx.pre_call_budget_check(messages, max_output_tokens=ctx.max_output_tokens)
+            ctx.pre_call_budget_check(messages, max_output_tokens=ctx.max_output_tokens)  # type: ignore[arg-type]
             ctx.emit_event(Hook.LLM_REQUEST_START, EventContext(iteration=iteration))
 
             response = await ctx.complete(messages, tools)
@@ -1164,7 +1168,7 @@ class CodeActionLoop(Loop):
                 output_tokens=total_output,
                 total_tokens=total_input + total_output,
             ),
-            pricing_override=ctx.pricing_override,
+            pricing_override=ctx.pricing_override,  # type: ignore[arg-type]
         )
 
         total_tokens = total_input + total_output

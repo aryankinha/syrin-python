@@ -6,7 +6,10 @@ Agent delegates to functions here. Public API stays on Agent.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from syrin.agent import Agent
 
 from syrin.budget import (
     BudgetExceededContext,
@@ -21,20 +24,45 @@ from syrin.exceptions import BudgetExceededError
 from syrin.types import CostInfo, TokenUsage
 
 
+def _apply_budget_exceeded(
+    on_exceeded: Callable[[BudgetExceededContext], None] | None,
+    ctx: BudgetExceededContext,
+) -> bool:
+    """Call on_exceeded with ctx and return whether execution should continue.
+
+    Contract:
+    - If on_exceeded is None: raise BudgetExceededError (default stop behaviour).
+    - If on_exceeded raises: the exception propagates (caller stops).
+    - If on_exceeded returns: execution may continue (e.g. warn_on_exceeded).
+
+    Returns True if execution should continue (callback returned without raising).
+    Never returns False — either returns True or raises.
+    """
+    if on_exceeded is None:
+        raise BudgetExceededError(
+            ctx.message,
+            current_cost=ctx.current_cost,
+            limit=ctx.limit,
+            budget_type=ctx.budget_type.value,
+        )
+    on_exceeded(ctx)  # may raise; if it returns, execution continues
+    return True
+
+
 def pre_call_budget_check(
-    agent: Any,
-    messages: list[Any],
+    agent: Agent,
+    messages: list[object],
     max_output_tokens: int = 1024,
 ) -> None:
     """If run budget would be exceeded after an estimated call, call on_exceeded and raise."""
-    if agent._budget is None or agent._budget.run is None:
+    estimate = agent.estimate_cost(messages, max_output_tokens=max_output_tokens)
+    # Store estimate on agent so Response.cost_estimated can be populated.
+    agent._last_cost_estimated = estimate
+    if agent._budget is None or agent._budget.max_cost is None:
         return
     effective_run = agent._budget.effective_run_limit
-    if effective_run is not None and effective_run <= 0:
-        return
-    estimate = agent.estimate_cost(messages, max_output_tokens=max_output_tokens)
     run_usage = agent._budget_tracker.run_usage_with_reserved
-    if run_usage + estimate < effective_run:
+    if run_usage + estimate < effective_run:  # type: ignore[operator]
         return
     on_exceeded = agent._budget.on_exceeded
     limit = effective_run
@@ -43,25 +71,23 @@ def pre_call_budget_check(
         f"Budget would be exceeded: estimated run cost ${current:.4f} >= ${limit:.4f} "
         "(pre-call estimate)"
     )
-    if on_exceeded is not None:
-        ctx = BudgetExceededContext(
-            current_cost=current,
-            limit=limit,
-            budget_type=BudgetLimitType.RUN,
-            message=msg,
-        )
-        on_exceeded(ctx)
-    raise BudgetExceededError(
-        msg, current_cost=current, limit=limit, budget_type=BudgetLimitType.RUN.value
+    ctx = BudgetExceededContext(
+        current_cost=current,
+        limit=limit,  # type: ignore[arg-type]
+        budget_type=BudgetLimitType.RUN,
+        message=msg,
     )
+    _apply_budget_exceeded(on_exceeded, ctx)
 
 
-def check_and_apply_budget(agent: Any) -> None:
+def check_and_apply_budget(agent: Agent) -> None:
     """Raise if budget or token limits exceeded; apply threshold actions (switch, warn)."""
     if agent._budget is None and agent._token_limits is None:
         return
     result: CheckBudgetResult = agent._budget_tracker.check_budget(
-        agent._budget, token_limits=agent._token_limits, parent=agent
+        agent._budget,
+        token_limits=agent._token_limits,
+        parent=agent,
     )
     if result.status == BudgetStatus.THRESHOLD:
         current = agent._budget_tracker.current_run_cost
@@ -85,22 +111,20 @@ def check_and_apply_budget(agent: Any) -> None:
         return
     limit_key = result.exceeded_limit or BudgetLimitType.RUN
     on_exceeded = agent._budget.on_exceeded if agent._budget is not None else None
+    # Route to token on_exceeded when the exceeded limit is a token limit type,
+    # or fall back to token on_exceeded when budget has no on_exceeded handler.
     if (
-        (
-            limit_key
-            in (
-                BudgetLimitType.RUN_TOKENS,
-                BudgetLimitType.HOUR_TOKENS,
-                BudgetLimitType.DAY_TOKENS,
-                BudgetLimitType.WEEK_TOKENS,
-                BudgetLimitType.MONTH_TOKENS,
-            )
-            and agent._token_limits is not None
-            and agent._token_limits.on_exceeded is not None
+        limit_key
+        in (
+            BudgetLimitType.RUN_TOKENS,
+            BudgetLimitType.HOUR_TOKENS,
+            BudgetLimitType.DAY_TOKENS,
+            BudgetLimitType.WEEK_TOKENS,
+            BudgetLimitType.MONTH_TOKENS,
         )
-        or on_exceeded is None
         and agent._token_limits is not None
-    ):
+        and agent._token_limits.on_exceeded is not None
+    ) or (on_exceeded is None and agent._token_limits is not None):
         on_exceeded = agent._token_limits.on_exceeded
     if limit_key == BudgetLimitType.RUN:
         current = agent._budget_tracker.current_run_cost
@@ -108,7 +132,7 @@ def check_and_apply_budget(agent: Any) -> None:
         msg = f"Budget exceeded: run cost ${current:.4f} >= ${limit:.4f}"
     elif limit_key == BudgetLimitType.RUN_TOKENS:
         current = agent._budget_tracker.current_run_tokens
-        run_tok = agent._token_limits.run if agent._token_limits is not None else None
+        run_tok = agent._token_limits.max_tokens if agent._token_limits is not None else None
         limit = float(run_tok or 0)
         msg = f"Budget exceeded: run tokens {current} >= {int(limit)}"
     elif limit_key in (
@@ -117,7 +141,7 @@ def check_and_apply_budget(agent: Any) -> None:
         BudgetLimitType.WEEK_TOKENS,
         BudgetLimitType.MONTH_TOKENS,
     ):
-        token_per = agent._token_limits.per if agent._token_limits is not None else None
+        token_per = agent._token_limits.rate_limits if agent._token_limits is not None else None
         if limit_key == BudgetLimitType.HOUR_TOKENS and token_per is not None:
             current = float(agent._budget_tracker.hourly_tokens)
             limit = float(token_per.hour or 0)
@@ -134,29 +158,28 @@ def check_and_apply_budget(agent: Any) -> None:
             current, limit = 0.0, 0.0
         msg = f"Budget exceeded: {limit_key.value} {int(current)} >= {int(limit)}"
     else:
-        per = agent._budget.per if agent._budget else None
-        if limit_key == BudgetLimitType.HOUR and per:
-            current, limit = agent._budget_tracker.hourly_cost, (per.hour or 0)
-        elif limit_key == BudgetLimitType.DAY and per:
-            current, limit = agent._budget_tracker.daily_cost, (per.day or 0)
-        elif limit_key == BudgetLimitType.WEEK and per:
-            current, limit = agent._budget_tracker.weekly_cost, (per.week or 0)
-        elif limit_key == BudgetLimitType.MONTH and per:
-            current, limit = agent._budget_tracker.monthly_cost, (per.month or 0)
+        rate = agent._budget.rate_limits if agent._budget else None
+        if limit_key == BudgetLimitType.HOUR and rate:
+            current, limit = agent._budget_tracker.hourly_cost, (rate.hour or 0)
+        elif limit_key == BudgetLimitType.DAY and rate:
+            current, limit = agent._budget_tracker.daily_cost, (rate.day or 0)
+        elif limit_key == BudgetLimitType.WEEK and rate:
+            current, limit = agent._budget_tracker.weekly_cost, (rate.week or 0)
+        elif limit_key == BudgetLimitType.MONTH and rate:
+            current, limit = agent._budget_tracker.monthly_cost, (rate.month or 0)
         else:
             current, limit = agent._budget_tracker.current_run_cost, 0.0
         msg = f"Budget exceeded: {limit_key.value} cost ${current:.4f} >= ${limit:.4f}"
-    if on_exceeded is not None:
-        ctx = BudgetExceededContext(
-            current_cost=current,
-            limit=limit,
-            budget_type=limit_key,
-            message=msg,
-        )
-        on_exceeded(ctx)
+    ctx = BudgetExceededContext(
+        current_cost=current,
+        limit=limit,
+        budget_type=limit_key,
+        message=msg,
+    )
+    _apply_budget_exceeded(on_exceeded, ctx)
 
 
-def record_cost(agent: Any, token_usage: TokenUsage, model_id: str) -> None:
+def record_cost(agent: Agent, token_usage: TokenUsage, model_id: str) -> None:
     """Compute cost, build CostInfo, record on tracker, sync Budget._spent, re-check budget."""
     pricing = getattr(agent._model, "pricing", None) if agent._model is not None else None
     cost_usd = calculate_cost(model_id, token_usage, pricing_override=pricing)
@@ -168,7 +191,7 @@ def record_cost(agent: Any, token_usage: TokenUsage, model_id: str) -> None:
     record_cost_info(agent, cost_info)
 
 
-def make_budget_consume_callback(agent: Any) -> Callable[[float], None]:
+def make_budget_consume_callback(agent: Agent) -> Callable[[float], None]:
     """Return a callback for Budget.consume() so guardrails can record cost."""
 
     def _consume(amount: float) -> None:
@@ -182,7 +205,7 @@ def make_budget_consume_callback(agent: Any) -> Callable[[float], None]:
     return _consume
 
 
-def record_cost_info(agent: Any, cost_info: CostInfo) -> None:
+def record_cost_info(agent: Agent, cost_info: CostInfo) -> None:
     """Record a CostInfo. Syncs spent and checks budget."""
     agent._budget_tracker.record(cost_info)
     if agent._budget is not None:

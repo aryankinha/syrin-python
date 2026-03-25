@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TextIO
+from typing import TYPE_CHECKING, TextIO
 
 if TYPE_CHECKING:
     from syrin.enums import Hook
@@ -113,7 +113,7 @@ class MCP:
         name_set = set(names)
         return [t for t in self._tool_specs if t.name in name_set]
 
-    def _emit_mcp_event(self, hook: Hook, ctx: EventContext | dict[str, Any]) -> None:
+    def _emit_mcp_event(self, hook: Hook, ctx: EventContext | dict[str, object]) -> None:
         """Internal: trigger MCP lifecycle hooks."""
         from syrin.enums import Hook
 
@@ -132,7 +132,7 @@ class MCP:
         host: str = "0.0.0.0",
         stdin: TextIO | None = None,
         stdout: TextIO | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> None:
         """Serve this MCP via HTTP or STDIO. Blocks until stopped.
 
@@ -176,5 +176,5 @@ class MCP:
             print(_syrin_cli_message(use_color=use_color), flush=True)
 
             app = FastAPI(title=f"MCP: {self.name}", description=self.description or "MCP server")
-            app.include_router(build_mcp_router(self), prefix="/mcp")
+            app.include_router(build_mcp_router(self), prefix="/mcp")  # type: ignore[arg-type]
             uvicorn.run(app, host=host, port=port)

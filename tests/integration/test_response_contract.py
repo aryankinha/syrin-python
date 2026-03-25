@@ -27,7 +27,7 @@ def _mock_provider_response(
 
 
 class TestResponseFieldsAlwaysPresent:
-    """Every Response returned by agent.response()/arun() has required fields set."""
+    """Every Response returned by agent.run()/arun() has required fields set."""
 
     def test_normal_response_has_cost_tokens_stop_reason(self) -> None:
         """Normal completion path: cost, tokens, stop_reason, tool_calls populated."""
@@ -40,7 +40,7 @@ class TestResponseFieldsAlwaysPresent:
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
-            r = agent.response("Hello")
+            r = agent.run("Hello")
         assert isinstance(r.cost, (int, float))
         assert r.tokens is not None
         assert r.tokens.input_tokens == 5
@@ -62,7 +62,7 @@ class TestResponseFieldsAlwaysPresent:
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
-            r = agent.response("Hello")
+            r = agent.run("Hello")
         assert r.tool_calls == []
 
     def test_response_stop_reason_enum(self) -> None:
@@ -76,7 +76,7 @@ class TestResponseFieldsAlwaysPresent:
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
-            r = agent.response("Hello")
+            r = agent.run("Hello")
         assert isinstance(r.stop_reason, StopReason)
         assert r.stop_reason in (
             StopReason.END_TURN,
@@ -95,7 +95,7 @@ class TestResponseFieldsAlwaysPresent:
             new_callable=AsyncMock,
             return_value=_mock_provider_response(content="Hi"),
         ):
-            r = agent.response("Hello")
+            r = agent.run("Hello")
         assert r.report is not None
         assert hasattr(r.report, "tokens")
         assert hasattr(r.report, "guardrail")
@@ -111,7 +111,7 @@ class TestResponseGuardrailPath:
         model = Model("anthropic/claude-3-5-sonnet")
         agent = Agent(model=model, system_prompt="Test.")
         agent._run_guardrails = lambda _text, _stage: GuardrailResult(passed=False)  # type: ignore[method-assign]
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.stop_reason == StopReason.GUARDRAIL
         assert r.cost >= 0
         assert r.tokens is not None
@@ -129,7 +129,7 @@ class TestResponseGuardrailPath:
             "complete",
             new_callable=AsyncMock,
         ) as mock_complete:
-            agent.response("Blocked input")
+            agent.run("Blocked input")
         mock_complete.assert_not_called()
 
     def test_output_guardrail_block_returns_guardrail_response(self) -> None:
@@ -154,7 +154,7 @@ class TestResponseGuardrailPath:
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
-            r = agent.response("Hello")
+            r = agent.run("Hello")
         assert r.stop_reason == StopReason.GUARDRAIL
         assert r.cost >= 0
         assert r.tool_calls is not None
@@ -178,7 +178,7 @@ class TestResponseDataLoss:
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
-            r = agent.response("Hello")
+            r = agent.run("Hello")
         assert r.tokens.input_tokens == 100
         assert r.tokens.output_tokens == 200
         assert r.tokens.total_tokens == 300
@@ -194,7 +194,7 @@ class TestResponseDataLoss:
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
-            r = agent.response("Hello")
+            r = agent.run("Hello")
         assert r.content == "Exact content here"
 
 
@@ -250,7 +250,7 @@ class TestResponseDataSyncAsyncParity:
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
-            r_sync = agent.response("Hi")
+            r_sync = agent.run("Hi")
             async_run = agent.arun("Hi")
             r_async = asyncio.run(async_run)
         for r in (r_sync, r_async):
@@ -309,7 +309,7 @@ class TestResponseToolCallsPopulated:
             new_callable=AsyncMock,
             side_effect=mock_complete,
         ):
-            r = agent.response("Run search")
+            r = agent.run("Run search")
         assert r.tool_calls is not None
         assert isinstance(r.tool_calls, list)
         assert len(r.tool_calls) >= 1

@@ -45,7 +45,7 @@ class UserInfo:
 
 
 agent = Agent(model=Model.Almock(), output=Output(UserInfo, validation_retries=3))
-result = agent.response("Extract: John Doe, 35, john@example.com, San Francisco")
+result = agent.run("Extract: John Doe, 35, john@example.com, San Francisco")
 print(f"  is_valid: {result.structured.is_valid}")
 if result.parsed:
     print(f"  parsed.name: {result.parsed.name}")
@@ -74,7 +74,7 @@ class CapitalStructure:
 
 
 agent = Agent(model=Model.Almock(), output=Output(CapitalStructure, validation_retries=3))
-result = agent.response(
+result = agent.run(
     "Extract: authorized capital 5 Cr, Promoter 62.5% (12.5L shares), Public 37.5% (7.5L)"
 )
 print(f"  is_valid: {result.structured.is_valid}")
@@ -99,7 +99,7 @@ class ProductInfo(BaseModel):
 
 
 agent = Agent(model=Model.Almock(), output=Output(ProductInfo, validation_retries=3))
-result = agent.response("Product: Widget, $29.99, in stock, electronics")
+result = agent.run("Product: Widget, $29.99, in stock, electronics")
 print(f"  is_valid: {result.structured.is_valid}")
 if result.structured.parsed:
     print(f"  parsed: {result.structured.parsed}")
@@ -137,7 +137,7 @@ def on_failed(ctx: object) -> None:
 agent.events.on(Hook.OUTPUT_VALIDATION_START, on_start)
 agent.events.on(Hook.OUTPUT_VALIDATION_SUCCESS, on_success)
 agent.events.on(Hook.OUTPUT_VALIDATION_FAILED, on_failed)
-result = agent.response("Analyze: 'This product is amazing!'")
+result = agent.run("Analyze: 'This product is amazing!'")
 print(f"  is_valid: {result.structured.is_valid}")
 
 
@@ -188,7 +188,7 @@ agent = Agent(
     model=Model.Almock(),
     output=Output(ReviewResult, validator=RatingValidator(), validation_retries=3),
 )
-result = agent.response("Review: 'Terrible product.' rating 1, negative")
+result = agent.run("Review: 'Terrible product.' rating 1, negative")
 print(f"  is_valid: {result.structured.is_valid}")
 
 
@@ -221,7 +221,7 @@ agent = Agent(
         context={"allowed_domains": ["company.com"]},
     ),
 )
-result = agent.response("Create user: John, john@company.com, admin")
+result = agent.run("Create user: John, john@company.com, admin")
 print(f"  is_valid: {result.structured.is_valid}")
 
 

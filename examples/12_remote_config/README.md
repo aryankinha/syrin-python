@@ -26,7 +26,7 @@ curl -s http://localhost:8000/config | jq .
 # Apply an override (use agent_id from GET /config)
 curl -s -X PATCH http://localhost:8000/config \
   -H "Content-Type: application/json" \
-  -d '{"agent_id":"my_agent:Agent","version":1,"overrides":[{"path":"budget.run","value":2.0}]}'
+  -d '{"agent_id":"my_agent:Agent","version":1,"overrides":[{"path":"budget.max_cost","value":2.0}]}'
 ```
 
 ## With Syrin Cloud

@@ -16,7 +16,7 @@ def test_e2e_agent_response_full_stack() -> None:
     model = Model.Almock(latency_seconds=0.01, lorem_length=20)
     agent = Agent(model=model, system_prompt="You are a test assistant.")
 
-    response = agent.response("Say hello in one sentence.")
+    response = agent.run("Say hello in one sentence.")
 
     assert response is not None
     assert isinstance(response.content, str)

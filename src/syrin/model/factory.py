@@ -18,8 +18,6 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any
-
 from syrin.model.core import Model
 
 
@@ -29,7 +27,7 @@ def create_model(
     *,
     api_key: str | None = None,
     base_url: str | None = None,
-    **kwargs: Any,
+    **kwargs: object,
 ) -> Model:
     """Create a model from provider and model name. Alternative to Model.OpenAI, etc.
 
@@ -60,23 +58,23 @@ def create_model(
     if provider == "openai":
         from syrin.model.providers import OpenAI
 
-        return OpenAI(model_name, api_key=api_key, base_url=base_url, **kwargs)
+        return OpenAI(model_name, api_key=api_key, base_url=base_url, **kwargs)  # type: ignore[arg-type]
     elif provider == "anthropic":
         from syrin.model.providers import Anthropic
 
-        return Anthropic(model_name, api_key=api_key, base_url=base_url, **kwargs)
+        return Anthropic(model_name, api_key=api_key, base_url=base_url, **kwargs)  # type: ignore[arg-type]
     elif provider == "ollama":
         from syrin.model.providers import Ollama
 
-        return Ollama(model_name, api_key=api_key, base_url=base_url, **kwargs)
+        return Ollama(model_name, api_key=api_key, base_url=base_url, **kwargs)  # type: ignore[arg-type]
     elif provider == "google":
         from syrin.model.providers import Google
 
-        return Google(model_name, api_key=api_key, base_url=base_url, **kwargs)
+        return Google(model_name, api_key=api_key, base_url=base_url, **kwargs)  # type: ignore[arg-type]
     elif provider == "litellm":
         from syrin.model.providers import LiteLLM
 
-        return LiteLLM(model_name, api_key=api_key, base_url=base_url, **kwargs)
+        return LiteLLM(model_name, api_key=api_key, base_url=base_url, **kwargs)  # type: ignore[arg-type]
     else:
         return Model(
             model_id=f"{provider}/{model_name}",
@@ -84,7 +82,7 @@ def create_model(
             api_key=api_key,
             api_base=base_url,
             _internal=True,
-            **kwargs,
+            **kwargs,  # type: ignore[arg-type]
         )
 
 
@@ -95,7 +93,7 @@ def make_model(
     default_model: str,
     base_url: str,
     context_window: int | None = None,
-    **defaults: Any,
+    **defaults: object,
 ) -> type[Model]:
     """Create a reusable Model subclass for an OpenAI-compatible API.
 
@@ -134,17 +132,17 @@ def make_model(
             *,
             api_key: str | None = None,
             base_url: str | None = None,
-            **model_kwargs: Any,
+            **model_kwargs: object,
         ) -> None:
             super().__init__(
                 model_id=f"{provider}/{model_name}",
                 name=model_name,
                 api_base=base_url or self.DEFAULT_BASE_URL,
                 api_key=api_key,
-                context_window=model_kwargs.pop("context_window", context_window),
+                context_window=model_kwargs.pop("context_window", context_window),  # type: ignore[arg-type]
                 _internal=True,
-                **defaults,
-                **model_kwargs,
+                **defaults,  # type: ignore[arg-type]
+                **model_kwargs,  # type: ignore[arg-type]
             )
 
     CustomModel.__name__ = f"{name}Model"

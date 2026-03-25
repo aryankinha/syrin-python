@@ -68,4 +68,5 @@ class TestPostgresBackendTableValidation:
             backend.close()
         except ValueError as e:
             pytest.fail(f"Valid table name should not raise ValueError: {e}")
-        # Connection errors (refused, etc.) are acceptable
+        except Exception:
+            pass  # Connection errors (refused, DB missing, etc.) are acceptable

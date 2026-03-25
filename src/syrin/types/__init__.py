@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Literal, TypedDict
+from typing import Literal, TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -26,10 +26,10 @@ class ImageUrlPart(TypedDict):
     image_url: dict[str, str]
 
 
-ContentPart = TextPart | ImageUrlPart | dict[str, Any]
+ContentPart = TextPart | ImageUrlPart | dict[str, object]
 
 # Multimodal input: plain text or list of content parts (e.g. OpenAI/Anthropic format).
-MultimodalInput = str | list[dict[str, Any]]
+MultimodalInput = str | list[dict[str, object]]
 from syrin.types.validation import (
     OutputValidator,
     ToolOutput,
@@ -40,7 +40,7 @@ from syrin.types.validation import (
 )
 
 
-class ModelConfig(BaseModel):
+class ModelConfig(BaseModel):  # type: ignore[explicit-any]
     """Configuration passed to LLM providers for completion requests.
 
     Typically created via ``model.to_config()``. Contains everything the provider
@@ -71,7 +71,7 @@ class ModelConfig(BaseModel):
     )
 
 
-class TaskSpec(BaseModel):
+class TaskSpec(BaseModel):  # type: ignore[explicit-any]
     """Specification for an agent task. Callable when accessed from an instance: agent.task_name(args)."""
 
     name: str = Field(..., description="Task name")
@@ -79,11 +79,11 @@ class TaskSpec(BaseModel):
         default_factory=dict, description="Parameter schema or metadata"
     )
     return_type: type[object] | None = Field(default=None, description="Declared return type")
-    func: Callable[..., object] | None = Field(default=None, description="Bound callable")
+    func: Callable[..., object] | None = Field(default=None, description="Bound callable")  # type: ignore[explicit-any]
 
     model_config = {"arbitrary_types_allowed": True}
 
-    def __get__(
+    def __get__(  # type: ignore[explicit-any]
         self, instance: object, owner: type[object] | None = None
     ) -> TaskSpec | Callable[..., object]:
         """When accessed from an agent instance, return a callable so agent.task_name(args) works."""
@@ -99,7 +99,7 @@ class TaskSpec(BaseModel):
         return bound
 
 
-class ToolCall(BaseModel):
+class ToolCall(BaseModel):  # type: ignore[explicit-any]
     """A single tool/function call requested by the model. In ProviderResponse.tool_calls.
 
     Execute the named tool with the arguments, then add a tool-role message with the result
@@ -114,7 +114,7 @@ class ToolCall(BaseModel):
     )
 
 
-class Message(BaseModel):
+class Message(BaseModel):  # type: ignore[explicit-any]
     """A single message in a conversation. Used with ``model.complete(messages)``.
 
     Build a list of Message objects to send to the model.
@@ -131,7 +131,7 @@ class Message(BaseModel):
         ...,
         description="Message role: system, user, assistant, or tool",
     )
-    content: str | list[dict[str, Any]] = Field(
+    content: str | list[dict[str, object]] = Field(
         default="",
         description='Message content: text string or list of content parts (e.g. [{"type":"text","text":"..."}, {"type":"image_url","image_url":{...}}])',
     )
@@ -149,7 +149,7 @@ class Message(BaseModel):
     )
 
 
-class TokenUsage(BaseModel):
+class TokenUsage(BaseModel):  # type: ignore[explicit-any]
     """Token counts for a completion. Used for cost estimation and budgeting."""
 
     input_tokens: int = Field(default=0, description="Prompt/input tokens consumed")
@@ -157,7 +157,7 @@ class TokenUsage(BaseModel):
     total_tokens: int = Field(default=0, description="Total tokens (input + output)")
 
 
-class CostInfo(BaseModel):
+class CostInfo(BaseModel):  # type: ignore[explicit-any]
     """Cost info for a completion. From model.get_pricing(token_usage)."""
 
     token_usage: TokenUsage = Field(
@@ -174,7 +174,7 @@ class CostInfo(BaseModel):
     )
 
 
-class ProviderResponse(BaseModel):
+class ProviderResponse(BaseModel):  # type: ignore[explicit-any]
     """Response from ``model.complete()`` or ``model.acomplete()``.
 
     Main fields: ``content`` (text), ``token_usage`` (for cost/budget), ``tool_calls``
@@ -217,7 +217,7 @@ class ProviderResponse(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
 
-class AgentConfig(BaseModel):
+class AgentConfig(BaseModel):  # type: ignore[explicit-any]
     """Agent configuration. Created from Agent.to_config() or when building agents."""
 
     model: ModelConfig = Field(..., description="Model used for completions")

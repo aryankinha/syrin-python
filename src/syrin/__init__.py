@@ -8,9 +8,9 @@ Quick start::
     agent = Agent(
         model=Model.OpenAI("gpt-4o-mini", api_key="..."),
         system_prompt="You are a helpful assistant.",
-        budget=Budget(run=0.50),
+        budget=Budget(max_cost=0.50),
     )
-    r = agent.response("Hello!")
+    r = agent.run("Hello!")
     print(r.content, r.cost)
 
 Key exports: Agent, Model, Budget, Memory, Context, CheckpointConfig, Guardrails.
@@ -19,7 +19,7 @@ See docs/ and examples/ for full guides.
 
 import atexit
 import sys
-from typing import Any, cast
+from typing import cast
 
 _trace_enabled = False
 
@@ -32,7 +32,7 @@ def _trace_summary_on_exit() -> None:
         from syrin.observability.metrics import get_metrics
 
         metrics = get_metrics()
-        summary = cast(dict[str, object], metrics.get_summary())
+        summary = metrics.get_summary()
         agent_raw = summary.get("agent")
         agent_data: dict[str, object] = (
             cast(dict[str, object], agent_raw) if isinstance(agent_raw, dict) else {}
@@ -117,6 +117,7 @@ from syrin.audit import AuditLog
 # =============================================================================
 from syrin.budget import (
     Budget,
+    BudgetExceededContext,
     BudgetState,
     BudgetThreshold,
     RateLimit,
@@ -157,6 +158,7 @@ from syrin.enums import (
     CheckpointStrategy,
     ContextMode,
     DecayStrategy,
+    ExceedPolicy,
     GuardrailStage,
     Hook,
     KnowledgeBackend,
@@ -334,6 +336,7 @@ from syrin.prompt import (
     system_prompt,
     validated,
 )
+from syrin.remote._protocol import RemoteConfigurable
 
 # =============================================================================
 # Response
@@ -350,6 +353,7 @@ from syrin.run_context import RunContext
 from syrin.serve import ServeConfig
 from syrin.task import task
 from syrin.template import SlotConfig, Template
+from syrin.threshold import ContextThreshold, RateLimitThreshold, ThresholdContext
 from syrin.tool import ToolSpec, tool
 
 
@@ -372,8 +376,8 @@ def run(
     system_prompt: str | None = None,
     tools: list[ToolSpec] | None = None,
     budget: Budget | None = None,
-    template_variables: dict[str, Any] | None = None,
-    **kwargs: Any,  # pyright: ignore[reportAny]
+    template_variables: dict[str, object] | None = None,
+    **kwargs: object,  # pyright: ignore[reportAny]
 ) -> Response[str]:
     """Run a one-shot completion with an agent.
 
@@ -433,9 +437,9 @@ def run(
         system_prompt=system_prompt or "",
         tools=tools or [],
         budget=budget,
-        **kwargs,  # pyright: ignore[reportAny]
+        **kwargs,  # type: ignore[arg-type]  # pyright: ignore[reportAny]
     )
-    return agent.response(input, template_variables=template_variables)
+    return agent.run(input, template_variables=template_variables)
 
 
 __all__ = [
@@ -487,6 +491,7 @@ __all__ = [
     # Budget
     # =============================================================================
     "Budget",
+    "BudgetExceededContext",
     "BudgetState",
     "BudgetThreshold",
     "RateLimit",
@@ -498,6 +503,10 @@ __all__ = [
     "BudgetStore",
     "InMemoryBudgetStore",
     "FileBudgetStore",
+    "ContextThreshold",
+    "RateLimitThreshold",
+    "ThresholdContext",
+    "RemoteConfigurable",
     # =============================================================================
     # Memory
     # =============================================================================
@@ -649,6 +658,7 @@ __all__ = [
     "MemoryScope",
     "KnowledgeBackend",
     "DecayStrategy",
+    "ExceedPolicy",
     "GuardrailStage",
     "MessageRole",
     "AlmockPricing",

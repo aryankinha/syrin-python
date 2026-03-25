@@ -41,7 +41,7 @@ class TestRateLimitExceededRaises:
             new_callable=AsyncMock,
             return_value=_mock_provider_response(content="First"),
         ):
-            r1 = agent.response("Hi")
+            r1 = agent.run("Hi")
         assert r1.content == "First"
 
         with (
@@ -53,7 +53,7 @@ class TestRateLimitExceededRaises:
             ),
             pytest.raises(RuntimeError, match="Rate limit exceeded"),
         ):
-            agent.response("Hi again")
+            agent.run("Hi again")
 
 
 class TestRateLimitThresholdActionCallback:
@@ -87,7 +87,7 @@ class TestRateLimitThresholdActionCallback:
             new_callable=AsyncMock,
             return_value=_mock_provider_response(),
         ):
-            agent.response("First")
+            agent.run("First")
         with (
             patch.object(
                 agent._provider,
@@ -97,7 +97,7 @@ class TestRateLimitThresholdActionCallback:
             ),
             pytest.raises(RuntimeError, match="Rate limit threshold reached"),
         ):
-            agent.response("Second")
+            agent.run("Second")
 
     def test_get_triggered_action_returns_none(self) -> None:
         """get_triggered_action() returns None; threshold behavior is via action callback only."""

@@ -5,7 +5,10 @@ Agent delegates to run_guardrails. Public API stays on Agent.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from syrin.agent import Agent
 
 from syrin.enums import GuardrailStage, Hook
 from syrin.events import EventContext
@@ -13,7 +16,7 @@ from syrin.guardrails import GuardrailChain, GuardrailResult
 from syrin.observability import SemanticAttributes, SpanKind, SpanStatus
 
 
-def run_guardrails(agent: Any, text: str, stage: GuardrailStage) -> GuardrailResult:
+def run_guardrails(agent: Agent, text: str, stage: GuardrailStage) -> GuardrailResult:
     """Run guardrails on text. Excludes remotely disabled guardrails."""
     disabled = getattr(agent, "_guardrails_disabled", set()) or set()
     guardrail_list = getattr(agent._guardrails, "_guardrails", [])

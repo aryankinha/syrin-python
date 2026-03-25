@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from syrin.embedding._enum import EmbeddingBackend
 from syrin.embedding._ollama import OllamaEmbedding
 from syrin.embedding._openai import OpenAIEmbedding
@@ -67,7 +65,7 @@ class Embedding:
     def LiteLLM(
         model: str,
         api_key: str | None = None,
-    ) -> Any:
+    ) -> object:
         """Create LiteLLM embedding provider.
 
         Args:
@@ -85,7 +83,7 @@ class Embedding:
     def from_backend(
         backend: EmbeddingBackend,
         model: str | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> EmbeddingProvider:
         """Create embedding provider from backend enum.
 
@@ -100,13 +98,13 @@ class Embedding:
         if backend == EmbeddingBackend.OPENAI:
             provider: EmbeddingProvider = OpenAIEmbedding(
                 model=model or "text-embedding-3-small",
-                **kwargs,
+                **kwargs,  # type: ignore[arg-type]
             )
             return provider
         elif backend == EmbeddingBackend.OLLAMA:
             provider = OllamaEmbedding(
                 model=model or "nomic-embed-text",
-                **kwargs,
+                **kwargs,  # type: ignore[arg-type]
             )
             return provider
         elif backend == EmbeddingBackend.LITELLM:
@@ -114,7 +112,7 @@ class Embedding:
                 raise ValueError("model required for LiteLLM backend")
             from syrin.embedding._litellm import LiteLLMEmbedding
 
-            provider = LiteLLMEmbedding(model=model, **kwargs)
+            provider = LiteLLMEmbedding(model=model, **kwargs)  # type: ignore[arg-type]
             return provider
         else:
             raise ValueError(f"Unknown embedding backend: {backend}")

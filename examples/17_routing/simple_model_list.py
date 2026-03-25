@@ -33,7 +33,7 @@ def main() -> None:
         debug=use_trace,
     )
 
-    r = agent.response("Hello")
+    r = agent.run("Hello")
     print(f"Routed to: {r.routing_reason.selected_model if r.routing_reason else 'N/A'}")
     print(f"Content: {r.content[:50]}...")
 

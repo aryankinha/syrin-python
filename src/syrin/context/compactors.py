@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
 from syrin.context.counter import TokenCounter, get_counter
 from syrin.context.prompts import (
@@ -26,7 +26,7 @@ class ContextCompactorProtocol(Protocol):
 
     def compact(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[dict[str, object]],
         budget: int,
     ) -> CompactionResult:
         """Return compacted messages and metadata. budget is available token count (int)."""
@@ -44,7 +44,7 @@ class CompactionResult:
         tokens_after: Token count after compaction.
     """
 
-    messages: list[dict[str, Any]]
+    messages: list[dict[str, object]]
     method: str  # CompactionMethod value
     tokens_before: int
     tokens_after: int
@@ -55,7 +55,7 @@ class Compactor:
 
     def compact(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[dict[str, object]],
         budget: int,
         counter: TokenCounter | None = None,
     ) -> CompactionResult:
@@ -72,7 +72,7 @@ class MiddleOutTruncator(Compactor):
 
     def compact(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[dict[str, object]],
         budget: int,
         counter: TokenCounter | None = None,
     ) -> CompactionResult:
@@ -133,7 +133,7 @@ class MiddleOutTruncator(Compactor):
         )
 
 
-def _format_messages_for_summary(messages: list[dict[str, Any]]) -> str:
+def _format_messages_for_summary(messages: list[dict[str, object]]) -> str:
     """Format message list as a single string for the summary prompt."""
     parts = []
     for m in messages:
@@ -174,14 +174,14 @@ class Summarizer:
 
     def summarize(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[dict[str, object]],
         counter: TokenCounter | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, object]]:
         """Summarize older messages. Uses LLM when model is set; else placeholder."""
         counter = counter or get_counter()
 
-        system_msg: dict[str, Any] | None = None
-        non_system: list[dict[str, Any]] = []
+        system_msg: dict[str, object] | None = None
+        non_system: list[dict[str, object]] = []
 
         for msg in messages:
             if msg.get("role") == "system":
@@ -234,9 +234,9 @@ class Summarizer:
 
         result = [summary_msg] + recent
         if system_msg:
-            result = [system_msg] + result
+            result = [system_msg] + result  # type: ignore[assignment, operator]
 
-        return result
+        return result  # type: ignore[return-value]
 
 
 class ContextCompactor:
@@ -275,7 +275,7 @@ class ContextCompactor:
 
     def compact(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[dict[str, object]],
         budget: int,
     ) -> CompactionResult:
         """Compact messages to fit within budget."""

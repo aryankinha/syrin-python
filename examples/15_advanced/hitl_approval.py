@@ -56,7 +56,7 @@ if __name__ == "__main__":
     agent.events.on(Hook.HITL_APPROVED, lambda ctx: print(f"  [HITL APPROVED] {ctx.get('name')}"))
 
     print("--- Human-in-the-Loop Approval Example ---")
-    r = agent.response("Delete record abc123")
+    r = agent.run("Delete record abc123")
     print(f"Result: {r.content[:120]}")
     print(f"Cost: ${r.cost:.6f}")
     print("Done.")

@@ -39,7 +39,7 @@ class ToolAgent(Agent):
 
 
 agent = ToolAgent()
-response = agent.response("What is 15 * 7?")
+response = agent.run("What is 15 * 7?")
 print(f"Answer: {response.content}")
 print(f"Cost:   ${response.cost:.6f}")
 

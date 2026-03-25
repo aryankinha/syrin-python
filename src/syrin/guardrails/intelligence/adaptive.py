@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from syrin.enums import DecisionAction
 from syrin.guardrails.base import Guardrail
@@ -96,14 +95,14 @@ class AdaptiveThresholdGuardrail(Guardrail):
         }
 
         if passed:
-            return GuardrailDecision(passed=True, rule="adaptive_check_passed", metadata=metadata)
+            return GuardrailDecision(passed=True, rule="adaptive_check_passed", metadata=metadata)  # type: ignore[arg-type]
         else:
             return GuardrailDecision(
                 passed=False,
                 rule="below_threshold",
                 reason=f"Confidence {confidence:.2f} below threshold {self._current_threshold:.2f}",
                 action=DecisionAction.BLOCK,
-                metadata=metadata,
+                metadata=metadata,  # type: ignore[arg-type]
             )
 
     def report_result(
@@ -175,7 +174,7 @@ class AdaptiveThresholdGuardrail(Guardrail):
         """
         return self._current_threshold
 
-    def get_stats(self) -> dict[str, Any]:
+    def get_stats(self) -> dict[str, object]:
         """Get adaptation statistics.
 
         Returns:

@@ -22,7 +22,7 @@ def main() -> None:
         system_prompt="You are helpful.",
         config=AgentConfig(audit=audit),
     )
-    agent.response("What is 2+2?")
+    agent.run("What is 2+2?")
     print("Agent audit written to ./audit_agent.jsonl")
 
     # Pipeline with audit

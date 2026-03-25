@@ -21,7 +21,7 @@ class BudgetExceededError(SyrinError):
         budget_type: Which limit was exceeded (str, one of BudgetLimitType values).
     """
 
-    def __init__(
+    def __init__(  # type: ignore[explicit-any]
         self,
         message: str,
         current_cost: float = 0.0,
@@ -212,8 +212,8 @@ class NoMatchingProfileError(SyrinError):
         self,
         message: str,
         *,
-        required_task_type: Any = None,
-        required_modalities: Any = None,
+        required_task_type: object = None,
+        required_modalities: object = None,
         available_profiles: list[str] | None = None,
     ) -> None:
         super().__init__(message)
@@ -230,7 +230,7 @@ class CircuitBreakerOpenError(SyrinError):
         message: str,
         *,
         agent_name: str = "",
-        circuit_state: Any = None,
+        circuit_state: object = None,
         recovery_at: float = 0.0,
         fallback_model: str | None = None,
     ) -> None:

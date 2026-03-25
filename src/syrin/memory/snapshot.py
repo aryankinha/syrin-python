@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass
@@ -19,7 +18,7 @@ class MemorySnapshotEntry:
     created_at: str | None = None
     metadata: dict[str, object] = field(default_factory=dict)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "id": self.id,
             "content": self.content,
@@ -39,7 +38,7 @@ class MemorySnapshot:
     memories: list[MemorySnapshotEntry] = field(default_factory=list)
     metadata: dict[str, object] = field(default_factory=dict)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "version": self.version,
             "memories": [m.to_dict() for m in self.memories],
@@ -50,9 +49,9 @@ class MemorySnapshot:
         return json.dumps(self.to_dict(), default=str)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> MemorySnapshot:
+    def from_dict(cls, data: dict[str, object]) -> MemorySnapshot:
         memories = []
-        for m in data.get("memories", []):
+        for m in data.get("memories", []):  # type: ignore[attr-defined]
             memories.append(
                 MemorySnapshotEntry(
                     id=m.get("id", ""),
@@ -65,11 +64,11 @@ class MemorySnapshot:
                 )
             )
         try:
-            ver = int(data.get("version", 1))
+            ver = int(data.get("version", 1))  # type: ignore[call-overload]
         except (TypeError, ValueError):
             ver = 1
         return cls(
             version=ver,
             memories=memories,
-            metadata=data.get("metadata", {}),
+            metadata=data.get("metadata", {}),  # type: ignore[arg-type]
         )

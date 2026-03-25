@@ -49,7 +49,7 @@ class ValidationPipeline:
         max_retries: int = 3,
         backoff_factor: float = 1.0,
         validator: OutputValidator | None = None,
-        context: dict[str, Any] | None = None,
+        context: dict[str, object] | None = None,
         emit_fn: Callable[[Hook, EventContext], None] | None = None,
     ):
         """Initialize validation pipeline.
@@ -66,14 +66,14 @@ class ValidationPipeline:
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
         self.validator = validator
-        self.context: dict[str, Any] = context or {}
+        self.context: dict[str, object] = context or {}
         self.attempts: list[ValidationAttempt] = []
         self._emit_fn = emit_fn
 
-    def validate(
+    def validate(  # type: ignore[explicit-any]
         self,
         raw_output: str,
-        llm_messages: list[dict[str, Any]] | None = None,
+        llm_messages: list[dict[str, object]] | None = None,
     ) -> tuple[Any, list[ValidationAttempt], Exception | None]:
         """Validate raw output with retries.
 
@@ -277,7 +277,9 @@ class ValidationPipeline:
 
         return None, self.attempts, final_error
 
-    def _parse_json(self, raw: str) -> tuple[dict[str, Any] | list[Any] | None, Exception | None]:
+    def _parse_json(
+        self, raw: str
+    ) -> tuple[dict[str, object] | list[object] | None, Exception | None]:
         """Extract and parse JSON from raw text.
 
         Handles:
@@ -347,7 +349,7 @@ class ValidationPipeline:
         except Exception as e:
             return None, e
 
-    def _validate_pydantic(self, data: Any) -> tuple[Exception | None, Any]:
+    def _validate_pydantic(self, data: object) -> tuple[Exception | None, Any]:  # type: ignore[explicit-any]
         """Validate against Pydantic model.
 
         Args:
@@ -370,7 +372,7 @@ class ValidationPipeline:
                 return None, validated
             elif isinstance(data, list):
                 # For list outputs, validate each item
-                validated_items: list[Any] = []
+                validated_items: list[object] = []
                 for item in data:
                     if isinstance(item, dict):
                         validated_items.append(
@@ -471,11 +473,11 @@ def _schema_str_for_type(output_type: type) -> str:
     return str(output_type)
 
 
-def validate_output(
+def validate_output(  # type: ignore[explicit-any]
     output_type: type,
     raw_output: str,
     max_retries: int = 3,
-    context: dict[str, Any] | None = None,
+    context: dict[str, object] | None = None,
 ) -> tuple[Any, list[ValidationAttempt], Exception | None]:
     """Convenience function for simple validation.
 

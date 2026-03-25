@@ -6,7 +6,6 @@ import asyncio
 import base64
 import os
 import time
-from typing import Any
 
 from syrin.cost import calculate_image_cost, calculate_video_cost
 from syrin.generation._result import GenerationResult
@@ -21,13 +20,13 @@ def _get_api_key(api_key: str | None = None) -> str:
     return key
 
 
-def _get_client(api_key: str | None = None) -> Any:
+def _get_client(api_key: str | None = None) -> object:
     from google import genai
 
     return genai.Client(api_key=_get_api_key(api_key))
 
 
-def _image_to_data_url(image: Any, mime: str = "image/png") -> tuple[str, bytes]:
+def _image_to_data_url(image: object, mime: str = "image/png") -> tuple[str, bytes]:
     """Extract bytes from a generated image and return (data_url, bytes)."""
     raw: bytes
     if hasattr(image, "image_bytes") and image.image_bytes:
@@ -57,7 +56,7 @@ def _generate_images_impl(
     number_of_images: int = 1,
     aspect_ratio: str = "1:1",
     output_mime_type: str = "image/png",
-    **kwargs: Any,
+    **kwargs: object,
 ) -> GenerationResult | list[GenerationResult]:
     from google.genai import types
 
@@ -66,14 +65,14 @@ def _generate_images_impl(
         number_of_images=number_of_images,
         aspect_ratio=aspect_ratio,
         output_mime_type=output_mime_type,
-        **{
+        **{  # type: ignore[arg-type]
             k: v
             for k, v in kwargs.items()
             if k in ("negative_prompt", "person_generation", "safety_filter_level")
         },
     )
     try:
-        response = client.models.generate_images(
+        response = client.models.generate_images(  # type: ignore[attr-defined]
             model=model,
             prompt=prompt,
             config=config,
@@ -117,17 +116,17 @@ def _generate_video_impl(
     aspect_ratio: str = "16:9",
     poll_interval_seconds: float = 10.0,
     poll_timeout_seconds: float = 300.0,
-    **kwargs: Any,
+    **kwargs: object,
 ) -> GenerationResult:
     from google.genai import types
 
     client = _get_client(api_key)
     config = types.GenerateVideosConfig(
         aspect_ratio=aspect_ratio,
-        **{k: v for k, v in kwargs.items() if k in ("number_of_videos",)},
+        **{k: v for k, v in kwargs.items() if k in ("number_of_videos",)},  # type: ignore[arg-type]
     )
     try:
-        operation = client.models.generate_videos(
+        operation = client.models.generate_videos(  # type: ignore[attr-defined]
             model=model,
             prompt=prompt,
             config=config,
@@ -140,7 +139,7 @@ def _generate_video_impl(
         if getattr(operation, "done", False):
             break
         try:
-            operation = client.operations.get(operation)
+            operation = client.operations.get(operation)  # type: ignore[attr-defined]
         except Exception as e:
             return GenerationResult(success=False, error=str(e))
         time.sleep(poll_interval_seconds)
@@ -175,7 +174,7 @@ def _generate_video_impl(
             )
         elif hasattr(v, "uri") and getattr(v, "uri", None):
             try:
-                raw = client.files.download(file=v)
+                raw = client.files.download(file=v)  # type: ignore[attr-defined]
             except Exception as e:
                 return GenerationResult(
                     success=False, error=f"Failed to download remote video: {e}"
@@ -210,7 +209,7 @@ async def _generate_video_impl_async(
     aspect_ratio: str = "16:9",
     poll_interval_seconds: float = 10.0,
     poll_timeout_seconds: float = 300.0,
-    **kwargs: Any,
+    **kwargs: object,
 ) -> GenerationResult:
     """Async video generation. Uses asyncio.sleep — does not block the event loop."""
     from google.genai import types
@@ -218,10 +217,10 @@ async def _generate_video_impl_async(
     client = _get_client(api_key)
     config = types.GenerateVideosConfig(
         aspect_ratio=aspect_ratio,
-        **{k: v for k, v in kwargs.items() if k in ("number_of_videos",)},
+        **{k: v for k, v in kwargs.items() if k in ("number_of_videos",)},  # type: ignore[arg-type]
     )
     try:
-        operation = client.models.generate_videos(
+        operation = client.models.generate_videos(  # type: ignore[attr-defined]
             model=model,
             prompt=prompt,
             config=config,
@@ -234,7 +233,7 @@ async def _generate_video_impl_async(
         if getattr(operation, "done", False):
             break
         try:
-            operation = client.operations.get(operation)
+            operation = client.operations.get(operation)  # type: ignore[attr-defined]
         except Exception as e:
             return GenerationResult(success=False, error=str(e))
         await asyncio.sleep(poll_interval_seconds)
@@ -269,7 +268,7 @@ async def _generate_video_impl_async(
             )
         elif hasattr(v, "uri") and getattr(v, "uri", None):
             try:
-                raw = client.files.download(file=v)
+                raw = client.files.download(file=v)  # type: ignore[attr-defined]
             except Exception as e:
                 return GenerationResult(
                     success=False, error=f"Failed to download remote video: {e}"
@@ -317,7 +316,7 @@ class GeminiImageProvider:
         number_of_images: int = 1,
         output_mime_type: str = "image/png",
         model: str | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> list[GenerationResult]:
         """Generate image(s). Returns list of GenerationResult (one per image)."""
         out = _generate_images_impl(
@@ -355,7 +354,7 @@ class GeminiVideoProvider:
         model: str | None = None,
         poll_interval_seconds: float = 10.0,
         poll_timeout_seconds: float = 300.0,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> GenerationResult:
         """Generate a short video (sync). Polls with time.sleep. Use generate_async for async."""
         return _generate_video_impl(
@@ -376,7 +375,7 @@ class GeminiVideoProvider:
         model: str | None = None,
         poll_interval_seconds: float = 10.0,
         poll_timeout_seconds: float = 300.0,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> GenerationResult:
         """Generate a short video (async). Uses asyncio.sleep — does not block event loop."""
         return await _generate_video_impl_async(

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import httpx
 
 # Default dimensions per model
@@ -69,7 +67,7 @@ class OllamaEmbedding:
     async def embed(
         self,
         texts: list[str],
-        budget_tracker: Any | None = None,
+        budget_tracker: object | None = None,
     ) -> list[list[float]]:
         """Embed texts into vectors.
 

@@ -9,28 +9,30 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class FieldSchema(BaseModel):
+class FieldSchema(BaseModel):  # type: ignore[explicit-any]
     """One configurable field: name, dotted path, type, default, constraints, enum values, nested children.
 
     Used by schema extraction and by the dashboard to render and validate overrides.
     Fields that are callables or internal are marked remote_excluded (read-only in dashboard).
 
     Attributes:
-        name: Field name (e.g. "run", "top_k").
-        path: Dotted path for overrides (e.g. "budget.run", "memory.decay.rate").
+        name: Field name (e.g. "max_cost", "top_k").
+        path: Dotted path for overrides (e.g. "budget.max_cost", "memory.decay.rate").
         type: Type name as string for UI/validation: "float", "str", "int", "bool", "object", etc.
         default: Default value; None if not set. JSON-serializable.
         description: Optional human-readable description.
         constraints: Validation constraints: ge, le, gt, lt, pattern, min_length, max_length, etc.
         enum_values: For StrEnum fields, list of allowed string values.
-        children: Nested fields when this field is an object (e.g. budget.per → hour, day).
+        children: Nested fields when this field is an object (e.g. budget.rate_limits → hour, day).
         remote_excluded: If True, field is not writable via remote overrides (e.g. callables).
     """
 
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(..., min_length=1, description="Field name")
-    path: str = Field(..., min_length=1, description="Dotted path for overrides (e.g. budget.run)")
+    path: str = Field(
+        ..., min_length=1, description="Dotted path for overrides (e.g. budget.max_cost)"
+    )
     type: str = Field(..., description="Type name: float, str, int, bool, object, etc.")
     default: object | None = Field(default=None, description="Default value; JSON-serializable")
     description: str | None = Field(default=None, description="Human-readable description")
@@ -58,7 +60,7 @@ class FieldSchema(BaseModel):
     overridden: bool = Field(default=False, description="True if this path has a remote override")
 
 
-class ConfigSchema(BaseModel):
+class ConfigSchema(BaseModel):  # type: ignore[explicit-any]
     """All fields for one config object (e.g. Budget, Memory).
 
     Attributes:
@@ -77,7 +79,7 @@ class ConfigSchema(BaseModel):
     )
 
 
-class AgentSchema(BaseModel):
+class AgentSchema(BaseModel):  # type: ignore[explicit-any]
     """Full schema for a registered agent: sections, baseline (code) values, overrides, and current values.
 
     Sent to the backend on registration. GET /config returns this with baseline_values (frozen at
@@ -117,7 +119,7 @@ class AgentSchema(BaseModel):
     )
 
 
-class ConfigOverride(BaseModel):
+class ConfigOverride(BaseModel):  # type: ignore[explicit-any]
     """Single override: path and value.
 
     Applied by ConfigResolver to the live agent. Value is validated against FieldSchema.
@@ -126,14 +128,14 @@ class ConfigOverride(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    path: str = Field(..., min_length=1, description="Dotted path (e.g. budget.run)")
+    path: str = Field(..., min_length=1, description="Dotted path (e.g. budget.max_cost)")
     value: object | None = Field(
         ...,
         description="New value; type must match schema. Use null to revert path to baseline.",
     )
 
 
-class OverridePayload(BaseModel):
+class OverridePayload(BaseModel):  # type: ignore[explicit-any]
     """List of overrides from backend, with monotonic version.
 
     Used by SSE, polling, and PATCH responses. version is used for ordering and since_version in polling.
@@ -149,7 +151,7 @@ class OverridePayload(BaseModel):
     )
 
 
-class SyncRequest(BaseModel):
+class SyncRequest(BaseModel):  # type: ignore[explicit-any]
     """Registration handshake request: agent sends schema and library version to backend."""
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
@@ -164,7 +166,7 @@ class SyncRequest(BaseModel):
     library_version: str = Field(..., description="Syrin library version (e.g. 0.6.0)")
 
 
-class SyncResponse(BaseModel):
+class SyncResponse(BaseModel):  # type: ignore[explicit-any]
     """Registration handshake response: ok, optional initial overrides, optional error.
 
     When ok is True, initial_overrides may contain overrides to apply immediately.

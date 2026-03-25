@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 from syrin.budget import BudgetState
 from syrin.events import EventContext, Events
@@ -48,13 +48,13 @@ def to_serveable(obj: Agent | Pipeline | DynamicPipeline) -> Agent:
     raise TypeError(f"Expected Agent, Pipeline, or DynamicPipeline, got {type(obj).__name__}")
 
 
-def _budget_state_from_budget(budget: Any) -> BudgetState | None:
+def _budget_state_from_budget(budget: object) -> BudgetState | None:
     """Build BudgetState from a Budget object."""
-    if budget is None or getattr(budget, "run", None) is None:
+    if budget is None or getattr(budget, "max_cost", None) is None:
         return None
-    effective = budget.run - getattr(budget, "reserve", 0)
+    effective = budget.max_cost - getattr(budget, "reserve", 0)  # type: ignore[attr-defined]
     if effective <= 0:
-        effective = budget.run
+        effective = budget.max_cost  # type: ignore[attr-defined]
     spent = getattr(budget, "_spent", 0.0)
     remaining = max(0.0, effective - spent)
     percent = (spent / effective * 100.0) if effective > 0 else 0.0
@@ -74,14 +74,14 @@ class _PipelineAdapter:
         self._pipeline = pipeline
         self.name = "pipeline"
         self.description = "Sequential agent pipeline"
-        self.tools: list[Any] = []
+        self.tools: list[object] = []
         self._events = Events(lambda _h, _c: None)
         pipeline.events.on_all(lambda h, c: self._forward_event(h, c))
 
-    def _forward_event(self, hook: Any, ctx: EventContext) -> None:
-        self._events._trigger_before(hook, ctx)
-        self._events._trigger(hook, ctx)
-        self._events._trigger_after(hook, ctx)
+    def _forward_event(self, hook: object, ctx: EventContext) -> None:
+        self._events._trigger_before(hook, ctx)  # type: ignore[arg-type]
+        self._events._trigger(hook, ctx)  # type: ignore[arg-type]
+        self._events._trigger_after(hook, ctx)  # type: ignore[arg-type]
 
     @property
     def events(self) -> Events:
@@ -94,8 +94,8 @@ class _PipelineAdapter:
     async def arun(
         self,
         user_input: str,
-        context: Any = None,
-        template_variables: dict[str, Any] | None = None,
+        context: object = None,
+        template_variables: dict[str, object] | None = None,
     ) -> Response[str]:
         del context, template_variables
         agents = getattr(self._pipeline, "_agents", None)
@@ -119,16 +119,16 @@ class _PipelineAdapter:
         )
         return result
 
-    def response(self, user_input: str) -> Response[str]:
+    def run(self, user_input: str) -> Response[str]:
         """Sync run for CLI/STDIO. Blocks until complete."""
         return asyncio.run(self.arun(user_input))
 
     async def astream(
         self,
         user_input: str,
-        context: Any = None,
-        template_variables: dict[str, Any] | None = None,
-    ) -> Any:
+        context: object = None,
+        template_variables: dict[str, object] | None = None,
+    ) -> object:
         result = await self.arun(user_input, context, template_variables)
         yield StreamChunk(
             index=0,
@@ -150,14 +150,14 @@ class _DynamicPipelineAdapter:
         self.name = "dynamic-pipeline"
         self.description = "Dynamic pipeline — LLM plans which agents to spawn"
         self.internal_agents = list(getattr(pipeline, "_agent_names", {}).keys())
-        self.tools: list[Any] = []
+        self.tools: list[object] = []
         self._events = Events(lambda _h, _c: None)
         pipeline.events.on_all(lambda h, c: self._forward_event(h, c))
 
-    def _forward_event(self, hook: Any, ctx: EventContext) -> None:
-        self._events._trigger_before(hook, ctx)
-        self._events._trigger(hook, ctx)
-        self._events._trigger_after(hook, ctx)
+    def _forward_event(self, hook: object, ctx: EventContext) -> None:
+        self._events._trigger_before(hook, ctx)  # type: ignore[arg-type]
+        self._events._trigger(hook, ctx)  # type: ignore[arg-type]
+        self._events._trigger_after(hook, ctx)  # type: ignore[arg-type]
 
     @property
     def events(self) -> Events:
@@ -170,30 +170,30 @@ class _DynamicPipelineAdapter:
     async def arun(
         self,
         user_input: str,
-        context: Any = None,
-        template_variables: dict[str, Any] | None = None,
+        context: object = None,
+        template_variables: dict[str, object] | None = None,
     ) -> Response[str]:
         del context, template_variables
         return await asyncio.to_thread(self._pipeline.run, user_input, "parallel")
 
-    def response(self, user_input: str) -> Response[str]:
+    def run(self, user_input: str) -> Response[str]:
         """Sync run for CLI/STDIO. Blocks until complete."""
         return asyncio.run(self.arun(user_input))
 
     async def astream(
         self,
         user_input: str,
-        context: Any = None,
-        template_variables: dict[str, Any] | None = None,
-    ) -> Any:
+        context: object = None,
+        template_variables: dict[str, object] | None = None,
+    ) -> object:
         del context, template_variables
 
         # Queue for hooks emitted during pipeline run (enables real-time streaming)
-        hook_queue: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue()
+        hook_queue: asyncio.Queue[tuple[str, dict[str, object]]] = asyncio.Queue()
 
-        def on_hook(h: Any, c: Any) -> None:
+        def on_hook(h: object, c: object) -> None:
             h_val = getattr(h, "value", str(h))
-            c_dict: dict[str, Any] = dict(c) if hasattr(c, "items") else {}
+            c_dict: dict[str, object] = dict(c) if hasattr(c, "items") else {}  # type: ignore[call-overload]
             with contextlib.suppress(asyncio.QueueFull):
                 hook_queue.put_nowait((h_val, c_dict))
 

@@ -4,7 +4,7 @@ Usage:
     >>> from syrin import Agent
     >>> agent = Agent.basic(Model.OpenAI("gpt-4o-mini"), system_prompt="You are helpful.")
     >>> agent = Agent.with_memory(Model.OpenAI("gpt-4o-mini"))
-    >>> agent = Agent.with_budget(Model.OpenAI("gpt-4o-mini"), budget=Budget(run=0.25))
+    >>> agent = Agent.with_budget(Model.OpenAI("gpt-4o-mini"), budget=Budget(max_cost=0.25))
     >>> agent = Agent.presets.research()
     >>> agent = Agent.presets.assistant()
     >>> agent = Agent.presets.code_helper()
@@ -37,7 +37,7 @@ def basic(model: Model, *, system_prompt: str = "You are helpful.") -> Agent:
         >>> from syrin import Agent
         >>> from syrin.model import Model
         >>> agent = Agent.basic(Model.OpenAI("gpt-4o-mini"), system_prompt="You are concise.")
-        >>> agent.response("What is 2+2?")
+        >>> agent.run("What is 2+2?")
     """
     from syrin import Agent
     from syrin.enums import LoopStrategy
@@ -70,8 +70,8 @@ def with_memory(
 
     Example:
         >>> agent = Agent.with_memory(Model.OpenAI("gpt-4o-mini"))
-        >>> agent.response("Remember my name is Alice.")
-        >>> agent.response("What's my name?")  # "Alice"
+        >>> agent.run("Remember my name is Alice.")
+        >>> agent.run("What's my name?")  # "Alice"
     """
     from syrin import Agent
     from syrin.enums import LoopStrategy, MemoryType
@@ -100,15 +100,15 @@ def with_budget(
     Args:
         model: LLM to use (required).
         system_prompt: Instructions for the agent. Default: "You are helpful."
-        budget: Budget config. Default: Budget(run=0.25) ($0.25 per run).
+        budget: Budget config. Default: Budget(max_cost=0.25) ($0.25 per run).
 
     Returns:
         Agent with budget, REACT loop.
 
     Example:
         >>> from syrin import Agent, Budget
-        >>> agent = Agent.with_budget(Model.OpenAI("gpt-4o-mini"), budget=Budget(run=0.50))
-        >>> agent.response("Summarize this long document")
+        >>> agent = Agent.with_budget(Model.OpenAI("gpt-4o-mini"), budget=Budget(max_cost=0.50))
+        >>> agent.run("Summarize this long document")
     """
     from syrin import Agent, Budget
     from syrin.enums import LoopStrategy
@@ -116,7 +116,7 @@ def with_budget(
     return Agent(
         model=model,
         system_prompt=system_prompt,
-        budget=budget if budget is not None else Budget(run=0.25),
+        budget=budget if budget is not None else Budget(max_cost=0.25),
         loop_strategy=LoopStrategy.REACT,
     )
 
@@ -131,7 +131,7 @@ def research() -> Agent:
 
     Example:
         >>> agent = Agent.presets.research()
-        >>> agent.response("Summarize the latest papers on RAG")
+        >>> agent.run("Summarize the latest papers on RAG")
     """
     from syrin import Agent, Budget
     from syrin.enums import LoopStrategy, MemoryType
@@ -140,7 +140,7 @@ def research() -> Agent:
     return Agent(
         model=_default_model(),
         system_prompt="You are a research assistant. Use tools to search and cite sources. Be thorough and accurate.",
-        budget=Budget(run=0.50),
+        budget=Budget(max_cost=0.50),
         memory=Memory(types=[MemoryType.CORE, MemoryType.EPISODIC], top_k=15),
         loop_strategy=LoopStrategy.REACT,
         max_tool_iterations=15,
@@ -157,7 +157,7 @@ def assistant() -> Agent:
 
     Example:
         >>> agent = Agent.presets.assistant()
-        >>> agent.response("What can you help me with?")
+        >>> agent.run("What can you help me with?")
     """
     from syrin import Agent, Budget
     from syrin.enums import LoopStrategy, MemoryType
@@ -166,7 +166,7 @@ def assistant() -> Agent:
     return Agent(
         model=_default_model(),
         system_prompt="You are a helpful assistant. Be concise and friendly.",
-        budget=Budget(run=0.25),
+        budget=Budget(max_cost=0.25),
         memory=Memory(types=[MemoryType.CORE, MemoryType.EPISODIC], top_k=10),
         loop_strategy=LoopStrategy.REACT,
     )
@@ -182,7 +182,7 @@ def code_helper() -> Agent:
 
     Example:
         >>> agent = Agent.presets.code_helper()
-        >>> agent.response("Refactor this function to use async")
+        >>> agent.run("Refactor this function to use async")
     """
     from syrin import Agent, Budget
     from syrin.enums import LoopStrategy, MemoryType
@@ -191,7 +191,7 @@ def code_helper() -> Agent:
     return Agent(
         model=_default_model(),
         system_prompt="You are a code assistant. Provide clear, idiomatic code. Prefer standard library and minimal dependencies.",
-        budget=Budget(run=0.50),
+        budget=Budget(max_cost=0.50),
         memory=Memory(types=[MemoryType.CORE, MemoryType.EPISODIC], top_k=10),
         loop_strategy=LoopStrategy.REACT,
     )

@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-class Decay(BaseModel):
+class Decay(BaseModel):  # type: ignore[explicit-any]
     """Ebbinghaus-inspired forgetting curve.
 
     Memories lose importance over time unless reinforced by access.
@@ -111,7 +111,7 @@ class Decay(BaseModel):
             entry.importance = min(1.0, entry.importance + boost)
 
 
-class MemoryBudget(BaseModel):
+class MemoryBudget(BaseModel):  # type: ignore[explicit-any]
     """Budget constraints for memory operations (cost in USD).
 
     When budget is low, memory ops degrade gracefully.
@@ -133,7 +133,7 @@ class MemoryBudget(BaseModel):
     )
 
 
-class Consolidation(BaseModel):
+class Consolidation(BaseModel):  # type: ignore[explicit-any]
     """Background memory consolidation — analogous to human memory during sleep.
 
     Runs periodically (when implemented) to deduplicate similar memories,
@@ -148,7 +148,7 @@ class Consolidation(BaseModel):
     model: str | None = None
 
 
-class MemoryEntry(BaseModel):
+class MemoryEntry(BaseModel):  # type: ignore[explicit-any]
     """A single memory stored by the agent. Carries full provenance metadata."""
 
     id: str
@@ -194,7 +194,7 @@ class MemoryBackendProtocol(Protocol):
     def delete(self, memory_id: str) -> None: ...
 
 
-class Memory(BaseModel):
+class Memory(BaseModel):  # type: ignore[explicit-any]
     """Declarative memory configuration for an agent.
 
     Supports four memory types (Core, Episodic, Semantic, Procedural),
@@ -251,8 +251,8 @@ class Memory(BaseModel):
 
     _store: MemoryStore | None = PrivateAttr(default=None)
     _backend: MemoryBackendProtocol | None = PrivateAttr(default=None)
-    _segment_store: Any = PrivateAttr(default=None)  # InMemoryContextStore, lazy-init
-    _output_chunk_store: Any = PrivateAttr(default=None)  # InMemoryContextStore, lazy-init
+    _segment_store: object = PrivateAttr(default=None)  # InMemoryContextStore, lazy-init
+    _output_chunk_store: object = PrivateAttr(default=None)  # InMemoryContextStore, lazy-init
 
     backend: MemoryBackend = Field(
         default=MemoryBackend.MEMORY,
@@ -290,8 +290,8 @@ class Memory(BaseModel):
     )
 
     auto_extract: bool = Field(
-        default=True,
-        description="When implemented: extract facts from turns into semantic memory. Currently a placeholder.",
+        default=False,
+        description="When True: extract facts from turns into semantic memory. Currently a placeholder — has no effect until extraction is implemented.",
     )
     extraction_model: str | None = Field(
         default=None,
@@ -737,7 +737,11 @@ class Memory(BaseModel):
                 if ok:
                     count += 1
             except Exception:
-                pass
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "import_from: failed to import memory entry %r", m.content[:80], exc_info=True
+                )
         return count
 
     def consolidate(
@@ -772,7 +776,7 @@ class Memory(BaseModel):
             consolidation_budget=budget,
         )
 
-    def _get_segment_store(self) -> Any:
+    def _get_segment_store(self) -> object:
         """Lazy-init internal segment store for pull-based context."""
         if self._segment_store is None:
             from syrin.context.store import InMemoryContextStore
@@ -790,7 +794,7 @@ class Memory(BaseModel):
         from syrin.context.store import ContextSegment
 
         store = self._get_segment_store()
-        store.add_segment(ContextSegment(content=content, role=role))
+        store.add_segment(ContextSegment(content=content, role=role))  # type: ignore[attr-defined]
 
     def get_relevant_segments(
         self,
@@ -802,10 +806,10 @@ class Memory(BaseModel):
         from syrin.context.store import ContextSegment as _CS
 
         store = self._get_segment_store()
-        result = store.get_relevant(query=query, top_k=top_k, threshold=threshold)
+        result = store.get_relevant(query=query, top_k=top_k, threshold=threshold)  # type: ignore[attr-defined]
         return cast(list[tuple[_CS, float]], result)
 
-    def get_conversation_messages(self, limit: int = 10000) -> list[Any]:
+    def get_conversation_messages(self, limit: int = 10000) -> list[object]:
         """Return conversation segments as messages in order, for push-based context.
 
         Used when formation_mode=PUSH. Converts stored segments to Message objects.
@@ -814,7 +818,7 @@ class Memory(BaseModel):
         from syrin.types import Message
 
         store = self._get_segment_store()
-        segments = store.list_recent(n=limit)
+        segments = store.list_recent(n=limit)  # type: ignore[attr-defined]
         return [
             Message(
                 role=MessageRole(s.role)
@@ -825,12 +829,12 @@ class Memory(BaseModel):
             for s in segments
         ]
 
-    def load_conversation_messages(self, messages: list[Any]) -> None:
+    def load_conversation_messages(self, messages: list[object]) -> None:
         """Replace conversation segments with the given messages. For checkpoint restore."""
         from syrin.context.store import ContextSegment
 
         store = self._get_segment_store()
-        store.clear()
+        store.clear()  # type: ignore[attr-defined]
         for m in messages:
             if isinstance(m, dict):
                 role_str = str(m.get("role", "user"))
@@ -839,9 +843,9 @@ class Memory(BaseModel):
                 role = getattr(m, "role", "user")
                 role_str = role.value if hasattr(role, "value") else str(role)
                 content = getattr(m, "content", "") or ""
-            store.add_segment(ContextSegment(content=content, role=role_str))
+            store.add_segment(ContextSegment(content=content, role=role_str))  # type: ignore[attr-defined]
 
-    def _get_output_chunk_store(self) -> Any:
+    def _get_output_chunk_store(self) -> object:
         """Lazy-init internal output chunk store for stored output chunks."""
         if self._output_chunk_store is None:
             from syrin.context.store import InMemoryContextStore
@@ -875,7 +879,7 @@ class Memory(BaseModel):
             return
         store = self._get_output_chunk_store()
         for ch in chunks:
-            store.add_segment(ContextSegment(content=ch, role="assistant", turn_id=turn_id))
+            store.add_segment(ContextSegment(content=ch, role="assistant", turn_id=turn_id))  # type: ignore[attr-defined]
 
     def get_relevant_output_chunks(
         self,
@@ -887,7 +891,7 @@ class Memory(BaseModel):
         from syrin.context.store import ContextSegment as _CS
 
         store = self._get_output_chunk_store()
-        result = store.get_relevant(query=query, top_k=top_k, threshold=threshold)
+        result = store.get_relevant(query=query, top_k=top_k, threshold=threshold)  # type: ignore[attr-defined]
         return cast(list[tuple[_CS, float]], result)
 
     def entries(
@@ -937,7 +941,7 @@ class Memory(BaseModel):
         with contextlib.suppress(Exception):
             self.close()
 
-    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:
+    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:  # type: ignore[explicit-any]
         """RemoteConfigurable: return (schema, current_values) for the memory section."""
         from syrin.remote._schema import build_section_schema_from_obj
         from syrin.remote._types import ConfigSchema
@@ -948,14 +952,14 @@ class Memory(BaseModel):
 
     def apply_remote_overrides(
         self,
-        agent: Any,
+        agent: object,
         pairs: list[tuple[str, object]],
-        section_schema: Any,
+        section_schema: object,
     ) -> None:
         """RemoteConfigurable: apply memory overrides to agent._persistent_memory."""
         from syrin.remote._resolver_helpers import build_nested_update, merge_nested_update
 
-        update = build_nested_update(section_schema, pairs, "memory")
+        update = build_nested_update(section_schema, pairs, "memory")  # type: ignore[arg-type]
         if not update:
             return
         current = getattr(agent, "_persistent_memory", None)

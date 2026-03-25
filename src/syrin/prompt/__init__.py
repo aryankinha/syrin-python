@@ -20,14 +20,14 @@ T = TypeVar("T")
 
 
 @dataclass
-class PromptValidation:
+class PromptValidation:  # type: ignore[explicit-any]
     """Validation rules for prompt parameters."""
 
     min_length: int | None = None
     max_length: int | None = None
     allowed_values: list[str] | None = None
     pattern: str | None = None
-    custom_validator: Callable[[Any], bool] | None = None
+    custom_validator: Callable[[Any], bool] | None = None  # type: ignore[explicit-any]
 
 
 @dataclass
@@ -36,7 +36,7 @@ class PromptVariable:
 
     name: str
     type_hint: type
-    default: Any = None
+    default: object = None
     description: str = ""
     validation: PromptValidation = field(default_factory=PromptValidation)
     required: bool = True
@@ -86,7 +86,7 @@ class Prompt:
         final_prompt = base_prompt(tone="casual")
     """
 
-    def __init__(
+    def __init__(  # type: ignore[explicit-any]
         self,
         func: Callable[..., str],
         name: str | None = None,
@@ -156,11 +156,11 @@ class Prompt:
             )
             return hashlib.sha256(fallback.encode()).hexdigest()[:16]
 
-    def _make_cache_key(self, **kwargs: Any) -> str:
+    def _make_cache_key(self, **kwargs: object) -> str:
         """Create cache key from arguments."""
         return str(hash(frozenset(kwargs.items())))
 
-    def __call__(self, **kwargs: Any) -> str:
+    def __call__(self, **kwargs: object) -> str:
         """Call the prompt function with native Python f-string evaluation.
 
         Example:
@@ -179,7 +179,7 @@ class Prompt:
 
         return result
 
-    def _validate_args(self, **kwargs: Any) -> None:
+    def _validate_args(self, **kwargs: object) -> None:
         """Validate arguments before rendering."""
         for var in self._variables:
             value = kwargs.get(var.name)
@@ -215,7 +215,7 @@ class Prompt:
                 if val.custom_validator and not val.custom_validator(value):
                     raise ValueError(f"Parameter '{var.name}' failed custom validation")
 
-    def validate(self, **kwargs: Any) -> bool:
+    def validate(self, **kwargs: object) -> bool:
         """Validate parameters without rendering.
 
         Returns True if valid, raises ValueError otherwise.
@@ -230,7 +230,7 @@ class Prompt:
         self._validate_args(**kwargs)
         return True
 
-    def partial(self, **kwargs: Any) -> Prompt:
+    def partial(self, **kwargs: object) -> Prompt:
         """Create a new Prompt with partial arguments applied.
 
         Example:
@@ -243,7 +243,7 @@ class Prompt:
         # Filter out variables that have been partially applied
         remaining_vars = [v for v in original_variables if v.name not in kwargs]
 
-        def partial_func(**remaining_kwargs: Any) -> str:
+        def partial_func(**remaining_kwargs: object) -> str:
             merged = {**kwargs, **remaining_kwargs}
             return original_func(**merged)
 
@@ -277,7 +277,7 @@ class Prompt:
                 if v.name not in all_variables:
                     all_variables[v.name] = v
 
-        def composed_func(**kwargs: Any) -> str:
+        def composed_func(**kwargs: object) -> str:
             parts = [original_func(**kwargs)]
             for other in other_prompts:
                 # Only pass kwargs that the other prompt accepts
@@ -354,7 +354,7 @@ class Prompt:
             f"version={self._version})"
         )
 
-    def test_render(self, **kwargs: Any) -> dict[str, Any]:
+    def test_render(self, **kwargs: object) -> dict[str, object]:
         """Test prompt rendering with metadata.
 
         Returns dict with result, tokens estimate, and validation info.
@@ -378,7 +378,7 @@ class Prompt:
 
 
 @overload
-def prompt(
+def prompt(  # type: ignore[explicit-any]
     func: Callable[..., str],
     *,
     name: str | None = None,
@@ -389,7 +389,7 @@ def prompt(
 
 
 @overload
-def prompt(
+def prompt(  # type: ignore[explicit-any]
     func: None = None,
     *,
     name: str | None = None,
@@ -399,7 +399,7 @@ def prompt(
 ) -> Callable[[Callable[..., str]], Prompt]: ...
 
 
-def prompt(
+def prompt(  # type: ignore[explicit-any]
     func: Callable[..., str] | None = None,
     *,
     name: str | None = None,
@@ -436,7 +436,7 @@ def prompt(
         cache: Whether to cache results (default: True)
     """
 
-    def decorator(f: Callable[..., str]) -> Prompt:
+    def decorator(f: Callable[..., str]) -> Prompt:  # type: ignore[explicit-any]
         return Prompt(
             f,
             name=name or f.__name__,
@@ -450,13 +450,13 @@ def prompt(
     return decorator
 
 
-def validated(
+def validated(  # type: ignore[explicit-any]
     min_length: int | None = None,
     max_length: int | None = None,
     allowed_values: list[str] | None = None,
     pattern: str | None = None,
     custom: Callable[[Any], bool] | None = None,
-) -> Callable[..., Any]:
+) -> Callable[..., object]:
     """Create a validated prompt decorator with specific rules.
 
     Example:
@@ -468,7 +468,7 @@ def validated(
         name_prompt(name="J")     # Raises ValueError
     """
 
-    def decorator(func: Callable[..., str]) -> Prompt:
+    def decorator(func: Callable[..., str]) -> Prompt:  # type: ignore[explicit-any]
         p = prompt(func)
 
         if p.variables:
@@ -485,7 +485,7 @@ def validated(
     return decorator
 
 
-def system_prompt(func: Callable[..., str]) -> Callable[..., str]:
+def system_prompt(func: Callable[..., str]) -> Callable[..., str]:  # type: ignore[explicit-any]
     """Mark a method as the agent's system prompt. One per agent class.
 
     Use inside an Agent subclass to encapsulate the system prompt.

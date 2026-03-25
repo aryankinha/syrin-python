@@ -100,11 +100,11 @@ class RateLimitRetryHandler:
 
         return True
 
-    async def execute_with_retry(
+    async def execute_with_retry(  # type: ignore[explicit-any]
         self,
         operation: Callable[[], Any],
         is_rate_limit: Callable[[Any], bool] | None = None,
-    ) -> Any:
+    ) -> object:
         """Execute an operation with automatic retry on rate limits.
 
         Args:

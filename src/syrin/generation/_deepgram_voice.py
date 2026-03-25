@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
-from typing import Any
 
 from syrin.generation._base_voice import BaseVoiceProvider
 
@@ -21,7 +20,7 @@ class DeepgramVoiceProvider(BaseVoiceProvider):
         api_key: str | None = None,
         voice: str = "aura-asteria-en",
         model: str = "aura-asteria-en",
-        **kwargs: Any,
+        **kwargs: object,
     ) -> None:
         super().__init__(api_key=api_key, model=model, **kwargs)
         self.voice = voice
@@ -42,7 +41,7 @@ class DeepgramVoiceProvider(BaseVoiceProvider):
         language: str,
         output_format: str,
         model_id: str,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> tuple[bytes, str, str]:
         from deepgram import DeepgramClient, SpeakOptions
 

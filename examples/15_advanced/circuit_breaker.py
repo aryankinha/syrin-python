@@ -39,7 +39,7 @@ if __name__ == "__main__":
     agent.events.on(Hook.CIRCUIT_RESET, lambda _: print("  [CIRCUIT RESET]"))
 
     print("--- Circuit Breaker Example ---")
-    r = agent.response("What is 2+2?")
+    r = agent.run("What is 2+2?")
     print(f"Response: {r.content[:120]}")
     print(f"Cost: ${r.cost:.6f}")
     print("Done.")

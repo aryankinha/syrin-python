@@ -6,7 +6,6 @@ import re
 import warnings
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
 
 from syrin.knowledge._document import Document
 
@@ -94,7 +93,7 @@ class DirectoryLoader:
             try:
                 loader = self._get_loader_for_file(file_path)
                 if loader:
-                    docs.extend(loader.load())
+                    docs.extend(loader.load())  # type: ignore[attr-defined]
             except Exception as e:
                 warnings.warn(f"Failed to load {file_path}: {e}", stacklevel=2)
 
@@ -114,7 +113,7 @@ class DirectoryLoader:
             try:
                 loader = self._get_loader_for_file(file_path)
                 if loader:
-                    yield from loader.load()
+                    yield from loader.load()  # type: ignore[attr-defined]
             except Exception as e:
                 warnings.warn(f"Failed to load {file_path}: {e}", stacklevel=2)
 
@@ -164,7 +163,7 @@ class DirectoryLoader:
 
         return sorted(files)
 
-    def _get_loader_for_file(self, file_path: Path) -> Any:
+    def _get_loader_for_file(self, file_path: Path) -> object:
         """Get appropriate loader for a file based on extension."""
         ext = file_path.suffix.lower()
         loader_name = _get_loader_map().get(ext)
@@ -174,7 +173,7 @@ class DirectoryLoader:
 
         return self._load_loader(loader_name, file_path)
 
-    def _load_loader(self, loader_name: str, file_path: Path) -> Any:
+    def _load_loader(self, loader_name: str, file_path: Path) -> object:
         """Lazy load and instantiate a loader."""
         if loader_name == "TextLoader":
             from syrin.knowledge.loaders._text import TextLoader

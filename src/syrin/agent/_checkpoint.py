@@ -5,7 +5,10 @@ Agent delegates to functions here. Public API stays on Agent.
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from syrin.agent import Agent
 
 from syrin.checkpoint import CheckpointTrigger
 from syrin.enums import Hook
@@ -13,16 +16,16 @@ from syrin.events import EventContext
 from syrin.response import AgentReport
 
 
-def save_checkpoint(agent: Any, name: str | None = None, reason: str | None = None) -> str | None:
+def save_checkpoint(agent: Agent, name: str | None = None, reason: str | None = None) -> str | None:
     """Save agent state to checkpoint. Returns checkpoint ID or None if disabled."""
     if agent._checkpointer is None:
         return None
 
     agent_name = cast(str, name or agent._agent_name)
-    messages_serialized: list[dict[str, Any]] = []
+    messages_serialized: list[dict[str, object]] = []
     for msg in agent.messages:
         messages_serialized.append(msg.model_dump())
-    context_snapshot: dict[str, Any] | None = None
+    context_snapshot: dict[str, object] | None = None
     if hasattr(agent, "_context") and hasattr(agent._context, "snapshot"):
         snap = agent._context.snapshot()
         if snap is not None:
@@ -50,7 +53,7 @@ def save_checkpoint(agent: Any, name: str | None = None, reason: str | None = No
     return checkpoint_id
 
 
-def maybe_checkpoint(agent: Any, reason: str) -> None:
+def maybe_checkpoint(agent: Agent, reason: str) -> None:
     """Automatically checkpoint based on trigger configuration."""
     if agent._checkpointer is None or agent._checkpoint_config is None:
         return
@@ -66,7 +69,7 @@ def maybe_checkpoint(agent: Any, reason: str) -> None:
         save_checkpoint(agent, reason=reason)
 
 
-def load_checkpoint(agent: Any, checkpoint_id: str) -> bool:
+def load_checkpoint(agent: Agent, checkpoint_id: str) -> bool:
     """Restore agent state from checkpoint. Returns True if loaded."""
     if agent._checkpointer is None:
         return False
@@ -77,7 +80,7 @@ def load_checkpoint(agent: Any, checkpoint_id: str) -> bool:
 
     if state.messages and agent._persistent_memory is not None:
         agent._persistent_memory.load_conversation_messages(
-            cast(list[dict[str, Any]], list(state.messages))
+            cast(list[dict[str, object]], list(state.messages))  # type: ignore[arg-type]
         )
     iter_val = getattr(state, "iteration", None)
     if iter_val is not None and isinstance(iter_val, (int, float)):
@@ -97,15 +100,15 @@ def load_checkpoint(agent: Any, checkpoint_id: str) -> bool:
     return True
 
 
-def list_checkpoints(agent: Any, name: str | None = None) -> list[str]:
+def list_checkpoints(agent: Agent, name: str | None = None) -> list[str]:
     """List checkpoint IDs for this agent, optionally filtered by name."""
     if agent._checkpointer is None:
         return []
 
     agent_name = cast(str, name or agent._agent_name)
-    return cast(list[str], agent._checkpointer.list_checkpoints(agent_name))
+    return agent._checkpointer.list_checkpoints(agent_name)
 
 
-def get_checkpoint_report(agent: Any) -> AgentReport:
+def get_checkpoint_report(agent: Agent) -> AgentReport:
     """Return the full agent report including checkpoint stats."""
-    return cast(AgentReport, agent._run_report)
+    return agent._run_report

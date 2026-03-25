@@ -45,7 +45,7 @@ def main() -> None:
         system_prompt="You are helpful.",
     )
 
-    r = agent.response("hi", task_type=TaskType.GENERAL)
+    r = agent.run("hi", task_type=TaskType.GENERAL)
     print(
         f"Routed to: {r.routing_reason.selected_model} | cost_estimate=${r.routing_reason.cost_estimate:.6f}"
     )

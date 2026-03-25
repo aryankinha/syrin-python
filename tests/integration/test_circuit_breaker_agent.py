@@ -19,15 +19,15 @@ class TestCircuitBreakerAgent:
     def test_agent_without_circuit_breaker_runs_normally(self) -> None:
         """Agent without circuit breaker runs as usual."""
         agent = Agent(model=_almock(), system_prompt="Hi")
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.content is not None
 
     def test_agent_with_circuit_breaker_success_resets_failures(self) -> None:
         """Successful calls keep circuit closed."""
         cb = CircuitBreaker(failure_threshold=3, recovery_timeout=60)
         agent = Agent(model=_almock(), system_prompt="Hi", config=AgentConfig(circuit_breaker=cb))
-        agent.response("Hello")
-        agent.response("Hi again")
+        agent.run("Hello")
+        agent.run("Hi again")
         assert cb.get_state().state.value == "closed"
         assert cb.get_state().failures == 0
 
@@ -42,10 +42,10 @@ class TestCircuitBreakerAgent:
             side_effect=ProviderError("API down"),
         ):
             with pytest.raises(ProviderError):
-                agent.response("Hello")
+                agent.run("Hello")
             assert cb.get_state().failures == 1
             with pytest.raises(ProviderError):
-                agent.response("Hi")
+                agent.run("Hi")
             assert cb.get_state().state.value == "open"
 
     def test_agent_circuit_open_no_fallback_raises(self) -> None:
@@ -61,9 +61,9 @@ class TestCircuitBreakerAgent:
             ),
             pytest.raises(ProviderError),
         ):
-            agent.response("Hello")
+            agent.run("Hello")
         with pytest.raises(CircuitBreakerOpenError):
-            agent.response("Second call")
+            agent.run("Second call")
 
     def test_agent_circuit_open_with_fallback_uses_fallback(self) -> None:
         """When circuit open and fallback set, uses fallback model."""
@@ -87,8 +87,8 @@ class TestCircuitBreakerAgent:
             ),
             pytest.raises(ProviderError),
         ):
-            agent.response("Hello")
-        r = agent.response("Second call - should use fallback")
+            agent.run("Hello")
+        r = agent.run("Second call - should use fallback")
         assert r.content is not None
 
     def test_agent_circuit_breaker_invalid_type_rejected(self) -> None:

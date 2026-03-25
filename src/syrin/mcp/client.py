@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import httpx
 
 from syrin.mcp.schema import mcp_tool_to_tool_spec
@@ -46,7 +44,7 @@ class MCPClient:
         """Headers added to every request."""
         return dict(self._headers)
 
-    def _request(self, method: str, params: dict[str, Any] | None = None) -> Any:
+    def _request(self, method: str, params: dict[str, object] | None = None) -> object:
         """Send JSON-RPC 2.0 request to MCP server."""
         payload = {
             "jsonrpc": "2.0",
@@ -66,15 +64,15 @@ class MCPClient:
     def _discover_tools(self) -> list[ToolSpec]:
         """Fetch tools/list from MCP server and convert to ToolSpec."""
         result = self._request("tools/list")
-        raw = result.get("tools", [])
+        raw = result.get("tools", [])  # type: ignore[attr-defined]
         specs: list[ToolSpec] = []
         for t in raw:
             name = t.get("name", "")
             if self._tool_whitelist is not None and name not in self._tool_whitelist:
                 continue
 
-            def make_call(n: str, u: str, to: float) -> Any:
-                def call(**kwargs: Any) -> Any:
+            def make_call(n: str, u: str, to: float) -> object:
+                def call(**kwargs: object) -> object:
                     headers = self.get_headers()
                     with httpx.Client(timeout=to) as c:
                         payload = {
@@ -99,7 +97,7 @@ class MCPClient:
                 return call
 
             spec = mcp_tool_to_tool_spec(t, make_call(name, self._url, self._timeout))
-            specs.append(spec)
+            specs.append(spec)  # type: ignore[arg-type]
         return specs
 
     def tools(self) -> list[ToolSpec]:

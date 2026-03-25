@@ -7,7 +7,10 @@ from __future__ import annotations
 
 import inspect
 from contextlib import suppress
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from syrin.agent import Agent
 
 from syrin.agent._context_builder import build_messages as build_messages_for_llm
 from syrin.agent._helpers import _is_prompt
@@ -19,8 +22,8 @@ from syrin.types import Message
 
 
 def effective_template_variables(
-    agent: Any, call_vars: dict[str, Any] | None = None
-) -> dict[str, Any]:
+    agent: Agent, call_vars: dict[str, object] | None = None
+) -> dict[str, object]:
     """Return merged template_variables: class + instance + call."""
     class_tv = getattr(agent.__class__, "_syrin_default_template_vars", None) or {}
     merged = {**class_tv, **agent._template_vars}
@@ -34,7 +37,7 @@ def effective_template_variables(
     return merged
 
 
-def get_prompt_builtins(agent: Any) -> dict[str, Any]:
+def get_prompt_builtins(agent: Agent) -> dict[str, object]:
     """Return built-in vars (date, agent_id, conversation_id)."""
     from datetime import datetime, timezone
 
@@ -47,7 +50,7 @@ def get_prompt_builtins(agent: Any) -> dict[str, Any]:
     }
 
 
-def resolve_system_prompt(agent: Any, prompt_vars: dict[str, Any], ctx: Any) -> str:
+def resolve_system_prompt(agent: Agent, prompt_vars: dict[str, object], ctx: object) -> str:
     """Resolve system prompt from source (str, Prompt, callable, or @system_prompt method)."""
     source = getattr(agent.__class__, "_syrin_system_prompt_method", None)
     if source is None:
@@ -93,10 +96,10 @@ def resolve_system_prompt(agent: Any, prompt_vars: dict[str, Any], ctx: Any) -> 
     return ""
 
 
-def build_messages(agent: Any, user_input: str | list[dict[str, Any]]) -> list[Message]:
+def build_messages(agent: Agent, user_input: str | list[dict[str, object]]) -> list[Message]:
     """Build message list for LLM from user input and agent state."""
 
-    def get_capacity() -> Any:
+    def get_capacity() -> object:
         model_for_context = agent._model if agent._model is not None else None
         call_ctx = getattr(agent, "_call_context", None)
         if call_ctx is not None:
@@ -133,12 +136,12 @@ def build_messages(agent: Any, user_input: str | list[dict[str, Any]]) -> list[M
     return build_messages_for_llm(
         user_input,
         system_prompt=resolved,
-        tools=agent.tools,
+        tools=agent.tools,  # type: ignore[arg-type]
         conversation_memory=None,
         memory_backend=agent._memory_backend,
         persistent_memory=agent._persistent_memory,
         context_manager=agent._context,
-        get_capacity=get_capacity,
+        get_capacity=get_capacity,  # type: ignore[arg-type]
         call_context=call_ctx,
         tracer=agent._tracer,
         inject=getattr(agent, "_call_inject", None),
@@ -147,11 +150,11 @@ def build_messages(agent: Any, user_input: str | list[dict[str, Any]]) -> list[M
 
 
 def build_output(
-    agent: Any,
+    agent: Agent,
     content: str,
     validation_retries: int = 3,
-    validation_context: dict[str, Any] | None = None,
-    validator: Any = None,
+    validation_context: dict[str, object] | None = None,
+    validator: object = None,
 ) -> StructuredOutput | None:
     """Build structured output from response content with validation."""
     from syrin.validation import ValidationPipeline
@@ -190,7 +193,7 @@ def build_output(
         output_type=pydantic_model,
         max_retries=validation_retries,
         context=context,
-        validator=validator,
+        validator=validator,  # type: ignore[arg-type]
         emit_fn=emit_fn,
     )
 

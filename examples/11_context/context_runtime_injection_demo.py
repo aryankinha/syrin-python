@@ -2,7 +2,7 @@
 
 Shows how to inject RAG results or dynamic context at prepare time using:
 - Context.runtime_inject (callable)
-- Per-call inject via agent.response(inject=...)
+- Per-call inject via agent.run(inject=...)
 
 Run: python -m examples.11_context.context_runtime_injection_demo
 Use real gpt-4o-mini: USE_REAL_MODEL=1 python -m examples.11_context.context_runtime_injection_demo
@@ -50,7 +50,7 @@ def _main() -> None:
     )
 
     print("=== Runtime injection via Context.runtime_inject ===\n")
-    result = agent.response("What is syrin?")
+    result = agent.run("What is syrin?")
     snap = agent.context.snapshot()
 
     # Show injected content in snapshot
@@ -76,7 +76,7 @@ def _main() -> None:
         config=AgentConfig(context=Context(max_tokens=8000)),
     )
 
-    agent_no_runtime.response(
+    agent_no_runtime.run(
         "Summarize this",
         inject=[{"role": "system", "content": "[Injected] Custom per-call context here."}],
         inject_source_detail="custom",

@@ -34,7 +34,7 @@ class CheckpointTrigger(StrEnum):
     BUDGET = "budget"
 
 
-class CheckpointState(BaseModel):
+class CheckpointState(BaseModel):  # type: ignore[explicit-any]
     """Snapshot of agent state at a checkpoint.
 
     Serialized and stored by checkpoint backends. Contains messages, memory,
@@ -63,7 +63,7 @@ class CheckpointState(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
 
-class CheckpointConfig(BaseModel):
+class CheckpointConfig(BaseModel):  # type: ignore[explicit-any]
     """Configuration for when and where agent state is checkpointed.
 
     Controls automatic state persistence during agent runs. Immutable after creation.
@@ -132,7 +132,7 @@ class CheckpointConfig(BaseModel):
             data["trigger"] = CheckpointTrigger(data["trigger"])
         super().__init__(**data)
 
-    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:
+    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:  # type: ignore[explicit-any]
         """RemoteConfigurable: return (schema, current_values) for the checkpoint section."""
         from syrin.remote._schema import build_section_schema_from_obj
         from syrin.remote._types import ConfigSchema
@@ -146,14 +146,14 @@ class CheckpointConfig(BaseModel):
 
     def apply_remote_overrides(
         self,
-        agent: Any,
+        agent: object,
         pairs: list[tuple[str, object]],
-        section_schema: Any,
+        section_schema: object,
     ) -> None:
         """RemoteConfigurable: apply checkpoint overrides to agent._checkpoint_config."""
         from syrin.remote._resolver_helpers import build_nested_update, merge_nested_update
 
-        update = build_nested_update(section_schema, pairs, "checkpoint")
+        update = build_nested_update(section_schema, pairs, "checkpoint")  # type: ignore[arg-type]
         if not update:
             return
         current = getattr(agent, "_checkpoint_config", None)

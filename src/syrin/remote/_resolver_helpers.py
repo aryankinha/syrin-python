@@ -7,7 +7,7 @@ to avoid circular dependencies.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, cast
+from typing import cast
 
 from pydantic import BaseModel
 
@@ -111,9 +111,9 @@ def build_nested_update(
     overrides: list[tuple[str, object]],
     prefix: str,
     coerce_fn: Callable[[object, FieldSchema | None], object] = _coerce_enum,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Build update dict for a section from list of (path, value). Handles nested paths."""
-    update: dict[str, Any] = {}
+    update: dict[str, object] = {}
     path_to_field = {f.path: f for f in section_schema.fields}
     for f in section_schema.fields:
         if f.children:
@@ -137,7 +137,7 @@ def build_nested_update(
             if len(parts) == 2:
                 inner[parts[1]] = value
             else:
-                cur: dict[str, Any] = inner
+                cur: dict[str, object] = inner
                 for i in range(1, len(parts) - 1):
                     nxt = cur.setdefault(parts[i], {})
                     if not isinstance(nxt, dict):
@@ -163,12 +163,12 @@ def _get_model_class_for_field(
         return None
     # Handle Optional[X] / X | None
     raw_args = typing.get_args(ann)
-    candidates: tuple[Any, ...] = raw_args if raw_args else (ann,)
+    candidates: tuple[object, ...] = raw_args if raw_args else (ann,)
     for a in candidates:
         if a is type(None):
             continue
         try:
-            if issubclass(a, BaseModel):
+            if issubclass(a, BaseModel):  # type: ignore[arg-type]
                 return cast(type[BaseModel] | type[object], a)
             if dataclasses.is_dataclass(a):
                 return cast(type[BaseModel] | type[object], a)
@@ -211,7 +211,7 @@ def _coerce_enum_for_field(model_class: type[BaseModel], key: str, value: object
 
 def merge_nested_update(
     current: BaseModel | None,
-    update: dict[str, Any],
+    update: dict[str, object],
     model_class: type[BaseModel],
 ) -> BaseModel:
     """Merge nested update dict into current Pydantic model. Re-validates result."""
@@ -245,7 +245,7 @@ def merge_nested_update(
 
 
 def apply_agent_section_overrides(
-    agent: Any,
+    agent: object,
     pairs: list[tuple[str, object]],
     _section_schema: ConfigSchema,
 ) -> None:

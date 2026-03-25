@@ -58,7 +58,7 @@ B) ISSUED, SUBSCRIBED AND PAID-UP SHARE CAPITAL
         output_config=OutputConfig(format=OutputFormat.TEXT, template=template),
     )
 
-    response = agent.response("Extract capital structure from the memo.")
+    response = agent.run("Extract capital structure from the memo.")
     print(response.content)
     print("---")
     print("template_data:", response.template_data)

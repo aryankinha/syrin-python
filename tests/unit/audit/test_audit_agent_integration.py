@@ -40,7 +40,7 @@ class TestAgentAuditIntegration:
                 new_callable=AsyncMock,
                 return_value=mock_resp,
             ):
-                agent.response("Hello")
+                agent.run("Hello")
 
             lines = [line for line in path.read_text().strip().split("\n") if line]
             assert len(lines) >= 2  # At least RUN_START and RUN_END
@@ -64,7 +64,7 @@ class TestAgentAuditIntegration:
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
-            agent.response("Hello")
+            agent.run("Hello")
 
         # No audit, so no file - nothing to assert except no exception
 
@@ -99,7 +99,7 @@ class TestAgentAuditIntegration:
                 new_callable=AsyncMock,
                 return_value=mock_resp,
             ):
-                agent.response("Hello")
+                agent.run("Hello")
 
             lines = [line for line in path.read_text().strip().split("\n") if line]
             events = [json.loads(line)["event"] for line in lines]

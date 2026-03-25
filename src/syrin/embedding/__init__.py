@@ -18,8 +18,6 @@ Example:
 
 from __future__ import annotations
 
-from typing import Any
-
 from syrin.embedding._enum import EmbeddingBackend
 from syrin.embedding._namespace import Embedding
 from syrin.embedding._ollama import OllamaEmbedding
@@ -35,7 +33,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str) -> Any:
+def __getattr__(name: str) -> object:
     """Lazy import for optional providers."""
     if name == "LiteLLMEmbedding":
         from syrin.embedding._litellm import LiteLLMEmbedding

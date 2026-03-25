@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
 
 from pydantic import BaseModel, Field
 
 from syrin.enums import AuditBackend
 
 
-class AuditEntry(BaseModel):
+class AuditEntry(BaseModel):  # type: ignore[explicit-any]
     """Single audit log entry. Written to audit backend as JSONL line.
 
     Attributes:
@@ -40,18 +39,18 @@ class AuditEntry(BaseModel):
     trace_id: str | None = None
     run_id: str | None = None
     iteration: int | None = None
-    tool_calls: list[dict[str, Any]] | None = None
+    tool_calls: list[dict[str, object]] | None = None
     tool_name: str | None = None
     tool_error: str | None = None
     stop_reason: str | None = None
-    extra: dict[str, Any] | None = Field(default=None, description="Hook-specific fields")
+    extra: dict[str, object] | None = Field(default=None, description="Hook-specific fields")
 
     def model_dump_json_line(self) -> str:
         """Serialize as JSON line for JSONL output."""
         return self.model_dump_json()
 
 
-class AuditFilters(BaseModel):
+class AuditFilters(BaseModel):  # type: ignore[explicit-any]
     """Filters for querying audit entries (optional backend support).
 
     Attributes:
@@ -68,7 +67,7 @@ class AuditFilters(BaseModel):
     limit: int = 100
 
 
-class AuditLog(BaseModel):
+class AuditLog(BaseModel):  # type: ignore[explicit-any]
     """Audit configuration for Agent, Pipeline, or DynamicPipeline.
 
     Pass to Agent(config=AgentConfig(audit=AuditLog(...))) or Pipeline(audit=...). Events are
@@ -90,12 +89,12 @@ class AuditLog(BaseModel):
     include_budget: bool = False
     include_user_input: bool = False
     include_model_output: bool = True
-    custom_backend: Any = Field(
+    custom_backend: object = Field(
         default=None,
         description="Optional AuditBackendProtocol instance (overrides backend/path)",
     )
 
-    def get_backend(self, default_path: str = "./audit.jsonl") -> Any:
+    def get_backend(self, default_path: str = "./audit.jsonl") -> object:
         """Resolve backend instance. Returns custom_backend or creates JsonlAuditBackend."""
         if self.custom_backend is not None:
             return self.custom_backend

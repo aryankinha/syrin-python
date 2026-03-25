@@ -68,7 +68,7 @@ def main() -> None:
     # One long prompt to exceed 50% and trigger compaction (method may be middle_out or summarize)
     long_prompt = "Explain in one sentence: " + " what is the meaning of life? " * 12
     print("  Sending a long prompt to trigger compaction...\n")
-    agent.response(long_prompt)
+    agent.run(long_prompt)
 
     stats = agent.context_stats
     print(f"  Compaction ran: {stats.compacted}, method: {stats.compact_method}")

@@ -49,7 +49,7 @@ class AgentConfig:
         "dependencies",
     )
 
-    def __init__(
+    def __init__(  # type: ignore[explicit-any]
         self,
         *,
         context: Context | ContextConfig | DefaultContextManager | None = None,

@@ -46,7 +46,7 @@ def _main() -> None:
     )
 
     # Current turn: model receives [Session summary]\n... before the user message
-    result = agent.response("What should I enable in mypy for stricter checking?")
+    result = agent.run("What should I enable in mypy for stricter checking?")
     print(f"Response: {result.content[:200] if result.content else '(empty)'}...\n")
 
     m = agent.context.get_map()

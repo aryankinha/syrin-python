@@ -53,10 +53,10 @@ class TestContext:
         """Context.token_limits accepts TokenLimits; token_limits is the primary field."""
         from syrin.budget import TokenLimits
 
-        limits = TokenLimits(run=50_000)
+        limits = TokenLimits(max_tokens=50_000)
         ctx = Context(max_tokens=80000, token_limits=limits)
         assert ctx.token_limits is limits
-        assert ctx.token_limits.run == 50_000
+        assert ctx.token_limits.max_tokens == 50_000
 
     def test_context_token_limits_none_by_default(self) -> None:
         ctx = Context()

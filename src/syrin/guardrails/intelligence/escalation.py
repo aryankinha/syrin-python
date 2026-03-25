@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
 
 from syrin.enums import DecisionAction
 from syrin.guardrails.base import Guardrail
@@ -226,7 +225,7 @@ class EscalationDetector(Guardrail):
 
         return min(score, 1.0)
 
-    def get_stats(self, user_id: str | None = None) -> dict[str, Any]:
+    def get_stats(self, user_id: str | None = None) -> dict[str, object]:
         """Get escalation statistics.
 
         Args:

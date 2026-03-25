@@ -10,7 +10,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 
 @dataclass
@@ -22,7 +22,7 @@ class RateLimitState:
         last_updated: Last update timestamp.
     """
 
-    entries: list[dict[str, Any]] = field(default_factory=list)
+    entries: list[dict[str, object]] = field(default_factory=list)
     last_updated: float = field(default_factory=time.time)
 
 
@@ -192,7 +192,7 @@ class RedisRateLimitBackend(RateLimitBackend):
 # Factory function
 def get_rate_limit_backend(
     backend: str = "memory",
-    **kwargs: Any,
+    **kwargs: object,
 ) -> RateLimitBackend:
     """Get a rate limit backend.
 
@@ -211,14 +211,14 @@ def get_rate_limit_backend(
     if backend == "memory":
         return MemoryRateLimitBackend()
     elif backend == "sqlite":
-        return SQLiteRateLimitBackend(path=kwargs.get("path"))
+        return SQLiteRateLimitBackend(path=kwargs.get("path"))  # type: ignore[arg-type]
     elif backend == "redis":
         return RedisRateLimitBackend(
-            host=kwargs.get("host", "localhost"),
-            port=kwargs.get("port", 6379),
-            db=kwargs.get("db", 0),
-            password=kwargs.get("password"),
-            key_prefix=kwargs.get("key_prefix", "syrin:ratelimit:"),
+            host=kwargs.get("host", "localhost"),  # type: ignore[arg-type]
+            port=kwargs.get("port", 6379),  # type: ignore[arg-type]
+            db=kwargs.get("db", 0),  # type: ignore[arg-type]
+            password=kwargs.get("password"),  # type: ignore[arg-type]
+            key_prefix=kwargs.get("key_prefix", "syrin:ratelimit:"),  # type: ignore[arg-type]
         )
     else:
         raise ValueError(f"Unknown backend: {backend}")

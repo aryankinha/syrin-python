@@ -45,7 +45,7 @@ class RunContext(Generic[DepsT]):
         ...         return ctx.deps.db.query(user_id=ctx.deps.user_id, q=query)
         >>>
         >>> agent = MyAgent(dependencies=MyDeps(db=db, user_id="alice"))
-        >>> agent.response("What's in my data?")
+        >>> agent.run("What's in my data?")
     """
 
     deps: DepsT

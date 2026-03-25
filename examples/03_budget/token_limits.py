@@ -39,10 +39,10 @@ print("=" * 60)
 agent = Agent(
     model=model,
     config=AgentConfig(
-        context=Context(token_limits=TokenLimits(run=15_000, on_exceeded=warn_on_exceeded))
+        context=Context(token_limits=TokenLimits(max_tokens=15_000, on_exceeded=warn_on_exceeded))
     ),
 )
-result = agent.response("What is machine learning?")
+result = agent.run("What is machine learning?")
 print(f"   Tokens used: {result.tokens.total_tokens}")
 
 # ---------------------------------------------------------------------------
@@ -57,14 +57,14 @@ agent = Agent(
     config=AgentConfig(
         context=Context(
             token_limits=TokenLimits(
-                run=15_000,
-                per=TokenRateLimit(hour=50_000, day=200_000),
+                max_tokens=15_000,
+                rate_limits=TokenRateLimit(hour=50_000, day=200_000),
                 on_exceeded=warn_on_exceeded,
             )
         )
     ),
 )
-result = agent.response("Tell me about Python.")
+result = agent.run("Tell me about Python.")
 print(f"   Tokens used: {result.tokens.total_tokens}")
 
 # ---------------------------------------------------------------------------
@@ -77,18 +77,18 @@ print("=" * 60)
 agent = Agent(
     model=model,
     system_prompt="You are concise.",
-    budget=Budget(run=0.05, on_exceeded=warn_on_exceeded),
+    budget=Budget(max_cost=0.05, on_exceeded=warn_on_exceeded),
     config=AgentConfig(
         context=Context(
             token_limits=TokenLimits(
-                run=15_000,
-                per=TokenRateLimit(hour=50_000, day=200_000),
+                max_tokens=15_000,
+                rate_limits=TokenRateLimit(hour=50_000, day=200_000),
                 on_exceeded=warn_on_exceeded,
             )
         )
     ),
 )
-result = agent.response("What is AI in one paragraph?")
+result = agent.run("What is AI in one paragraph?")
 print(f"   Cost:         ${result.cost:.6f}")
 print(f"   Tokens:       {result.tokens.total_tokens}")
 print(f"   Budget state: {agent.budget_state}")
@@ -108,18 +108,18 @@ class TokenLimitedAgent(Agent):
     _agent_description = "Agent with token limits (per-run, hourly, daily)"
     model = model
     system_prompt = "You are concise."
-    budget = Budget(run=0.05, on_exceeded=warn_on_exceeded)
+    budget = Budget(max_cost=0.05, on_exceeded=warn_on_exceeded)
     context = Context(
         token_limits=TokenLimits(
-            run=15_000,
-            per=TokenRateLimit(hour=50_000, day=200_000),
+            max_tokens=15_000,
+            rate_limits=TokenRateLimit(hour=50_000, day=200_000),
             on_exceeded=warn_on_exceeded,
         )
     )
 
 
 agent = TokenLimitedAgent()
-result = agent.response("Summarize quantum computing in two sentences.")
+result = agent.run("Summarize quantum computing in two sentences.")
 print(f"   Cost:         ${result.cost:.6f}")
 print(f"   Tokens:       {result.tokens.total_tokens}")
 print(f"   Budget state: {agent.budget_state}")

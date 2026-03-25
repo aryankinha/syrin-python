@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from typing import Any, Protocol
+from typing import Protocol
 
 
 class ApprovalGateProtocol(Protocol):
@@ -18,7 +18,7 @@ class ApprovalGateProtocol(Protocol):
         self,
         message: str,
         timeout: int,
-        context: dict[str, Any] | None = None,
+        context: dict[str, object] | None = None,
     ) -> bool:
         """Request human approval. Block until approved/rejected or timeout.
 
@@ -33,10 +33,10 @@ class ApprovalGateProtocol(Protocol):
         ...
 
 
-def _sync_to_async(fn: Callable[..., bool]) -> Callable[..., Awaitable[bool]]:
+def _sync_to_async(fn: Callable[..., bool]) -> Callable[..., Awaitable[bool]]:  # type: ignore[explicit-any]
     """Wrap sync callback to async."""
 
-    async def wrapper(message: str, timeout: int, context: dict[str, Any] | None = None) -> bool:
+    async def wrapper(message: str, timeout: int, context: dict[str, object] | None = None) -> bool:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, lambda: fn(message, timeout, context or {}))
 
@@ -59,8 +59,8 @@ class ApprovalGate:
 
     def __init__(
         self,
-        callback: Callable[[str, int, dict[str, Any]], bool]
-        | Callable[[str, int, dict[str, Any]], Awaitable[bool]],
+        callback: Callable[[str, int, dict[str, object]], bool]
+        | Callable[[str, int, dict[str, object]], Awaitable[bool]],
     ) -> None:
         self._callback = callback
 
@@ -68,7 +68,7 @@ class ApprovalGate:
         self,
         message: str,
         timeout: int,
-        context: dict[str, Any] | None = None,
+        context: dict[str, object] | None = None,
     ) -> bool:
         ctx = context or {}
         result = self._callback(message, timeout, ctx)

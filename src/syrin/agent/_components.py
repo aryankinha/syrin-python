@@ -6,18 +6,13 @@ Component classes hold state; Agent delegates via properties. Public API remains
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-
-from syrin.budget import Budget, BudgetTracker
+from syrin.budget import Budget, BudgetTracker, TokenLimits
 from syrin.budget_store import BudgetStore
-
-if TYPE_CHECKING:
-    pass
 
 
 def resolve_budget_tracker(
     budget: object | None,
-    token_limits: object | None,
+    token_limits: TokenLimits | None,
     budget_store: BudgetStore | None,
     budget_store_key: str,
 ) -> BudgetTracker:
@@ -42,7 +37,7 @@ class AgentBudgetComponent:
         budget: Budget | None,
         budget_store: BudgetStore | None,
         budget_store_key: str,
-        token_limits: Any,
+        token_limits: TokenLimits | None,
     ) -> None:
         self._budget = budget
         self._store = budget_store
@@ -84,16 +79,16 @@ class AgentContextComponent:
 
     __slots__ = ("_context_manager", "_token_limits")
 
-    def __init__(self, context_manager: Any, token_limits: Any) -> None:
+    def __init__(self, context_manager: object, token_limits: TokenLimits | None) -> None:
         self._context_manager = context_manager
         self._token_limits = token_limits
 
     @property
-    def context_manager(self) -> Any:
+    def context_manager(self) -> object:
         return self._context_manager
 
     @property
-    def token_limits(self) -> Any:
+    def token_limits(self) -> TokenLimits | None:
         return self._token_limits
 
 
@@ -102,22 +97,22 @@ class AgentMemoryComponent:
 
     __slots__ = ("_persistent_memory", "_memory_backend")
 
-    def __init__(self, persistent_memory: Any, memory_backend: Any) -> None:
+    def __init__(self, persistent_memory: object, memory_backend: object) -> None:
         self._persistent_memory = persistent_memory
         self._memory_backend = memory_backend
 
     @property
-    def persistent_memory(self) -> Any:
+    def persistent_memory(self) -> object:
         return self._persistent_memory
 
     @property
-    def memory_backend(self) -> Any:
+    def memory_backend(self) -> object:
         return self._memory_backend
 
-    def set_persistent_memory(self, memory: Any) -> None:
+    def set_persistent_memory(self, memory: object) -> None:
         self._persistent_memory = memory
 
-    def set_memory_backend(self, backend: Any) -> None:
+    def set_memory_backend(self, backend: object) -> None:
         self._memory_backend = backend
 
 
@@ -126,11 +121,11 @@ class AgentGuardrailsComponent:
 
     __slots__ = ("_guardrails",)
 
-    def __init__(self, guardrails: Any) -> None:
+    def __init__(self, guardrails: object) -> None:
         self._guardrails = guardrails
 
     @property
-    def guardrails(self) -> Any:
+    def guardrails(self) -> object:
         return self._guardrails
 
 
@@ -139,19 +134,19 @@ class AgentObservabilityComponent:
 
     __slots__ = ("_tracer", "_event_bus", "_audit")
 
-    def __init__(self, tracer: Any, event_bus: Any, audit: Any) -> None:
+    def __init__(self, tracer: object, event_bus: object, audit: object) -> None:
         self._tracer = tracer
         self._event_bus = event_bus
         self._audit = audit
 
     @property
-    def tracer(self) -> Any:
+    def tracer(self) -> object:
         return self._tracer
 
     @property
-    def event_bus(self) -> Any:
+    def event_bus(self) -> object:
         return self._event_bus
 
     @property
-    def audit(self) -> Any:
+    def audit(self) -> object:
         return self._audit

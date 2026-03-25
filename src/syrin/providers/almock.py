@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import random
-from typing import Any
 
 from syrin.enums import AlmockPricing
 from syrin.tool import ToolSpec
@@ -58,7 +57,7 @@ class AlmockProvider(Provider):
     No real API calls. Use for development and tests without API keys or cost.
     """
 
-    async def complete(
+    async def complete(  # type: ignore[override]
         self,
         messages: list[Message],
         model: ModelConfig,
@@ -71,7 +70,7 @@ class AlmockProvider(Provider):
         response_mode: str = "lorem",
         custom_response: str | None = None,
         lorem_length: int = 100,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> ProviderResponse:
         """Return a mocked response after optional delay.
 
@@ -108,7 +107,7 @@ class AlmockProvider(Provider):
             length = lorem_length if lorem_length > 0 else 100
             content = _lorem_ipsum(length)
 
-        def _to_str(c: str | list[dict[str, Any]] | None) -> str:
+        def _to_str(c: str | list[dict[str, object]] | None) -> str:
             if c is None:
                 return ""
             return c if isinstance(c, str) else str(c)

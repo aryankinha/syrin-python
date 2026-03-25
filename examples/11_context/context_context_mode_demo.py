@@ -43,14 +43,14 @@ def _main() -> None:
 
     # Simulate a long conversation, then a topic shift
     for i in range(1, 6):
-        agent.response(f"Tell me about topic {i} in one sentence.")
+        agent.run(f"Tell me about topic {i} in one sentence.")
     snap_before = agent.context.snapshot()
     print(
         f"After 5 turns, context_mode={snap_before.context_mode}, dropped={snap_before.context_mode_dropped_count}"
     )
 
     # Topic shift: user asks something new
-    result = agent.response("What is 2+2?")
+    result = agent.run("What is 2+2?")
     snap = agent.context.snapshot()
     print(
         f"After topic shift: context_mode={snap.context_mode}, dropped={snap.context_mode_dropped_count}"
@@ -64,7 +64,7 @@ def _main() -> None:
         system_prompt="You are helpful.",
         config=AgentConfig(context=Context(max_tokens=8000, context_mode=ContextMode.FULL)),
     )
-    agent_full.response("Hello")
+    agent_full.run("Hello")
     snap_full = agent_full.context.snapshot()
     print(f"context_mode={snap_full.context_mode}, dropped={snap_full.context_mode_dropped_count}")
 

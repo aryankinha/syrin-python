@@ -24,7 +24,7 @@ print("-- 1. Almock (mock model) --")
 
 mock = Model.Almock(latency_seconds=0.01, lorem_length=50)
 agent = Agent(model=mock, system_prompt="You are helpful.")
-r = agent.response("Hello!")
+r = agent.run("Hello!")
 print(f"  Response: {r.content[:80]}...")
 
 # ---------------------------------------------------------------------------

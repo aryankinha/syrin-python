@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import AsyncIterator, Callable, Iterator
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 if TYPE_CHECKING:
     from syrin.serve.config import ServeConfig  # noqa: F401
@@ -157,6 +157,7 @@ from syrin.budget import (
     Budget,
     BudgetState,
     BudgetTracker,
+    TokenLimits,
 )
 from syrin.budget_store import BudgetStore
 from syrin.checkpoint import CheckpointConfig, Checkpointer
@@ -225,8 +226,8 @@ class _AgentMeta(type):
         mcs,
         name: str,
         bases: tuple[type, ...],
-        namespace: dict[str, Any],
-        **kwargs: Any,
+        namespace: dict[str, object],
+        **kwargs: object,
     ) -> type:
         for attr, internal in (
             ("name", "_syrin_default_name"),
@@ -300,7 +301,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         guardrails: list[Guardrail] — Input/output guardrails. Merged with parent. Default: [].
         context: Context | None — Context window config. Default: None.
         checkpoint: CheckpointConfig | None — State checkpoint config. Default: None.
-        template_variables: dict[str, Any] — Template vars for system prompt (e.g. {"user_name": "Alice"}).
+        template_variables: dict[str, object] — Template vars for system prompt (e.g. {"user_name": "Alice"}).
                 Merge with inject_template_vars ({date}, {agent_id}, {conversation_id}). Default: {}.
 
     Instance attributes (read after creation):
@@ -316,16 +317,16 @@ class Agent(Servable, metaclass=_AgentMeta):
         ...     model=Model.OpenAI("gpt-4o-mini"),
         ...     system_prompt="You are a helpful assistant.",
         ... )
-        >>> r = agent.response("What is 2+2?")
+        >>> r = agent.run("What is 2+2?")
         >>> print(r.content)
         2 + 2 equals 4.
     """
 
     _syrin_default_model: Model | ModelConfig | None = None
     _syrin_default_memory: Memory | None = None
-    _syrin_default_system_prompt: str | Any = ""
-    _syrin_system_prompt_method: Any = None  # @system_prompt method if present
-    _syrin_default_template_vars: dict[str, Any] = ()  # type: ignore[assignment]
+    _syrin_default_system_prompt: str | object = ""
+    _syrin_system_prompt_method: object = None  # @system_prompt method if present
+    _syrin_default_template_vars: dict[str, object] = {}
     _syrin_default_tools: list[ToolSpec] = []
     _syrin_default_budget: Budget | None = None
     _syrin_default_guardrails: list[Guardrail] = []
@@ -352,7 +353,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         "knowledge": "_knowledge",
     }
 
-    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:
+    def get_remote_config_schema(self, section_key: str) -> tuple[object, dict[str, object]]:
         """RemoteConfigurable: return (schema, current_values) for agent-owned sections."""
         from syrin.remote._schema import get_agent_section_schema_and_values
         from syrin.remote._types import ConfigSchema
@@ -371,31 +372,31 @@ class Agent(Servable, metaclass=_AgentMeta):
 
     def apply_remote_overrides(
         self,
-        agent: Any,
+        agent: object,
         pairs: list[tuple[str, object]],
-        section_schema: Any,
+        section_schema: object,
     ) -> None:
         """RemoteConfigurable: apply overrides for agent-owned sections."""
         from syrin.remote._resolver_helpers import apply_agent_section_overrides
 
         section = getattr(section_schema, "section", None)
         if section == "agent":
-            apply_agent_section_overrides(agent, pairs, section_schema)
+            apply_agent_section_overrides(agent, pairs, section_schema)  # type: ignore[arg-type]
             return
         if section == "guardrails":
-            _apply_guardrails_overrides(agent, pairs)
+            _apply_guardrails_overrides(agent, pairs)  # type: ignore[arg-type]
             return
         if section == "template_variables":
-            _apply_template_vars_overrides(agent, pairs)
+            _apply_template_vars_overrides(agent, pairs)  # type: ignore[arg-type]
             return
         if section == "tools":
-            _apply_tools_overrides(agent, pairs)
+            _apply_tools_overrides(agent, pairs)  # type: ignore[arg-type]
             return
         if section == "mcp":
-            _apply_mcp_overrides(agent, pairs)
+            _apply_mcp_overrides(agent, pairs)  # type: ignore[arg-type]
             return
 
-    def __init_subclass__(cls, **kwargs: Any) -> None:
+    def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
         mro = cls.__mro__
         default_model = _merge_class_attrs(mro, "model", merge=False)
@@ -410,9 +411,9 @@ class Agent(Servable, metaclass=_AgentMeta):
         default_description = _merge_class_attrs(mro, "_agent_description", merge=False)
         if default_description is NOT_PROVIDED:
             default_description = _merge_class_attrs(mro, "description", merge=False)
-        cls._syrin_default_model = default_model if default_model is not NOT_PROVIDED else None
+        cls._syrin_default_model = default_model if default_model is not NOT_PROVIDED else None  # type: ignore[assignment]
         # Keep NOT_PROVIDED when no class sets memory so __init__ can default to Memory
-        cls._syrin_default_memory = default_memory
+        cls._syrin_default_memory = default_memory  # type: ignore[assignment]
         method_names = _get_system_prompt_method_names(cls)
         if len(method_names) > 1:
             names_str = ", ".join(f"'{n}'" for n in method_names)
@@ -425,7 +426,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         cls._syrin_default_system_prompt = (
             default_prompt if default_prompt is not NOT_PROVIDED else ""
         )
-        merged_template_vars: dict[str, Any] = {}
+        merged_template_vars: dict[str, object] = {}
         for c in mro:
             if c is object:
                 continue
@@ -436,9 +437,9 @@ class Agent(Servable, metaclass=_AgentMeta):
         # Merge: class @tool methods first, then explicit tools. Explicit overrides by name.
         # MCP and MCPClient kept for init-time expansion; MCP also for co-location.
         class_tools = _collect_class_tools(cls)
-        explicit_list = list(default_tools) if default_tools is not NOT_PROVIDED else []
+        explicit_list = list(default_tools) if default_tools is not NOT_PROVIDED else []  # type: ignore[call-overload]
         by_name: dict[str, ToolSpec] = {t.name: t for t in class_tools}
-        mcp_sources: list[Any] = []
+        mcp_sources: list[object] = []
         for t in explicit_list:
             if isinstance(t, ToolSpec):
                 by_name[t.name] = t
@@ -448,17 +449,17 @@ class Agent(Servable, metaclass=_AgentMeta):
                         by_name[s.name] = s
             elif hasattr(t, "tools") and callable(getattr(t, "tools", None)):
                 mcp_sources.append(t)
-        cls._syrin_default_tools = list(by_name.values()) + mcp_sources
-        cls._syrin_default_budget = default_budget if default_budget is not NOT_PROVIDED else None
+        cls._syrin_default_tools = list(by_name.values()) + mcp_sources  # type: ignore[operator]
+        cls._syrin_default_budget = default_budget if default_budget is not NOT_PROVIDED else None  # type: ignore[assignment]
         cls._syrin_default_guardrails = (
-            list(default_guardrails) if default_guardrails is not NOT_PROVIDED else []
+            list(default_guardrails) if default_guardrails is not NOT_PROVIDED else []  # type: ignore[call-overload]
         )
         if default_name is not NOT_PROVIDED and isinstance(default_name, str):
             cls._syrin_default_name = default_name
         elif default_name is NOT_PROVIDED and "_syrin_default_name" not in cls.__dict__:
             cls._syrin_default_name = None
         if default_description is not NOT_PROVIDED:
-            cls._syrin_default_description = default_description
+            cls._syrin_default_description = default_description  # type: ignore[assignment]
         elif (
             default_description is NOT_PROVIDED and "_syrin_default_description" not in cls.__dict__
         ):
@@ -466,38 +467,38 @@ class Agent(Servable, metaclass=_AgentMeta):
 
     def __init__(
         self,
-        model: Model | ModelConfig | None = NOT_PROVIDED,
-        system_prompt: str | None = NOT_PROVIDED,
-        tools: list[ToolSpec] | None = NOT_PROVIDED,
-        budget: Budget | None = NOT_PROVIDED,
+        model: Model | ModelConfig | None = NOT_PROVIDED,  # type: ignore[assignment]
+        system_prompt: str | None = NOT_PROVIDED,  # type: ignore[assignment]
+        tools: list[ToolSpec] | None = NOT_PROVIDED,  # type: ignore[assignment]
+        budget: Budget | None = NOT_PROVIDED,  # type: ignore[assignment]
         *,
         output: Output | None = None,
         max_tool_iterations: int = DEFAULT_MAX_TOOL_ITERATIONS,
         budget_store: BudgetStore | None = None,
         budget_store_key: str = "default",
-        memory: Memory | MemoryPreset | None = NOT_PROVIDED,
+        memory: Memory | MemoryPreset | None = NOT_PROVIDED,  # type: ignore[assignment]
         loop_strategy: LoopStrategy = LoopStrategy.REACT,
         custom_loop: Loop | type[Loop] | None = None,
-        guardrails: list[Guardrail] | GuardrailChain | None = NOT_PROVIDED,
+        guardrails: list[Guardrail] | GuardrailChain | None = NOT_PROVIDED,  # type: ignore[assignment]
         human_approval_timeout: int = 300,
         max_tool_result_length: int = 0,
         retry_on_transient: bool = True,
         max_retries: int = 3,
         retry_backoff_base: float = 1.0,
         debug: bool = False,
-        name: str | None = NOT_PROVIDED,
-        description: str | None = NOT_PROVIDED,
-        template_variables: dict[str, Any] | None = None,
+        name: str | None = NOT_PROVIDED,  # type: ignore[assignment]
+        description: str | None = NOT_PROVIDED,  # type: ignore[assignment]
+        template_variables: dict[str, object] | None = None,
         inject_template_vars: bool = True,
         max_child_agents: int | None = None,
         config: AgentConfig | None = None,
         model_router: ModelRouter | RoutingConfig | None = None,
         input_media: set[Media] | None = None,
         output_media: set[Media] | None = None,
-        input_file_rules: Any = None,
-        image_generation: Any = None,
-        video_generation: Any = None,
-        voice_generation: Any = None,
+        input_file_rules: object = None,
+        image_generation: object = None,
+        video_generation: object = None,
+        voice_generation: object = None,
         knowledge: object | None = None,
         output_config: object | None = None,  # OutputFormat | OutputConfig | None
     ) -> None:
@@ -514,7 +515,7 @@ class Agent(Servable, metaclass=_AgentMeta):
             tools: List of @tool-decorated functions the agent can call. Default: [].
 
         **Cost control:**
-            budget: Cost limits (per run, per period) and threshold actions. Use Budget(run=1.0) for $1/run.
+            budget: Cost limits (per run, per period) and threshold actions. Use Budget(max_cost=1.0) for $1/run.
             budget_store: Persist budget across runs (e.g. FileBudgetStore).
             budget_store_key: Key for budget persistence (default "default"). Isolate per user/session.
 
@@ -577,7 +578,7 @@ class Agent(Servable, metaclass=_AgentMeta):
             ...     model=Model.OpenAI("gpt-4o-mini"),
             ...     system_prompt="You are concise.",
             ...     tools=[search, calculate],
-            ...     budget=Budget(run=0.50),
+            ...     budget=Budget(max_cost=0.50),
             ...     memory=Memory(top_k=5),
             ... )
         """
@@ -618,7 +619,7 @@ class Agent(Servable, metaclass=_AgentMeta):
             guardrails = getattr(cls, "_syrin_default_guardrails", None) or []
         if memory is NOT_PROVIDED:
             class_mem = getattr(cls, "_syrin_default_memory", NOT_PROVIDED)
-            memory = Memory() if class_mem is NOT_PROVIDED or class_mem is None else class_mem
+            memory = Memory() if class_mem is NOT_PROVIDED or class_mem is None else class_mem  # type: ignore[assignment]
         if name is NOT_PROVIDED:
             name = getattr(cls, "_syrin_default_name", None)
         if description is NOT_PROVIDED:
@@ -662,7 +663,7 @@ class Agent(Servable, metaclass=_AgentMeta):
                 "Use @syrin.tool or syrin.tool() to create tools."
             )
         tools_list = tools if isinstance(tools, list) else []
-        tools_final, mcp_instances = _normalize_tools(tools_list, self)
+        tools_final, mcp_instances = _normalize_tools(tools_list, self)  # type: ignore[arg-type]
         budget = _validate_budget(budget)
         # Resolve model_router from class when None (so subclasses can set model_router = RoutingConfig(...))
         if model_router is None:
@@ -778,13 +779,16 @@ class Agent(Servable, metaclass=_AgentMeta):
         self._output_media = _output_media
         self._input_file_rules = _input_file_rules_final
 
-        self._router: Any = None
+        self._router: object = None
         self._active_model: Model | None = None
         self._active_model_config: ModelConfig | None = None
-        self._last_routing_reason: Any = None
+        self._last_routing_reason: object = None
         self._last_model_used: str | None = None
         self._last_actual_cost: float | None = None
-        self._call_task_override: Any = None
+        self._last_cost_estimated: float | None = None
+        self._last_cache_hit: bool = False
+        self._last_cache_savings: float = 0.0
+        self._call_task_override: object = None
         if models_list is not None:
             if len(models_list) == 1 and model_router is None:
                 self._model = models_list[0]
@@ -824,7 +828,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         instance_pv = dict(template_variables or {})
         self._template_vars = {**class_pv, **instance_pv}
         self._inject_template_vars = inject_template_vars
-        self._call_template_vars: dict[str, Any] | None = None
+        self._call_template_vars: dict[str, object] | None = None
         # Wire generation tools from output_media (IMAGE/VIDEO → Gemini when API key available)
         # API key comes only from developer: Google model's api_key or explicit ImageGenerator/VideoGenerator
         _api_key: str | None = None
@@ -931,7 +935,7 @@ class Agent(Servable, metaclass=_AgentMeta):
                             )
                         )
         self._tools = _tools_list
-        self._mcp_instances: list[Any] = mcp_instances
+        self._mcp_instances: list[object] = mcp_instances
         self._guardrails_disabled: set[str] = set()
         self._tools_disabled: set[str] = set()
         self._mcp_disabled: set[int] = set()
@@ -985,7 +989,7 @@ class Agent(Servable, metaclass=_AgentMeta):
             self._budget_component.budget._consume_callback = _budget_make_consume_callback(self)
         if (
             self._budget_component.budget is not None
-            and self._budget_component.budget.per is not None
+            and self._budget_component.budget.rate_limits is not None
             and self._budget_component.store is None
         ):
             _log.warning(
@@ -1048,7 +1052,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         if hasattr(self._context, "set_emit_fn"):
             from typing import cast
 
-            self._context.set_emit_fn(cast(Any, self._emit_event))
+            self._context.set_emit_fn(cast(object, self._emit_event))
         if hasattr(self._context, "set_tracer"):
             self._context.set_tracer(self._tracer)
 
@@ -1153,7 +1157,7 @@ class Agent(Servable, metaclass=_AgentMeta):
     def messages(self) -> list[Message]:
         """Current conversation messages from memory, or empty list if none."""
         if self._persistent_memory is not None:
-            return self._persistent_memory.get_conversation_messages()
+            return self._persistent_memory.get_conversation_messages()  # type: ignore[return-value]
         return []
 
     @property
@@ -1238,13 +1242,13 @@ class Agent(Servable, metaclass=_AgentMeta):
             AgentReport with report.checkpoints (saves, loads) and other sections.
 
         Example:
-            >>> agent.response("Hello")
+            >>> agent.run("Hello")
             >>> r = agent.get_checkpoint_report()
             >>> print(r.checkpoints.saves, r.checkpoints.loads)
         """
         return _checkpoint_get_report(self)
 
-    def _emit_event(self, hook: Hook | str, ctx: EventContext | dict[str, Any]) -> None:
+    def _emit_event(self, hook: Hook | str, ctx: EventContext | dict[str, object]) -> None:
         """Internal: trigger a hook through the events system.
 
         Args:
@@ -1325,7 +1329,7 @@ class Agent(Servable, metaclass=_AgentMeta):
                             CostInfo(cost_usd=cost, model_name=str(name or "voice"))
                         )
 
-    def _resolve_image_generator(self) -> Any:
+    def _resolve_image_generator(self) -> object:
         """Resolve image generator. Lazy init from stored key or env if None."""
         if self._image_generator is not None:
             return self._image_generator
@@ -1337,7 +1341,7 @@ class Agent(Servable, metaclass=_AgentMeta):
             object.__setattr__(self, "_image_generator", gen)
         return gen
 
-    def _resolve_video_generator(self) -> Any:
+    def _resolve_video_generator(self) -> object:
         """Resolve video generator. Lazy init from stored key or env if None."""
         if self._video_generator is not None:
             return self._video_generator
@@ -1349,7 +1353,7 @@ class Agent(Servable, metaclass=_AgentMeta):
             object.__setattr__(self, "_video_generator", gen)
         return gen
 
-    def _resolve_voice_generator(self) -> Any:
+    def _resolve_voice_generator(self) -> object:
         """Resolve voice generator. No default; returns configured VoiceGenerator or None."""
         return getattr(self, "_voice_generator", None)
 
@@ -1383,17 +1387,17 @@ class Agent(Servable, metaclass=_AgentMeta):
         None when agent has no run budget. Use to show users or gate behavior.
 
         Example:
-            >>> agent.response("Hello")
+            >>> agent.run("Hello")
             >>> state = agent.budget_state
             >>> if state:
             ...     print(f"Used {state.percent_used:.1f}%, ${state.remaining:.4f} left")
         """
-        if self._budget is None or self._budget.run is None:
+        if self._budget is None or self._budget.max_cost is None:
             return None
         effective = (
-            (self._budget.run - self._budget.reserve)
-            if self._budget.run > self._budget.reserve
-            else self._budget.run
+            (self._budget.max_cost - self._budget.reserve)
+            if self._budget.max_cost > self._budget.reserve
+            else self._budget.max_cost
         )
         spent = self._budget_tracker.current_run_cost
         remaining = max(0.0, effective - spent)
@@ -1404,6 +1408,76 @@ class Agent(Servable, metaclass=_AgentMeta):
             spent=spent,
             percent_used=round(percent, 2),
         )
+
+    def budget_summary(self) -> dict[str, object]:
+        """Return a structured summary of all budget usage for the current run.
+
+        Includes run cost, rate-window costs (hour/day/week/month), token usage,
+        remaining budget, and tracker state.
+
+        Example:
+            >>> agent.run("Hello")
+            >>> summary = agent.budget_summary()
+            >>> print(summary["run_cost"])
+        """
+        tracker = self._budget_tracker
+        budget = self._budget
+        state = self.budget_state
+        result: dict[str, object] = {
+            "run_cost": tracker.current_run_cost,
+            "run_tokens": tracker.current_run_tokens,
+            "hourly_cost": tracker.hourly_cost,
+            "daily_cost": tracker.daily_cost,
+            "weekly_cost": tracker.weekly_cost,
+            "monthly_cost": tracker.monthly_cost,
+            "hourly_tokens": tracker.hourly_tokens,
+            "daily_tokens": tracker.daily_tokens,
+            "weekly_tokens": tracker.weekly_tokens,
+            "monthly_tokens": tracker.monthly_tokens,
+        }
+        if budget is not None:
+            result["max_cost"] = budget.max_cost
+            result["reserve"] = budget.reserve
+            result["exceed_policy"] = (
+                budget.exceed_policy.value if budget.exceed_policy is not None else None
+            )
+        if state is not None:
+            result["budget_remaining"] = state.remaining
+            result["budget_percent_used"] = state.percent_used
+        return result
+
+    def export_costs(self, *, format: str = "dict") -> object:
+        """Export cost history for reporting, dashboards, or auditing.
+
+        Args:
+            format: Output format. ``"dict"`` (default) returns a list of dicts,
+                ``"json"`` returns a JSON string.
+
+        Returns:
+            List of cost entries (format="dict") or JSON string (format="json").
+
+        Example:
+            >>> agent.run("Hello")
+            >>> agent.run("World")
+            >>> costs = agent.export_costs()
+            >>> print(costs[0]["cost_usd"])
+        """
+        import json
+
+        tracker = self._budget_tracker
+        history = tracker.cost_history  # list[CostEntry]
+        rows: list[dict[str, object]] = [
+            {
+                "cost_usd": entry.cost_usd,
+                "total_tokens": entry.total_tokens,
+                "model": entry.model_name,
+                "timestamp": entry.timestamp,
+            }
+            for entry in history
+        ]
+        if format == "json":
+            return json.dumps(rows, default=str)
+        return rows
 
     # Delegate to budget component (facade)
     @property
@@ -1431,11 +1505,11 @@ class Agent(Servable, metaclass=_AgentMeta):
         return self._budget_component.key
 
     @property
-    def _context(self) -> Any:
+    def _context(self) -> object:
         return self._context_component.context_manager
 
     @property
-    def _token_limits(self) -> Any:
+    def _token_limits(self) -> TokenLimits | None:
         return self._context_component.token_limits
 
     @property
@@ -1463,8 +1537,8 @@ class Agent(Servable, metaclass=_AgentMeta):
         return cast(Tracer, self._observability_component.tracer)
 
     @property
-    def _event_bus(self) -> EventBus[Any] | None:
-        return cast("EventBus[Any] | None", self._observability_component.event_bus)
+    def _event_bus(self) -> EventBus[object] | None:  # type: ignore[type-var]
+        return cast("EventBus[object] | None", self._observability_component.event_bus)  # type: ignore[type-var]
 
     @property
     def _audit(self) -> AuditLog | None:
@@ -1540,7 +1614,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         during prepare, to compact context on demand (no auto_compact_at).
         """
         if hasattr(self._context, "context") and hasattr(self._context, "compact"):
-            return _ContextFacade(cast(Context, self._context.context), self._context)
+            return _ContextFacade(cast(Context, self._context.context), self._context)  # type: ignore[arg-type]
         if hasattr(self._context, "context"):
             return cast(Context, self._context.context)
         return Context()
@@ -1608,7 +1682,7 @@ class Agent(Servable, metaclass=_AgentMeta):
             report.checkpoints - Saves and loads
 
         Example:
-            >>> agent.response("Hello")
+            >>> agent.run("Hello")
             >>> print(agent.report.guardrail.input_passed)
             >>> print(agent.report.tokens.total_tokens)
         """
@@ -1619,7 +1693,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         content: str,
         memory_type: MemoryType = MemoryType.EPISODIC,
         importance: float = 1.0,
-        **metadata: Any,
+        **metadata: object,
     ) -> str:
         """Store a fact in persistent memory for later recall.
 
@@ -1643,7 +1717,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         Example:
             >>> agent.remember("User name is Alice", memory_type=MemoryType.CORE)
             'uuid-abc-123'
-            >>> agent.response("What's my name?")  # Recalls automatically
+            >>> agent.run("What's my name?")  # Recalls automatically
         """
         return _memory_remember(
             self, content, memory_type=memory_type, importance=importance, **metadata
@@ -1740,7 +1814,7 @@ class Agent(Servable, metaclass=_AgentMeta):
             transfer_budget: Give target remaining budget. Default False.
 
         Returns:
-            Response from target_agent.response(task).
+            Response from target_agent.run(task).
 
         Raises:
             ValidationError: task is None or empty.
@@ -1788,7 +1862,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         Example:
             >>> r = agent.spawn(ResearchAgent, task="Find papers on X")
             >>> child = agent.spawn(ResearchAgent)  # No task
-            >>> child.response("Another task")
+            >>> child.run("Another task")
         """
         return _spawn_impl(
             self, agent_class, task, budget=budget, max_child_agents=max_child_agents
@@ -1827,7 +1901,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         return _spawn_parallel_impl(self, agents)
 
     @property
-    def _system_prompt(self) -> str | Any:
+    def _system_prompt(self) -> str | object:
         """Raw system prompt source (str, Prompt, or callable). For introspection.
 
         Resolved prompt at runtime is built by _resolve_system_prompt.
@@ -1836,19 +1910,19 @@ class Agent(Servable, metaclass=_AgentMeta):
         return method if method is not None else self._system_prompt_source
 
     def effective_template_variables(
-        self, call_vars: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
+        self, call_vars: dict[str, object] | None = None
+    ) -> dict[str, object]:
         """Return merged template_variables: class + instance + call. For introspection."""
         return _prompt_effective_template_variables(self, call_vars=call_vars)
 
-    def get_prompt_builtins(self) -> dict[str, Any]:
+    def get_prompt_builtins(self) -> dict[str, object]:
         """Return built-in vars (date, agent_id, conversation_id) that would be injected."""
         return _prompt_get_builtins(self)
 
     def _resolve_system_prompt(
         self,
-        prompt_vars: dict[str, Any],
-        ctx: Any,
+        prompt_vars: dict[str, object],
+        ctx: object,
     ) -> str:
         """Resolve system prompt from source (str, Prompt, callable, or @system_prompt method).
 
@@ -1856,15 +1930,15 @@ class Agent(Servable, metaclass=_AgentMeta):
         """
         return _prompt_resolve_system_prompt(self, prompt_vars, ctx)
 
-    def _build_messages(self, user_input: str | list[dict[str, Any]]) -> list[Message]:
+    def _build_messages(self, user_input: str | list[dict[str, object]]) -> list[Message]:
         return _prompt_build_messages(self, user_input)
 
     def _build_output(
         self,
         content: str,
         validation_retries: int = 3,
-        validation_context: dict[str, Any] | None = None,
-        validator: Any = None,
+        validation_context: dict[str, object] | None = None,
+        validator: object = None,
     ) -> StructuredOutput | None:
         """Build structured output from response content with validation.
 
@@ -1882,10 +1956,10 @@ class Agent(Servable, metaclass=_AgentMeta):
             validator=validator,
         )
 
-    def _execute_tool(self, name: str, arguments: dict[str, Any]) -> str:
+    def _execute_tool(self, name: str, arguments: dict[str, object]) -> str:
         return _tool_execute(self, name, arguments)
 
-    async def execute_tool(self, name: str, arguments: dict[str, Any]) -> str:
+    async def execute_tool(self, name: str, arguments: dict[str, object]) -> str:
         """Run a tool by name with the given arguments. For custom loops.
 
         Why: Built-in loops call this automatically. Use when implementing a
@@ -1910,7 +1984,7 @@ class Agent(Servable, metaclass=_AgentMeta):
 
     def estimate_cost(
         self,
-        messages: list[Any],
+        messages: list[object],
         max_output_tokens: int = 1024,
     ) -> float:
         """Estimate cost in USD for the next LLM call (best-effort).
@@ -1937,14 +2011,14 @@ class Agent(Servable, metaclass=_AgentMeta):
             pricing = self._model.get_pricing()
         return estimate_cost_for_call(
             self._model_config.model_id,
-            messages,
+            messages,  # type: ignore[arg-type]
             max_output_tokens=max_output_tokens,
             pricing_override=pricing,
         )
 
     def _pre_call_budget_check(
         self,
-        messages: list[Any],
+        messages: list[object],
         max_output_tokens: int = 1024,
     ) -> None:
         """If run budget would be exceeded after an estimated call, call on_exceeded and raise.
@@ -1989,7 +2063,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         use_model = self._model
         use_config = self._model_config
         use_provider = self._provider
-        provider_kwargs: dict[str, Any] = {}
+        provider_kwargs: dict[str, object] = {}
 
         if self._router is not None:
             prompt = ""
@@ -2003,7 +2077,7 @@ class Agent(Servable, metaclass=_AgentMeta):
                 ctx["max_output_tokens"] = getattr(self.run_context, "max_output_tokens", 1024)
             t0 = time.perf_counter()
             try:
-                routed_model, task_type, reason = self._router.route(
+                routed_model, task_type, reason = self._router.route(  # type: ignore[attr-defined]
                     prompt,
                     tools=tools,
                     messages=messages,
@@ -2054,7 +2128,7 @@ class Agent(Servable, metaclass=_AgentMeta):
             has_fallback = bool(getattr(use_model, "fallback", None))
             has_transformer = bool(getattr(use_model, "_transformer", None))
             if has_fallback or has_transformer:
-                result = await use_model.acomplete(messages, tools=tools, **provider_kwargs)
+                result = await use_model.acomplete(messages, tools=tools, **provider_kwargs)  # type: ignore[arg-type]
                 resp = cast(ProviderResponse, result)
             else:
                 resp = await use_provider.complete(
@@ -2070,6 +2144,10 @@ class Agent(Servable, metaclass=_AgentMeta):
                 self._last_model_used = meta.get("model_used")
             if "actual_cost" in meta:
                 self._last_actual_cost = meta.get("actual_cost")
+            if "cache_hit" in meta:
+                self._last_cache_hit = bool(meta.get("cache_hit"))
+            if "cache_savings" in meta:
+                self._last_cache_savings = float(meta.get("cache_savings") or 0.0)
         return resp
 
     def _resolve_fallback_provider(self) -> tuple[Provider, ModelConfig]:
@@ -2103,7 +2181,7 @@ class Agent(Servable, metaclass=_AgentMeta):
                         to_model=cfg.model_id,
                     ),
                 )
-                provider_kwargs: dict[str, Any] = {}
+                provider_kwargs: dict[str, object] = {}
                 if hasattr(self._model, "_provider_kwargs"):
                     provider_kwargs = dict(getattr(self._model, "_provider_kwargs", {}))
                 return await prov.complete(
@@ -2155,13 +2233,13 @@ class Agent(Servable, metaclass=_AgentMeta):
         return _response_with_context(self, r)
 
     def record_conversation_turn(
-        self, user_input: str | list[dict[str, Any]], assistant_content: str
+        self, user_input: str | list[dict[str, object]], assistant_content: str
     ) -> None:
         """Append a user/assistant turn to memory for next context."""
         _response_record_conversation_turn(self, user_input, assistant_content)
 
     async def _run_loop_response_async(
-        self, user_input: str | list[dict[str, Any]]
+        self, user_input: str | list[dict[str, object]]
     ) -> Response[str]:
         """Run using the configured loop strategy with full observability (async)."""
         from syrin.agent._run import run_agent_loop_async
@@ -2170,13 +2248,13 @@ class Agent(Servable, metaclass=_AgentMeta):
         self.record_conversation_turn(user_input, result.content or "")
         return result
 
-    def _run_loop_response(self, user_input: str | list[dict[str, Any]]) -> Response[str]:
+    def _run_loop_response(self, user_input: str | list[dict[str, object]]) -> Response[str]:
         """Run using the configured loop strategy (sync wrapper)."""
         from syrin._loop import get_loop
 
         return get_loop().run_until_complete(self._run_loop_response_async(user_input))
 
-    def _stream_response(self, user_input: str | list[dict[str, Any]]) -> Iterator[StreamChunk]:
+    def _stream_response(self, user_input: str | list[dict[str, object]]) -> Iterator[StreamChunk]:
         """Stream response chunks synchronously. Records cost per chunk and checks budget mid-stream."""
         messages = self._build_messages(user_input)
         tools = self.tools if self.tools else None
@@ -2234,15 +2312,15 @@ class Agent(Servable, metaclass=_AgentMeta):
         except Exception as e:
             raise ToolExecutionError(f"Streaming failed: {e}") from e
 
-    def response(
+    def run(
         self,
-        user_input: str | list[dict[str, Any]],
+        user_input: str | list[dict[str, object]],
         context: Context | None = None,
-        template_variables: dict[str, Any] | None = None,
+        template_variables: dict[str, object] | None = None,
         *,
-        inject: list[dict[str, Any]] | None = None,
+        inject: list[dict[str, object]] | None = None,
         inject_source_detail: str | None = None,
-        task_type: Any = None,
+        task_type: object = None,
     ) -> Response[str]:
         """Run the agent: LLM completion + tool loop. Synchronous.
 
@@ -2267,10 +2345,10 @@ class Agent(Servable, metaclass=_AgentMeta):
             output (if output= set), and report.
 
         Example:
-            >>> r = agent.response("What is 2+2?")
-            >>> r = agent.response("Long task...", context=Context(max_tokens=4000))
+            >>> r = agent.run("What is 2+2?")
+            >>> r = agent.run("Long task...", context=Context(max_tokens=4000))
         """
-        _validate_user_input(user_input, "response")
+        _validate_user_input(user_input, "run")
         self._call_context = context
         self._call_template_vars = dict(template_variables) if template_variables else None
         self._call_inject = inject
@@ -2299,13 +2377,13 @@ class Agent(Servable, metaclass=_AgentMeta):
 
     async def arun(
         self,
-        user_input: str | list[dict[str, Any]],
+        user_input: str | list[dict[str, object]],
         context: Context | None = None,
-        template_variables: dict[str, Any] | None = None,
+        template_variables: dict[str, object] | None = None,
         *,
-        inject: list[dict[str, Any]] | None = None,
+        inject: list[dict[str, object]] | None = None,
         inject_source_detail: str | None = None,
-        task_type: Any = None,
+        task_type: object = None,
     ) -> Response[str]:
         """Run the agent asynchronously. Same as response() but non-blocking.
 
@@ -2353,11 +2431,11 @@ class Agent(Servable, metaclass=_AgentMeta):
 
     def stream(
         self,
-        user_input: str | list[dict[str, Any]],
+        user_input: str | list[dict[str, object]],
         context: Context | None = None,
-        template_variables: dict[str, Any] | None = None,
+        template_variables: dict[str, object] | None = None,
         *,
-        inject: list[dict[str, Any]] | None = None,
+        inject: list[dict[str, object]] | None = None,
         inject_source_detail: str | None = None,
     ) -> Iterator[StreamChunk]:
         """Stream response text as it arrives. Synchronous iterator.
@@ -2401,11 +2479,11 @@ class Agent(Servable, metaclass=_AgentMeta):
 
     async def astream(
         self,
-        user_input: str | list[dict[str, Any]],
+        user_input: str | list[dict[str, object]],
         context: Context | None = None,
-        template_variables: dict[str, Any] | None = None,
+        template_variables: dict[str, object] | None = None,
         *,
-        inject: list[dict[str, Any]] | None = None,
+        inject: list[dict[str, object]] | None = None,
         inject_source_detail: str | None = None,
     ) -> AsyncIterator[StreamChunk]:
         """Stream response text as it arrives. Async iterator.
@@ -2537,7 +2615,7 @@ class Agent(Servable, metaclass=_AgentMeta):
             self._call_inject = None
             self._call_inject_source_detail = None
 
-    def as_router(self, config: Any | None = None, **config_kwargs: Any) -> Any:
+    def as_router(self, config: object | None = None, **config_kwargs: object) -> object:
         """Return a FastAPI APIRouter for this agent. Mount on your app.
 
         Use when you want to serve this agent over HTTP. Mount the router on an
@@ -2560,7 +2638,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         from syrin.serve.config import ServeConfig
         from syrin.serve.http import build_router
 
-        cfg = config if isinstance(config, ServeConfig) else ServeConfig(**config_kwargs)
+        cfg = config if isinstance(config, ServeConfig) else ServeConfig(**config_kwargs)  # type: ignore[arg-type]
         return build_router(self, cfg)
 
     # serve() inherited from Servable — HTTP, CLI, STDIO protocols

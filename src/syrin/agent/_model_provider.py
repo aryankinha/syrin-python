@@ -11,11 +11,12 @@ from syrin.agent._helpers import _resolve_provider
 from syrin.model import Model
 
 if TYPE_CHECKING:
+    from syrin.agent import Agent
     from syrin.providers.base import Provider
     from syrin.types import ModelConfig
 
 
-def switch_model(agent: Any, model: Model | Any) -> None:
+def switch_model(agent: Agent, model: Model | Any) -> None:  # type: ignore[explicit-any]
     """Change the LLM used by the agent at runtime."""
     if isinstance(model, Model):
         agent._model = model
@@ -26,7 +27,7 @@ def switch_model(agent: Any, model: Model | Any) -> None:
     agent._provider = _resolve_provider(agent._model, agent._model_config)
 
 
-def resolve_fallback_provider(agent: Any) -> tuple[Provider, ModelConfig]:
+def resolve_fallback_provider(agent: Agent) -> tuple[Provider, ModelConfig]:
     """Resolve fallback model to (provider, config). Cached on agent."""
     if agent._fallback_provider is not None and agent._fallback_model_config is not None:
         return agent._fallback_provider, agent._fallback_model_config

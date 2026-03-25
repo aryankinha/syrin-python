@@ -25,9 +25,9 @@ print("=" * 60)
 print("1. Parent agent with shared budget ($10.00)")
 print("=" * 60)
 
-shared = Budget(run=10.0, shared=True, on_exceeded=warn_on_exceeded)
+shared = Budget(max_cost=10.0, shared=True, on_exceeded=warn_on_exceeded)
 parent = Agent(model=model, budget=shared)
-result = parent.response("Hello from parent")
+result = parent.run("Hello from parent")
 print(f"   Parent cost:   ${result.cost:.6f}")
 print(f"   Budget state:  {parent.budget_state}")
 
@@ -56,7 +56,7 @@ print("\n" + "=" * 60)
 print("3. Three children sharing one budget pool")
 print("=" * 60)
 
-parent2 = Agent(model=model, budget=Budget(run=10.0, shared=True))
+parent2 = Agent(model=model, budget=Budget(max_cost=10.0, shared=True))
 for i in range(3):
     parent2.spawn(Child, task=f"Task {i + 1}")
     print(f"   After child {i + 1}: {parent2.budget_state}")
@@ -75,11 +75,11 @@ class SharedBudgetParent(Agent):
     _agent_name = "shared-budget"
     _agent_description = "Agent with shared budget (spawn children that borrow)"
     model = model
-    budget = Budget(run=10.0, shared=True, on_exceeded=warn_on_exceeded)
+    budget = Budget(max_cost=10.0, shared=True, on_exceeded=warn_on_exceeded)
 
 
 agent = SharedBudgetParent()
-result = agent.response("Plan a project in three steps.")
+result = agent.run("Plan a project in three steps.")
 print(f"   Cost:          ${result.cost:.6f}")
 print(f"   Budget state:  {agent.budget_state}")
 

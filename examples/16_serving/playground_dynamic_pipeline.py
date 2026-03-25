@@ -83,7 +83,7 @@ class SummarizerAgent(Agent):
 # -----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    budget = Budget(run=2.0)
+    budget = Budget(max_cost=2.0)
     pipeline = DynamicPipeline(
         agents=[
             ResearcherAgent,

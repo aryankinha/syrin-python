@@ -6,8 +6,6 @@ Voices: alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer.
 
 from __future__ import annotations
 
-from typing import Any
-
 from syrin.generation._base_voice import BaseVoiceProvider
 
 _OPENAI_VOICES: frozenset[str] = frozenset(
@@ -27,7 +25,7 @@ class OpenAIVoiceProvider(BaseVoiceProvider):
         api_key: str | None = None,
         voice: str = "alloy",
         model: str = "tts-1",
-        **kwargs: Any,
+        **kwargs: object,
     ) -> None:
         super().__init__(api_key=api_key, model=model, **kwargs)
         self.voice = voice if voice in _OPENAI_VOICES else "alloy"
@@ -48,7 +46,7 @@ class OpenAIVoiceProvider(BaseVoiceProvider):
         language: str,
         output_format: str,
         model_id: str,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> tuple[bytes, str, str]:
         from openai import OpenAI
 
@@ -60,7 +58,7 @@ class OpenAIVoiceProvider(BaseVoiceProvider):
             input=text,
             speed=speed,
             response_format=output_format,  # type: ignore[arg-type]
-            **{**self._kwargs, **kwargs},
+            **{**self._kwargs, **kwargs},  # type: ignore[arg-type]
         )
         mime = "audio/mpeg" if output_format == "mp3" else f"audio/{output_format}"
         return resp.content, model_id, mime
@@ -75,7 +73,7 @@ class OpenAIVoiceProvider(BaseVoiceProvider):
         language: str,
         output_format: str,
         model_id: str,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> tuple[bytes, str, str]:
         from openai import AsyncOpenAI
 
@@ -87,7 +85,7 @@ class OpenAIVoiceProvider(BaseVoiceProvider):
             input=text,
             speed=speed,
             response_format=output_format,  # type: ignore[arg-type]
-            **{**self._kwargs, **kwargs},
+            **{**self._kwargs, **kwargs},  # type: ignore[arg-type]
         )
         mime = "audio/mpeg" if output_format == "mp3" else f"audio/{output_format}"
         return resp.content, model_id, mime

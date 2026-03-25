@@ -34,7 +34,7 @@ def test_rate_limits_not_shared_between_trackers() -> None:
     t2 = BudgetTracker()
     t1.record(CostInfo(cost_usd=5.0, token_usage=TokenUsage()))
     t2.record(CostInfo(cost_usd=5.0, token_usage=TokenUsage()))
-    budget = Budget(per=RateLimit(hour=10.0))
+    budget = Budget(rate_limits=RateLimit(hour=10.0))
     assert t1.check_budget(budget).status == BudgetStatus.OK
     assert t2.check_budget(budget).status == BudgetStatus.OK
     t1.record(CostInfo(cost_usd=6.0, token_usage=TokenUsage()))
@@ -46,7 +46,7 @@ def test_run_reserve_effective_limit_in_check_budget() -> None:
     """Effective run limit is run - reserve when run > reserve; exceed when cost >= effective."""
     tracker = BudgetTracker()
     tracker.record(CostInfo(cost_usd=7.0, token_usage=TokenUsage()))
-    budget = Budget(run=10.0, reserve=2.0)
+    budget = Budget(max_cost=10.0, reserve=2.0)
     result = tracker.check_budget(budget)
     assert result.status == BudgetStatus.OK
     assert result.exceeded_limit is None
@@ -60,7 +60,7 @@ def test_run_reserve_greater_than_run_uses_run_as_limit() -> None:
     """When reserve >= run, effective limit is still run (no negative)."""
     tracker = BudgetTracker()
     tracker.record(CostInfo(cost_usd=5.0, token_usage=TokenUsage()))
-    budget = Budget(run=5.0, reserve=10.0)
+    budget = Budget(max_cost=5.0, reserve=10.0)
     result = tracker.check_budget(budget)
     assert result.status == BudgetStatus.EXCEEDED
     assert result.exceeded_limit == BudgetLimitType.RUN
@@ -71,8 +71,8 @@ def test_run_tokens_exactly_at_limit_exceeded() -> None:
     tracker = BudgetTracker()
     tracker.record(CostInfo(cost_usd=0.0, token_usage=TokenUsage(total_tokens=100)))
     result = tracker.check_budget(
-        Budget(run=10.0),
-        token_limits=TokenLimits(run=100),
+        Budget(max_cost=10.0),
+        token_limits=TokenLimits(max_tokens=100),
     )
     assert result.status == BudgetStatus.EXCEEDED
     assert result.exceeded_limit == BudgetLimitType.RUN_TOKENS
@@ -83,8 +83,8 @@ def test_run_tokens_just_under_limit_ok() -> None:
     tracker = BudgetTracker()
     tracker.record(CostInfo(cost_usd=0.0, token_usage=TokenUsage(total_tokens=99)))
     result = tracker.check_budget(
-        Budget(run=10.0),
-        token_limits=TokenLimits(run=100),
+        Budget(max_cost=10.0),
+        token_limits=TokenLimits(max_tokens=100),
     )
     assert result.status == BudgetStatus.OK
     assert result.exceeded_limit is None
@@ -96,7 +96,7 @@ def test_check_after_record_exceeded_one_call_can_overshoot() -> None:
     So you can overshoot by at most one LLM call's cost (or one chunk when streaming).
     """
     tracker = BudgetTracker()
-    budget = Budget(run=5.0)
+    budget = Budget(max_cost=5.0)
     tracker.record(CostInfo(cost_usd=4.0, token_usage=TokenUsage()))
     assert tracker.check_budget(budget).status == BudgetStatus.OK
     tracker.record(CostInfo(cost_usd=2.0, token_usage=TokenUsage()))
@@ -110,7 +110,7 @@ def test_month_window_uses_fixed_30_days() -> None:
     """Rate-limit month window defaults to 30 days (wall-clock); configurable via month_days."""
     tracker = BudgetTracker()
     tracker.record(CostInfo(cost_usd=100.0, token_usage=TokenUsage()))
-    budget = Budget(per=RateLimit(month=50.0))
+    budget = Budget(rate_limits=RateLimit(month=50.0))
     result = tracker.check_budget(budget)
     assert result.status == BudgetStatus.EXCEEDED
     assert result.exceeded_limit == BudgetLimitType.MONTH
@@ -120,7 +120,7 @@ def test_run_none_no_run_limit_check() -> None:
     """When run is None, no per-run cost limit is enforced."""
     tracker = BudgetTracker()
     tracker.record(CostInfo(cost_usd=1e6, token_usage=TokenUsage()))
-    budget = Budget(run=None, per=RateLimit(month=1e9))
+    budget = Budget(max_cost=None, rate_limits=RateLimit(month=1e9))
     result = tracker.check_budget(budget)
     assert result.status == BudgetStatus.OK
 
@@ -171,8 +171,8 @@ def test_tracker_month_days_from_budget() -> None:
     """BudgetTracker uses budget.per.month_days for month window when checking."""
     tracker = BudgetTracker()
     tracker.record(CostInfo(cost_usd=100.0, token_usage=TokenUsage()))
-    budget_30 = Budget(per=RateLimit(month=50.0, month_days=30))
-    budget_7 = Budget(per=RateLimit(month=50.0, month_days=7))
+    budget_30 = Budget(rate_limits=RateLimit(month=50.0, month_days=30))
+    budget_7 = Budget(rate_limits=RateLimit(month=50.0, month_days=7))
     assert tracker.check_budget(budget_30).exceeded_limit == BudgetLimitType.MONTH
     assert tracker._month_days == 30
     assert tracker.check_budget(budget_7).exceeded_limit == BudgetLimitType.MONTH
@@ -195,8 +195,8 @@ def test_tracker_check_budget_exceeded_hour_tokens() -> None:
     tracker = BudgetTracker()
     tracker.record(CostInfo(cost_usd=0.0, token_usage=TokenUsage(total_tokens=150_000)))
     result = tracker.check_budget(
-        Budget(run=10.0, per=RateLimit(hour=100.0)),
-        token_limits=TokenLimits(per=TokenRateLimit(hour=100_000)),
+        Budget(max_cost=10.0, rate_limits=RateLimit(hour=100.0)),
+        token_limits=TokenLimits(rate_limits=TokenRateLimit(hour=100_000)),
     )
     assert result.status == BudgetStatus.EXCEEDED
     assert result.exceeded_limit == BudgetLimitType.HOUR_TOKENS
@@ -207,8 +207,8 @@ def test_tracker_check_budget_exceeded_day_tokens() -> None:
     tracker = BudgetTracker()
     tracker.record(CostInfo(cost_usd=0.0, token_usage=TokenUsage(total_tokens=200_000)))
     result = tracker.check_budget(
-        Budget(run=10.0, per=RateLimit(day=100.0)),
-        token_limits=TokenLimits(per=TokenRateLimit(day=100_000)),
+        Budget(max_cost=10.0, rate_limits=RateLimit(day=100.0)),
+        token_limits=TokenLimits(rate_limits=TokenRateLimit(day=100_000)),
     )
     assert result.status == BudgetStatus.EXCEEDED
     assert result.exceeded_limit == BudgetLimitType.DAY_TOKENS
@@ -219,8 +219,8 @@ def test_tracker_check_budget_exceeded_month_tokens() -> None:
     tracker = BudgetTracker()
     tracker.record(CostInfo(cost_usd=0.0, token_usage=TokenUsage(total_tokens=500_000)))
     result = tracker.check_budget(
-        Budget(run=10.0, per=RateLimit(month=100.0)),
-        token_limits=TokenLimits(per=TokenRateLimit(month=400_000)),
+        Budget(max_cost=10.0, rate_limits=RateLimit(month=100.0)),
+        token_limits=TokenLimits(rate_limits=TokenRateLimit(month=400_000)),
     )
     assert result.status == BudgetStatus.EXCEEDED
     assert result.exceeded_limit == BudgetLimitType.MONTH_TOKENS
@@ -231,8 +231,8 @@ def test_tracker_check_budget_token_limits_under_ok() -> None:
     tracker = BudgetTracker()
     tracker.record(CostInfo(cost_usd=0.0, token_usage=TokenUsage(total_tokens=50_000)))
     result = tracker.check_budget(
-        Budget(run=10.0, per=RateLimit(hour=100.0)),
-        token_limits=TokenLimits(per=TokenRateLimit(hour=100_000)),
+        Budget(max_cost=10.0, rate_limits=RateLimit(hour=100.0)),
+        token_limits=TokenLimits(rate_limits=TokenRateLimit(hour=100_000)),
     )
     assert result.status == BudgetStatus.OK
     assert result.exceeded_limit is None
@@ -311,7 +311,7 @@ def test_budget_threshold_at_range_triggers_in_band() -> None:
     tracker = BudgetTracker()
     tracker.record(CostInfo(cost_usd=72.0, token_usage=TokenUsage()))
     budget = Budget(
-        run=100.0,
+        max_cost=100.0,
         thresholds=[
             BudgetThreshold(at_range=(70, 75), action=capture, window="run"),
         ],
@@ -332,7 +332,7 @@ def test_budget_threshold_at_range_does_not_trigger_below_band() -> None:
     tracker = BudgetTracker()
     tracker.record(CostInfo(cost_usd=50.0, token_usage=TokenUsage()))
     budget = Budget(
-        run=100.0,
+        max_cost=100.0,
         thresholds=[BudgetThreshold(at_range=(70, 75), action=capture, window="run")],
     )
     tracker.check_thresholds(budget)
@@ -351,7 +351,7 @@ def test_budget_threshold_at_range_does_not_trigger_above_band() -> None:
     tracker = BudgetTracker()
     tracker.record(CostInfo(cost_usd=90.0, token_usage=TokenUsage()))
     budget = Budget(
-        run=100.0,
+        max_cost=100.0,
         thresholds=[BudgetThreshold(at_range=(70, 75), action=capture, window="run")],
     )
     tracker.check_thresholds(budget)
@@ -368,8 +368,8 @@ def test_budget_threshold_tokens_hour_window() -> None:
     tracker = BudgetTracker()
     tracker.record(CostInfo(cost_usd=0.0, token_usage=TokenUsage(total_tokens=85_000)))
     budget = Budget(
-        run=10.0,
-        per=RateLimit(hour=100.0),
+        max_cost=10.0,
+        rate_limits=RateLimit(hour=100.0),
         thresholds=[
             BudgetThreshold(
                 at=80,
@@ -379,7 +379,7 @@ def test_budget_threshold_tokens_hour_window() -> None:
             ),
         ],
     )
-    token_limits = TokenLimits(per=TokenRateLimit(hour=100_000))
+    token_limits = TokenLimits(rate_limits=TokenRateLimit(hour=100_000))
     tracker.check_thresholds(budget, token_limits=token_limits)
     assert triggered == [85]
 
@@ -409,7 +409,7 @@ def test_check_budget_exceeded_when_run_plus_reserved_hits_limit() -> None:
     """check_budget treats (current_run_cost + _reserved) as effective run usage."""
     tracker = BudgetTracker()
     tracker.record(CostInfo(cost_usd=4.0, token_usage=TokenUsage()))
-    budget = Budget(run=10.0)
+    budget = Budget(max_cost=10.0)
     assert tracker.check_budget(budget).status == BudgetStatus.OK
     token = tracker.reserve(6.0)
     result = tracker.check_budget(budget)
@@ -429,4 +429,4 @@ def test_reservation_double_commit_or_rollback_idempotent() -> None:
     token2 = tracker.reserve(1.0)
     token2.rollback()
     token2.rollback()
-    assert tracker.check_budget(Budget(run=10.0)).status == BudgetStatus.OK
+    assert tracker.check_budget(Budget(max_cost=10.0)).status == BudgetStatus.OK

@@ -382,7 +382,7 @@ class TestModelRouterBudgetParams:
     def test_budget_low_prefers_cheaper_model(self) -> None:
         from syrin.budget import Budget
 
-        budget = Budget(run=1.0)
+        budget = Budget(max_cost=1.0)
         budget._set_spent(0.85)  # remaining=0.15, ratio=0.15 < prefer_cheaper=0.20
 
         models = [
@@ -408,7 +408,7 @@ class TestModelRouterBudgetParams:
     def test_budget_critical_forces_cheapest(self) -> None:
         from syrin.budget import Budget
 
-        budget = Budget(run=1.0)
+        budget = Budget(max_cost=1.0)
         budget._set_spent(0.92)  # remaining=0.08, ratio=0.08 < force_cheapest=0.10
 
         models = [
@@ -434,7 +434,7 @@ class TestModelRouterBudgetParams:
     def test_budget_optimisation_disabled_ignores_budget(self) -> None:
         from syrin.budget import Budget
 
-        budget = Budget(run=1.0)
+        budget = Budget(max_cost=1.0)
         budget._set_spent(0.90)  # Low remaining
 
         models = [

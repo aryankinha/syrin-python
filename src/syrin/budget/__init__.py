@@ -8,13 +8,13 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field, PrivateAttr, model_validator
 
 from syrin.cost import ModelPricing, Pricing
-from syrin.enums import BudgetLimitType, ThresholdMetric, ThresholdWindow
+from syrin.enums import BudgetLimitType, ExceedPolicy, ThresholdMetric, ThresholdWindow
 from syrin.exceptions import BudgetExceededError, BudgetThresholdError
 from syrin.threshold import BudgetThreshold, ThresholdContext
 from syrin.types import CostInfo, TokenUsage
@@ -38,7 +38,7 @@ class BudgetState:
     percent_used: float
     """Percentage of limit used (0–100)."""
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Dict suitable for logging or serialization."""
         return {
             "limit": self.limit,
@@ -59,6 +59,7 @@ __all__ = [
     "BudgetTracker",
     "CheckBudgetResult",
     "CostEntry",
+    "ExceedPolicy",
     "ModelPricing",
     "Pricing",
     "RateLimit",
@@ -108,7 +109,7 @@ def stop_on_exceeded(ctx: BudgetExceededContext) -> None:
     )
 
 
-class BudgetStatus(str, Enum):
+class BudgetStatus(StrEnum):
     """Result of a budget check."""
 
     OK = "ok"
@@ -124,7 +125,7 @@ class CheckBudgetResult:
     exceeded_limit: BudgetLimitType | None = None
 
 
-class RateLimit(BaseModel):
+class RateLimit(BaseModel):  # type: ignore[explicit-any]
     """Rate-based cost limits in USD per window. For token caps use TokenLimits and TokenRateLimit."""
 
     hour: float | None = Field(default=None, ge=0, description="Max USD per hour")
@@ -154,7 +155,7 @@ class RateLimit(BaseModel):
         return None
 
 
-class TokenRateLimit(BaseModel):
+class TokenRateLimit(BaseModel):  # type: ignore[explicit-any]
     """Token caps per time window (hour/day/week/month).
 
     **Why:** Cap token usage over rolling windows so you don't exceed provider
@@ -168,7 +169,7 @@ class TokenRateLimit(BaseModel):
 
     Example:
         >>> from syrin import Context, TokenLimits, TokenRateLimit
-        >>> Context(token_limits=TokenLimits(per=TokenRateLimit(hour=100_000, day=400_000)))
+        >>> Context(token_limits=TokenLimits(rate_limits=TokenRateLimit(hour=100_000, day=400_000)))
     """
 
     hour: int | None = Field(
@@ -195,17 +196,29 @@ class TokenRateLimit(BaseModel):
     )
 
 
-class TokenLimits(BaseModel):
-    """Token usage caps — run and/or per-window. Same field names as Budget: run, per, on_exceeded.
+def _policy_to_handler(
+    policy: ExceedPolicy,
+) -> Callable[[BudgetExceededContext], None]:
+    """Map an ExceedPolicy enum value to a concrete on_exceeded handler."""
+    if policy == ExceedPolicy.STOP:
+        return raise_on_exceeded
+    if policy == ExceedPolicy.WARN:
+        return warn_on_exceeded
+    # IGNORE and SWITCH both continue; SWITCH requires agent-level fallback_model support.
+    return lambda _ctx: None
+
+
+class TokenLimits(BaseModel):  # type: ignore[explicit-any]
+    """Token usage caps — per run and/or per rolling window.
 
     **Why:** Cap token usage (input+output) per run and/or per hour/day/week/month
     without mixing with cost (Budget is USD only).
 
-    **What:** Optional run cap (max tokens per request run) and optional per-window
+    **What:** Optional run cap (max_tokens per request run) and optional per-window
     caps (TokenRateLimit). When a limit is exceeded, on_exceeded is called; raise
     to stop the run, return to continue.
 
-    **How:** Use as Context.token_limits: Context(token_limits=TokenLimits(run=50_000, ...)).
+    **How:** Use as Context.token_limits: Context(token_limits=TokenLimits(max_tokens=50_000, ...)).
     The agent's budget tracker enforces limits after each LLM call.
 
     Example:
@@ -213,40 +226,53 @@ class TokenLimits(BaseModel):
         >>> from syrin.budget import TokenLimits, TokenRateLimit, raise_on_exceeded
         >>> agent = Agent(
         ...     model=Model("openai/gpt-4o"),
-        ...     context=Context(token_limits=TokenLimits(run=50_000, on_exceeded=raise_on_exceeded)),
+        ...     context=Context(token_limits=TokenLimits(max_tokens=50_000, on_exceeded=raise_on_exceeded)),
         ... )
     """
 
     model_config = {"arbitrary_types_allowed": True}
 
-    run: int | None = Field(
+    max_tokens: int | None = Field(
         default=None,
         ge=0,
-        description="Max tokens per run (input + output). One request/response cycle. Same name as Budget.run (which is USD).",
+        description="Max tokens per run (input + output). One request/response cycle.",
     )
-    per: TokenRateLimit | None = Field(
+    rate_limits: TokenRateLimit | None = Field(
         default=None,
-        description="Token caps per hour/day/week/month. Same name as Budget.per (which is USD rate limits).",
+        description="Token caps per hour/day/week/month rolling windows.",
     )
     on_exceeded: Callable[[BudgetExceededContext], None] | None = Field(
         default=None,
         description="Called when a token limit is exceeded. Raise to stop the run; return to continue (e.g. warn). Same as Budget.on_exceeded.",
     )
+    exceed_policy: ExceedPolicy | None = Field(
+        default=None,
+        description=(
+            "Declarative policy when token limit is exceeded. Applied only when on_exceeded is None. "
+            "STOP raises BudgetExceededError; WARN logs and continues; IGNORE silently continues."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _resolve_exceed_policy(self) -> TokenLimits:
+        if self.on_exceeded is None and self.exceed_policy is not None:
+            self.on_exceeded = _policy_to_handler(self.exceed_policy)
+        return self
 
     @property
     def per_hour(self) -> int | None:
-        """Convenience: max tokens per hour (from per.hour)."""
-        return self.per.hour if self.per else None
+        """Convenience: max tokens per hour (from rate_limits.hour)."""
+        return self.rate_limits.hour if self.rate_limits else None
 
 
-class Budget(BaseModel):
+class Budget(BaseModel):  # type: ignore[explicit-any]
     """Cost limits in USD. Budget = how much the agent can spend; Context = token limits and formation policy.
 
-    Budget configuration: run limit, rate limits, on_exceeded callback, thresholds, sharing.
+    Budget configuration: max cost per run, rate limits, on_exceeded callback, thresholds, sharing.
 
     Args:
-        run: Max cost per run in USD
-        per: Rate limits (hourly, daily, weekly, monthly)
+        max_cost: Max cost per run in USD
+        rate_limits: Rate limits (hourly, daily, weekly, monthly)
         on_exceeded: Called when a limit is exceeded. Receives BudgetExceededContext.
             Raise to stop the run; return to continue. Use raise_on_exceeded or warn_on_exceeded.
         thresholds: List of BudgetThreshold (only BudgetThreshold allowed)
@@ -257,7 +283,7 @@ class Budget(BaseModel):
         >>> from syrin.threshold import BudgetThreshold
         >>>
         >>> budget = Budget(
-        ...     run=10.0,
+        ...     max_cost=10.0,
         ...     on_exceeded=raise_on_exceeded,
         ...     thresholds=[
         ...         BudgetThreshold(at=80, action=lambda ctx: print(f"At {ctx.percentage}%"))
@@ -267,20 +293,29 @@ class Budget(BaseModel):
 
     model_config = {"str_strip_whitespace": True, "arbitrary_types_allowed": True}
 
-    run: float | None = Field(
+    max_cost: float | None = Field(
         default=None,
         ge=0,
         description="Max cost per run (USD). Pydantic coerces numeric strings (e.g. '0.50') to float.",
     )
     reserve: float = Field(
-        default=0, ge=0, description="Amount to reserve; effective run limit is run - reserve."
+        default=0, ge=0, description="Amount to reserve; effective run limit is max_cost - reserve."
     )
-    per: RateLimit | None = Field(default=None, description="Rate limits")
+    rate_limits: RateLimit | None = Field(
+        default=None, description="Rate limits per hour/day/week/month."
+    )
     on_exceeded: Callable[[BudgetExceededContext], None] | None = Field(
         default=None,
         description="Called when a limit is exceeded. Raise to stop; return to continue.",
     )
-    thresholds: list[Any] = Field(
+    exceed_policy: ExceedPolicy | None = Field(
+        default=None,
+        description=(
+            "Declarative policy when budget is exceeded. Applied only when on_exceeded is None. "
+            "STOP raises BudgetExceededError; WARN logs and continues; IGNORE silently continues."
+        ),
+    )
+    thresholds: list[object] = Field(
         default_factory=list,
         description="Ordered list of threshold actions (e.g. at 80% switch model)",
     )
@@ -312,36 +347,38 @@ class Budget(BaseModel):
                 raise TypeError(f"Budget only accepts BudgetThreshold, got {type(th).__name__}")
         valid_metrics = {ThresholdMetric.COST, ThresholdMetric.TOKENS}
         for th in self.thresholds:
-            metric_val = th.metric.value if hasattr(th.metric, "value") else th.metric
+            metric_val = th.metric.value if hasattr(th.metric, "value") else th.metric  # type: ignore[attr-defined]
             if metric_val not in valid_metrics:
                 raise ValueError(
                     f"Budget thresholds only support {valid_metrics}, got {metric_val}"
                 )
+        if self.on_exceeded is None and self.exceed_policy is not None:
+            self.on_exceeded = _policy_to_handler(self.exceed_policy)
         return self
 
     @property
     def effective_run_limit(self) -> float | None:
-        """Effective run limit for budget checking: run - reserve when run > reserve, else run.
+        """Effective run limit for budget checking: max_cost - reserve when max_cost > reserve, else max_cost.
 
-        None if run is not set.
+        None if max_cost is not set.
         """
-        if self.run is None:
+        if self.max_cost is None:
             return None
-        return (self.run - self.reserve) if self.run > self.reserve else self.run
+        return (self.max_cost - self.reserve) if self.max_cost > self.reserve else self.max_cost
 
     @property
     def remaining(self) -> float | None:
-        """Get remaining budget (never negative). Returns None if run limit not set."""
-        if self.run is None:
+        """Get remaining budget (never negative). Returns None if max_cost limit not set."""
+        if self.max_cost is None:
             return None
-        effective = self.run - self.reserve
+        effective = self.max_cost - self.reserve
         return max(0.0, effective - self._spent)
 
     def _set_spent(self, amount: float) -> None:
         """Internal method to track spent amount. Called by BudgetTracker."""
         self._spent = amount
 
-    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:
+    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:  # type: ignore[explicit-any]
         """RemoteConfigurable: return (schema, current_values) for the budget section."""
         from syrin.remote._schema import build_section_schema_from_obj
         from syrin.remote._types import ConfigSchema
@@ -352,14 +389,14 @@ class Budget(BaseModel):
 
     def apply_remote_overrides(
         self,
-        agent: Any,
+        agent: object,
         pairs: list[tuple[str, object]],
-        section_schema: Any,
+        section_schema: object,
     ) -> None:
         """RemoteConfigurable: apply budget overrides to agent._budget."""
         from syrin.remote._resolver_helpers import build_nested_update, merge_nested_update
 
-        update = build_nested_update(section_schema, pairs, "budget")
+        update = build_nested_update(section_schema, pairs, "budget")  # type: ignore[arg-type]
         if not update:
             return
         current = getattr(agent, "_budget", None)
@@ -368,9 +405,9 @@ class Budget(BaseModel):
         object.__setattr__(agent, "_budget", merge_nested_update(current, update, Budget))
 
     def __str__(self) -> str:
-        if self.run is not None:
-            remaining = self.remaining if self.remaining is not None else self.run
-            return f"Budget(${self.run:.2f}, remaining=${remaining:.2f}, shared={self.shared})"
+        if self.max_cost is not None:
+            remaining = self.remaining if self.remaining is not None else self.max_cost
+            return f"Budget(${self.max_cost:.2f}, remaining=${remaining:.2f}, shared={self.shared})"
         return f"Budget(unlimited, shared={self.shared})"
 
 
@@ -422,7 +459,7 @@ class BudgetSummary:
     monthly_tokens: int  # tokens in last month (or calendar month)
     entries_count: int  # number of cost entries in history
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "current_run_cost": self.current_run_cost,
             "current_run_tokens": self.current_run_tokens,
@@ -525,6 +562,15 @@ class BudgetTracker:
         self._use_calendar_month: bool = False
         self._reserved: float = 0.0
         self._lock: threading.RLock = threading.RLock()
+        # Guard against thresholds re-firing on every check_budget call within the same run.
+        # Keyed by id(threshold); cleared on reset_run().
+        self._triggered_threshold_ids: set[int] = set()
+
+    @property
+    def cost_history(self) -> list[CostEntry]:
+        """Read-only snapshot of all recorded cost entries (for export/reporting)."""
+        with self._lock:
+            return list(self._cost_history)
 
     def _sec_per_month(self) -> float:
         """Seconds in the month window (uses _month_days)."""
@@ -618,7 +664,7 @@ class BudgetTracker:
         cutoff = now - window_sec
         self._cost_history = [e for e in self._cost_history if e.timestamp >= cutoff]
 
-    def get_state(self) -> dict[str, Any]:
+    def get_state(self) -> dict[str, object]:
         """Serialize state for persistence.
 
         Returns a dict with: version (schema version), cost_history (list of
@@ -642,7 +688,7 @@ class BudgetTracker:
                 "use_calendar_month": self._use_calendar_month,
             }
 
-    def load_state(self, state: dict[str, Any]) -> None:
+    def load_state(self, state: dict[str, object]) -> None:
         """Restore from persisted state.
 
         Expects a dict from get_state(): cost_history (list of dicts with cost_usd,
@@ -658,11 +704,11 @@ class BudgetTracker:
                     model_name=item.get("model_name", ""),
                     total_tokens=item.get("total_tokens", 0),
                 )
-                for item in state.get("cost_history", [])
+                for item in state.get("cost_history", [])  # type: ignore[attr-defined]
             ]
-            self._run_start = state.get("run_start", time.time())
-            self._month_days = state.get("month_days", _DEFAULT_MONTH_DAYS)
-            self._use_calendar_month = state.get("use_calendar_month", False)
+            self._run_start = state.get("run_start", time.time())  # type: ignore[assignment]
+            self._month_days = state.get("month_days", _DEFAULT_MONTH_DAYS)  # type: ignore[assignment]
+            self._use_calendar_month = state.get("use_calendar_month", False)  # type: ignore[assignment]
 
     @property
     def current_run_cost(self) -> float:
@@ -750,12 +796,13 @@ class BudgetTracker:
         """Reset per-run counter (next record starts a new run)."""
         with self._lock:
             self._run_start = time.time()
+            self._triggered_threshold_ids.clear()
 
     def check_budget(
         self,
         budget: Budget | None,
         token_limits: TokenLimits | None = None,
-        parent: Any = None,
+        parent: object = None,
     ) -> CheckBudgetResult:
         """
         Returns OK, THRESHOLD, or EXCEEDED. EXCEEDED if any limit is over.
@@ -768,8 +815,8 @@ class BudgetTracker:
             token_limits: Optional separate token caps. Token checks use this only (Budget is USD only).
             parent: Reference to parent (e.g., Agent) for threshold actions like switch_model
         """
-        per = budget.per if budget is not None else None
-        token_per = token_limits.per if token_limits is not None else None
+        per = budget.rate_limits if budget is not None else None
+        token_per = token_limits.rate_limits if token_limits is not None else None
         if per is not None:
             self._month_days = per.month_days
             self._use_calendar_month = per.calendar_month
@@ -785,8 +832,8 @@ class BudgetTracker:
         # Token limits: only from token_limits (Budget is USD only)
         if (
             token_limits is not None
-            and token_limits.run is not None
-            and self.current_run_tokens >= token_limits.run
+            and token_limits.max_tokens is not None
+            and self.current_run_tokens >= token_limits.max_tokens
         ):
             return CheckBudgetResult(BudgetStatus.EXCEEDED, BudgetLimitType.RUN_TOKENS)
         if per is not None:
@@ -824,15 +871,15 @@ class BudgetTracker:
         is_tokens = getattr(th.metric, "value", th.metric) == ThresholdMetric.TOKENS.value
         if window == ThresholdWindow.RUN:
             if is_tokens:
-                run_tok = token_limits.run if token_limits is not None else None
+                run_tok = token_limits.max_tokens if token_limits is not None else None
                 if run_tok is None or run_tok <= 0:
                     return None
                 return float(self.current_run_tokens), float(run_tok)
-            if budget is None or not budget.run or budget.run <= 0:
+            if budget is None or not budget.max_cost or budget.max_cost <= 0:
                 return None
-            return self.current_run_cost, budget.run
-        per = budget.per if budget is not None else None
-        token_per = token_limits.per if token_limits is not None else None
+            return self.current_run_cost, budget.max_cost
+        per = budget.rate_limits if budget is not None else None
+        token_per = token_limits.rate_limits if token_limits is not None else None
         if is_tokens:
             if token_per is None:
                 return None
@@ -865,7 +912,7 @@ class BudgetTracker:
         self,
         budget: Budget,
         token_limits: TokenLimits | None = None,
-        parent: Any = None,
+        parent: object = None,
     ) -> list[BudgetThreshold]:
         """Check and execute thresholds that are currently crossed.
 
@@ -875,9 +922,9 @@ class BudgetTracker:
         Supports COST and TOKENS metrics; window run/hour/day/week/month.
         Use at=X for trigger when pct >= X; at_range=(L,U) for trigger when L <= pct <= U.
         """
-        crossed: list[tuple[Any, int, float, float]] = []
+        crossed: list[tuple[Any, int, float, float]] = []  # type: ignore[explicit-any]
         for th in budget.thresholds:
-            pair = self._threshold_current_and_limit(budget, th, token_limits=token_limits)
+            pair = self._threshold_current_and_limit(budget, th, token_limits=token_limits)  # type: ignore[arg-type]
             if pair is None:
                 continue
             current, limit = pair
@@ -887,12 +934,12 @@ class BudgetTracker:
                 lo, hi = at_range
                 triggers = lo <= pct <= hi
             else:
-                triggers = pct >= th.at
+                triggers = pct >= th.at  # type: ignore[attr-defined]
             if triggers:
                 crossed.append((th, pct, current, limit))
         if not budget.threshold_fallthrough and crossed:
 
-            def _key(t: tuple[Any, int, float, float]) -> int:
+            def _key(t: tuple[Any, int, float, float]) -> int:  # type: ignore[explicit-any]
                 th, pct, _c, _l = t
                 if getattr(th, "at_range", None) is not None:
                     return int(th.at_range[1])
@@ -902,12 +949,16 @@ class BudgetTracker:
             crossed = [x for x in crossed if _key(x) == max_val]
         triggered = []
         for th, pct, current, limit in crossed:
+            th_id = id(th)
+            if th_id in self._triggered_threshold_ids:
+                continue  # already fired this run; skip re-fire
+            self._triggered_threshold_ids.add(th_id)
             ctx = ThresholdContext(
                 percentage=pct,
                 metric=getattr(th, "metric", ThresholdMetric.COST),
                 current_value=current,
                 limit_value=limit,
-                budget_run=budget.run or 0,
+                budget_run=budget.max_cost or 0,
                 parent=parent,
             )
             th.execute(ctx)

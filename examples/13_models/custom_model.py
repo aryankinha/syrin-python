@@ -39,13 +39,13 @@ print(f"Custom model: {model}, provider: {model.provider}")
 # 2. Almock for testing
 mock_model = Model.Almock(latency_seconds=0.01, lorem_length=50)
 agent = Agent(model=mock_model, system_prompt="You are helpful.")
-result = agent.response("Hello!")
+result = agent.run("Hello!")
 print(f"Response: {result.content[:60]}..., cost: ${result.cost:.6f}")
 
 # 3. Almock with latency range
 mock_model = Model.Almock(latency_min=0, latency_max=0, lorem_length=80)
 agent = Agent(model=mock_model)
-result = agent.response("Fast response")
+result = agent.run("Fast response")
 
 # 4. Fallback chains
 primary = Model.Almock(latency_seconds=0.01)
@@ -53,7 +53,7 @@ model = primary.with_fallback(
     Model.Almock(latency_seconds=0.01), Model.Almock(latency_seconds=0.01)
 )
 agent = Agent(model=model)
-result = agent.response("Hello with fallback!")
+result = agent.run("Hello with fallback!")
 
 
 # 5. Class-level model
@@ -66,6 +66,6 @@ class MyAgent(Agent):
 
 if __name__ == "__main__":
     agent = MyAgent()
-    result = agent.response("Hello specialized!")
+    result = agent.run("Hello specialized!")
     print("Serving at http://localhost:8000/playground")
     agent.serve(port=8000, enable_playground=True, debug=True)

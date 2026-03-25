@@ -78,7 +78,7 @@ if __name__ == "__main__":
     print("Selected:", [t.name for t in mcp.select("search_products")])
 
     agent = SearchOnlyAgent()
-    result = agent.response("Find me shoes under $200")
+    result = agent.run("Find me shoes under $200")
     print(
         "\nSearchOnlyAgent response:",
         result.content[:200] + "..." if len(result.content) > 200 else result.content,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Literal
 
 
 class ContextSegmentSource(StrEnum):
@@ -101,7 +101,7 @@ class ContextSnapshot:
     messages_count: int = 0
 
     message_preview: list[MessagePreview] = field(default_factory=list)
-    raw_messages: list[dict[str, Any]] | None = None
+    raw_messages: list[dict[str, object]] | None = None
 
     provenance: list[ContextSegmentProvenance] = field(default_factory=list)
     why_included: list[str] = field(default_factory=list)
@@ -110,18 +110,18 @@ class ContextSnapshot:
     """Context mode used: full, focused, or intelligent."""
     context_mode_dropped_count: int = 0
     """Number of conversation messages dropped by context_mode (focused/intelligent)."""
-    pulled_segments: list[dict[str, Any]] = field(default_factory=list)
+    pulled_segments: list[dict[str, object]] = field(default_factory=list)
     """When formation_mode=pull: segments retrieved from context store (content, role, score)."""
     pull_scores: list[float] = field(default_factory=list)
     """Relevance scores for pulled_segments."""
-    output_chunks: list[dict[str, Any]] = field(default_factory=list)
+    output_chunks: list[dict[str, object]] = field(default_factory=list)
     """When store_output_chunks=True: assistant chunks retrieved by relevance (content, role, score)."""
     output_chunk_scores: list[float] = field(default_factory=list)
     """Relevance scores for output_chunks."""
 
-    def to_dict(self, include_raw_messages: bool = False) -> dict[str, Any]:
+    def to_dict(self, include_raw_messages: bool = False) -> dict[str, object]:
         """Export snapshot for visualization or logging. JSON-serializable."""
-        out: dict[str, Any] = {
+        out: dict[str, object] = {
             "timestamp": self.timestamp,
             "total_tokens": self.total_tokens,
             "max_tokens": self.max_tokens,

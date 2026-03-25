@@ -88,3 +88,51 @@ class TestGlobalConfigEdgeCases:
         config = get_config()
         config.trace = True
         assert config.trace is True
+
+
+# =============================================================================
+# SECURITY — GlobalConfig whitelist
+# =============================================================================
+
+
+class TestGlobalConfigSecurity:
+    """Security: set()/get() must not allow private attribute access."""
+
+    def test_set_private_attribute_is_silently_ignored(self) -> None:
+        """Setting a private attribute via set() is silently ignored."""
+        config = GlobalConfig()
+        config.set(_lock="injected")
+        # _lock must still be a real lock, not a string
+        assert config._lock != "injected"
+
+    def test_set_unknown_key_is_silently_ignored(self) -> None:
+        """Unknown keys in set() are silently ignored."""
+        config = GlobalConfig()
+        config.set(nonexistent_key="value")  # should not raise
+        assert not hasattr(config, "nonexistent_key")
+
+    def test_get_private_attribute_returns_default(self) -> None:
+        """get() on a private attribute returns the default."""
+        config = GlobalConfig()
+        assert config.get("_lock") is None
+        assert config.get("_cloud_api_key", "SENTINEL") == "SENTINEL"
+
+    def test_get_unknown_key_returns_default(self) -> None:
+        """get() on an unknown key returns the default."""
+        config = GlobalConfig()
+        assert config.get("__class__") is None
+        assert config.get("nonexistent", 42) == 42
+
+    def test_set_whitelisted_keys_work(self) -> None:
+        """All whitelisted keys can be set via set()."""
+        config = GlobalConfig()
+        config.set(trace=True, debug=True)
+        assert config.trace is True
+        assert config.debug is True
+        config.set(trace=False, debug=False)
+
+    def test_get_whitelisted_keys_work(self) -> None:
+        """All whitelisted keys can be read via get()."""
+        config = GlobalConfig()
+        result = config.get("trace")
+        assert result is False

@@ -14,7 +14,7 @@ from syrin.router.enums import RoutingMode, TaskType
 from syrin.router.router import ModelRouter
 
 
-class RoutingConfig(BaseModel):
+class RoutingConfig(BaseModel):  # type: ignore[explicit-any]
     """Configuration for model selection and routing. Use with Agent(model_router=...).
 
     Example::

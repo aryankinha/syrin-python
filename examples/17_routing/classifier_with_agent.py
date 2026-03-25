@@ -63,7 +63,7 @@ def main() -> None:
         "Fix this: def foo(): return None",
     ]
     for p in prompts:
-        r = agent.response(p)
+        r = agent.run(p)
         tt = r.routing_reason.task_type if r.routing_reason else "N/A"
         sel = r.routing_reason.selected_model if r.routing_reason else "N/A"
         print(f"  {p[:50]!r} -> {tt} -> {sel}")

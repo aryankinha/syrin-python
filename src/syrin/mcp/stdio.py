@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
-from typing import TYPE_CHECKING, Any, TextIO
+from typing import TYPE_CHECKING, TextIO
 
 from syrin.mcp.schema import tool_spec_to_mcp, validate_tool_arguments
 
@@ -35,7 +35,7 @@ def _syrin_cli_message(*, use_color: bool = True) -> str:
     )
 
 
-def _init_result(mcp: MCP) -> dict[str, Any]:
+def _init_result(mcp: MCP) -> dict[str, object]:
     """Build MCP initialize result per spec."""
     try:
         import syrin
@@ -77,7 +77,7 @@ def run_stdio_mcp(
     except Exception:
         pass
 
-    def write_response(obj: dict[str, Any]) -> None:
+    def write_response(obj: dict[str, object]) -> None:
         out.write(json.dumps(obj) + "\n")
         out.flush()
 

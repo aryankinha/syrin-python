@@ -100,7 +100,7 @@ class PIIScanner(Guardrail):
 
                 if self.redact and redacted_text:
                     redacted = self._redact(match)
-                    redacted_text = redacted_text.replace(match, redacted, 1)
+                    redacted_text = redacted_text.replace(match, redacted)
 
         if findings:
             return GuardrailDecision(

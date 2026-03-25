@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import threading
-from typing import Any
 
 from syrin.types import ModelConfig
 
@@ -34,7 +33,7 @@ class GlobalConfig:
         self._cloud_api_key: str | None = None
         self._cloud_base_url: str = "https://api.syrin.ai/v1"
         self._cloud_enabled: bool = False
-        self._cloud_transport: Any = None
+        self._cloud_transport: object = None
         self._load_from_env()
 
     def _load_from_env(self) -> None:
@@ -116,24 +115,40 @@ class GlobalConfig:
             self._cloud_base_url = value
 
     @property
-    def cloud_transport(self) -> Any:
+    def cloud_transport(self) -> object:
         """ConfigTransport when custom transport passed to init(); None when using default SSETransport."""
         return self._cloud_transport
 
     @cloud_transport.setter
-    def cloud_transport(self, value: Any) -> None:
+    def cloud_transport(self, value: object) -> None:
         with self._lock:
             self._cloud_transport = value
 
+    #: Public attributes that can be read/written via get()/set().
+    _PUBLIC_KEYS: frozenset[str] = frozenset(
+        {
+            "trace",
+            "debug",
+            "default_model",
+            "default_api_key",
+            "cloud_enabled",
+            "cloud_api_key",
+            "cloud_base_url",
+            "cloud_transport",
+        }
+    )
+
     def get(self, key: str, default: object = None) -> object:
-        """Get a configuration value."""
+        """Get a public configuration value. Unknown keys return default."""
+        if key not in self._PUBLIC_KEYS:
+            return default
         return getattr(self, key, default)
 
     def set(self, **kwargs: object) -> None:
-        """Set multiple configuration values."""
+        """Set multiple public configuration values. Unknown keys are silently ignored."""
         with self._lock:
             for key, value in kwargs.items():
-                if hasattr(self, key):
+                if key in self._PUBLIC_KEYS:
                     setattr(self, key, value)
 
 

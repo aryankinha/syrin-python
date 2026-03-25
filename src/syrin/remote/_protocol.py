@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from syrin.remote._types import ConfigSchema
 
@@ -23,7 +23,7 @@ class RemoteConfigurable(Protocol):
 
     def apply_remote_overrides(
         self,
-        agent: Any,
+        agent: object,
         pairs: list[tuple[str, object]],
         section_schema: ConfigSchema,
     ) -> None:

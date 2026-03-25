@@ -46,7 +46,7 @@ agent = Agent(
     system_prompt="You are a helpful assistant.",
     config=AgentConfig(context=Context(max_tokens=80_000)),
 )
-agent.response("What is 2+2? Answer in one sentence.")
+agent.run("What is 2+2? Answer in one sentence.")
 
 stats = agent.context_stats
 print(f"  Max tokens (window): {agent.context.max_tokens}")
@@ -114,7 +114,7 @@ agent2 = Agent(
         )
     ),
 )
-agent2.response("Hello!")
+agent2.run("Hello!")
 print(f"  Thresholds fired: {fired or 'none (utilization below 50%)'}")
 
 # ---------------------------------------------------------------------------
@@ -156,7 +156,7 @@ agent3 = Agent(
     model=model,
     config=AgentConfig(context=PassThroughContextManager()),
 )
-agent3.response("Hi, custom manager!")
+agent3.run("Hi, custom manager!")
 print(f"  Pass-through manager: {agent3.context_stats.total_tokens} tokens, no compaction")
 
 # ---------------------------------------------------------------------------

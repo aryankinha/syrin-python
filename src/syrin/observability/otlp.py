@@ -19,7 +19,7 @@ Example:
 from __future__ import annotations
 
 import logging
-from typing import Any, cast
+from typing import cast
 
 from syrin.observability import Span, SpanExporter
 
@@ -27,10 +27,10 @@ _log = logging.getLogger(__name__)
 
 # Module-level declarations for optional dependencies
 OPENTELEMETRY_AVAILABLE = False
-_OTelOTLPExporter: Any = None
-_TracerProvider: Any = None
-_BatchSpanProcessor: Any = None
-_Resource: Any = None
+_OTelOTLPExporter: object = None
+_TracerProvider: object = None
+_BatchSpanProcessor: object = None
+_Resource: object = None
 
 
 def _try_import_opentelemetry() -> bool:
@@ -83,19 +83,19 @@ class OTLPExporter(SpanExporter):
         self._endpoint = endpoint
         self._headers = headers or {}
         self._service_name = service_name
-        self._otel_exporter: Any = None
-        self._tracer_provider: Any = None
-        self._tracer: Any = None
+        self._otel_exporter: object = None
+        self._tracer_provider: object = None
+        self._tracer: object = None
         if OPENTELEMETRY_AVAILABLE:
             try:
-                resource = _Resource.create({"service.name": service_name})
-                self._tracer_provider = _TracerProvider(resource=resource)
-                self._otel_exporter = _OTelOTLPExporter(
+                resource = _Resource.create({"service.name": service_name})  # type: ignore[attr-defined]
+                self._tracer_provider = _TracerProvider(resource=resource)  # type: ignore[operator]
+                self._otel_exporter = _OTelOTLPExporter(  # type: ignore[operator]
                     endpoint=endpoint,
                     headers=list(self._headers.items()) if self._headers else None,
                 )
-                self._tracer_provider.add_span_processor(_BatchSpanProcessor(self._otel_exporter))
-                self._tracer = self._tracer_provider.get_tracer("syrin", "0.2.0")
+                self._tracer_provider.add_span_processor(_BatchSpanProcessor(self._otel_exporter))  # type: ignore[attr-defined, operator]
+                self._tracer = self._tracer_provider.get_tracer("syrin", "0.2.0")  # type: ignore[attr-defined]
             except Exception as e:
                 _log.warning("OTLPExporter init failed: %s", e)
                 self._otel_exporter = None
@@ -108,7 +108,7 @@ class OTLPExporter(SpanExporter):
         if self._tracer is None:
             return
         try:
-            with self._tracer.start_as_current_span(
+            with self._tracer.start_as_current_span(  # type: ignore[attr-defined]
                 span.name,
                 kind=self._span_kind_to_otel(span.kind.value),
             ) as otel_span:

@@ -131,7 +131,7 @@ class TestOnAgentInitWhenDisabled:
         """Without syrin.init(), agent runs normally (response works)."""
         _reset_cloud_config()
         agent = _make_agent(name="no-init-run")
-        r = agent.response("Say hello in one word.")
+        r = agent.run("Say hello in one word.")
         assert r is not None
         assert hasattr(r, "content")
         assert hasattr(r, "stop_reason")
@@ -204,7 +204,7 @@ class TestRemoteConfigHooksEmitted:
         from syrin.remote._transport import ServeTransport
 
         init(transport=ServeTransport())
-        agent = Agent(model=Model.Almock(), name="hook-agent", budget=Budget(run=0.5))
+        agent = Agent(model=Model.Almock(), name="hook-agent", budget=Budget(max_cost=0.5))
         reg = get_registry()
         agent_id = reg.make_agent_id(agent)
         transport = get_config().cloud_transport
@@ -223,12 +223,12 @@ class TestRemoteConfigHooksEmitted:
         payload = OverridePayload(
             agent_id=agent_id,
             version=1,
-            overrides=[ConfigOverride(path="budget.run", value=2.0)],
+            overrides=[ConfigOverride(path="budget.max_cost", value=2.0)],
         )
         callback(payload)
         hook_names = [h for h, _ in emitted]
         assert Hook.REMOTE_CONFIG_UPDATE in hook_names
-        assert agent._budget.run == 2.0
+        assert agent._budget.max_cost == 2.0
         reg.unregister(agent_id)
 
     def test_remote_config_error_emitted_on_rejected_override(self) -> None:
@@ -238,7 +238,7 @@ class TestRemoteConfigHooksEmitted:
         from syrin.remote._transport import ServeTransport
 
         init(transport=ServeTransport())
-        agent = Agent(model=Model.Almock(), name="hook-err-agent", budget=Budget(run=0.5))
+        agent = Agent(model=Model.Almock(), name="hook-err-agent", budget=Budget(max_cost=0.5))
         reg = get_registry()
         agent_id = reg.make_agent_id(agent)
         transport = get_config().cloud_transport
@@ -262,5 +262,5 @@ class TestRemoteConfigHooksEmitted:
         callback(payload)
         hook_names = [h for h, _ in emitted]
         assert Hook.REMOTE_CONFIG_ERROR in hook_names
-        assert agent._budget.run == 0.5
+        assert agent._budget.max_cost == 0.5
         reg.unregister(agent_id)

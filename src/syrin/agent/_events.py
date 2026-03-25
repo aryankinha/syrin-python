@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime
-from typing import Any, cast
+from typing import cast
 
 from syrin.events import EventContext
 
 
-def print_event(agent: Any, event: str, ctx: EventContext) -> None:
+def print_event(agent: object, event: str, ctx: EventContext) -> None:
     """Print event to console when debug=True. Used by Agent._emit_event."""
     is_tty = sys.stdout.isatty()
 

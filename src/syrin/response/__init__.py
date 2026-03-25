@@ -1,10 +1,10 @@
-"""Response object returned by agent.response() with content, cost, and metadata."""
+"""Response object returned by agent.run() with content, cost, and metadata."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 if TYPE_CHECKING:
     from syrin.context import Context, ContextStats
@@ -41,7 +41,7 @@ class StructuredOutput:
     Provides easy access to parsed content and raw data with full validation tracking.
 
     Usage:
-        result = agent.response("What is 2+2?", output=MathResult)
+        result = agent.run("What is 2+2?", output=MathResult)
         result.structured.result  # Access parsed field
         result.structured.raw    # Raw JSON string
 
@@ -63,13 +63,13 @@ class StructuredOutput:
     """
 
     raw: str = ""
-    parsed: Any = None
-    _data: dict[str, Any] = field(default_factory=dict)
+    parsed: object = None
+    _data: dict[str, object] = field(default_factory=dict)
     validation_attempts: list[ValidationAttempt] = field(default_factory=list)
     final_error: Exception | None = None
     tool_name: str | None = None
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> object:
         """Allow accessing parsed fields directly."""
         if name.startswith("_") or name in (
             "raw",
@@ -140,7 +140,7 @@ class TraceStep:
     tokens: int = 0
     cost_usd: float = 0.0
     latency_ms: float = 0.0
-    extra: dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass
@@ -164,7 +164,7 @@ class MediaAttachment:
 
 
 @dataclass
-class StreamChunk:
+class StreamChunk:  # type: ignore[explicit-any]
     """One chunk from agent.stream() or agent.astream().
 
     Why: Build real-time UIs. text is the delta; accumulated_text is full so far.
@@ -184,7 +184,7 @@ class StreamChunk:
     cost_so_far: float = 0.0
     tokens_so_far: TokenUsage = field(default_factory=TokenUsage)
     is_final: bool = False
-    response: Response[Any] | None = None
+    response: Response[Any] | None = None  # type: ignore[explicit-any]
 
 
 @dataclass
@@ -367,7 +367,7 @@ class AgentReport:
 
     Access via response.report or agent.report:
 
-        result = agent.response("Hello")
+        result = agent.run("Hello")
         result.report.guardrail       # GuardrailReport
         result.report.context         # ContextReport
         result.report.memory         # MemoryReport
@@ -404,7 +404,7 @@ class AgentReport:
 
 @dataclass
 class Response(Generic[T]):
-    """Result returned by agent.response(), agent.arun().
+    """Result returned by agent.run(), agent.arun().
 
     Single object for content, cost, tokens, model, and full report. Use
     str(response) for quick printing (returns content).
@@ -431,6 +431,9 @@ class Response(Generic[T]):
         model_used: Actual model ID from provider (e.g. OpenRouter header). Same as model if not set.
         task_type: TaskType used for routing when applicable.
         actual_cost: Actual cost from provider (e.g. OpenRouter). Same as cost if not set.
+        cost_estimated: Pre-call estimated cost (before the LLM call). None if not estimated.
+        cache_hit: Whether the response was served from provider cache (e.g. prompt cache).
+        cache_savings: USD saved due to cache (input_tokens * price_per_token). 0.0 if no cache.
         template_data: Slot values used to render template (when output_config.template is set).
         file: Path to generated file when output_config.format produces a file (PDF, DOCX, etc.).
         file_bytes: Raw bytes of generated file (for streaming/API). None when no file generated.
@@ -443,7 +446,7 @@ class Response(Generic[T]):
         result.structured.is_valid — Validation succeeded
 
     Example:
-        >>> r = agent.response("What is 2+2?")
+        >>> r = agent.run("What is 2+2?")
         >>> print(r.content)
         4
         >>> print(r.cost, r.tokens.total_tokens)
@@ -459,7 +462,7 @@ class Response(Generic[T]):
     budget_remaining: float | None = None
     budget_used: float | None = None
     trace: list[TraceStep] = field(default_factory=list)
-    tool_calls: list[Any] = field(default_factory=list)
+    tool_calls: list[object] = field(default_factory=list)
     stop_reason: StopReason = StopReason.END_TURN
     structured: StructuredOutput | None = None
     iterations: int = 1
@@ -471,13 +474,16 @@ class Response(Generic[T]):
     model_used: str | None = None  # Actual model from provider (e.g. OpenRouter header)
     task_type: object = None  # TaskType used for routing
     actual_cost: float | None = None  # Actual cost from provider (e.g. OpenRouter header)
+    cost_estimated: float | None = None  # Pre-call estimated cost (before the LLM call)
+    cache_hit: bool = False  # Whether the response was served from provider cache
+    cache_savings: float = 0.0  # USD saved due to cache (input_tokens * price_per_token)
     template_data: dict[str, object] | None = None  # Slot values when output_config.template used
     file: Path | None = None  # Path to generated file when output_config produces file
     file_bytes: bytes | None = None  # Raw bytes of generated file
     citations: list[Citation] = field(default_factory=list)  # When output_config.citation set
 
     @property
-    def data(self) -> dict[str, Any] | None:
+    def data(self) -> dict[str, object] | None:
         """Get parsed data as dictionary - fields from the structured output."""
         if self.structured is not None:
             return self.structured._data
@@ -490,7 +496,7 @@ class Response(Generic[T]):
         Equivalent to response.structured.parsed when output=Output(MyModel) is set.
         """
         if self.structured is not None:
-            return cast("object | None", self.structured.parsed)
+            return self.structured.parsed
         return None
 
     def __str__(self) -> str:
@@ -507,7 +513,7 @@ class Response(Generic[T]):
         This is a property that returns the full budget object with current status.
         The budget object includes:
         - budget.remaining: remaining budget amount
-        - budget.run: total budget cap
+        - budget.max_cost: total budget cap
         - budget.shared: whether budget is shared with children
         - budget.cost: alias for response.cost (convenience)
         """

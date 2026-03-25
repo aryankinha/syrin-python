@@ -101,9 +101,9 @@ class APIRateLimit:
 
         limits = auto_detect_limits(model_id)
         return cls(
-            rpm=limits.get("rpm"),
-            tpm=limits.get("tpm"),
-            rpd=limits.get("rpd"),
+            rpm=limits.get("rpm"),  # type: ignore[arg-type]
+            tpm=limits.get("tpm"),  # type: ignore[arg-type]
+            rpd=limits.get("rpd"),  # type: ignore[arg-type]
             auto_detect=True,
             _model_id=model_id,
         )
@@ -111,10 +111,10 @@ class APIRateLimit:
     def get_thresholds_for_metric(self, metric: ThresholdMetric | str) -> list[RateLimitThreshold]:
         """Get thresholds for a specific metric."""
         metric_str = metric.value if hasattr(metric, "value") else str(metric)
-        return [t for t in self.thresholds if str(t.metric.value) == metric_str]
+        return [t for t in self.thresholds if str(t.metric.value) == metric_str]  # type: ignore[attr-defined]
 
     def check_thresholds(
-        self, metric: ThresholdMetric, current: int, parent: Any = None
+        self, metric: ThresholdMetric, current: int, parent: object = None
     ) -> list[RateLimitThreshold]:
         """Check thresholds for a specific metric."""
         limit = getattr(self, metric.value, None)
@@ -138,7 +138,7 @@ class APIRateLimit:
 
         return triggered
 
-    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:
+    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:  # type: ignore[explicit-any]
         """RemoteConfigurable: return (schema, current_values) for the rate_limit section."""
         from syrin.remote._schema import build_section_schema_from_obj
         from syrin.remote._types import ConfigSchema
@@ -152,14 +152,14 @@ class APIRateLimit:
 
     def apply_remote_overrides(
         self,
-        agent: Any,
+        agent: object,
         pairs: list[tuple[str, object]],
-        section_schema: Any,
+        section_schema: object,
     ) -> None:
         """RemoteConfigurable: apply rate_limit overrides to agent._rate_limit_manager.config."""
         from syrin.remote._resolver_helpers import build_nested_update
 
-        update = build_nested_update(section_schema, pairs, "rate_limit")
+        update = build_nested_update(section_schema, pairs, "rate_limit")  # type: ignore[arg-type]
         if not update:
             return
         manager = getattr(agent, "_rate_limit_manager", None)

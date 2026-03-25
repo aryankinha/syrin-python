@@ -69,7 +69,7 @@ print()
 # ============================================================
 # 4. Use memory in conversation
 # ============================================================
-response = agent.response("What's my name?")
+response = agent.run("What's my name?")
 print(f"Agent says: {response.content}")
 
 # --- Serve (uncomment to try playground) ---

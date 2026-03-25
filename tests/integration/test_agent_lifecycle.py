@@ -38,7 +38,7 @@ class TestAgentLifecycleSyncAsyncParity:
         with patch.object(
             agent._provider, "complete", new_callable=AsyncMock, return_value=mock_resp
         ):
-            r_sync = agent.response("Hello")
+            r_sync = agent.run("Hello")
             r_async = asyncio.run(agent.arun("Hello"))
         for r in (r_sync, r_async):
             assert hasattr(r, "content") and r.content
@@ -57,7 +57,7 @@ class TestAgentLifecycleSyncAsyncParity:
         with patch.object(
             agent._provider, "complete", new_callable=AsyncMock, return_value=mock_resp
         ):
-            r_sync = agent.response("Same input")
+            r_sync = agent.run("Same input")
             r_async = asyncio.run(agent.arun("Same input"))
         assert r_sync.content == r_async.content == "Same reply"
 
@@ -77,7 +77,7 @@ class TestAgentLifecycleSyncAsyncParity:
         with patch.object(
             agent._provider, "complete", new_callable=AsyncMock, return_value=mock_resp
         ):
-            agent.response("Hello")
+            agent.run("Hello")
         assert build_messages_calls == ["Hello"]
 
     def test_record_cost_called_after_llm(self) -> None:
@@ -88,7 +88,7 @@ class TestAgentLifecycleSyncAsyncParity:
         with patch.object(
             agent._provider, "complete", new_callable=AsyncMock, return_value=mock_resp
         ):
-            r = agent.response("Hello")
+            r = agent.run("Hello")
         assert r.tokens.input_tokens == 100
         assert r.tokens.output_tokens == 50
         assert r.tokens.total_tokens == 150
@@ -106,7 +106,7 @@ class TestAgentLifecycleSyncAsyncParity:
         with patch.object(
             agent._provider, "complete", new_callable=AsyncMock, return_value=mock_resp
         ):
-            r = agent.response("Go")
+            r = agent.run("Go")
         assert r.content == "Done"
         assert r.tokens.total_tokens == 3
         assert r.stop_reason.value == "end_turn"
@@ -124,7 +124,7 @@ class TestAgentLifecycleSyncAsyncParity:
         with patch.object(
             agent._provider, "complete", new_callable=AsyncMock, return_value=mock_resp
         ):
-            r = agent.response("Hi")
+            r = agent.run("Hi")
         assert r.content == "Reply"
         assert r.iterations == 1
         assert r.tokens.total_tokens == 15
@@ -141,7 +141,7 @@ class TestAgentLifecycleEdgeCases:
         with patch.object(
             agent._provider, "complete", new_callable=AsyncMock, return_value=mock_resp
         ):
-            r = agent.response("")
+            r = agent.run("")
         assert r.content == "OK"
 
     def test_no_budget_no_memory_returns_valid_response(self) -> None:
@@ -152,7 +152,7 @@ class TestAgentLifecycleEdgeCases:
         with patch.object(
             agent._provider, "complete", new_callable=AsyncMock, return_value=mock_resp
         ):
-            r = agent.response("x")
+            r = agent.run("x")
         assert r.content == "OK"
         assert r.cost >= 0
         assert r.report is not None

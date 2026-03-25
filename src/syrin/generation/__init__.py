@@ -13,8 +13,6 @@ Provider registry: register_image_provider(), register_video_provider() for DALL
 
 from __future__ import annotations
 
-from typing import Any
-
 from syrin.enums import AspectRatio, OutputMimeType, VoiceOutputFormat
 from syrin.generation._gemini import GeminiImageProvider, GeminiVideoProvider
 from syrin.generation._openai import DalleImageProvider
@@ -64,7 +62,7 @@ def generate_image(
     number_of_images: int = 1,
     aspect_ratio: str = "1:1",
     output_mime_type: str = "image/png",
-    **kwargs: Any,
+    **kwargs: object,
 ) -> list[GenerationResult]:
     """Generate image(s) from a text prompt using Google Gemini (Imagen).
 
@@ -121,7 +119,7 @@ def generate_video(
     aspect_ratio: str = "16:9",
     poll_interval_seconds: float = 10.0,
     poll_timeout_seconds: float = 300.0,
-    **kwargs: Any,
+    **kwargs: object,
 ) -> GenerationResult:
     """Generate a short video from a text prompt using Google Gemini (Veo).
 
@@ -175,7 +173,7 @@ async def generate_video_async(
     aspect_ratio: str = "16:9",
     poll_interval_seconds: float = 10.0,
     poll_timeout_seconds: float = 300.0,
-    **kwargs: Any,
+    **kwargs: object,
 ) -> GenerationResult:
     """Async video generation. Uses asyncio.sleep — does not block the event loop.
 
@@ -230,4 +228,4 @@ def get_default_video_generator(api_key: str | None = None) -> VideoGenerator | 
     key = raw.strip() if isinstance(raw, str) else None
     if not key:
         return None
-    return VideoGenerator(provider=GeminiVideoProvider(api_key=key))
+    return VideoGenerator(provider=GeminiVideoProvider(api_key=key))  # type: ignore[arg-type]

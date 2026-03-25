@@ -52,7 +52,7 @@ def main() -> None:
 
     long_prompt = "Summarize in one sentence: " + " the key idea of each paragraph. " * 12
     print("  Sending a long prompt to push utilization over 60%...\n")
-    agent.response(long_prompt)
+    agent.run(long_prompt)
 
     snap = agent.context.snapshot()
     stats = agent.context_stats

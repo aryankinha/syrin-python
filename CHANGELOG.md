@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.0] - 2026-03-25
+
+### Breaking
+
+- **`Budget(run=)`** renamed to **`Budget(max_cost=)`**
+- **`agent.response()`** renamed to **`agent.run()`** — old method removed
+- **`per=`** in rate limits replaced by **`RateLimit(hour=, day=, month=)`**
+
+### Added
+
+- **`ExceedPolicy` enum** — `STOP | WARN | IGNORE | SWITCH` replaces string policies
+- **`result.cost_estimated`** — pre-call budget estimate alongside `result.cost`
+- **`result.cache_savings`** — cache discount reported per call
+- **`agent.budget_summary()`** — dashboard dict: run cost, tokens, hourly/daily totals, percent used
+- **`agent.export_costs(format="json")`** — structured cost history per call
+- **`BudgetStore` ABC** — plug in any persistence backend (PostgreSQL, Redis, DynamoDB)
+- **`Budget(shared=True)`** — thread-safe shared pool across parallel agents (SQLite WAL)
+- **`ModelPricing` override** — pass `pricing=ModelPricing(...)` to any `Model()` to override built-in rates
+- **Docs** — full rewrite with correct APIs, custom observability guide, 375+ fixed internal links
+
+### Fixed
+
+- SQLite budget store thread safety under parallel spawns
+- Threshold callbacks no longer re-fire on the same percentage within a run
+- `PIIScanner` redaction applied before content reaches the LLM
+- `Memory.import_from()` logging noise removed
+
+---
+
 ## [0.8.1] - 2026-03-13
 
 ### Added

@@ -5,8 +5,6 @@ Specialized in Indian languages. 11 languages, Bulbul v3 model.
 
 from __future__ import annotations
 
-from typing import Any
-
 from syrin.generation._base_voice import BaseVoiceProvider
 
 
@@ -23,7 +21,7 @@ class SarvamVoiceProvider(BaseVoiceProvider):
         voice: str = "meera",
         language: str = "en-IN",
         model: str = "bulbul:v3",
-        **kwargs: Any,
+        **kwargs: object,
     ) -> None:
         super().__init__(api_key=api_key, model=model, **kwargs)
         self.voice = voice
@@ -45,7 +43,7 @@ class SarvamVoiceProvider(BaseVoiceProvider):
         language: str,
         output_format: str,
         model_id: str,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> tuple[bytes, str, str]:
         from sarvam import Sarvam  # type: ignore[import-not-found]
 

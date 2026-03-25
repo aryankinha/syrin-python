@@ -24,7 +24,7 @@ class MemoryEntryKwargs(TypedDict, total=False):
     metadata: dict[str, object]
 
 
-class CoreMemory(MemoryEntry):
+class CoreMemory(MemoryEntry):  # type: ignore[explicit-any]
     """Core memory - persistent facts about the agent/user.
 
     Core memories are high-importance, long-lasting facts that should
@@ -49,7 +49,7 @@ class CoreMemory(MemoryEntry):
         )
 
 
-class EpisodicMemory(MemoryEntry):
+class EpisodicMemory(MemoryEntry):  # type: ignore[explicit-any]
     """Episodic memory - specific events and experiences.
 
     Episodic memories capture specific moments, conversations, or events.
@@ -74,7 +74,7 @@ class EpisodicMemory(MemoryEntry):
         )
 
 
-class SemanticMemory(MemoryEntry):
+class SemanticMemory(MemoryEntry):  # type: ignore[explicit-any]
     """Semantic memory - facts and knowledge.
 
     Semantic memories store factual knowledge that can be recalled
@@ -99,7 +99,7 @@ class SemanticMemory(MemoryEntry):
         )
 
 
-class ProceduralMemory(MemoryEntry):
+class ProceduralMemory(MemoryEntry):  # type: ignore[explicit-any]
     """Procedural memory - how-to knowledge and skills.
 
     Procedural memories store instructions and procedures. They should

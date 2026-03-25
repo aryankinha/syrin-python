@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
 
 
 @dataclass
@@ -19,7 +18,7 @@ class PromptContext:
     and built-in values (date, agent_id, conversation_id).
     """
 
-    agent: Any
+    agent: object
     """The Agent instance. Use for ctx.agent.memory, ctx.agent.name, etc."""
 
     agent_id: str
@@ -28,16 +27,16 @@ class PromptContext:
     conversation_id: str | None
     """Current conversation ID for state isolation (per-user or per-session). None if not set."""
 
-    memory: Any
+    memory: object
     """Persistent memory backend (Memory) or None. Use for ctx.memory.recall(...)."""
 
-    budget_state: Any
+    budget_state: object
     """BudgetState or None. Use for remaining, spent, etc."""
 
     date: datetime
     """Current UTC datetime. For prompts that need \"today's date\"."""
 
-    builtins: dict[str, Any] = field(default_factory=dict)
+    builtins: dict[str, object] = field(default_factory=dict)
     """Built-in vars (date, agent_id, conversation_id) that would be injected. For introspection."""
 
     def __post_init__(self) -> None:
@@ -46,7 +45,7 @@ class PromptContext:
 
 
 def make_prompt_context(
-    agent: Any,
+    agent: object,
     *,
     conversation_id: str | None = None,
     inject_template_vars: bool = True,
@@ -73,7 +72,7 @@ def make_prompt_context(
             "spent": getattr(agent._budget, "_spent", 0),
         }
     date_val = datetime.now(timezone.utc)
-    builtins: dict[str, Any] = {}
+    builtins: dict[str, object] = {}
     if inject_template_vars:
         builtins = {
             "date": date_val,

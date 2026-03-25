@@ -111,7 +111,7 @@ agent = Agent(
     system_prompt="You are a helpful assistant. Use tools when needed.",
     tools=[calculate, search_web, send_email],
 )
-result = agent.response("What is 2 + 3?")
+result = agent.run("What is 2 + 3?")
 print(f"  Response: {result.content[:120]}")
 
 if __name__ == "__main__":

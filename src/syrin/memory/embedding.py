@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass(frozen=False)
@@ -36,7 +35,7 @@ class EmbeddingConfig:
     batch_size: int = 100
     api_key: str | None = None
     custom_fn: Callable[[str], list[float]] | None = field(default=None, repr=False)
-    embedding_provider: Any = field(default=None, repr=True)
+    embedding_provider: object = field(default=None, repr=True)
 
     def embed(self, text: str) -> list[float]:
         """Compute embedding for text. Uses custom_fn if set; else raises.
@@ -73,7 +72,7 @@ class EmbeddingConfig:
                 "EmbeddingConfig.embed_async requires embedding_provider. "
                 "Set embedding_provider=Embedding.OpenAI(...) for async embeddings."
             )
-        results: list[list[float]] = await self.embedding_provider.embed([text])
+        results: list[list[float]] = await self.embedding_provider.embed([text])  # type: ignore[attr-defined]
         if not results:
             raise ValueError("Embedding provider returned empty result")
         return results[0]

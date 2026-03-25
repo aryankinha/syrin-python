@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-from typing import Any
 
 from syrin.cost import calculate_image_cost
 from syrin.generation._result import GenerationResult
@@ -27,7 +26,7 @@ class DalleImageProvider:
         api_key: OpenAI API key. None = use OPENAI_API_KEY env.
     """
 
-    def __init__(self, api_key: str | None = None, **kwargs: Any) -> None:
+    def __init__(self, api_key: str | None = None, **kwargs: object) -> None:
         self.api_key = api_key
         self._kwargs = kwargs
 
@@ -39,7 +38,7 @@ class DalleImageProvider:
         number_of_images: int = 1,
         output_mime_type: str = "image/png",
         model: str | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> list[GenerationResult]:
         """Generate image(s) using DALL·E 3. number_of_images=1 for DALL-E 3 (API limit)."""
         try:

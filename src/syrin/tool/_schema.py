@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 
 from syrin.enums import DocFormat
 
 
-def schema_to_toon(schema: dict[str, Any], indent: int = 0) -> str:
+def schema_to_toon(schema: dict[str, object], indent: int = 0) -> str:
     """Convert a JSON schema to TOON format (token-efficient).
 
     Args:
@@ -73,9 +72,9 @@ def schema_to_toon(schema: dict[str, Any], indent: int = 0) -> str:
 def tool_schema_to_format_dict(
     name: str,
     description: str,
-    parameters_schema: dict[str, Any],
+    parameters_schema: dict[str, object],
     format: DocFormat = DocFormat.TOON,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Build provider-style tool schema dict from components (no ToolSpec dependency).
 
     Args:

@@ -32,7 +32,7 @@ class Assistant(Agent):
     _agent_description = "Helpful assistant — playground demo"
     model = gpt4_mini
     system_prompt = "You are a helpful assistant. Be concise."
-    budget = Budget(run=0.5, per=RateLimit(hour=10, day=100, week=700))
+    budget = Budget(max_cost=0.5, rate_limits=RateLimit(hour=10, day=100, week=700))
     memory = Memory(backend=MemoryBackend.MEMORY, top_k=10)
     context = Context(max_tokens=1000)
 

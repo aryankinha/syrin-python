@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import contextlib
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 from starlette.requests import Request
 
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 _MCP_PROTOCOL_VERSION = "2024-11-05"
 
 
-def _init_result(mcp: MCP) -> dict[str, Any]:
+def _init_result(mcp: MCP) -> dict[str, object]:
     """Build MCP initialize result per spec."""
     try:
         import syrin
@@ -31,7 +31,7 @@ def _init_result(mcp: MCP) -> dict[str, Any]:
     }
 
 
-def _find_mcp_in_tools(tools: list[Any]) -> MCP | None:
+def _find_mcp_in_tools(tools: list[object]) -> MCP | None:
     """Return first MCP instance in tools list."""
     for t in tools:
         if isinstance(t, type):
@@ -43,18 +43,18 @@ def _find_mcp_in_tools(tools: list[Any]) -> MCP | None:
     return None
 
 
-def build_mcp_router(mcp: MCP) -> Any:
+def build_mcp_router(mcp: MCP) -> object:
     """Build FastAPI router for MCP JSON-RPC endpoint. Add with prefix via include_router."""
     from fastapi import APIRouter
     from fastapi.responses import JSONResponse
 
     router = APIRouter(include_in_schema=False)
 
-    _empty: dict[str, Any] = {}
+    _empty: dict[str, object] = {}
 
     @router.post("")
     @router.post("/")
-    async def mcp_handler(request: Request, body: dict[str, Any] | None = None) -> Any:
+    async def mcp_handler(request: Request, body: dict[str, object] | None = None) -> object:
         """JSON-RPC 2.0: tools/list, tools/call."""
         body = body or _empty
         req_id = body.get("id")
@@ -77,8 +77,8 @@ def build_mcp_router(mcp: MCP) -> Any:
             tools = [tool_spec_to_mcp(t) for t in specs]
             return {"jsonrpc": "2.0", "id": req_id, "result": {"tools": tools}}
         if method == "tools/call":
-            name = params.get("name", "")
-            arguments = params.get("arguments") or {}
+            name = params.get("name", "")  # type: ignore[attr-defined]
+            arguments = params.get("arguments") or {}  # type: ignore[attr-defined]
             emit = getattr(mcp, "_emit_mcp_event", None)
             if emit:
                 from syrin.enums import Hook

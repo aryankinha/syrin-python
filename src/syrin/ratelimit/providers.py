@@ -7,7 +7,6 @@ This module provides:
 """
 
 from dataclasses import dataclass
-from typing import Any
 
 
 @dataclass
@@ -99,7 +98,7 @@ def extract_provider_from_model(model_id: str) -> tuple[str, str]:
     return "unknown", model_id
 
 
-def auto_detect_limits(model_id: str) -> dict[str, Any]:
+def auto_detect_limits(model_id: str) -> dict[str, object]:
     """Auto-detect rate limits based on model ID.
 
     Args:
@@ -157,8 +156,8 @@ def suggest_limits(model_id: str, use_tier: str = "tier1") -> dict[str, int | No
     multiplier = tier_multipliers.get(use_tier, 1.0)
 
     return {
-        "rpm": int(base["rpm"] * multiplier) if base["rpm"] else None,
-        "tpm": int(base["tpm"] * multiplier) if base["tpm"] else None,
+        "rpm": int(base["rpm"] * multiplier) if base["rpm"] else None,  # type: ignore[operator]
+        "tpm": int(base["tpm"] * multiplier) if base["tpm"] else None,  # type: ignore[operator]
         "rpd": None,  # Daily limits typically don't scale with tier
     }
 

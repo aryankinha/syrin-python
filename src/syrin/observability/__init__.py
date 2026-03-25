@@ -13,13 +13,13 @@ Example:
     >>> # Basic span usage
     >>> with trace.span("agent.run", kind=SpanKind.AGENT) as span:
     ...     span.set_attribute("agent.name", "my_agent")
-    ...     result = agent.response("Hello")
+    ...     result = agent.run("Hello")
     ...     span.set_attribute("llm.tokens.total", result.tokens.total_tokens)
     >>>
     >>> # Session tracking
     >>> with trace.session("user_123"):
     ...     for msg in conversation:
-    ...         response = agent.response(msg)
+    ...         response = agent.run(msg)
     >>>
     >>> # Debug mode
     >>> agent = Agent(..., debug=True)  # Captures full context
@@ -38,7 +38,6 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Any
 
 _log = logging.getLogger(__name__)
 
@@ -115,10 +114,10 @@ class Session:
 
     id: str
     start_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
     span_count: int = 0
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "id": self.id,
             "start_time": self.start_time.isoformat(),
@@ -150,8 +149,8 @@ class Span:
     status_message: str | None = None
 
     # Data
-    attributes: dict[str, Any] = field(default_factory=dict)
-    events: list[dict[str, Any]] = field(default_factory=list)
+    attributes: dict[str, object] = field(default_factory=dict)
+    events: list[dict[str, object]] = field(default_factory=list)
     children: list[Span] = field(default_factory=list)
 
     # Parent reference (not in serialization)
@@ -180,15 +179,15 @@ class Span:
     def parent_span_id(self) -> str | None:
         return self.context.parent_span_id
 
-    def set_attribute(self, key: str, value: Any) -> None:
+    def set_attribute(self, key: str, value: object) -> None:
         """Set a semantic attribute on this span."""
         self.attributes[key] = value
 
-    def set_attributes(self, attrs: dict[str, Any]) -> None:
+    def set_attributes(self, attrs: dict[str, object]) -> None:
         """Set multiple attributes at once."""
         self.attributes.update(attrs)
 
-    def add_event(self, name: str, attributes: dict[str, Any] | None = None) -> None:
+    def add_event(self, name: str, attributes: dict[str, object] | None = None) -> None:
         """Add a timed event to this span."""
         self.events.append(
             {
@@ -234,7 +233,7 @@ class Span:
         for child in self.children:
             yield from child.walk()
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Convert span to dictionary for serialization."""
         return {
             "name": self.name,
@@ -281,9 +280,9 @@ class Tracer:
     def debug_mode(self) -> bool:
         return self._debug_mode
 
-    def set_sampler(self, sampler: Any) -> None:
+    def set_sampler(self, sampler: object) -> None:
         """Set a sampler to control which spans are recorded."""
-        self._sampler = sampler
+        self._sampler = sampler  # type: ignore[assignment]
 
     def set_collect_metrics(self, enabled: bool) -> None:
         """Enable or disable metrics collection."""
@@ -294,7 +293,7 @@ class Tracer:
         self,
         name: str,
         kind: SpanKind = SpanKind.INTERNAL,
-        attributes: dict[str, Any] | None = None,
+        attributes: dict[str, object] | None = None,
     ) -> Iterator[Span]:
         """Create a new span as a context manager.
 
@@ -339,7 +338,7 @@ class Tracer:
             self._export(span)
 
     @contextmanager
-    def session(self, session_id: str | None = None, **metadata: Any) -> Iterator[Session]:
+    def session(self, session_id: str | None = None, **metadata: object) -> Iterator[Session]:
         """Create a new session context.
 
         All spans created within this context will be associated with the session.
@@ -472,7 +471,7 @@ class ConsoleExporter(SpanExporter):
             for ev in span.events:
                 name = ev.get("name", "event")
                 ev_attrs = ev.get("attributes") or {}
-                ev_str = ", ".join(f"{k}={v}" for k, v in ev_attrs.items() if v is not None)
+                ev_str = ", ".join(f"{k}={v}" for k, v in ev_attrs.items() if v is not None)  # type: ignore[attr-defined]
                 lines.append(
                     f"{prefix}    - {name}: {ev_str}" if ev_str else f"{prefix}    - {name}"
                 )
@@ -484,7 +483,7 @@ class ConsoleExporter(SpanExporter):
 
         return "\n".join(lines)
 
-    def _format_attributes(self, attrs: dict[str, Any], indent: int) -> list[str]:
+    def _format_attributes(self, attrs: dict[str, object], indent: int) -> list[str]:
         """Format all attributes without filtering. Cost keys shown as decimal with $."""
         prefix = "  " * indent
         lines = []
@@ -551,12 +550,12 @@ def _generate_id() -> str:
 trace = get_tracer()
 
 
-def span(name: str, kind: SpanKind = SpanKind.INTERNAL, **attributes: Any) -> Any:
+def span(name: str, kind: SpanKind = SpanKind.INTERNAL, **attributes: object) -> object:
     """Create a span context manager (convenience method)."""
     return trace.span(name, kind, attributes)
 
 
-def session(session_id: str | None = None, **metadata: Any) -> Any:
+def session(session_id: str | None = None, **metadata: object) -> object:
     """Create a session context manager (convenience method)."""
     return trace.session(session_id, **metadata)
 
@@ -584,8 +583,8 @@ def set_debug(enabled: bool) -> None:
 def llm_span(
     model: str,
     operation: str = "complete",
-    **attributes: Any,
-) -> Any:
+    **attributes: object,
+) -> object:
     """Create an LLM span with common attributes pre-set.
 
     Args:
@@ -610,9 +609,9 @@ def llm_span(
 
 def tool_span(
     tool_name: str,
-    input: dict[str, Any] | None = None,
-    **attributes: Any,
-) -> Any:
+    input: dict[str, object] | None = None,
+    **attributes: object,
+) -> object:
     """Create a tool span with common attributes pre-set.
 
     Args:
@@ -640,8 +639,8 @@ def memory_span(
     operation: str,
     memory_type: str | None = None,
     query: str | None = None,
-    **attributes: Any,
-) -> Any:
+    **attributes: object,
+) -> object:
     """Create a memory span with common attributes pre-set.
 
     Args:
@@ -675,8 +674,8 @@ def budget_span(
     operation: str,
     limit: float | None = None,
     used: float | None = None,
-    **attributes: Any,
-) -> Any:
+    **attributes: object,
+) -> object:
     """Create a budget span with common attributes pre-set.
 
     Args:
@@ -706,8 +705,8 @@ def budget_span(
 def guardrail_span(
     name: str,
     stage: str,
-    **attributes: Any,
-) -> Any:
+    **attributes: object,
+) -> object:
     """Create a guardrail span with common attributes pre-set.
 
     Args:
@@ -734,8 +733,8 @@ def guardrail_span(
 def handoff_span(
     source_agent: str,
     target_agent: str,
-    **attributes: Any,
-) -> Any:
+    **attributes: object,
+) -> object:
     """Create a handoff span with common attributes pre-set.
 
     Args:
@@ -760,8 +759,8 @@ def handoff_span(
 
 def agent_span(
     name: str,
-    **attributes: Any,
-) -> Any:
+    **attributes: object,
+) -> object:
     """Create an agent span with common attributes pre-set.
 
     Args:
@@ -770,7 +769,7 @@ def agent_span(
 
     Example:
         >>> with agent_span("research_agent", user_id="123") as span:
-        ...     result = agent.response(query)
+        ...     result = agent.run(query)
     """
     return trace.span(
         f"agent.{name}",

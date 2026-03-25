@@ -84,7 +84,7 @@ def main() -> None:
     )
 
     # Text-only message -> router can pick text-only or vision (both support TEXT)
-    r1 = agent.response("What is the capital of France?")
+    r1 = agent.run("What is the capital of France?")
     print(
         "Text-only prompt -> selected:",
         r1.routing_reason.selected_model if r1.routing_reason else "N/A",
@@ -99,7 +99,7 @@ def main() -> None:
         {"type": "text", "text": "What do you see in this image?"},
         {"type": "image_url", "image_url": {"url": data_url}},
     ]
-    r2 = agent.response(content_parts)
+    r2 = agent.run(content_parts)
     print(
         "Image + text prompt -> selected:",
         r2.routing_reason.selected_model if r2.routing_reason else "N/A",

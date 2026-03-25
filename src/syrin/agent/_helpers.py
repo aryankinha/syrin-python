@@ -36,15 +36,15 @@ class _ContextFacade:
         """Return a point-in-time view of the context from the last prepare."""
         return self._manager.snapshot()
 
-    def get_map(self) -> Any:
+    def get_map(self) -> object:
         """Return the persistent context map. Empty if no map backend configured."""
         return self._manager.get_map()
 
-    def update_map(self, partial: Any) -> None:
+    def update_map(self, partial: object) -> None:
         """Merge partial into the persistent map and persist. No-op if no map backend."""
-        return self._manager.update_map(partial)
+        return self._manager.update_map(partial)  # type: ignore[arg-type]
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> object:
         return getattr(self._config, name)
 
 
@@ -68,7 +68,7 @@ class _AgentRuntime:
 
 
 def _validate_agent_media(
-    router: Any,
+    router: object,
     *,
     input_media: set[Media] | None = None,
     output_media: set[Media] | None = None,
@@ -108,9 +108,9 @@ def _validate_agent_media(
         )
 
 
-def _make_generate_image_tool(
+def _make_generate_image_tool(  # type: ignore[explicit-any]
     get_generator: Callable[[], Any],
-    emit: Callable[[str, dict[str, Any]], None] | None = None,
+    emit: Callable[[str, dict[str, object]], None] | None = None,
 ) -> ToolSpec:
     """Build a ToolSpec for generate_image. Uses DI — no closure over agent."""
 
@@ -162,9 +162,9 @@ def _make_generate_image_tool(
     )
 
 
-def _make_generate_video_tool(
+def _make_generate_video_tool(  # type: ignore[explicit-any]
     get_generator: Callable[[], Any],
-    emit: Callable[[str, dict[str, Any]], None] | None = None,
+    emit: Callable[[str, dict[str, object]], None] | None = None,
 ) -> ToolSpec:
     """Build a ToolSpec for generate_video. Uses DI — no closure over agent."""
 
@@ -468,18 +468,18 @@ def _make_verify_knowledge_tool(
     )
 
 
-def _merge_class_attrs(mro: tuple[type, ...], name: str, merge: bool) -> Any:
+def _merge_class_attrs(mro: tuple[type, ...], name: str, merge: bool) -> object:
     """From MRO: for 'merge' (e.g. tools) concatenate lists; else first defined."""
     tools_fallback = name == "tools"
 
-    def _get(cls: type, attr: str) -> Any:
+    def _get(cls: type, attr: str) -> object:
         val = cls.__dict__.get(attr, NOT_PROVIDED)
         if val is NOT_PROVIDED and tools_fallback:
             val = cls.__dict__.get("_syrin_class_tools", NOT_PROVIDED)
         return val
 
     if merge:
-        out: list[Any] = []
+        out: list[object] = []
         for cls in mro:
             if cls is object:
                 continue
@@ -505,7 +505,7 @@ def _merge_class_attrs(mro: tuple[type, ...], name: str, merge: bool) -> Any:
     return NOT_PROVIDED
 
 
-def _collect_system_prompt_method(cls: type) -> Any:
+def _collect_system_prompt_method(cls: type) -> object:
     """Find @system_prompt-decorated method in MRO. First (subclass) wins. Returns None if none."""
     for c in cls.__mro__:
         if c is object:
@@ -539,12 +539,12 @@ def _collect_class_tools(cls: type) -> list[ToolSpec]:
     return result
 
 
-def _is_prompt(x: Any) -> bool:
+def _is_prompt(x: object) -> bool:
     """Return True if x is a Prompt (from @prompt)."""
     return hasattr(x, "variables") and callable(x)
 
 
-def _is_valid_system_prompt(x: Any) -> bool:
+def _is_valid_system_prompt(x: object) -> bool:
     """Return True if x is valid system_prompt: str, Prompt, or callable."""
     if isinstance(x, str):
         return True
@@ -553,12 +553,12 @@ def _is_valid_system_prompt(x: Any) -> bool:
     return callable(x) and not isinstance(x, type)
 
 
-def _is_mcp(x: Any) -> bool:
+def _is_mcp(x: object) -> bool:
     """Return True if x is an MCP server instance (has _tool_specs)."""
     return hasattr(x, "_tool_specs") and hasattr(x, "tools")
 
 
-def _expand_tool_sources(items: list[Any]) -> list[ToolSpec]:
+def _expand_tool_sources(items: list[object]) -> list[ToolSpec]:
     """Expand MCP/MCPClient to ToolSpec; pass through ToolSpec; flatten lists from mcp.select()."""
     out: list[ToolSpec] = []
     for x in items:
@@ -573,7 +573,7 @@ def _expand_tool_sources(items: list[Any]) -> list[ToolSpec]:
     return out
 
 
-def _bind_tool_to_instance(spec: ToolSpec, instance: Any) -> ToolSpec:
+def _bind_tool_to_instance(spec: ToolSpec, instance: object) -> ToolSpec:
     """If spec.func is an unbound method (has 'self'), bind it to instance."""
     import inspect
 
@@ -593,7 +593,7 @@ def _bind_tool_to_instance(spec: ToolSpec, instance: Any) -> ToolSpec:
 
 
 def _validate_user_input(
-    user_input: str | list[dict[str, Any]] | None,
+    user_input: str | list[dict[str, object]] | None,
     method: str = "response",
 ) -> None:
     """Raise TypeError if user_input is not str or list[dict] (MultimodalInput)."""
@@ -622,7 +622,9 @@ def _resolve_provider(model: Model | None, model_config: ModelConfig) -> Provide
     return get_provider(model_config.provider, strict=True)
 
 
-def _normalize_tools(tools_list: list[Any], instance: Any) -> tuple[list[ToolSpec], list[Any]]:
+def _normalize_tools(
+    tools_list: list[object], instance: object
+) -> tuple[list[ToolSpec], list[object]]:
     """Expand, validate, and bind tools to agent instance."""
     mcp_instances = [x for x in tools_list if _is_mcp(x)]
     expanded = _expand_tool_sources(tools_list)
@@ -640,13 +642,13 @@ def _normalize_tools(tools_list: list[Any], instance: Any) -> tuple[list[ToolSpe
     return (out, mcp_instances)
 
 
-def _validate_budget(budget: Any) -> Budget | None:
+def _validate_budget(budget: object) -> Budget | None:
     """Validate budget is Budget or None."""
     if budget is None:
         return None
     if not isinstance(budget, Budget):
         raise TypeError(
-            f"budget must be Budget, got {type(budget).__name__}. Use Budget(run=1.0, per=...)."
+            f"budget must be Budget, got {type(budget).__name__}. Use Budget(max_cost=1.0, rate_limits=...)."
         )
     return budget
 
@@ -678,12 +680,12 @@ def _resolve_memory(
     return (memory, get_backend(memory.backend, **memory._backend_kwargs()))
 
 
-def _emit_domain_event_for_hook(hook: Hook, ctx: EventContext, bus: Any) -> None:
+def _emit_domain_event_for_hook(hook: Hook, ctx: EventContext, bus: object) -> None:
     """Emit domain events for hooks that have typed domain event equivalents."""
     if hook == Hook.AGENT_RUN_START:
         from syrin.domain_events import AgentRunStarted
 
-        bus.emit(
+        bus.emit(  # type: ignore[attr-defined]
             AgentRunStarted(
                 input=cast(str, ctx.get("input", "")),
                 model=cast(str, ctx.get("model", "")),
@@ -693,7 +695,7 @@ def _emit_domain_event_for_hook(hook: Hook, ctx: EventContext, bus: Any) -> None
     elif hook == Hook.AGENT_RUN_END:
         from syrin.domain_events import AgentRunEnded
 
-        bus.emit(
+        bus.emit(  # type: ignore[attr-defined]
             AgentRunEnded(
                 content=cast(str, ctx.get("content", "")),
                 cost=cast(float, ctx.get("cost", 0.0)),
@@ -707,7 +709,7 @@ def _emit_domain_event_for_hook(hook: Hook, ctx: EventContext, bus: Any) -> None
         from syrin.domain_events import LLMRequestStarted
 
         tools = ctx.get("tools", [])
-        bus.emit(
+        bus.emit(  # type: ignore[attr-defined]
             LLMRequestStarted(
                 iteration=cast(int, ctx.get("iteration", 0)),
                 tool_count=len(tools) if isinstance(tools, list) else 0,
@@ -716,7 +718,7 @@ def _emit_domain_event_for_hook(hook: Hook, ctx: EventContext, bus: Any) -> None
     elif hook == Hook.LLM_REQUEST_END:
         from syrin.domain_events import LLMRequestCompleted
 
-        bus.emit(
+        bus.emit(  # type: ignore[attr-defined]
             LLMRequestCompleted(
                 content=cast(str, ctx.get("content", "")),
                 iteration=cast(int, ctx.get("iteration", 0)),
@@ -725,7 +727,7 @@ def _emit_domain_event_for_hook(hook: Hook, ctx: EventContext, bus: Any) -> None
     elif hook == Hook.TOOL_CALL_END:
         from syrin.domain_events import ToolCallCompleted
 
-        bus.emit(
+        bus.emit(  # type: ignore[attr-defined]
             ToolCallCompleted(
                 tool_name=cast(str, ctx.get("tool_name", "")),
                 duration_ms=cast(float, ctx.get("duration_ms", 0.0)),
@@ -734,7 +736,7 @@ def _emit_domain_event_for_hook(hook: Hook, ctx: EventContext, bus: Any) -> None
     elif hook == Hook.TOOL_ERROR:
         from syrin.domain_events import ToolCallFailed
 
-        bus.emit(
+        bus.emit(  # type: ignore[attr-defined]
             ToolCallFailed(
                 tool_name=cast(str, ctx.get("tool_name", "")),
                 error=cast(str, ctx.get("error", "")),
@@ -748,18 +750,18 @@ def _emit_domain_event_for_hook(hook: Hook, ctx: EventContext, bus: Any) -> None
         current = cast(float, ctx.get("current_value", 0.0))
         limit = cast(float, ctx.get("limit_value", 0.0))
         metric = cast(str, ctx.get("metric", "cost"))
-        bus.emit(BudgetThresholdReached(pct, current, limit, metric))
+        bus.emit(BudgetThresholdReached(pct, current, limit, metric))  # type: ignore[attr-defined]
     elif hook == Hook.BUDGET_EXCEEDED:
         from syrin.domain_events import BudgetExceeded
 
         used = cast(float, ctx.get("used", 0.0))
         limit = cast(float, ctx.get("limit", 0.0))
-        bus.emit(BudgetExceeded(used=used, limit=limit, exceeded_by=used - limit))
+        bus.emit(BudgetExceeded(used=used, limit=limit, exceeded_by=used - limit))  # type: ignore[attr-defined]
     elif hook == Hook.GUARDRAIL_BLOCKED:
         from syrin.domain_events import GuardrailBlocked
 
         names = ctx.get("guardrail_names", [])
-        bus.emit(
+        bus.emit(  # type: ignore[attr-defined]
             GuardrailBlocked(
                 stage=cast(str, ctx.get("stage", "")),
                 reason=cast(str, ctx.get("reason", "")),
@@ -769,7 +771,7 @@ def _emit_domain_event_for_hook(hook: Hook, ctx: EventContext, bus: Any) -> None
     elif hook == Hook.HANDOFF_START:
         from syrin.domain_events import HandoffStarted
 
-        bus.emit(
+        bus.emit(  # type: ignore[attr-defined]
             HandoffStarted(
                 target_agent=cast(str, ctx.get("target_agent", "")),
                 task=cast(str, ctx.get("task", "")),
@@ -778,7 +780,7 @@ def _emit_domain_event_for_hook(hook: Hook, ctx: EventContext, bus: Any) -> None
     elif hook == Hook.HANDOFF_END:
         from syrin.domain_events import HandoffCompleted
 
-        bus.emit(
+        bus.emit(  # type: ignore[attr-defined]
             HandoffCompleted(
                 target_agent=cast(str, ctx.get("target_agent", "")),
                 success=bool(ctx.get("success", True)),
@@ -787,7 +789,7 @@ def _emit_domain_event_for_hook(hook: Hook, ctx: EventContext, bus: Any) -> None
     elif hook == Hook.CONTEXT_COMPACT:
         from syrin.domain_events import ContextCompacted
 
-        bus.emit(
+        bus.emit(  # type: ignore[attr-defined]
             ContextCompacted(
                 method=cast(str, ctx.get("method", "unknown")),
                 tokens_before=cast(int, ctx.get("tokens_before", 0)),

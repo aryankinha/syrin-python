@@ -46,10 +46,10 @@ def main() -> None:
     )
 
     # QUALITY_FIRST picks premium (higher priority) when both support task
-    r = agent.response("Hello", task_type=TaskType.GENERAL)
+    r = agent.run("Hello", task_type=TaskType.GENERAL)
     print(f"GENERAL -> {r.routing_reason.selected_model}: {r.routing_reason.reason}")
 
-    r = agent.response("Solve 2+2", task_type=TaskType.REASONING)
+    r = agent.run("Solve 2+2", task_type=TaskType.REASONING)
     print(f"REASONING -> {r.routing_reason.selected_model}: {r.routing_reason.reason}")
 
 

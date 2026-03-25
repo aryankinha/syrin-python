@@ -11,14 +11,14 @@ Usage:
     >>>
     >>> # Or use as context manager
     >>> with hook_observer(agent) as observer:
-    ...     agent.response("Hello")
+    ...     agent.run("Hello")
 """
 
 from __future__ import annotations
 
+import types
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from typing import Any
 
 from syrin.enums import Hook
 from syrin.events import EventContext, Events
@@ -34,7 +34,7 @@ class HookObserver:
     def __init__(self, events: Events) -> None:
         self._events = events
         self._handlers: dict[str, Callable[[EventContext], None]] = {}
-        self._observability: Any = None
+        self._observability: types.ModuleType | None = None
 
     def attach(self) -> None:
         """Attach observers to all events."""
@@ -65,10 +65,11 @@ class HookObserver:
     def _make_handler(
         self,
         event_name: str,
-        _kind: Any,
+        _kind: object,
     ) -> Callable[[EventContext], None]:
         """Create a handler for a specific event."""
         obs = self._observability
+        assert obs is not None
 
         def handler(ctx: EventContext) -> None:
             current = obs.current_span()
@@ -86,21 +87,25 @@ class HookObserver:
                     current.set_attribute(obs.SemanticAttributes.LLM_COST, ctx.get("cost", 0))
                 elif event_name == "response" and "tokens" in ctx:
                     current.set_attribute(
-                        obs.SemanticAttributes.LLM_TOKENS_TOTAL, ctx.get("tokens", 0)
+                        obs.SemanticAttributes.LLM_TOKENS_TOTAL,
+                        ctx.get("tokens", 0),
                     )
                 elif event_name == "tool" and "name" in ctx:
                     current.set_attribute(obs.SemanticAttributes.TOOL_NAME, ctx.get("name"))
                 elif event_name == "budget" and "remaining" in ctx:
                     current.set_attribute(
-                        obs.SemanticAttributes.BUDGET_REMAINING, ctx.get("remaining")
+                        obs.SemanticAttributes.BUDGET_REMAINING,
+                        ctx.get("remaining"),
                     )
                 elif event_name == "llm_fallback" and "from_model" in ctx:
                     current.set_attribute(
-                        obs.SemanticAttributes.LLM_FALLBACK_FROM, ctx.get("from_model")
+                        obs.SemanticAttributes.LLM_FALLBACK_FROM,
+                        ctx.get("from_model"),
                     )
                 elif event_name == "llm_fallback" and "to_model" in ctx:
                     current.set_attribute(
-                        obs.SemanticAttributes.LLM_FALLBACK_TO, ctx.get("to_model")
+                        obs.SemanticAttributes.LLM_FALLBACK_TO,
+                        ctx.get("to_model"),
                     )
                 elif event_name == "circuit_trip" and "error" in ctx:
                     current.set_attribute(obs.SemanticAttributes.ERROR_MESSAGE, ctx.get("error"))
@@ -114,7 +119,7 @@ class HookObserver:
         pass
 
 
-def observe_hooks(agent: Any) -> HookObserver:
+def observe_hooks(agent: object) -> HookObserver:
     """Attach observability to an agent's events.
 
     This function connects the observability system to an agent's
@@ -128,7 +133,7 @@ def observe_hooks(agent: Any) -> HookObserver:
 
     Example:
         >>> observe_hooks(my_agent)
-        >>> result = my_agent.response("Hello")
+        >>> result = my_agent.run("Hello")
         >>> # Spans now include event data from the Events system
     """
     if not hasattr(agent, "events"):
@@ -141,12 +146,12 @@ def observe_hooks(agent: Any) -> HookObserver:
 
 
 @contextmanager
-def hook_observer(agent: Any) -> Iterator[HookObserver]:
+def hook_observer(agent: object) -> Iterator[HookObserver]:
     """Context manager for observing hooks.
 
     Example:
         >>> with hook_observer(agent) as observer:
-        ...     result = agent.response("Hello")
+        ...     result = agent.run("Hello")
     """
     observer = observe_hooks(agent)
     try:

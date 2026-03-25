@@ -95,7 +95,7 @@ class TestHandoff:
 
         class AgentA(Agent):
             model = Model("test/model")
-            budget = Budget(run=1.0)
+            budget = Budget(max_cost=1.0)
 
         class AgentB(Agent):
             model = Model("test/model")
@@ -182,7 +182,7 @@ class TestSpawn:
 
         parent = Parent()
 
-        child = parent.spawn(Child, budget=Budget(run=0.50))
+        child = parent.spawn(Child, budget=Budget(max_cost=0.50))
 
         assert child._budget is not None
 
@@ -199,7 +199,7 @@ class TestSpawn:
         class Child(Agent):
             model = Model("test/model")
 
-        parent = Parent(budget=Budget(run=10.0, shared=True))
+        parent = Parent(budget=Budget(max_cost=10.0, shared=True))
         parent_tracker = parent._budget_tracker
 
         result = parent.spawn(Child, task="Do something")
@@ -389,7 +389,7 @@ class TestHandoffHooks:
         class TargetAgent(Agent):
             model = Model("test/model")
 
-            def response(self, user_input: str, **kwargs: object) -> Response[str]:
+            def run(self, user_input: str, **kwargs: object) -> Response[str]:
                 raise HandoffRetryRequested(
                     "Invalid format", format_hint="Use JSON with fields: x, y"
                 )
@@ -726,7 +726,7 @@ class TestPipeline:
         class Agent2(Agent):
             model = Model("test/model")
 
-        pipeline = Pipeline(budget=Budget(run=1.0))
+        pipeline = Pipeline(budget=Budget(max_cost=1.0))
 
         result = pipeline.run_sequential(
             [
@@ -799,11 +799,11 @@ class TestAgentTeam:
 
         class Agent1(Agent):
             model = Model("test/model")
-            budget = Budget(run=1.0)
+            budget = Budget(max_cost=1.0)
 
         class Agent2(Agent):
             model = Model("test/model")
-            budget = Budget(run=1.0)
+            budget = Budget(max_cost=1.0)
 
         team = AgentTeam(agents=[Agent1(), Agent2()])
 
@@ -890,7 +890,7 @@ class TestEdgeCases:
 
         # Negative budget should raise ValidationError (our fix)
         with pytest.raises(ValidationError):
-            parent.spawn(Child, budget=Budget(run=-1.0))
+            parent.spawn(Child, budget=Budget(max_cost=-1.0))
 
     @patch("syrin.agent._resolve_provider")
     def test_spawn_memory_isolation(self, mock_get_provider):
@@ -1329,7 +1329,7 @@ class TestDynamicPipeline:
         from syrin import Budget
         from syrin.agent.multi_agent import DynamicPipeline
 
-        budget = Budget(run=1.0)
+        budget = Budget(max_cost=1.0)
         pipeline = DynamicPipeline(
             agents=[researcher_agent],
             model=mock_model,

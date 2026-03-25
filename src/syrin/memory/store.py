@@ -6,7 +6,6 @@ import logging
 import uuid
 from collections.abc import Iterator
 from datetime import datetime, timezone
-from typing import Any
 
 from syrin.budget import BudgetExceededContext
 from syrin.enums import BudgetLimitType, DecayStrategy, MemoryScope, MemoryType
@@ -28,7 +27,7 @@ class MemoryStore:
         self,
         decay: Decay | None = None,
         budget: MemoryBudget | None = None,
-        events: Any = None,
+        events: object = None,
         backend: dict[str, MemoryEntry] | None = None,
     ) -> None:
         self._decay = decay or Decay(
@@ -47,17 +46,17 @@ class MemoryStore:
         self._memory_counter += 1
         return f"mem-{uuid.uuid4().hex[:8]}-{self._memory_counter}"
 
-    def _emit_event(self, event_name: str, data: dict[str, Any]) -> None:
+    def _emit_event(self, event_name: str, data: dict[str, object]) -> None:
         """Emit an event if events system is available."""
         if self._events is not None:
             try:
-                self._events.emit(event_name, data)
+                self._events.emit(event_name, data)  # type: ignore[attr-defined]
             except Exception as e:
                 logger.warning(f"Failed to emit event {event_name}: {e}")
 
-    def _create_span(self, operation: str) -> dict[str, Any]:
+    def _create_span(self, operation: str) -> dict[str, object]:
         """Create a span for observability (if available)."""
-        span_data: dict[str, Any] = {
+        span_data: dict[str, object] = {
             "operation": operation,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
@@ -81,13 +80,13 @@ class MemoryStore:
             pass
         return span_data
 
-    def _end_span(self, span_data: dict[str, Any], **attrs: Any) -> None:
+    def _end_span(self, span_data: dict[str, object], **attrs: object) -> None:
         """End a span and set attributes."""
         if "_span" in span_data and "_span_cm" in span_data:
             span = span_data["_span"]
             for key, value in attrs.items():
-                span.set_attribute(key, value)
-            span_data["_span_cm"].__exit__(None, None, None)
+                span.set_attribute(key, value)  # type: ignore[attr-defined]
+            span_data["_span_cm"].__exit__(None, None, None)  # type: ignore[attr-defined]
 
     def add(
         self,
@@ -95,7 +94,7 @@ class MemoryStore:
         content: str = "",
         memory_type: MemoryType = MemoryType.EPISODIC,
         importance: float | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> bool:
         """Add a memory to the store.
 
@@ -115,10 +114,10 @@ class MemoryStore:
             mem_id = kwargs.get("id", self._generate_id())
             entry = create_memory(
                 memory_type=memory_type,
-                id=mem_id,
+                id=mem_id,  # type: ignore[arg-type]
                 content=content,
                 importance=importance,
-                **kwargs,
+                **kwargs,  # type: ignore[arg-type]
             )
         elif not (entry.id or "").strip():
             entry = entry.model_copy(update={"id": self._generate_id()})
@@ -395,13 +394,13 @@ class MemoryStore:
             self._backend.clear()
             return count
 
-    def get_stats(self) -> dict[str, Any]:
+    def get_stats(self) -> dict[str, object]:
         """Get memory statistics.
 
         Returns:
             Dict with counts by type and total
         """
-        stats: dict[str, Any] = {
+        stats: dict[str, object] = {
             "total": len(self._backend),
             "by_type": {},
             "by_scope": {},
@@ -409,11 +408,11 @@ class MemoryStore:
 
         for entry in self._backend.values():
             type_key = entry.type.value
-            by_type: dict[str, int] = stats["by_type"]
+            by_type: dict[str, int] = stats["by_type"]  # type: ignore[assignment]
             by_type[type_key] = by_type.get(type_key, 0) + 1
 
             scope_key = entry.scope.value
-            by_scope: dict[str, int] = stats["by_scope"]
+            by_scope: dict[str, int] = stats["by_scope"]  # type: ignore[assignment]
             by_scope[scope_key] = by_scope.get(scope_key, 0) + 1
 
         return stats

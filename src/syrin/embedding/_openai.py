@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from openai import AsyncOpenAI
@@ -100,7 +100,7 @@ class OpenAIEmbedding:
     async def embed(
         self,
         texts: list[str],
-        budget_tracker: Any | None = None,
+        budget_tracker: object | None = None,
     ) -> list[list[float]]:
         """Embed texts into vectors.
 
@@ -117,7 +117,7 @@ class OpenAIEmbedding:
         client = self._get_client()
 
         # Build request kwargs
-        kwargs: dict[str, Any] = {
+        kwargs: dict[str, object] = {
             "model": self._model,
             "input": texts,
         }
@@ -126,7 +126,7 @@ class OpenAIEmbedding:
         if self._dimensions != _MODEL_DIMENSIONS.get(self._model, 1536):
             kwargs["dimensions"] = self._dimensions
 
-        response = await client.embeddings.create(**kwargs)
+        response = await client.embeddings.create(**kwargs)  # type: ignore[arg-type]
 
         # Extract embeddings
         embeddings = [item.embedding for item in response.data]
@@ -137,7 +137,7 @@ class OpenAIEmbedding:
 
             token_count = response.usage.prompt_tokens
             cost = calculate_embedding_cost(self._model, token_count)
-            budget_tracker.record_external(
+            budget_tracker.record_external(  # type: ignore[attr-defined]
                 service="openai_embedding",
                 cost_usd=cost,
                 metadata={

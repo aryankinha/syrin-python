@@ -43,7 +43,7 @@ class Provider(ABC):
         messages: list[Message],
         model: ModelConfig,
         tools: list[ToolSpec] | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> ProviderResponse:
         """Run a completion. Required. Returns content, tool_calls, token_usage.
 
@@ -58,11 +58,11 @@ class Provider(ABC):
         """
         ...
 
-    def _run_async(self, coro: Any) -> ProviderResponse | None:
+    def _run_async(self, coro: object) -> ProviderResponse | None:
         """Run async coroutine using a persistent event loop."""
         loop = _get_event_loop()
         try:
-            result: ProviderResponse | None = loop.run_until_complete(coro)
+            result: ProviderResponse | None = loop.run_until_complete(coro)  # type: ignore[arg-type]
             return result
         except RuntimeError as e:
             if "Event loop is closed" in str(e):
@@ -77,7 +77,7 @@ class Provider(ABC):
             return None
 
     @staticmethod
-    def _handle_task_exception(task: asyncio.Task[Any]) -> None:
+    def _handle_task_exception(task: asyncio.Task[Any]) -> None:  # type: ignore[explicit-any]
         """Suppress event loop closed errors in background tasks."""
         try:
             task.result()
@@ -92,7 +92,7 @@ class Provider(ABC):
         messages: list[Message],
         model: ModelConfig,
         tools: list[ToolSpec] | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> ProviderResponse | None:
         """Synchronous wrapper. Uses run_until_complete(complete(...))."""
         return self._run_async(self.complete(messages=messages, model=model, tools=tools, **kwargs))
@@ -102,7 +102,7 @@ class Provider(ABC):
         messages: list[Message],
         model: ModelConfig,
         tools: list[ToolSpec] | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> AsyncIterator[ProviderResponse]:
         """Stream response chunks. Default: yields one full response (from complete)."""
         response = await self.complete(messages, model, tools, **kwargs)
@@ -113,7 +113,7 @@ class Provider(ABC):
         messages: list[Message],
         model: ModelConfig,
         tools: list[ToolSpec] | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> Iterator[ProviderResponse]:
         """Synchronous streaming. Default: yields one full response."""
         response = self._run_async(self.complete(messages, model, tools, **kwargs))

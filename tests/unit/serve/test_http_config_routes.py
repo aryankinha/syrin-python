@@ -23,7 +23,7 @@ class _TestAgentWithBudget(Agent):
 
 def test_get_config_returns_schema_and_values() -> None:
     """GET /config returns schema, baseline_values, overrides, current_values, and per-field values."""
-    agent = _TestAgentWithBudget(budget=Budget(run=1.0))
+    agent = _TestAgentWithBudget(budget=Budget(max_cost=1.0))
     config = ServeConfig()
     router = build_router(agent, config)
     from fastapi import FastAPI
@@ -39,12 +39,12 @@ def test_get_config_returns_schema_and_values() -> None:
     assert "overrides" in data
     assert "current_values" in data
     assert data["agent_id"] == "config-test-agent:Agent" or "config-test-agent" in data["agent_id"]
-    assert data["current_values"].get("budget.run") == 1.0
-    assert data["baseline_values"].get("budget.run") == 1.0
+    assert data["current_values"].get("budget.max_cost") == 1.0
+    assert data["baseline_values"].get("budget.max_cost") == 1.0
     assert data["overrides"] == {}
     budget_section = data["sections"].get("budget", {})
     run_field = next(
-        (f for f in budget_section.get("fields", []) if f.get("path") == "budget.run"),
+        (f for f in budget_section.get("fields", []) if f.get("path") == "budget.max_cost"),
         None,
     )
     assert run_field is not None
@@ -79,7 +79,7 @@ def test_get_config_with_route_prefix() -> None:
 
 def test_patch_config_applies_overrides() -> None:
     """PATCH /config with OverridePayload applies overrides via resolver."""
-    agent = _TestAgentWithBudget(budget=Budget(run=0.5))
+    agent = _TestAgentWithBudget(budget=Budget(max_cost=0.5))
     config = ServeConfig()
     router = build_router(agent, config)
     from fastapi import FastAPI
@@ -95,17 +95,17 @@ def test_patch_config_applies_overrides() -> None:
     payload = {
         "agent_id": agent_id,
         "version": 1,
-        "overrides": [{"path": "budget.run", "value": 2.0}],
+        "overrides": [{"path": "budget.max_cost", "value": 2.0}],
     }
     r = client.patch("/config", json=payload)
     assert r.status_code == 200
-    # Agent's budget.run should now be 2.0
-    assert agent._budget.run == 2.0
+    # Agent's budget.max_cost should now be 2.0
+    assert agent._budget.max_cost == 2.0
 
 
 def test_patch_agent_loop_strategy_accepts_display_format() -> None:
     """PATCH agent.loop_strategy with display-style value ('plan execute') is normalized and accepted."""
-    agent = _TestAgentWithBudget(budget=Budget(run=1.0))
+    agent = _TestAgentWithBudget(budget=Budget(max_cost=1.0))
     config = ServeConfig()
     router = build_router(agent, config)
     from fastapi import FastAPI
@@ -131,7 +131,7 @@ def test_patch_agent_loop_strategy_accepts_display_format() -> None:
 
 def test_patch_config_invalid_path_rejected() -> None:
     """PATCH /config with unknown path returns 4xx or success with rejected in body."""
-    agent = _TestAgentWithBudget(budget=Budget(run=0.5))
+    agent = _TestAgentWithBudget(budget=Budget(max_cost=0.5))
     config = ServeConfig()
     router = build_router(agent, config)
     from fastapi import FastAPI
@@ -153,12 +153,12 @@ def test_patch_config_invalid_path_rejected() -> None:
         data = r.json()
         if "rejected" in data:
             assert len(data["rejected"]) > 0
-    assert agent._budget.run == 0.5  # unchanged
+    assert agent._budget.max_cost == 0.5  # unchanged
 
 
 def test_patch_config_invalid_value_rejected() -> None:
     """PATCH /config with value that fails validation leaves agent unchanged and rolls back store."""
-    agent = _TestAgentWithBudget(budget=Budget(run=0.5))
+    agent = _TestAgentWithBudget(budget=Budget(max_cost=0.5))
     config = ServeConfig()
     router = build_router(agent, config)
     from fastapi import FastAPI
@@ -168,19 +168,19 @@ def test_patch_config_invalid_value_rejected() -> None:
     client = TestClient(app)
     get_r = client.get("/config")
     agent_id = get_r.json().get("agent_id", "config-test-agent:Agent")
-    # budget.run has ge=0; -1 should be rejected
+    # budget.max_cost has ge=0; -1 should be rejected
     payload = {
         "agent_id": agent_id,
         "version": 1,
-        "overrides": [{"path": "budget.run", "value": -1.0}],
+        "overrides": [{"path": "budget.max_cost", "value": -1.0}],
     }
     r = client.patch("/config", json=payload)
     assert r.status_code in (200, 400, 422)
-    assert agent._budget.run == 0.5  # unchanged
+    assert agent._budget.max_cost == 0.5  # unchanged
     # Rejected path rolled back from store; GET reflects baseline
     get_after = client.get("/config").json()
-    assert get_after["current_values"].get("budget.run") == 0.5
-    assert "budget.run" not in get_after.get("overrides", {})
+    assert get_after["current_values"].get("budget.max_cost") == 0.5
+    assert "budget.max_cost" not in get_after.get("overrides", {})
 
 
 @pytest.mark.skip(
@@ -188,7 +188,7 @@ def test_patch_config_invalid_value_rejected() -> None:
 )
 def test_config_stream_returns_sse() -> None:
     """GET /config/stream returns 200 with text/event-stream and yields SSE (heartbeat, then override events)."""
-    agent = _TestAgentWithBudget(budget=Budget(run=0.5))
+    agent = _TestAgentWithBudget(budget=Budget(max_cost=0.5))
     config = ServeConfig()
     router = build_router(agent, config)
     from fastapi import FastAPI
@@ -203,7 +203,7 @@ def test_config_stream_returns_sse() -> None:
 
 def test_patch_config_empty_overrides_succeeds() -> None:
     """PATCH /config with empty overrides list returns 200."""
-    agent = _TestAgentWithBudget(budget=Budget(run=0.5))
+    agent = _TestAgentWithBudget(budget=Budget(max_cost=0.5))
     config = ServeConfig()
     router = build_router(agent, config)
     from fastapi import FastAPI
@@ -215,12 +215,12 @@ def test_patch_config_empty_overrides_succeeds() -> None:
     agent_id = get_r.json().get("agent_id", "config-test-agent:Agent")
     r = client.patch("/config", json={"agent_id": agent_id, "version": 1, "overrides": []})
     assert r.status_code == 200
-    assert agent._budget.run == 0.5
+    assert agent._budget.max_cost == 0.5
 
 
 def test_patch_then_revert_restores_baseline() -> None:
     """PATCH with value then PATCH with value=null (revert) restores baseline; GET reflects it."""
-    agent = _TestAgentWithBudget(budget=Budget(run=1.0))
+    agent = _TestAgentWithBudget(budget=Budget(max_cost=1.0))
     config = ServeConfig()
     router = build_router(agent, config)
     from fastapi import FastAPI
@@ -232,23 +232,23 @@ def test_patch_then_revert_restores_baseline() -> None:
     assert get_r.status_code == 200
     data = get_r.json()
     agent_id = data["agent_id"]
-    assert data["baseline_values"].get("budget.run") == 1.0
-    # Override budget.run to 2.0
+    assert data["baseline_values"].get("budget.max_cost") == 1.0
+    # Override budget.max_cost to 2.0
     patch_r = client.patch(
         "/config",
         json={
             "agent_id": agent_id,
             "version": 1,
-            "overrides": [{"path": "budget.run", "value": 2.0}],
+            "overrides": [{"path": "budget.max_cost", "value": 2.0}],
         },
     )
     assert patch_r.status_code == 200
-    assert agent._budget.run == 2.0
+    assert agent._budget.max_cost == 2.0
     get2 = client.get("/config").json()
-    assert get2["current_values"].get("budget.run") == 2.0
-    assert get2["overrides"].get("budget.run") == 2.0
+    assert get2["current_values"].get("budget.max_cost") == 2.0
+    assert get2["overrides"].get("budget.max_cost") == 2.0
     run_field = next(
-        (f for f in get2["sections"]["budget"]["fields"] if f["path"] == "budget.run"),
+        (f for f in get2["sections"]["budget"]["fields"] if f["path"] == "budget.max_cost"),
         None,
     )
     assert run_field is not None and run_field["overridden"] is True
@@ -258,16 +258,16 @@ def test_patch_then_revert_restores_baseline() -> None:
         json={
             "agent_id": agent_id,
             "version": 2,
-            "overrides": [{"path": "budget.run", "value": None}],
+            "overrides": [{"path": "budget.max_cost", "value": None}],
         },
     )
     assert patch2.status_code == 200
-    assert agent._budget.run == 1.0
+    assert agent._budget.max_cost == 1.0
     get3 = client.get("/config").json()
-    assert get3["current_values"].get("budget.run") == 1.0
-    assert "budget.run" not in get3["overrides"]
+    assert get3["current_values"].get("budget.max_cost") == 1.0
+    assert "budget.max_cost" not in get3["overrides"]
     run_field3 = next(
-        (f for f in get3["sections"]["budget"]["fields"] if f["path"] == "budget.run"),
+        (f for f in get3["sections"]["budget"]["fields"] if f["path"] == "budget.max_cost"),
         None,
     )
     assert run_field3 is not None and run_field3["overridden"] is False
@@ -289,7 +289,7 @@ class TestRemoteConfigE2EFullFeatures:
         agent = Agent(
             model=Model.Almock(),
             name="e2e_agent",
-            budget=Budget(run=1.0),
+            budget=Budget(max_cost=1.0),
             system_prompt="Hi.",
             tools=[alpha],
             guardrails=[PIIScanner()],
@@ -334,7 +334,7 @@ class TestRemoteConfigE2EFullFeatures:
         agent = Agent(
             model=Model.Almock(),
             name="e2e_patch_agent",
-            budget=Budget(run=1.0),
+            budget=Budget(max_cost=1.0),
             system_prompt="Hi. Env: {env}.",
             tools=[alpha, beta],
             guardrails=[PIIScanner()],

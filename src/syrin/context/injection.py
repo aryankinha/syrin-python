@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass
@@ -44,9 +44,9 @@ class PrepareInput:
         user_input: Current user message (for RAG queries).
     """
 
-    messages: list[dict[str, Any]]
+    messages: list[dict[str, object]]
     system_prompt: str
-    tools: list[dict[str, Any]]
+    tools: list[dict[str, object]]
     memory_context: str
     user_input: str
 

@@ -50,9 +50,9 @@ def main() -> None:
     )
 
     # Run a short conversation; tools are in context so breakdown shows tools_tokens
-    agent.response("What is 2 + 2?")
-    agent.response("Use the add tool: what is 10 + 20?")
-    agent.response("Summarize what we did in one line.")
+    agent.run("What is 2 + 2?")
+    agent.run("Use the add tool: what is 10 + 20?")
+    agent.run("Summarize what we did in one line.")
 
     snap = agent.context.snapshot()
     stats = agent.context_stats

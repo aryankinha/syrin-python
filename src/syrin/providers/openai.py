@@ -4,18 +4,17 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
-from typing import Any
 
 
 @lru_cache(maxsize=32)
-def _get_client(api_key: str, base_url: str) -> Any:
+def _get_client(api_key: str, base_url: str) -> object:
     """Get or create cached AsyncOpenAI client per (api_key, base_url)."""
     from openai import AsyncOpenAI
 
     return AsyncOpenAI(api_key=api_key or None, base_url=base_url or None)
 
 
-def _get_client_for_config(api_key: str | None, base_url: str | None) -> Any:
+def _get_client_for_config(api_key: str | None, base_url: str | None) -> object:
     """Resolve client for possibly-None api_key/base_url. lru_cache requires hashable args."""
     return _get_client(api_key or "", base_url or "")
 
@@ -34,14 +33,14 @@ from syrin.types import (
 from .base import Provider
 
 
-def _message_to_openai(msg: Message) -> dict[str, Any]:
+def _message_to_openai(msg: Message) -> dict[str, object]:
     if msg.role == MessageRole.TOOL:
         return {
             "role": "tool",
             "tool_call_id": msg.tool_call_id or "",
             "content": msg.content,
         }
-    out: dict[str, Any] = {"role": msg.role.value, "content": msg.content or ""}
+    out: dict[str, object] = {"role": msg.role.value, "content": msg.content or ""}
     if msg.role == MessageRole.ASSISTANT and msg.tool_calls:
         out["tool_calls"] = [
             {
@@ -54,7 +53,7 @@ def _message_to_openai(msg: Message) -> dict[str, Any]:
     return out
 
 
-def _tools_to_openai(tools: list[ToolSpec]) -> list[dict[str, Any]]:
+def _tools_to_openai(tools: list[ToolSpec]) -> list[dict[str, object]]:
     return [
         {
             "type": "function",
@@ -74,7 +73,7 @@ def _tools_to_openai(tools: list[ToolSpec]) -> list[dict[str, Any]]:
     ]
 
 
-def _parse_usage(usage: Any) -> TokenUsage:
+def _parse_usage(usage: object) -> TokenUsage:
     if usage is None:
         return TokenUsage()
     return TokenUsage(
@@ -89,14 +88,14 @@ def _parse_usage(usage: Any) -> TokenUsage:
 class OpenAIProvider(Provider):
     """Provider for OpenAI chat completions (and compatible APIs)."""
 
-    async def complete(
+    async def complete(  # type: ignore[override]
         self,
         messages: list[Message],
         model: ModelConfig,
         tools: list[ToolSpec] | None = None,
         *,
         max_tokens: int = 1024,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> ProviderResponse:
         try:
             import importlib.util
@@ -117,7 +116,7 @@ class OpenAIProvider(Provider):
             )
         api_messages = [_message_to_openai(m) for m in messages]
         client = _get_client_for_config(api_key, model.base_url)
-        request_kwargs: dict[str, Any] = {
+        request_kwargs: dict[str, object] = {
             "model": model.model_id.split("/")[-1],  # Strip provider prefix
             "messages": api_messages,
             "max_tokens": max_tokens,
@@ -145,7 +144,7 @@ class OpenAIProvider(Provider):
             request_kwargs["tools"] = _tools_to_openai(tools)
             request_kwargs["tool_choice"] = request_kwargs.get("tool_choice", "auto")
 
-        response = await client.chat.completions.create(**request_kwargs)
+        response = await client.chat.completions.create(**request_kwargs)  # type: ignore[attr-defined]
         choice = response.choices[0] if response.choices else None
         if not choice:
             return ProviderResponse(

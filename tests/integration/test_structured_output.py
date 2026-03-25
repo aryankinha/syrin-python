@@ -41,7 +41,7 @@ class TestStructuredOutputValidation:
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
-            r = agent.response("Return name and value.")
+            r = agent.run("Return name and value.")
         assert r.structured is not None
         assert r.structured.is_valid
         assert r.structured.parsed is not None
@@ -59,7 +59,7 @@ class TestStructuredOutputValidation:
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
-            r = agent.response("Return JSON.")
+            r = agent.run("Return JSON.")
         assert r.data is not None
         assert r.data.get("name") == "Bob"
         assert r.data.get("value") == 10
@@ -75,6 +75,6 @@ class TestStructuredOutputValidation:
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
-            r = agent.response("Return JSON.")
+            r = agent.run("Return JSON.")
         assert r.structured is not None
         assert not r.structured.is_valid or r.structured.parsed is None

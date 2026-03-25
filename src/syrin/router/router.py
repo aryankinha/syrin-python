@@ -167,11 +167,11 @@ class ModelRouter:
         return [p for p in profiles if task_type in p.strengths]
 
     def _budget_ratio(self) -> float | None:
-        """Remaining budget / limit. None when budget.run is None (per_hour/per_day not supported)."""
-        if self._budget is None or self._budget.run is None:
+        """Remaining budget / limit. None when budget.max_cost is None (per_hour/per_day not supported)."""
+        if self._budget is None or self._budget.max_cost is None:
             return None
         remaining = self._budget.remaining
-        limit = (self._budget.run or 0) - self._budget.reserve
+        limit = (self._budget.max_cost or 0) - self._budget.reserve
         if limit <= 0:
             return None
         return remaining / limit if remaining is not None else None

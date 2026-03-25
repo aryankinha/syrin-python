@@ -25,9 +25,9 @@ class TestFieldSchema:
 
     def test_minimal_valid(self) -> None:
         """Minimal valid FieldSchema: name, path, type."""
-        f = FieldSchema(name="run", path="budget.run", type="float")
-        assert f.name == "run"
-        assert f.path == "budget.run"
+        f = FieldSchema(name="max_cost", path="budget.max_cost", type="float")
+        assert f.name == "max_cost"
+        assert f.path == "budget.max_cost"
         assert f.type == "float"
         assert f.default is None
         assert f.description is None
@@ -74,18 +74,18 @@ class TestFieldSchema:
         assert f.remote_excluded is True
 
     def test_children_nested(self) -> None:
-        """FieldSchema with nested children (e.g. budget.per)."""
-        child = FieldSchema(name="hour", path="budget.per.hour", type="float", default=None)
+        """FieldSchema with nested children (e.g. budget.rate_limits)."""
+        child = FieldSchema(name="hour", path="budget.rate_limits.hour", type="float", default=None)
         parent = FieldSchema(
-            name="per",
-            path="budget.per",
+            name="rate_limits",
+            path="budget.rate_limits",
             type="object",
             children=[child],
         )
         assert parent.children is not None
         assert len(parent.children) == 1
         assert parent.children[0].name == "hour"
-        assert parent.children[0].path == "budget.per.hour"
+        assert parent.children[0].path == "budget.rate_limits.hour"
 
     def test_constraints_dict_arbitrary_keys(self) -> None:
         """Constraints can hold ge, le, gt, lt, pattern, min_length, max_length."""
@@ -131,13 +131,13 @@ class TestConfigSchema:
             section="budget",
             class_name="Budget",
             fields=[
-                FieldSchema(name="run", path="budget.run", type="float"),
+                FieldSchema(name="max_cost", path="budget.max_cost", type="float"),
             ],
         )
         assert cs.section == "budget"
         assert cs.class_name == "Budget"
         assert len(cs.fields) == 1
-        assert cs.fields[0].name == "run"
+        assert cs.fields[0].name == "max_cost"
 
     def test_empty_fields_allowed(self) -> None:
         """ConfigSchema with empty fields list (e.g. no configurable fields)."""
@@ -188,16 +188,16 @@ class TestAgentSchema:
                 "budget": ConfigSchema(
                     section="budget",
                     class_name="Budget",
-                    fields=[FieldSchema(name="run", path="budget.run", type="float")],
+                    fields=[FieldSchema(name="max_cost", path="budget.max_cost", type="float")],
                 ),
             },
-            current_values={"budget.run": 0.5},
+            current_values={"budget.max_cost": 0.5},
         )
         assert schema.agent_id == "my_agent:MyAgent"
         assert schema.agent_name == "my_agent"
         assert "budget" in schema.sections
         assert schema.sections["budget"].class_name == "Budget"
-        assert schema.current_values["budget.run"] == 0.5
+        assert schema.current_values["budget.max_cost"] == 0.5
 
     def test_empty_sections_and_values(self) -> None:
         """AgentSchema with no sections and no current values."""
@@ -219,7 +219,7 @@ class TestAgentSchema:
             class_name="C",
             sections={},
             current_values={
-                "budget.run": 1.0,
+                "budget.max_cost": 1.0,
                 "memory.top_k": 10,
                 "memory.decay.strategy": "exponential",
             },
@@ -246,8 +246,8 @@ class TestConfigOverride:
 
     def test_valid_simple(self) -> None:
         """Single override: path and value."""
-        o = ConfigOverride(path="budget.run", value=2.0)
-        assert o.path == "budget.run"
+        o = ConfigOverride(path="budget.max_cost", value=2.0)
+        assert o.path == "budget.max_cost"
         assert o.value == 2.0
 
     def test_value_types(self) -> None:
@@ -283,7 +283,7 @@ class TestOverridePayload:
         p = OverridePayload(
             agent_id="agent:MyAgent",
             version=1,
-            overrides=[ConfigOverride(path="budget.run", value=2.0)],
+            overrides=[ConfigOverride(path="budget.max_cost", value=2.0)],
         )
         assert p.agent_id == "agent:MyAgent"
         assert p.version == 1
@@ -306,7 +306,7 @@ class TestOverridePayload:
             agent_id="a",
             version=2,
             overrides=[
-                ConfigOverride(path="budget.run", value=1.0),
+                ConfigOverride(path="budget.max_cost", value=1.0),
                 ConfigOverride(path="memory.top_k", value=20),
             ],
         )
@@ -405,13 +405,13 @@ class TestSyncResponse:
     def test_ok_true_with_initial_overrides(self) -> None:
         """Successful sync with initial overrides to apply."""
         overrides = [
-            ConfigOverride(path="budget.run", value=1.5),
+            ConfigOverride(path="budget.max_cost", value=1.5),
         ]
         r = SyncResponse(ok=True, initial_overrides=overrides, error=None)
         assert r.ok is True
         assert r.initial_overrides is not None
         assert len(r.initial_overrides) == 1
-        assert r.initial_overrides[0].path == "budget.run"
+        assert r.initial_overrides[0].path == "budget.max_cost"
 
     def test_ok_false_with_error(self) -> None:
         """Failed sync: ok=False, error message set."""
@@ -434,14 +434,14 @@ class TestSyncResponse:
         r = SyncResponse(
             ok=True,
             initial_overrides=[
-                ConfigOverride(path="budget.run", value=2.0),
+                ConfigOverride(path="budget.max_cost", value=2.0),
             ],
             error=None,
         )
         data = r.model_dump()
         assert data["ok"] is True
         assert len(data["initial_overrides"]) == 1
-        assert data["initial_overrides"][0]["path"] == "budget.run"
+        assert data["initial_overrides"][0]["path"] == "budget.max_cost"
         restored = SyncResponse.model_validate(data)
         assert restored.ok == r.ok
         assert restored.initial_overrides[0].value == 2.0
@@ -457,13 +457,13 @@ class TestTypesSerialization:
         """FieldSchema.model_dump() is JSON-serializable."""
         f = FieldSchema(
             name="run",
-            path="budget.run",
+            path="budget.max_cost",
             type="float",
             default=0.5,
             constraints={"ge": 0},
         )
         data = f.model_dump()
-        assert json.loads(json.dumps(data, default=str))["path"] == "budget.run"
+        assert json.loads(json.dumps(data, default=str))["path"] == "budget.max_cost"
 
     def test_config_override_model_dump(self) -> None:
         """ConfigOverride round-trip."""
@@ -477,7 +477,7 @@ class TestTypesSerialization:
         p = OverridePayload(
             agent_id="a",
             version=1,
-            overrides=[ConfigOverride(path="budget.run", value=1.0)],
+            overrides=[ConfigOverride(path="budget.max_cost", value=1.0)],
         )
         data = p.model_dump()
         p2 = OverridePayload.model_validate(data)

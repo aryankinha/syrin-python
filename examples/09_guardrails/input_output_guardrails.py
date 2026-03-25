@@ -45,7 +45,7 @@ class GuardedAgent(Agent):
 
 agent = GuardedAgent()
 
-response = agent.response("Hello, how are you?")
+response = agent.run("Hello, how are you?")
 print(f"\nAgent response: {response.content[:80]}...")
 
 # ---------------------------------------------------------------------------

@@ -77,12 +77,12 @@ class TestTokenLimitsPerHour:
 
     def test_token_limits_per_hour(self) -> None:
         """TokenLimits.per_hour returns per.hour when per is set."""
-        limits = TokenLimits(per=TokenRateLimit(hour=100_000, day=400_000))
+        limits = TokenLimits(rate_limits=TokenRateLimit(hour=100_000, day=400_000))
         assert limits.per_hour == 100_000
 
     def test_token_limits_per_hour_none_when_no_per(self) -> None:
         """TokenLimits.per_hour is None when per is None."""
-        limits = TokenLimits(run=50_000)
+        limits = TokenLimits(max_tokens=50_000)
         assert limits.per_hour is None
 
 

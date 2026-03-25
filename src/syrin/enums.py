@@ -861,3 +861,23 @@ class RateLimitAction(StrEnum):
     STOP = "stop"
     ERROR = "error"
     CUSTOM = "custom"
+
+
+class ExceedPolicy(StrEnum):
+    """What to do when a budget or token limit is exceeded.
+
+    Use as the ``exceed_policy`` argument on :class:`syrin.Budget` or
+    :class:`syrin.TokenLimits` as a declarative alternative to providing an
+    ``on_exceeded`` callback.
+
+    Attributes:
+        STOP: Raise :class:`syrin.exceptions.BudgetExceededError` and halt the run.
+        WARN: Log a warning and allow the run to continue.
+        SWITCH: Switch to a cheaper model (requires ``fallback_model`` on the Agent).
+        IGNORE: Silently continue without any notification.
+    """
+
+    STOP = "stop"
+    WARN = "warn"
+    SWITCH = "switch"
+    IGNORE = "ignore"

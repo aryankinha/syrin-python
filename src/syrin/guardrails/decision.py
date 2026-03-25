@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from syrin.guardrails.enums import DecisionAction
 
@@ -44,7 +43,7 @@ class GuardrailDecision:
     """Action to take based on this decision."""
 
     # Additional information
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
     """Arbitrary metadata about the evaluation (e.g., matched patterns)."""
 
     alternatives: list[str] = field(default_factory=list)
@@ -62,7 +61,7 @@ class GuardrailDecision:
         if self.action is None:
             self.action = DecisionAction.PASS if self.passed else DecisionAction.BLOCK
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Convert decision to dictionary for serialization.
 
         Returns:

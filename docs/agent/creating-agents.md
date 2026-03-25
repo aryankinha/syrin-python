@@ -1,173 +1,422 @@
-# Creating Agents
+---
+title: Creating Agents
+description: Four ways to build an agent—from minimalist to production-ready
+weight: 62
+---
 
-**Recommended order:** (1) Class-based, (2) Builder, (3) Presets, (4) Direct constructor.
+## Four Paths to the Same Destination
 
-## Class-based (Primary)
+You wouldn't use a sledgehammer for a finishing nail. Similarly, Syrin gives you four ways to create agents—from quick scripts to enterprise-grade systems. Choose based on your needs.
 
-Subclass `Agent`, set `model`, `system_prompt`, `tools`, etc. on the class; instantiate with `MyAgent()`. Use when you have named agent types (e.g. `Researcher`, `Writer`):
+## The Four Patterns
 
-```python
-from syrin import Agent
-from syrin.model import Model
+| Pattern | Best For | Complexity |
+|---------|----------|------------|
+| **Direct Constructor** | One-off agents, scripts | Low |
+| **Class-based** | Named agent types, reuse | Medium |
+| **Builder** | Complex configs, fluent APIs | Medium |
+| **Presets** | Quick prototypes | Low |
 
-class Assistant(Agent):
-    # model = Model.OpenAI("gpt-4o-mini")
-    model = Model.Almock()  # No API Key needed
-    system_prompt = "You are a helpful assistant."
+We'll cover each, starting with the simplest.
 
-agent = Assistant()
-response = agent.response("Hello")
-```
+## 1. Direct Constructor (The Quick Script)
 
-Class attributes (`model`, `system_prompt`, `tools`, `budget`, `guardrails`) become defaults. Instance arguments override them.
-
-## Builder (Secondary)
-
-For agents with many options, the fluent **Builder** scales cleanly:
+For one-off agents that don't need to be reused:
 
 ```python
-from syrin import Agent, Budget
-from syrin.model import Model
+from syrin import Agent, Model
 
-agent = (
-    Agent.builder(Model.OpenAI("gpt-4o-mini"))
-    .with_system_prompt("You are helpful.")
-    .with_budget(Budget(run=0.50))
-    .with_tools([search, calculate])
-    .build()
-)
-```
-
-**When to use:** Any agent with 3+ options. Keeps construction readable and avoids a long constructor call.
-
-## Presets (Quick Paths)
-
-For common patterns, use presets:
-
-```python
-agent = Agent.basic(Model.OpenAI("gpt-4o-mini"))           # Minimal: no memory, no budget
-agent = Agent.with_memory(Model.OpenAI("gpt-4o-mini"))     # Multi-turn with memory
-agent = Agent.with_budget(Model.OpenAI("gpt-4o-mini"))     # With cost budget
-agent = Agent.presets.assistant()                          # Full assistant preset
-agent = Agent.presets.research()                           # Research agent with tools
-```
-
-## Direct instantiation (Tertiary)
-
-Call `Agent(model=..., system_prompt=..., tools=[...])` with no subclass. Use for one-off agents or scripts.
-
-```python
-from syrin import Agent
-from syrin.model import Model
-
+# All config inline—perfect for scripts
 agent = Agent(
-    model=Model.Almock(),  # No API Key needed
-    system_prompt="You are helpful.",
+    model=Model.OpenAI("gpt-4o", api_key="your-api-key"),
+    system_prompt="You are a helpful assistant.",
 )
-response = agent.response("Hello")
+
+response = agent.run("Hello!")
+print(response.content)
 ```
 
-All configuration is passed to `Agent()` as constructor arguments.
+**When to use:** Scripts, one-off tasks, quick prototypes.
 
-## Inheritance and MRO
+**When to avoid:** When you need to reuse the agent, share code, or test it.
 
-Syrin uses `__init_subclass__` to merge or override class-level attributes along the MRO (Method Resolution Order).
-
-### Merge vs Override
-
-| Attribute        | Behavior | Description                                      |
-|------------------|----------|--------------------------------------------------|
-| `model`          | Override | First defined in MRO wins                        |
-| `system_prompt`  | Override | First defined in MRO wins                        |
-| `budget`         | Override | First defined in MRO wins                        |
-| `tools`          | Merge    | All tools from the MRO are concatenated          |
-| `guardrails`     | Merge    | All guardrails from the MRO are concatenated     |
-
-### Example: Inheritance
+### With Tools
 
 ```python
-from syrin import Agent
-from syrin.model import Model
+from syrin import Agent, Model
 from syrin.tool import tool
 
 @tool
 def search(query: str) -> str:
-    """Search for information."""
-    return f"Results: {query}"
+    """Search the web."""
+    return f"Found results for: {query}"
+
+agent = Agent(
+    model=Model.OpenAI("gpt-4o", api_key="your-api-key"),
+    system_prompt="You are a research assistant.",
+    tools=[search],
+)
+
+response = agent.run("What's the latest news in AI?")
+```
+
+## 2. Class-based (The Production Standard)
+
+This is the **recommended approach** for anything you'll use more than once.
+
+```python
+from syrin import Agent, Model
+
+class Assistant(Agent):
+    # Set defaults on the class
+    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
+    system_prompt = "You are a helpful assistant. Be concise."
+```
+
+Then instantiate and use:
+
+```python
+# Create an instance
+assistant = Assistant()
+
+# Use it
+response = assistant.run("What is Python?")
+print(response.content)
+```
+
+### Why Classes?
+
+Classes give you:
+
+1. **Reusability** — Create multiple instances with same config
+2. **Inheritance** — Build specialized agents from base classes
+3. **Introspection** — Tools can inspect the agent class
+4. **IDE support** — Autocomplete and type checking
+
+### Complete Class Example
+
+```python
+from syrin import Agent, Model, Budget
+from syrin.tool import tool
+from syrin.memory import MemoryPreset
+from syrin.enums import ExceedPolicy
+
+@tool
+def search(query: str) -> str:
+    """Search the web for information."""
+    return f"Web results for '{query}'"
 
 @tool
 def calculate(expression: str) -> str:
     """Evaluate a math expression."""
     return str(eval(expression))
 
-class BaseResearcher(Agent):
-    # model = Model.OpenAI("gpt-4o")
-    model = Model.Almock()  # No API Key needed
-    system_prompt = "You are a researcher."
-    tools = [search]
+class ResearchAgent(Agent):
+    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
+    
+    system_prompt = """
+        You are a thorough research assistant.
+        Use tools when you need current information or calculations.
+        Cite your sources and be precise.
+    """
+    
+    tools = [search, calculate]
+    
+    budget = Budget(max_cost=1.00, exceed_policy=ExceedPolicy.STOP)
 
-class MathResearcher(BaseResearcher):
-    model = Model.OpenAI("gpt-4o-mini")  # Overrides parent (use real model when you have a key)
-    tools = [calculate]  # Merged with [search] → [search, calculate]
+    memory = MemoryPreset.STANDARD
 
-agent = MathResearcher()
-# agent has: model=gpt-4o-mini, system_prompt="You are a researcher.",
-#            tools=[search, calculate]
+# Create instances
+researcher = ResearchAgent()
+
+# Use it
+response = researcher.run("What is 15 * 23?")
+print(response.content)
+print(f"Cost: ${response.cost:.4f}")
 ```
 
-## Overriding at Instantiation
+### Inheritance: Building Specialized Agents
 
-Constructor arguments override class attributes:
+Here's where classes shine. Build a base agent, then specialize:
 
 ```python
-agent = MathResearcher(
-    system_prompt="You are a math specialist.",  # Overrides class default
-    tools=[calculate],  # Replaces merged tools for this instance
+from syrin import Agent, Model, Budget
+from syrin.tool import tool
+from syrin.enums import ExceedPolicy
+
+# Base agent with shared config
+class BaseAgent(Agent):
+    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
+    budget = Budget(max_cost=0.50, exceed_policy=ExceedPolicy.STOP)
+
+# Specialized researcher
+class Researcher(BaseAgent):
+    system_prompt = "You are a research specialist. Be thorough."
+    tools = []  # Add research tools here
+
+# Specialized writer
+class Writer(BaseAgent):
+    system_prompt = "You are a creative writer. Be engaging."
+    # Inherits budget limit from BaseAgent
+
+# Specialized code assistant
+class CodeAssistant(BaseAgent):
+    model = Model.OpenAI("gpt-4o", api_key="your-api-key")  # Override model
+    system_prompt = "You are a coding expert. Write clean, efficient code."
+    budget = Budget(max_cost=1.00, exceed_policy=ExceedPolicy.STOP)  # More budget for code
+```
+
+**What just happened:**
+- `Researcher` inherits `model` and `budget` from `BaseAgent`
+- `Writer` inherits everything, uses default system prompt
+- `CodeAssistant` overrides both `model` (upgrade to gpt-4o) and `budget` (increase limit)
+
+### Merge vs Override Behavior
+
+| Attribute | Behavior | Description |
+|-----------|----------|-------------|
+| `model` | Override | First defined in inheritance wins |
+| `system_prompt` | Override | First defined in inheritance wins |
+| `budget` | Override | First defined in inheritance wins |
+| `tools` | **Merge** | All tools concatenated |
+| `guardrails` | **Merge** | All guardrails concatenated |
+
+```python
+class BaseAgent(Agent):
+    tools = [search_tool]
+
+class SpecializedAgent(BaseAgent):
+    tools = [calculate_tool]  # Merges: [search_tool, calculate_tool]
+```
+
+### Constructor Override
+
+Even with class defaults, you can override at instantiation:
+
+```python
+# Class defaults
+class Assistant(Agent):
+    model = Model.OpenAI("gpt-4o-mini")  # Default
+    budget = Budget(max_cost=0.10)
+
+# Override at instantiation
+expensive_agent = Assistant(
+    model=Model.OpenAI("gpt-4o"),  # Override class default
+    budget=Budget(max_cost=1.00),  # Override class default
 )
 ```
 
-## Required: Model
+## 3. Builder Pattern (The Fluent Alternative)
 
-`model` is required. It can be set on the class or passed to the constructor. If neither is provided, `TypeError` is raised:
-
-```python
-agent = Agent()  # TypeError: Agent requires model
-agent = Agent(model=Model.Almock())  # OK (or Model.OpenAI("gpt-4o") when you have a key)
-```
-
-## Class-Level Defaults Summary
-
-| Attribute       | Type                       | Default   | Merge? |
-|----------------|----------------------------|-----------|--------|
-| `model`        | `Model \| ModelConfig`     | None      | No     |
-| `system_prompt`| `str`                      | `""`      | No     |
-| `tools`        | `list[ToolSpec]`           | `[]`      | Yes    |
-| `budget`       | `Budget \| None`           | None      | No     |
-| `guardrails`   | `list[Guardrail]`          | `[]`      | Yes    |
-
-## Agent Name and Description (Discovery + Routing)
-
-Agents have `name` and `description` for discovery, routing, and Agent Cards. Set on the class as `name` or `_agent_name` (same thing; `_agent_name` avoids type-checker override warnings).
-
-**Precedence (highest wins):**
-1. Constructor: `Agent(name="my-agent", ...)`
-2. Class: `name = "researcher"` or `_agent_name = "researcher"`
-3. Fallback: lowercase class name (e.g. `ResearcherAgent` → `"researcheragent"`)
+For agents with many options, the builder scales cleanly:
 
 ```python
-class ResearcherAgent(Agent):
-    _agent_name = "researcher"
-    _agent_description = "Searches and summarizes information from the web"
-    model = Model.OpenAI("gpt-4o")
-    system_prompt = "You are a researcher."
+from syrin import Agent, Model, Budget
+from syrin.tool import tool
+from syrin.enums import ExceedPolicy
 
-agent = ResearcherAgent(name="custom")  # Uses "custom" (constructor overrides class)
+agent = (
+    Agent.builder(Model.OpenAI("gpt-4o", api_key="your-api-key"))
+    .with_system_prompt("You are a helpful assistant.")
+    .with_tools([search, calculate])
+    .with_budget(Budget(max_cost=0.50, exceed_policy=ExceedPolicy.STOP))
+    .with_memory()  # Enable default memory
+    .with_context(Context(max_tokens=80000))
+    .with_debug(True)
+    .build()
+)
 ```
 
-`description` defaults to `""`.
+**When to use:**
+- Complex configurations
+- When you prefer method chaining
+- Dynamic agent construction
+- Building agents in loops or from config
 
-## Next Steps
+**Equivalent class-based:**
 
-- [Constructor Reference](constructor.md) — All parameters in detail
-- [Loop Strategies](loop-strategies.md) — Customizing execution
-- [Multi-Agent Patterns](multi-agent-patterns.md) — Pipelines and teams
+```python
+class MyAgent(Agent):
+    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
+    system_prompt = "You are a helpful assistant."
+    tools = [search, calculate]
+    budget = Budget(max_cost=0.50, exceed_policy=ExceedPolicy.STOP)
+    memory = MemoryPreset.STANDARD
+    context = Context(max_tokens=80000)
+
+agent = MyAgent(debug=True)  # Note: debug is constructor-only
+```
+
+### Builder Methods
+
+| Method | Description |
+|--------|-------------|
+| `with_system_prompt(str)` | Set instructions |
+| `with_tools([...])` | Add tools |
+| `with_budget(Budget)` | Set cost limits |
+| `with_memory(Memory)` | Enable memory |
+| `with_context(Context)` | Set context config |
+| `with_guardrails([...])` | Add safety |
+| `with_loop_strategy(LoopStrategy)` | Set thinking style |
+| `with_debug(True)` | Enable debug output |
+| `with_checkpoint(...)` | Enable state persistence |
+| `build()` | Create the agent |
+
+## 4. Presets (The Quick Start)
+
+For common patterns, presets give you a running agent in one line:
+
+```python
+from syrin import Agent, Model
+
+# Minimal agent (no memory, no budget)
+agent = Agent.basic(Model.OpenAI("gpt-4o", api_key="your-api-key"))
+
+# Agent with conversation memory
+agent = Agent.with_memory(Model.OpenAI("gpt-4o", api_key="your-api-key"))
+
+# Agent with cost control
+agent = Agent.with_budget(Model.OpenAI("gpt-4o", api_key="your-api-key"))
+```
+
+**When to use:** Quick prototyping, when you just need *something* working fast.
+
+**When to avoid:** Production code where you need specific configurations.
+
+## Comparison: All Four Patterns
+
+### Direct Constructor
+```python
+Agent(model=m, system_prompt="Hi", tools=[t])
+```
+✅ Quick, inline
+❌ No reuse, hard to test
+
+### Class-based
+```python
+class MyAgent(Agent):
+    model = m
+    system_prompt = "Hi"
+    tools = [t]
+```
+✅ Reusable, inheritable, introspectable
+❌ Slightly more code
+
+### Builder
+```python
+Agent.builder(m).with_system_prompt("Hi").with_tools([t]).build()
+```
+✅ Fluent, readable for complex configs
+❌ No class-level defaults
+
+### Presets
+```python
+Agent.basic(m)
+```
+✅ Fastest to write
+❌ Limited customization
+
+## Adding Tools to Your Agent
+
+Tools are how agents interact with the world:
+
+```python
+from syrin import Agent, Model
+from syrin.tool import tool
+
+@tool
+def search(query: str) -> str:
+    """Search the web for information.
+    
+    Args:
+        query: The search query (e.g., "latest AI news")
+    
+    Returns:
+        Search results as a string
+    """
+    # Real implementation would call search API
+    return f"Results for '{query}'"
+
+class ResearchAgent(Agent):
+    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
+    system_prompt = "Use the search tool when asked about current events."
+    tools = [search]
+
+agent = ResearchAgent()
+response = agent.run("What's happening in tech today?")
+# Agent decides to call search() internally
+```
+
+## Adding Memory
+
+```python
+from syrin import Agent, Model
+from syrin.memory import Memory, MemoryPreset, MemoryType
+
+class RememberingAgent(Agent):
+    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
+    memory = MemoryPreset.STANDARD
+
+agent = RememberingAgent()
+
+# Remember something
+agent.remember("User's name is Alice", memory_type=MemoryType.CORE)
+
+# Later conversations remember this
+response = agent.run("What's my name?")
+# Agent recalls and responds appropriately
+```
+
+## Complete Example: Research Assistant
+
+```python
+from syrin import Agent, Model, Budget
+from syrin.tool import tool
+from syrin.memory import MemoryPreset
+from syrin.enums import ExceedPolicy
+
+@tool
+def search_web(query: str) -> str:
+    """Search the web for current information."""
+    return f"Web results for '{query}'"
+
+@tool
+def calculate(expression: str) -> str:
+    """Evaluate a mathematical expression."""
+    return str(eval(expression))
+
+class ResearchAssistant(Agent):
+    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
+    
+    system_prompt = """
+        You are a thorough research assistant.
+        - Use tools when you need current information
+        - Be precise and cite sources
+        - Ask clarifying questions when needed
+    """
+    
+    tools = [search_web, calculate]
+    
+    budget = Budget(max_cost=1.00, exceed_policy=ExceedPolicy.STOP)
+
+    memory = MemoryPreset.STANDARD
+
+# Create and use
+assistant = ResearchAssistant()
+response = assistant.run("Compare GPT-4 and Claude 2")
+print(response.content)
+```
+
+## What's Next?
+
+- [Builder Pattern](/agent/builder-pattern) - Fluent agent construction in depth
+- [Running Agents](/agent/running-agents) - Execute your agent
+- [Tools](/agent/tools) - Create powerful tools
+- [Memory](/core/memory) - Persistent memory
+
+## See Also
+
+- [Agent Anatomy](/agent/anatomy) - Understanding each component
+- [Response Object](/agent/response-object) - What you get back
+- [Budget](/core/budget) - Cost control
+- [Loop Strategies](/agent/running-agents) - Control thinking behavior

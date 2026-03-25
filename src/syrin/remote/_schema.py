@@ -15,7 +15,7 @@ from syrin.remote._types import AgentSchema, ConfigSchema, FieldSchema
 _MAX_RECURSION_DEPTH = 10
 
 
-def _unwrap_optional(annotation: Any) -> Any:
+def _unwrap_optional(annotation: object) -> object:
     """Return the non-None part of Optional[X] or X | None; else return annotation."""
     origin = get_origin(annotation)
     if origin is UnionType or (
@@ -28,7 +28,7 @@ def _unwrap_optional(annotation: Any) -> Any:
     return annotation
 
 
-def _annotation_to_type_string(annotation: Any) -> str:
+def _annotation_to_type_string(annotation: object) -> str:
     """Map Python annotation to normalized type string for FieldSchema.type."""
     if annotation is None or annotation is type(None):
         return "any"
@@ -49,21 +49,21 @@ def _annotation_to_type_string(annotation: Any) -> str:
             return "dict"
     if hasattr(annotation, "__mro__"):
         try:
-            if issubclass(annotation, str):
+            if issubclass(annotation, str):  # type: ignore[arg-type]
                 return "str"
-            if issubclass(annotation, int):
+            if issubclass(annotation, int):  # type: ignore[arg-type]
                 return "int"
-            if issubclass(annotation, float):
+            if issubclass(annotation, float):  # type: ignore[arg-type]
                 return "float"
-            if issubclass(annotation, bool):
+            if issubclass(annotation, bool):  # type: ignore[arg-type]
                 return "bool"
-            if issubclass(annotation, BaseModel):
+            if issubclass(annotation, BaseModel):  # type: ignore[arg-type]
                 return "object"
             if dataclasses.is_dataclass(annotation):
                 return "object"
             from enum import Enum
 
-            if issubclass(annotation, Enum):
+            if issubclass(annotation, Enum):  # type: ignore[arg-type]
                 return "str"
         except TypeError:
             pass
@@ -72,7 +72,7 @@ def _annotation_to_type_string(annotation: Any) -> str:
     return "any"
 
 
-def _constraints_from_metadata(metadata: list[Any]) -> dict[str, float | int | str]:
+def _constraints_from_metadata(metadata: list[object]) -> dict[str, float | int | str]:
     """Extract constraints from Pydantic FieldInfo.metadata (Ge, Le, Gt, Lt, MinLen, MaxLen, Pattern)."""
     constraints: dict[str, float | int | str] = {}
     for m in metadata:
@@ -98,7 +98,7 @@ def _constraints_from_metadata(metadata: list[Any]) -> dict[str, float | int | s
     return constraints
 
 
-def _should_exclude_from_remote(field_name: str, annotation: Any) -> bool:
+def _should_exclude_from_remote(field_name: str, annotation: object) -> bool:
     """True if field should be remote_excluded (callable, Protocol, type ref, private)."""
     if field_name.startswith("_"):
         return True
@@ -124,21 +124,21 @@ def _should_exclude_from_remote(field_name: str, annotation: Any) -> bool:
     return "OutputValidator" in ann_str
 
 
-def _get_enum_values(annotation: Any) -> list[str] | None:
+def _get_enum_values(annotation: object) -> list[str] | None:
     """If annotation is StrEnum (or Enum), return list of .value strings."""
     if not hasattr(annotation, "__mro__"):
         return None
     try:
         from enum import Enum
 
-        if issubclass(annotation, Enum):
-            return [m.value for m in annotation]
+        if issubclass(annotation, Enum):  # type: ignore[arg-type]
+            return [m.value for m in annotation]  # type: ignore[attr-defined]
     except TypeError:
         pass
     return None
 
 
-def _get_default_serializable(default: Any) -> Any:
+def _get_default_serializable(default: object) -> object:
     """Return default if JSON-serializable (int, float, str, bool, None); else None."""
     if default is None:
         return None
@@ -181,10 +181,12 @@ def extract_pydantic_schema(cls: type[BaseModel], prefix: str, depth: int = 0) -
         inner_ann = _unwrap_optional(ann)
         if hasattr(inner_ann, "__mro__") and not remote_excluded:
             try:
-                if issubclass(inner_ann, BaseModel):
-                    children = extract_pydantic_schema(inner_ann, path, depth + 1)
+                if issubclass(inner_ann, BaseModel):  # type: ignore[arg-type]
+                    children = extract_pydantic_schema(inner_ann, path, depth + 1)  # type: ignore[arg-type]
                 elif dataclasses.is_dataclass(inner_ann):
-                    children = extract_dataclass_schema(cast(type[Any], inner_ann), path, depth + 1)
+                    children = extract_dataclass_schema(
+                        cast(type[object], inner_ann), path, depth + 1
+                    )
             except TypeError:
                 pass
         fields.append(
@@ -203,7 +205,7 @@ def extract_pydantic_schema(cls: type[BaseModel], prefix: str, depth: int = 0) -
     return fields
 
 
-def extract_dataclass_schema(cls: type[Any], prefix: str, depth: int = 0) -> list[FieldSchema]:
+def extract_dataclass_schema(cls: type[object], prefix: str, depth: int = 0) -> list[FieldSchema]:
     """Extract FieldSchema list from a dataclass. prefix is the dotted path prefix."""
     if not prefix or not prefix.strip():
         raise ValueError("prefix must be non-empty")
@@ -214,7 +216,7 @@ def extract_dataclass_schema(cls: type[Any], prefix: str, depth: int = 0) -> lis
         resolved = get_type_hints(cls)
     except Exception:
         resolved = {}
-    for dc_field in dataclasses.fields(cls):
+    for dc_field in dataclasses.fields(cls):  # type: ignore[arg-type]
         name = dc_field.name
         path = f"{prefix}.{name}"
         ann = resolved.get(name, dc_field.type)
@@ -232,10 +234,12 @@ def extract_dataclass_schema(cls: type[Any], prefix: str, depth: int = 0) -> lis
         inner_ann = _unwrap_optional(ann)
         if hasattr(inner_ann, "__mro__") and not remote_excluded:
             try:
-                if issubclass(inner_ann, BaseModel):
-                    children = extract_pydantic_schema(inner_ann, path, depth + 1)
+                if issubclass(inner_ann, BaseModel):  # type: ignore[arg-type]
+                    children = extract_pydantic_schema(inner_ann, path, depth + 1)  # type: ignore[arg-type]
                 elif dataclasses.is_dataclass(inner_ann):
-                    children = extract_dataclass_schema(cast(type[Any], inner_ann), path, depth + 1)
+                    children = extract_dataclass_schema(
+                        cast(type[object], inner_ann), path, depth + 1
+                    )
             except TypeError:
                 pass
         fields.append(
@@ -254,7 +258,7 @@ def extract_dataclass_schema(cls: type[Any], prefix: str, depth: int = 0) -> lis
     return fields
 
 
-def extract_plain_schema(cls: type[Any], prefix: str, depth: int = 0) -> list[FieldSchema]:
+def extract_plain_schema(cls: type[object], prefix: str, depth: int = 0) -> list[FieldSchema]:
     """Extract FieldSchema list from a plain class using __init__ signature."""
     if not prefix or not prefix.strip():
         raise ValueError("prefix must be non-empty")
@@ -297,19 +301,19 @@ def extract_plain_schema(cls: type[Any], prefix: str, depth: int = 0) -> list[Fi
     return fields
 
 
-def extract_schema(cls: type[Any], prefix: str) -> list[FieldSchema]:
+def extract_schema(cls: type[object], prefix: str) -> list[FieldSchema]:
     """Auto-detect class kind (Pydantic, dataclass, plain) and dispatch to the right extractor."""
     if not prefix or not prefix.strip():
         raise ValueError("prefix must be non-empty")
     if hasattr(cls, "model_fields"):
-        return extract_pydantic_schema(cls, prefix)
+        return extract_pydantic_schema(cls, prefix)  # type: ignore[arg-type]
     if dataclasses.is_dataclass(cls):
         return extract_dataclass_schema(cls, prefix)
     return extract_plain_schema(cls, prefix)
 
 
 # Agent section: top-level attributes we expose for remote config.
-_AGENT_TOP_LEVEL: list[tuple[str, str, type[Any]]] = [
+_AGENT_TOP_LEVEL: list[tuple[str, str, type[object]]] = [
     ("max_tool_iterations", "int", int),
     ("debug", "bool", bool),
     ("loop_strategy", "str", type(None)),  # StrEnum → str
@@ -366,7 +370,7 @@ def _agent_section_schema() -> ConfigSchema:
     return ConfigSchema(section="agent", class_name="Agent", fields=fields)
 
 
-def get_agent_section_schema_and_values(agent: Any) -> tuple[ConfigSchema, dict[str, object]]:
+def get_agent_section_schema_and_values(agent: object) -> tuple[ConfigSchema, dict[str, object]]:
     """Return (schema, current_values) for the agent top-level section. Used by Agent.get_remote_config_schema."""
     agent_cfg = _agent_section_schema()
     current_values: dict[str, object] = {}
@@ -401,7 +405,7 @@ def get_agent_section_schema_and_values(agent: Any) -> tuple[ConfigSchema, dict[
     return (agent_cfg, current_values)
 
 
-def _current_value_for_path(obj: Any, path: str) -> Any:
+def _current_value_for_path(obj: object, path: str) -> object:
     """Get current value from an object by dotted path. Returns JSON-serializable values."""
     if obj is None:
         return None
@@ -420,7 +424,7 @@ def _current_value_for_path(obj: Any, path: str) -> Any:
 
 
 def _flatten_current_values(
-    obj: Any, prefix: str, field_schemas: list[FieldSchema]
+    obj: object, prefix: str, field_schemas: list[FieldSchema]
 ) -> dict[str, object]:
     """Recursively build current_values dict from object and field schemas."""
     out: dict[str, object] = {}
@@ -444,7 +448,7 @@ def _flatten_current_values(
 
 
 def build_section_schema_from_obj(
-    obj: Any, section_key: str, class_name: str
+    obj: object, section_key: str, class_name: str
 ) -> tuple[ConfigSchema, dict[str, object]]:
     """Build (ConfigSchema, current_values) for a single config object. Used by RemoteConfigurable implementations."""
     fields = extract_schema(type(obj), section_key)
@@ -453,19 +457,19 @@ def build_section_schema_from_obj(
     return (config_schema, current_values)
 
 
-def _get_configurable(agent: Any, spec: str | tuple[str, ...] | None) -> Any:
+def _get_configurable(agent: object, spec: str | tuple[str, ...] | None) -> object:
     """Resolve configurable from agent by spec: None -> agent, str -> getattr(agent, spec), tuple -> path of attrs."""
     if spec is None:
         return agent
     if isinstance(spec, str):
         return getattr(agent, spec, None)
-    obj: Any = agent
+    obj: object = agent
     for attr in spec:
         obj = getattr(obj, attr, None)
     return obj
 
 
-def extract_agent_schema(agent: Any) -> AgentSchema:
+def extract_agent_schema(agent: object) -> AgentSchema:
     """Build AgentSchema from a live agent via RemoteConfigurable protocol.
 
     Iterates REMOTE_CONFIG_SECTIONS on the agent's class; for each section

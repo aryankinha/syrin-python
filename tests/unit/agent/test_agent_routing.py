@@ -143,7 +143,7 @@ class TestAgentModelList:
     def test_single_model_list_no_routing(self) -> None:
         agent = Agent(model=[Model.Almock()], system_prompt="Hi")
         assert agent._router is None
-        r = agent.response("hello")
+        r = agent.run("hello")
         assert r.content
         assert r.model
 
@@ -154,7 +154,7 @@ class TestAgentModelList:
             system_prompt="Hi",
         )
         assert agent._router is not None
-        r = agent.response("hello")
+        r = agent.run("hello")
         assert r.content
         assert r.model
 
@@ -182,7 +182,7 @@ class TestAgentTaskOverride:
             model_router=RoutingConfig(router=router),
             system_prompt="Hi",
         )
-        r = agent.response("hello", task_type=TaskType.CODE)
+        r = agent.run("hello", task_type=TaskType.CODE)
         assert r.content
         assert r.task_type == TaskType.CODE
         assert r.routing_reason is not None
@@ -198,7 +198,7 @@ class TestAgentResponseRoutingMetadata:
             model_router=RoutingConfig(routing_mode=RoutingMode.COST_FIRST),
             system_prompt="Hi",
         )
-        r = agent.response("hello")
+        r = agent.run("hello")
         assert r.routing_reason is not None
         assert r.routing_reason.task_type is not None
         assert r.model_used is not None

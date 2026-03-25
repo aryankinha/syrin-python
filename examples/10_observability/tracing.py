@@ -30,7 +30,7 @@ class TracingAgent(Agent):
 
 if __name__ == "__main__":
     agent = TracingAgent()
-    result = agent.response("What is AI?")
+    result = agent.run("What is AI?")
     print(f"Response: {result.content[:80]}...")
     print("Serving at http://localhost:8000/playground")
     agent.serve(port=8000, enable_playground=True, debug=True)

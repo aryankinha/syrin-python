@@ -140,7 +140,6 @@ Example:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from syrin.enums import Hook
 
@@ -152,7 +151,7 @@ class HookContextSchema:
     hook: Hook
     description: str
     fields: dict[str, type]
-    example: dict[str, Any]
+    example: dict[str, object]
 
 
 # Define schemas for all hooks

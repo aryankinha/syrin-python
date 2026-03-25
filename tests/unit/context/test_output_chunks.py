@@ -121,7 +121,7 @@ class TestOutputChunksAgentFlow:
             memory=Memory(),
             config=AgentConfig(context=Context(store_output_chunks=False)),
         )
-        agent.response("Tell me a long story.")
+        agent.run("Tell me a long story.")
         snap = agent.context.snapshot()
         assert getattr(snap, "output_chunks", []) == [] or not hasattr(snap, "output_chunks")
 
@@ -138,8 +138,8 @@ class TestOutputChunksAgentFlow:
                 )
             ),
         )
-        agent.response("Explain Syrin memory in detail.")
-        agent.response("What about the relevance threshold?")
+        agent.run("Explain Syrin memory in detail.")
+        agent.run("What about the relevance threshold?")
         snap = agent.context.snapshot()
         output_chunks = getattr(snap, "output_chunks", [])
         output_scores = getattr(snap, "output_chunk_scores", [])
@@ -155,7 +155,7 @@ class TestOutputChunksAgentFlow:
             memory=None,
             config=AgentConfig(context=Context(store_output_chunks=True)),
         )
-        r = agent.response("Hi")
+        r = agent.run("Hi")
         assert r.content is not None
 
     def test_snapshot_has_output_chunks_fields(self) -> None:
@@ -175,7 +175,7 @@ class TestOutputChunksAgentFlow:
                 )
             ),
         )
-        agent.response("Tell me about Syrin memory")
+        agent.run("Tell me about Syrin memory")
         snap = agent.context.snapshot()
         assert hasattr(snap, "output_chunks")
         assert hasattr(snap, "output_chunk_scores")

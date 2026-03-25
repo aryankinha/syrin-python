@@ -63,7 +63,7 @@ def main() -> None:
     # One long user message to push over 50% and trigger compaction
     long_prompt = "Explain in one sentence: " + " what is the meaning of life? " * 8
     print(f"  Sending a long prompt ({len(long_prompt)} chars) to fill context...\n")
-    agent.response(long_prompt)
+    agent.run(long_prompt)
 
     snap = agent.context.snapshot()
     stats = agent.context_stats

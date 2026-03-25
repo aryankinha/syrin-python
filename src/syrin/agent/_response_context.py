@@ -5,12 +5,15 @@ Agent delegates to functions here. Public API stays on Agent.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from syrin.agent import Agent
 
 from syrin.response import Response
 
 
-def with_context_on_response(agent: Any, r: Response[str]) -> Response[str]:
+def with_context_on_response(agent: Agent, r: Response[str]) -> Response[str]:
     """Attach per-call context_stats and context to a Response."""
     r.context_stats = getattr(agent._context, "stats", None)
     r.context = getattr(agent, "_call_context", None) or (
@@ -20,8 +23,8 @@ def with_context_on_response(agent: Any, r: Response[str]) -> Response[str]:
 
 
 def record_conversation_turn(
-    agent: Any,
-    user_input: str | list[dict[str, Any]],
+    agent: Agent,
+    user_input: str | list[dict[str, object]],
     assistant_content: str,
 ) -> None:
     """Append a user/assistant turn to memory for next context."""

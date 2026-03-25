@@ -6,7 +6,10 @@ Agent delegates to functions here. Public API stays on Agent.
 from __future__ import annotations
 
 import uuid
-from typing import Any, cast
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from syrin.agent import Agent
 
 from syrin.enums import Hook, MemoryType
 from syrin.events import EventContext
@@ -15,11 +18,11 @@ from syrin.observability import SemanticAttributes, SpanKind
 
 
 def remember(
-    agent: Any,
+    agent: Agent,
     content: str,
     memory_type: MemoryType = MemoryType.EPISODIC,
     importance: float = 1.0,
-    **metadata: Any,
+    **metadata: object,
 ) -> str:
     """Store a fact in persistent memory. Returns memory ID."""
     if agent._memory_backend is None:
@@ -57,7 +60,7 @@ def remember(
 
 
 def recall(
-    agent: Any,
+    agent: Agent,
     query: str | None = None,
     memory_type: MemoryType | None = None,
     limit: int = 10,
@@ -92,11 +95,11 @@ def recall(
                 limit=limit,
             ),
         )
-        return cast(list[MemoryEntry], results)
+        return results
 
 
 def forget(
-    agent: Any,
+    agent: Agent,
     memory_id: str | None = None,
     query: str | None = None,
     memory_type: MemoryType | None = None,

@@ -45,7 +45,7 @@ def test_agent_model_none_rejects_with_clear_error() -> None:
 def test_agent_memory_budget_rejects_with_clear_error() -> None:
     """memory=Budget must raise TypeError."""
     with pytest.raises(TypeError, match=r"memory must be|got Budget"):
-        Agent(model=_almock(), memory=Budget(run=1.0))
+        Agent(model=_almock(), memory=Budget(max_cost=1.0))
 
 
 # -----------------------------------------------------------------------------
@@ -137,27 +137,27 @@ def test_agent_response_none_rejects() -> None:
     """response(None) must raise TypeError."""
     agent = Agent(model=_almock())
     with pytest.raises(TypeError, match=r"user_input must be str"):
-        agent.response(None)
+        agent.run(None)
 
 
 def test_agent_response_int_rejects() -> None:
     """response(42) must raise TypeError."""
     agent = Agent(model=_almock())
     with pytest.raises(TypeError, match=r"user_input must be str"):
-        agent.response(42)
+        agent.run(42)
 
 
 def test_agent_response_dict_rejects() -> None:
     """response(dict) must raise TypeError."""
     agent = Agent(model=_almock())
     with pytest.raises(TypeError, match=r"user_input must be str"):
-        agent.response({"key": "val"})
+        agent.run({"key": "val"})
 
 
 def test_agent_response_empty_str_accepts() -> None:
     """response('') accepts."""
     agent = Agent(model=_almock())
-    r = agent.response("")
+    r = agent.run("")
     assert r is not None
 
 
@@ -166,7 +166,7 @@ def test_agent_passes_provider_kwargs_latency_validation() -> None:
     # When Model.Almock(latency_seconds=0), provider rejects; Agent must pass kwargs
     agent = Agent(model=Model.Almock(latency_seconds=0))
     with pytest.raises(ValueError, match=r"latency_seconds must be greater than 0"):
-        agent.response("hi")
+        agent.run("hi")
 
 
 def test_agent_arun_none_rejects() -> None:
@@ -219,11 +219,11 @@ def test_agent_report_resets_between_calls() -> None:
 
     agent = Agent(model=_almock(), memory=Memory())
     agent.remember("test data", memory_type=MemoryType.CORE)
-    agent.response("first")
+    agent.run("first")
     # Report should have memory stores from remember()
     _ = agent.report
 
-    agent.response("second")
+    agent.run("second")
     report2 = agent.report
     # Report should be fresh (reset at start of each response call)
     assert report2 is not None

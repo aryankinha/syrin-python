@@ -14,7 +14,7 @@ Example:
     ...     model=Model("openai/gpt-4o"),
     ...     context=Context(max_tokens=80000)
     ... )
-    >>> result = agent.response("Hello")
+    >>> result = agent.run("Hello")
     >>> print(agent.context.stats)
 """
 

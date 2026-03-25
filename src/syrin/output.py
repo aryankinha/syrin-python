@@ -50,7 +50,7 @@ class Output:
     validation_retries: int = 3
     """Number of validation retry attempts (default: 3)."""
 
-    context: dict[str, Any] = field(default_factory=dict)
+    context: dict[str, object] = field(default_factory=dict)
     """Context passed to validators for dynamic validation."""
 
     validator: OutputValidator | None = None
@@ -64,7 +64,7 @@ class Output:
         output_type: builtins.type[BaseModel] | None = None,
         *,
         validation_retries: int = 3,
-        context: dict[str, Any] | None = None,
+        context: dict[str, object] | None = None,
         validator: OutputValidator | None = None,
         strict: bool = False,
     ):
@@ -74,7 +74,7 @@ class Output:
         self.validator = validator
         self.strict = strict
 
-    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:
+    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:  # type: ignore[explicit-any]
         """RemoteConfigurable: return (schema, current_values) for the output section."""
         from syrin.remote._schema import build_section_schema_from_obj
         from syrin.remote._types import ConfigSchema
@@ -85,14 +85,14 @@ class Output:
 
     def apply_remote_overrides(
         self,
-        agent: Any,
+        agent: object,
         pairs: list[tuple[str, object]],
-        section_schema: Any,
+        section_schema: object,
     ) -> None:
         """RemoteConfigurable: apply output overrides (self is agent._output)."""
         from syrin.remote._resolver_helpers import build_nested_update
 
-        update = build_nested_update(section_schema, pairs, "output")
+        update = build_nested_update(section_schema, pairs, "output")  # type: ignore[arg-type]
         if not update:
             return
         for key, value in update.items():

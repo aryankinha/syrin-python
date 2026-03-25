@@ -16,10 +16,10 @@ model = Model.Almock()
 agent = Agent(
     model=model,
     system_prompt="Be concise.",
-    budget=Budget(run=0.50, on_exceeded=warn_on_exceeded),
+    budget=Budget(max_cost=0.50, on_exceeded=warn_on_exceeded),
 )
 
-response = agent.response("What is machine learning?")
+response = agent.run("What is machine learning?")
 print(f"Answer: {response.content[:80]}...")
 print(f"Cost:   ${response.cost:.6f}")
 print(f"Budget: {agent.budget_state}")
@@ -30,11 +30,11 @@ print()
 agent2 = Agent(
     model=model,
     system_prompt="Be concise.",
-    budget=Budget(run=0.0001, on_exceeded=raise_on_exceeded),
+    budget=Budget(max_cost=0.0001, on_exceeded=raise_on_exceeded),
 )
 
 try:
-    agent2.response("This might exceed the budget")
+    agent2.run("This might exceed the budget")
 except BudgetExceededError as e:
     print(f"Budget exceeded (expected): {e}")
 print()
@@ -44,10 +44,10 @@ print()
 class CostAwareAgent(Agent):
     model = model
     system_prompt = "You are a concise assistant."
-    budget = Budget(run=1.00, on_exceeded=warn_on_exceeded)
+    budget = Budget(max_cost=1.00, on_exceeded=warn_on_exceeded)
 
 
 agent3 = CostAwareAgent()
-response3 = agent3.response("Hello!")
+response3 = agent3.run("Hello!")
 print(f"Class agent cost: ${response3.cost:.6f}")
 print(f"Budget remaining: {agent3.budget_state}")

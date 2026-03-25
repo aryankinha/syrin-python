@@ -93,7 +93,7 @@ print(f"  Saves: {report.checkpoints.saves}, Loads: {report.checkpoints.loads}")
 print("\n-- 6. Agent response --")
 
 agent = Agent(model=model, system_prompt="You are a research assistant.")
-r = agent.response("What is machine learning?")
+r = agent.run("What is machine learning?")
 print(f"  Response: {r.content[:80]}...")
 agent.save_checkpoint("after_first_question")
 print("  Checkpoint saved after first question.")

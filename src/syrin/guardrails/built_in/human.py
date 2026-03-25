@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any
 
 from syrin.enums import DecisionAction
 from syrin.guardrails.base import Guardrail
@@ -56,7 +55,7 @@ class HumanApproval(Guardrail):
         self.escalation_approver = escalation_approver
 
         # Track approvals: request_id -> approval data
-        self._approvals: dict[str, dict[str, Any]] = {}
+        self._approvals: dict[str, dict[str, object]] = {}
 
     async def evaluate(self, context: GuardrailContext) -> GuardrailDecision:
         """Check if human approval has been granted.
@@ -72,7 +71,7 @@ class HumanApproval(Guardrail):
 
         # Check if already approved/rejected
         if request_id in self._approvals:
-            approval = self._approvals[request_id]
+            approval = self._approvals[request_id]  # type: ignore[index]
 
             if approval["status"] == "approved":
                 return GuardrailDecision(
@@ -149,7 +148,7 @@ class HumanApproval(Guardrail):
         request_id: str,
         approver: str,
         justification: str | None = None,
-        metadata: dict[str, Any] | None = None,
+        metadata: dict[str, object] | None = None,
     ) -> None:
         """Record approval for a request.
 

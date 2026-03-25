@@ -50,7 +50,7 @@ def main() -> None:
     )
 
     # Agent has tools -> text-only excluded; routes to with-tools
-    r = agent.response("What's the weather in NYC?")
+    r = agent.run("What's the weather in NYC?")
     print(f"With tools -> {r.routing_reason.selected_model}")
 
 

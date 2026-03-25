@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 
 @dataclass
@@ -33,7 +33,7 @@ class ContextMap:
     summary: str = ""
     last_updated: float = 0.0
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """JSON-serializable dict for persistence."""
         return {
             "topics": list(self.topics),
@@ -44,22 +44,22 @@ class ContextMap:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any] | None) -> ContextMap:
+    def from_dict(cls, data: dict[str, object] | None) -> ContextMap:
         """Load from dict (e.g. JSON). Returns empty map if data is None or invalid."""
         if not data or not isinstance(data, dict):
             return ContextMap()
         return cls(
-            topics=list(data.get("topics", [])) if isinstance(data.get("topics"), list) else [],
+            topics=list(data.get("topics", [])) if isinstance(data.get("topics"), list) else [],  # type: ignore[call-overload]
             decisions=(
-                list(data.get("decisions", [])) if isinstance(data.get("decisions"), list) else []
+                list(data.get("decisions", [])) if isinstance(data.get("decisions"), list) else []  # type: ignore[call-overload]
             ),
             segment_ids=(
-                list(data.get("segment_ids", []))
+                list(data.get("segment_ids", []))  # type: ignore[call-overload]
                 if isinstance(data.get("segment_ids"), list)
                 else []
             ),
             summary=str(data.get("summary", "")),
-            last_updated=float(data.get("last_updated", 0)),
+            last_updated=float(data.get("last_updated", 0)),  # type: ignore[arg-type]
         )
 
 

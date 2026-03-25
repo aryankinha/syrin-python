@@ -26,17 +26,17 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 # 1. Trace steps from response
 agent = Agent(model=almock, system_prompt="You are a helpful assistant.")
-result = agent.response("What is Python?")
+result = agent.run("What is Python?")
 print(f"Total trace steps: {len(result.trace)}")
 for i, step in enumerate(result.trace):
     print(f"  Step {i + 1}: {step.step_type}, cost=${step.cost_usd:.6f}")
 
 # 2. Multi-call trace aggregation
-agent = Agent(model=almock, budget=Budget(run=1.0))
+agent = Agent(model=almock, budget=Budget(max_cost=1.0))
 total_latency = 0.0
 total_steps = 0
 for q in ["What is AI?", "What is ML?", "What is DL?"]:
-    result = agent.response(q)
+    result = agent.run(q)
     for step in result.trace:
         total_latency += step.latency_ms
         total_steps += 1
@@ -51,7 +51,7 @@ class DebugAgent(Agent):
 
 
 agent = DebugAgent()
-result = agent.response("Hello debug!")
+result = agent.run("Hello debug!")
 print(f"Result: {result.content[:60]}...")
 
 # 4. Global trace config

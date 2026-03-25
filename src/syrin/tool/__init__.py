@@ -22,7 +22,7 @@ _TYPE_TO_JSON: dict[type[object], str] = {
 }
 
 
-class ToolSpec(BaseModel):
+class ToolSpec(BaseModel):  # type: ignore[explicit-any]
     """Spec for a tool the model can call. Usually built via @tool decorator or syrin.tool().
 
     Attributes:
@@ -47,7 +47,7 @@ class ToolSpec(BaseModel):
         default_factory=dict,
         description="JSON schema for parameters. Model uses this to generate args.",
     )
-    func: Callable[..., object] = Field(
+    func: Callable[..., object] = Field(  # type: ignore[explicit-any]
         ...,
         description="Python function to run. Receives parsed arguments from model.",
     )
@@ -103,7 +103,7 @@ def _annotation_to_json_schema(annotation: type[object] | object) -> dict[str, o
     return {"type": "string"}
 
 
-def _parameters_schema_from_function(func: Callable[..., object]) -> tuple[dict[str, object], bool]:
+def _parameters_schema_from_function(func: Callable[..., object]) -> tuple[dict[str, object], bool]:  # type: ignore[explicit-any]
     """Build a JSON schema for the function's parameters from type hints.
 
     Excludes param named 'ctx' (RunContext for DI). Returns (schema, inject_run_context).
@@ -129,7 +129,7 @@ def _parameters_schema_from_function(func: Callable[..., object]) -> tuple[dict[
     return (schema, inject_run_context)
 
 
-def tool(
+def tool(  # type: ignore[explicit-any]
     func: Callable[..., object] | None = None,
     *,
     name: str | None = None,
@@ -157,7 +157,7 @@ def tool(
         ...     return f"Weather in {city}"
     """
 
-    def decorator(f: Callable[..., object]) -> ToolSpec:
+    def decorator(f: Callable[..., object]) -> ToolSpec:  # type: ignore[explicit-any]
         tool_name = name or f.__name__
         desc = description or (inspect.getdoc(f) or "").strip().split("\n")[0] or ""
         params_schema, inject_run_context = _parameters_schema_from_function(f)

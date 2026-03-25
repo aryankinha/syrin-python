@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import tiktoken
@@ -66,7 +66,7 @@ class TokenCounter:
 
     def count_messages(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[dict[str, object]],
         system_prompt: str = "",
     ) -> TokenCount:
         """Count tokens in a message list.
@@ -95,7 +95,7 @@ class TokenCounter:
                 content_str = str(content)
 
             tokens = self.count(content_str)
-            tokens += self._role_overhead(role)
+            tokens += self._role_overhead(role)  # type: ignore[arg-type]
             message_tokens += tokens
             total += tokens
 
@@ -111,7 +111,7 @@ class TokenCounter:
             messages=message_tokens,
         )
 
-    def count_tools(self, tools: list[dict[str, Any]]) -> int:
+    def count_tools(self, tools: list[dict[str, object]]) -> int:
         """Count tokens in tool definitions.
 
         Args:
@@ -136,7 +136,7 @@ class TokenCounter:
         *,
         system_prompt: str,
         memory_context: str,
-        tools: list[dict[str, Any]],
+        tools: list[dict[str, object]],
         tokens_used: int,
         injected_tokens: int = 0,
     ) -> ContextBreakdown:

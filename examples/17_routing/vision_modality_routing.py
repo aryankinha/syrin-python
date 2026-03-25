@@ -48,11 +48,11 @@ def main() -> None:
     )
 
     # Text prompt -> text-only (higher priority for GENERAL)
-    r = agent.response("Describe this", task_type=TaskType.GENERAL)
+    r = agent.run("Describe this", task_type=TaskType.GENERAL)
     print(f"Text prompt -> {r.routing_reason.selected_model}")
 
     # Vision task -> vision profile (only vision supports VISION)
-    r2 = agent.response("What's in this image?", task_type=TaskType.VISION)
+    r2 = agent.run("What's in this image?", task_type=TaskType.VISION)
     print(f"Vision task -> {r2.routing_reason.selected_model}")
 
 

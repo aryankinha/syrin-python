@@ -64,8 +64,8 @@ if __name__ == "__main__":
     business = BusinessExpert()
     question = "What is innovation?"
 
-    r1 = science.response(question)
-    r2 = business.response(question)
+    r1 = science.run(question)
+    r2 = business.run(question)
     print(f"Science expert:  {r1.content[:80]}")
     print(f"Business expert: {r2.content[:80]}")
 
@@ -83,7 +83,7 @@ if __name__ == "__main__":
             system_prompt=expert_prompt,
             template_variables={"domain": domain, "tone": "concise"},
         )
-        result = agent.response(f"What is {domain} best for?")
+        result = agent.run(f"What is {domain} best for?")
         print(f"  {domain}: {result.content[:60]}")
 
     print("\nDone.")

@@ -6,7 +6,7 @@ import asyncio
 import json
 import time
 from contextlib import suppress
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from syrin.agent import Agent
@@ -14,14 +14,14 @@ if TYPE_CHECKING:
     from syrin.serve.config import ServeConfig
 
 
-def _add_startup_endpoint_logging(app: Any, config: ServeConfig | None = None) -> None:
+def _add_startup_endpoint_logging(app: object, config: ServeConfig | None = None) -> None:
     """Add startup event that prints endpoints with methods."""
 
-    @app.on_event("startup")  # type: ignore[untyped-decorator]
+    @app.on_event("startup")  # type: ignore[attr-defined, untyped-decorator]
     def _log_endpoints() -> None:
         lines: list[str] = ["Syrin endpoints:"]
         has_mcp = False
-        for route in app.routes:
+        for route in app.routes:  # type: ignore[attr-defined]
             if hasattr(route, "methods") and hasattr(route, "path"):
                 methods = ", ".join(sorted(m for m in route.methods if m != "HEAD"))
                 lines.append(f"  {methods:6} {route.path}")
@@ -44,7 +44,7 @@ def _add_startup_endpoint_logging(app: Any, config: ServeConfig | None = None) -
             print(_syrin_cli_message(use_color=use_color), flush=True)
 
 
-def _to_json_serializable(obj: Any) -> Any:
+def _to_json_serializable(obj: object) -> object:
     """Convert config values to JSON-serializable form to avoid Pydantic serializer warnings."""
     if obj is None or isinstance(obj, (int, float, str, bool)):
         return obj
@@ -72,7 +72,7 @@ def _ensure_serve_deps() -> None:
 def build_router(
     agent: Agent | Pipeline | DynamicPipeline,
     config: ServeConfig,
-) -> Any:
+) -> object:
     """Build a FastAPI APIRouter for the given agent, pipeline, or dynamic pipeline.
 
     Accepts Agent, Pipeline, or DynamicPipeline. Pipelines are wrapped in an
@@ -108,7 +108,7 @@ def build_router(
     def _route(path: str) -> str:
         return f"{prefix}{path}" if prefix else path
 
-    def _message_length(msg: str | list[dict[str, Any]]) -> int:
+    def _message_length(msg: str | list[dict[str, object]]) -> int:
         """Total character length of message (str or sum of content parts)."""
         if isinstance(msg, str):
             return len(msg)
@@ -122,14 +122,14 @@ def build_router(
                     total += len(url) if isinstance(url, str) else 0
         return total
 
-    def _chat_body(r: dict[str, Any]) -> tuple[str | list[dict[str, Any]], str | None]:
+    def _chat_body(r: dict[str, object]) -> tuple[str | list[dict[str, object]], str | None]:
         """Extract message (str or multimodal content parts) and conversation_id."""
         message = r.get("message") or r.get("input") or r.get("content")
         if isinstance(message, str):
             msg = message.strip()
-            return msg, r.get("conversation_id")
+            return msg, r.get("conversation_id")  # type: ignore[return-value]
         if isinstance(message, list) and all(isinstance(p, dict) for p in message):
-            return message, r.get("conversation_id")
+            return message, r.get("conversation_id")  # type: ignore[return-value]
         return "", None
 
     collect_debug = config.debug and config.enable_playground
@@ -141,7 +141,7 @@ def build_router(
     max_len = config.max_message_length
 
     @router.post(_route("/chat"))
-    async def chat(body: dict[str, Any] | None = Body(default=None)) -> Any:  # noqa: B008
+    async def chat(body: dict[str, object] | None = Body(default=None)) -> object:  # noqa: B008
         """Run agent and return full response. POST body: {message: str}."""
         msg, conversation_id = _chat_body(body or {})
         if not msg:
@@ -168,7 +168,7 @@ def build_router(
                 r = await agent.arun(msg)
                 events_list = []
             elapsed = time.perf_counter() - start
-            out: dict[str, Any] = {"content": str(r.content)}
+            out: dict[str, object] = {"content": str(r.content)}
             attachments = getattr(r, "attachments", None) or []
             if attachments:
                 out["attachments"] = [
@@ -196,7 +196,7 @@ def build_router(
             )
 
     @router.post(_route("/stream"))
-    async def stream(body: dict[str, Any] | None = Body(default=None)) -> Any:  # noqa: B008
+    async def stream(body: dict[str, object] | None = Body(default=None)) -> object:  # noqa: B008
         """Stream response as SSE. POST body: {message: str}."""
         msg, _ = _chat_body(body or {})
         if not msg:
@@ -213,16 +213,16 @@ def build_router(
                 },
             )
 
-        def _emit(d: dict[str, Any]) -> str:
+        def _emit(d: dict[str, object]) -> str:
             return f"data: {json.dumps(d)}\n\n"
 
-        def _emit_budget() -> Any:
+        def _emit_budget() -> object:
             """Emit budget event when metadata enabled and agent has budget."""
             if not config.include_metadata:
-                return
+                return  # type: ignore[return-value]
             state = agent.budget_state
             if state is None:
-                return
+                return  # type: ignore[return-value]
             return _emit(
                 {
                     "type": "budget",
@@ -233,16 +233,16 @@ def build_router(
                 }
             )
 
-        async def sse_gen() -> Any:
+        async def sse_gen() -> object:
             import logging
 
             _log = logging.getLogger("syrin.serve")
             accumulated = ""
-            events_list: list[tuple[str, dict[str, Any]]] = []
-            tokens_val: dict[str, Any] | None = None
-            attachments_from_result: list[dict[str, Any]] = []
+            events_list: list[tuple[str, dict[str, object]]] = []
+            tokens_val: dict[str, object] | None = None
+            attachments_from_result: list[dict[str, object]] = []
             progressive = collect_debug
-            run_result: Any = None
+            run_result: object = None
 
             # When agent has tools, run the full REACT loop so tool calls are executed and
             # the user gets the real reply instead of the "model chose to use a tool" fallback.
@@ -368,7 +368,7 @@ def build_router(
             if hasattr(agent, "record_conversation_turn") and accumulated:
                 agent.record_conversation_turn(msg, accumulated)
 
-            done: dict[str, Any] = {"done": True}
+            done: dict[str, object] = {"done": True}
             if progressive:
                 done["type"] = "done"
             if config.include_metadata:
@@ -398,7 +398,7 @@ def build_router(
             yield _emit(done)
 
         return StreamingResponse(
-            sse_gen(),
+            sse_gen(),  # type: ignore[arg-type]
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -418,7 +418,7 @@ def build_router(
         return {"ready": True}
 
     @router.get(_route("/budget"))
-    async def budget() -> Any:
+    async def budget() -> object:
         """Budget state if configured."""
         state = agent.budget_state
         if state is None:
@@ -433,9 +433,9 @@ def build_router(
         )
 
     @router.get(_route("/describe"))
-    async def describe() -> dict[str, Any]:
+    async def describe() -> dict[str, object]:
         """Runtime introspection: name, tools (full specs), budget, internal_agents, setup_type."""
-        tools_list: list[dict[str, Any]] = [
+        tools_list: list[dict[str, object]] = [
             {
                 "name": t.name,
                 "description": t.description or "",
@@ -444,7 +444,7 @@ def build_router(
             for t in agent.tools
         ]
         budget_state = agent.budget_state
-        out: dict[str, Any] = {
+        out: dict[str, object] = {
             "name": agent.name,
             "description": agent.description,
             "tools": tools_list,
@@ -471,18 +471,18 @@ def build_router(
     from syrin.remote._schema import extract_agent_schema
     from syrin.remote._types import ConfigOverride, OverridePayload
 
-    _config_stream_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+    _config_stream_queue: asyncio.Queue[dict[str, object]] = asyncio.Queue()
     _config_last_version: list[int] = [0]  # Mutable so stream can read; updated on PATCH
     _resolver = ConfigResolver()
 
     def _get_baseline_overrides_current(
-        a: Any,
-    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+        a: object,
+    ) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
         """Return (baseline, overrides, current) from agent override store. Freeze baseline on first use."""
         reg = get_registry()
         rt = getattr(a, "_runtime", None)
-        baseline: dict[str, Any]
-        overrides: dict[str, Any]
+        baseline: dict[str, object]
+        overrides: dict[str, object]
         if rt is None:
             baseline, overrides = {}, {}
         else:
@@ -496,14 +496,14 @@ def build_router(
         return baseline, overrides, current
 
     def _enrich_sections_with_values(
-        sections: dict[str, Any],
-        baseline: dict[str, Any],
-        overrides: dict[str, Any],
-        current: dict[str, Any],
+        sections: dict[str, object],
+        baseline: dict[str, object],
+        overrides: dict[str, object],
+        current: dict[str, object],
     ) -> None:
         """Mutate section fields in-place to add baseline_value, current_value, overridden."""
         for sec in sections.values():
-            for field in sec.get("fields") or []:
+            for field in sec.get("fields") or []:  # type: ignore[attr-defined]
                 path = field.get("path", "")
                 field["baseline_value"] = baseline.get(path)
                 field["current_value"] = current.get(path)
@@ -515,7 +515,7 @@ def build_router(
                     child["overridden"] = p in overrides
 
     @router.get(_route("/config"))
-    async def get_config_route() -> Any:
+    async def get_config_route() -> object:
         """Return agent config schema, baseline (code) values, overrides, and current (baseline+overrides). Per-field baseline_value, current_value, overridden for dashboard."""
         reg = get_registry()
         agent_id = reg.make_agent_id(agent)
@@ -536,7 +536,7 @@ def build_router(
         return out
 
     @router.patch(_route("/config"))
-    async def patch_config_route(body: dict[str, Any] | None = Body(default=None)) -> Any:  # noqa: B008
+    async def patch_config_route(body: dict[str, object] | None = Body(default=None)) -> object:  # noqa: B008
         """Apply config overrides. Body: OverridePayload (agent_id, version, overrides). value=null means revert to baseline."""
         if not body:
             return JSONResponse(status_code=400, content={"error": "Missing body"})
@@ -568,7 +568,7 @@ def build_router(
         from syrin.remote._resolver import _field_for_path
         from syrin.remote._resolver_helpers import _normalize_enum_value
 
-        overrides_list: list[Any] = []
+        overrides_list: list[object] = []
         for p, v in current.items():
             if v is None:
                 continue
@@ -586,7 +586,7 @@ def build_router(
         sync_payload = OverridePayload(
             agent_id=agent_id,
             version=payload.version,
-            overrides=overrides_list,
+            overrides=overrides_list,  # type: ignore[arg-type]
         )
         result = _resolver.apply_overrides(agent, sync_payload, schema=schema)
         # Roll back rejected paths from the store so GET reflects actual agent state
@@ -609,10 +609,10 @@ def build_router(
         }
 
     @router.get(_route("/config/stream"))
-    async def config_stream_route() -> Any:
+    async def config_stream_route() -> object:
         """SSE stream for config updates (dashboard subscribes; events on PATCH)."""
 
-        async def stream_events() -> Any:
+        async def stream_events() -> object:
             # Send initial heartbeat so clients (and tests) get a first chunk immediately
             yield f'event: heartbeat\ndata: {{"version": {_config_last_version[0]}}}\n\n'
             while True:
@@ -625,7 +625,7 @@ def build_router(
                     yield f'event: heartbeat\ndata: {{"version": {_config_last_version[0]}}}\n\n'
 
         return StreamingResponse(
-            stream_events(),
+            stream_events(),  # type: ignore[arg-type]
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -641,7 +641,7 @@ def build_router(
 
         mcp_router = build_mcp_router(mcp_instances[0])
         mcp_prefix = _route("/mcp").rstrip("/")
-        router.include_router(mcp_router, prefix=mcp_prefix)
+        router.include_router(mcp_router, prefix=mcp_prefix)  # type: ignore[arg-type]
 
     # A2A Agent Card (/.well-known/agent-card.json) — discovery for agent-to-agent
     from syrin.serve.discovery import (
@@ -661,7 +661,7 @@ def build_router(
             base_url = (base_url.rstrip("/") + "/" + prefix.lstrip("/")).rstrip("/")
 
         @router.get(_route(AGENT_CARD_PATH))
-        async def agent_card() -> dict[str, Any]:
+        async def agent_card() -> dict[str, object]:
             """A2A Agent Card for discovery. GET /.well-known/agent-card.json."""
             emit = getattr(agent, "_emit_event", None)
             if emit is not None:
@@ -688,7 +688,7 @@ def build_router(
         agents_data = [{"name": agent.name, "description": agent.description}]
 
         @router.get(_route("/playground/config"))
-        async def playground_config() -> dict[str, Any]:
+        async def playground_config() -> dict[str, object]:
             """Playground config: apiBase, agents, debug, setup_type."""
             setup_type = "single"
             if len(agents_data) > 1:
@@ -714,7 +714,7 @@ def build_router(
                 return get_playground_html(
                     base_path=_route("/playground"),
                     api_base=api_base,
-                    agents=agents_data,
+                    agents=agents_data,  # type: ignore[arg-type]
                     debug=config.debug,
                 )
 
@@ -724,7 +724,7 @@ def build_router(
 def create_http_app(
     obj: Agent | Pipeline | DynamicPipeline,
     config: ServeConfig,
-) -> Any:
+) -> object:
     """Create a FastAPI app for agent, pipeline, or dynamic pipeline.
 
     Used internally by agent.serve() / pipeline.serve(). Mounts the router
@@ -748,7 +748,7 @@ def create_http_app(
         description=getattr(serveable, "description", "") or "",
     )
     router = build_router(obj, config)
-    app.include_router(router)
+    app.include_router(router)  # type: ignore[arg-type]
     if config.enable_playground:
         prefix = (config.route_prefix or "").strip().rstrip("/")
         mount_path = f"/{prefix}/playground" if prefix else "/playground"

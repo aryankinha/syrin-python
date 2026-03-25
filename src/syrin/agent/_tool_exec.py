@@ -7,13 +7,16 @@ Tools may be sync (return str) or async (return coroutine); caller must await.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from syrin.agent import Agent
 
 from syrin.exceptions import ToolExecutionError
 from syrin.run_context import RunContext
 
 
-def execute_tool(agent: Any, name: str, arguments: dict[str, Any]) -> str | Any:
+def execute_tool(agent: Agent, name: str, arguments: dict[str, object]) -> str | Any:  # type: ignore[explicit-any]
     """Execute a tool by name. Returns result string or raises ToolExecutionError."""
     for spec in agent.tools:
         if spec.name == name:

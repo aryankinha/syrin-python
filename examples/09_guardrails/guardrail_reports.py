@@ -43,7 +43,7 @@ def on_blocked(ctx: dict) -> None:
 
 
 assistant.events.on(Hook.GUARDRAIL_BLOCKED, on_blocked)
-result = assistant.response("How do I hack into someone's password?")
+result = assistant.run("How do I hack into someone's password?")
 print(f"Blocked: {result.report.guardrail.blocked}, stage: {result.report.guardrail.blocked_stage}")
 
 # ---------------------------------------------------------------------------
@@ -53,7 +53,7 @@ print("\n" + "=" * 55)
 print("2. Safe content passes the guardrail")
 print("=" * 55)
 
-result = assistant.response("What is the weather today?")
+result = assistant.run("What is the weather today?")
 print(f"Passed: {result.report.guardrail.passed}")
 
 # ---------------------------------------------------------------------------
@@ -89,7 +89,7 @@ class SafeAssistant(Agent):
 
 
 safe = SafeAssistant()
-result = safe.response("Tell me about SSN protection")
+result = safe.run("Tell me about SSN protection")
 print(f"Blocked: {result.report.guardrail.blocked}")
 
 # ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ print("\n" + "=" * 55)
 print("4. Full report summary")
 print("=" * 55)
 
-result = assistant.response("Hello, how are you?")
+result = assistant.run("Hello, how are you?")
 print(
     f"Guardrail passed: {result.report.guardrail.passed}, budget: ${result.report.budget.used:.4f}"
 )

@@ -34,7 +34,7 @@ def run_cli_repl(agent: Agent, config: ServeConfig) -> None:
         if not line:
             continue
         try:
-            r = agent.response(line)
+            r = agent.run(line)
             print(str(r.content))
             cost_str = f"${r.cost:.6f}".rstrip("0").rstrip(".")
             if cost_str == "$":

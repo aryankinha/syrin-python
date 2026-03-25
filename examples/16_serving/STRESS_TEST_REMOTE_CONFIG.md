@@ -45,8 +45,8 @@ The script:
 - **GET /config** — Asserts `sections.agent` has field `agent.loop_strategy` with `enum_values` (e.g. `["react", "plan_execute", "code_action", "single_shot"]`). The UI uses this for the dropdown.
 - **PATCH loop_strategy** — Sets to `single_shot`, then reverts (value: null).
 - **PATCH tools.remember_fact.enabled** — Toggles the remember tool off then on.
-- **PATCH budget.run** — Changes run limit (e.g. 0.25).
-- **Stress** — Runs 20 PATCHes in sequence (loop_strategy, budget.run, tool toggle) to ensure no false rejects or flakes.
+- **PATCH budget.max_cost** — Changes run limit (e.g. 0.25).
+- **Stress** — Runs 20 PATCHes in sequence (loop_strategy, budget.max_cost, tool toggle) to ensure no false rejects or flakes.
 
 If all steps pass, the config API and schema (including enum_values for dropdowns) are working.
 

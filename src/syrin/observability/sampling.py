@@ -31,7 +31,6 @@ import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
 
 from syrin.observability import Span
 
@@ -56,7 +55,7 @@ class SamplingPolicy:
     slow_threshold_ms: float = 5000  # Threshold for slow traces (ms)
     sample_expensive: bool = True  # Always sample expensive traces
     expensive_threshold_usd: float = 1.0  # Threshold for expensive traces
-    sample_by_attribute: dict[str, Any] | None = None  # Sample by attribute match
+    sample_by_attribute: dict[str, object] | None = None  # Sample by attribute match
 
     # For head-based sampling
     initial_sample_rate: float = 1.0  # Sample rate before any decision
@@ -98,7 +97,7 @@ class ProbabilisticSampler(Sampler):
         # Always sample expensive traces if configured
         if self._policy.sample_expensive:
             cost = span.attributes.get("llm.cost", 0) or span.attributes.get("budget.used", 0)
-            if cost and cost > self._policy.expensive_threshold_usd:
+            if cost and cost > self._policy.expensive_threshold_usd:  # type: ignore[operator]
                 return True
 
         # Check attribute-based sampling
@@ -241,7 +240,7 @@ class ConditionalSampler(Sampler):
 # Factory function
 def create_sampler(
     strategy: str = "probabilistic",
-    **kwargs: Any,
+    **kwargs: object,
 ) -> Sampler:
     """Create a sampler based on strategy name.
 
@@ -254,26 +253,26 @@ def create_sampler(
         A Sampler instance
     """
     if strategy == "probabilistic":
-        return ProbabilisticSampler(SamplingPolicy(**kwargs))
+        return ProbabilisticSampler(SamplingPolicy(**kwargs))  # type: ignore[arg-type]
     elif strategy == "deterministic":
-        return DeterministicSampler(SamplingPolicy(**kwargs))
+        return DeterministicSampler(SamplingPolicy(**kwargs))  # type: ignore[arg-type]
     elif strategy == "rate_limiting":
         return RateLimitingSampler(
-            SamplingPolicy(**kwargs),
-            max_samples_per_second=kwargs.get("max_samples_per_second", 10.0),
+            SamplingPolicy(**kwargs),  # type: ignore[arg-type]
+            max_samples_per_second=kwargs.get("max_samples_per_second", 10.0),  # type: ignore[arg-type]
         )
     elif strategy == "adaptive":
         return AdaptiveSampler(
-            SamplingPolicy(**kwargs),
-            target_error_rate=kwargs.get("target_error_rate", 0.1),
+            SamplingPolicy(**kwargs),  # type: ignore[arg-type]
+            target_error_rate=kwargs.get("target_error_rate", 0.1),  # type: ignore[arg-type]
         )
     elif strategy == "composite":
         sub_samplers = kwargs.get("samplers", [])
         mode = kwargs.get("mode", "any")
-        return CompositeSampler(sub_samplers, mode)
+        return CompositeSampler(sub_samplers, mode)  # type: ignore[arg-type]
     elif strategy == "conditional":
         condition = kwargs.get("condition", lambda _: True)
-        return ConditionalSampler(condition)
+        return ConditionalSampler(condition)  # type: ignore[arg-type]
     else:
         raise ValueError(f"Unknown sampler strategy: {strategy}")
 

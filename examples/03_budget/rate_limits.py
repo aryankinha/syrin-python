@@ -33,12 +33,12 @@ print("=" * 60)
 agent = Agent(
     model=model,
     budget=Budget(
-        run=0.05,
-        per=RateLimit(hour=2.00, day=10.00, month=100.00, month_days=30),
+        max_cost=0.05,
+        rate_limits=RateLimit(hour=2.00, day=10.00, month=100.00, month_days=30),
         on_exceeded=warn_on_exceeded,
     ),
 )
-result = agent.response("What is AI?")
+result = agent.run("What is AI?")
 print(f"   Cost:         ${result.cost:.6f}")
 print(f"   Budget state: {agent.budget_state}")
 
@@ -152,14 +152,14 @@ class RateLimitedAgent(Agent):
     _agent_description = "Agent with rate limits (hour, day, month)"
     model = model
     budget = Budget(
-        run=0.05,
-        per=RateLimit(hour=2.00, day=10.00, month=100.00),
+        max_cost=0.05,
+        rate_limits=RateLimit(hour=2.00, day=10.00, month=100.00),
         on_exceeded=warn_on_exceeded,
     )
 
 
 agent = RateLimitedAgent()
-result = agent.response("Explain neural networks briefly.")
+result = agent.run("Explain neural networks briefly.")
 print(f"   Cost:         ${result.cost:.6f}")
 print(f"   Budget state: {agent.budget_state}")
 

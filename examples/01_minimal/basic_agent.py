@@ -21,7 +21,7 @@ class Assistant(Agent):
 
 # Use the agent
 agent = Assistant()
-response = agent.response("What is Python?")
+response = agent.run("What is Python?")
 
 print(f"Answer:  {response.content}")
 print(f"Cost:    ${response.cost:.6f}")
@@ -30,7 +30,7 @@ print(f"Model:   {response.model}")
 
 # --- Or use the builder pattern (no class needed) ---
 agent2 = Agent.builder(model).with_system_prompt("You are helpful.").build()
-response2 = agent2.response("What is 2 + 2?")
+response2 = agent2.run("What is 2 + 2?")
 print(f"\nBuilder agent says: {response2.content}")
 
 # --- Serve with web playground (uncomment to try) ---

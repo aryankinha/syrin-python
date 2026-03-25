@@ -49,61 +49,61 @@ class TestBudgetEdgeCases:
 
     def test_budget_exact_at_limit(self) -> None:
         """Budget at exactly the limit — should process but next call may fail."""
-        budget = Budget(run=100.0, on_exceeded=raise_on_exceeded)
+        budget = Budget(max_cost=100.0, on_exceeded=raise_on_exceeded)
         agent = Agent(model=_almock(), budget=budget)
         # First call should succeed
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.content is not None
 
     def test_budget_reserve_equals_run(self) -> None:
         """When reserve == run, effective limit falls back to run value.
         (reserve >= run → effective = run, not 0)."""
-        budget = Budget(run=1.0, reserve=1.0)
+        budget = Budget(max_cost=1.0, reserve=1.0)
         # Effective run = run (since run > reserve is False, it uses run as-is)
         assert budget.remaining == 0.0  # remaining = run - reserve - spent = 0
         agent = Agent(model=_almock(), budget=budget)
         # With Almock's tiny cost, this actually succeeds because the
         # check_budget compares run_and_reserved >= effective_run where
-        # effective_run = budget.run (1.0 since reserve >= run)
-        r = agent.response("Hello")
+        # effective_run = budget.max_cost (1.0 since reserve >= max_cost)
+        r = agent.run("Hello")
         assert r.content is not None
 
     def test_budget_reserve_greater_than_run(self) -> None:
         """Reserve > run means remaining is 0 but effective limit is run value."""
-        budget = Budget(run=1.0, reserve=2.0)
+        budget = Budget(max_cost=1.0, reserve=2.0)
         assert budget.remaining == 0.0  # max(0, run - reserve - spent)
         agent = Agent(model=_almock(), budget=budget)
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.content is not None
 
     def test_budget_none_run_is_unlimited(self) -> None:
-        """Budget(run=None) means no run limit."""
-        budget = Budget(run=None)
+        """Budget(max_cost=None) means no run limit."""
+        budget = Budget(max_cost=None)
         assert budget.remaining is None
         agent = Agent(model=_almock(), budget=budget)
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.content is not None
 
     def test_budget_threshold_at_zero(self) -> None:
         """Threshold at 0% fires immediately on any spend."""
         fired = []
         budget = Budget(
-            run=10.0,
+            max_cost=10.0,
             thresholds=[BudgetThreshold(at=0, action=lambda _: fired.append(True))],
         )
         agent = Agent(model=_almock(), budget=budget)
-        agent.response("Hello")
+        agent.run("Hello")
         assert len(fired) >= 1
 
     def test_budget_threshold_at_hundred(self) -> None:
         """Threshold at 100% fires only when fully spent."""
         fired = []
         budget = Budget(
-            run=10.0,
+            max_cost=10.0,
             thresholds=[BudgetThreshold(at=100, action=lambda _: fired.append(True))],
         )
         agent = Agent(model=_almock(), budget=budget)
-        agent.response("Hello")
+        agent.run("Hello")
         # Unlikely to fire with Almock's tiny costs
         # Just verify no crash
 
@@ -111,7 +111,7 @@ class TestBudgetEdgeCases:
         """Multiple thresholds at different levels."""
         fired = []
         budget = Budget(
-            run=10.0,
+            max_cost=10.0,
             thresholds=[
                 BudgetThreshold(at=0, action=lambda _: fired.append("low")),
                 BudgetThreshold(at=50, action=lambda _: fired.append("mid")),
@@ -119,7 +119,7 @@ class TestBudgetEdgeCases:
             ],
         )
         agent = Agent(model=_almock(), budget=budget)
-        agent.response("Hello")
+        agent.run("Hello")
         # At least the 0% threshold should fire
         assert "low" in fired
 
@@ -273,34 +273,34 @@ class TestGuardrailEdgeCases:
     def test_empty_guardrail_chain(self) -> None:
         chain = GuardrailChain([])
         agent = Agent(model=_almock(), guardrails=chain)
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.content is not None
 
     def test_content_filter_empty_blocked_words(self) -> None:
         chain = GuardrailChain([ContentFilter(blocked_words=[])])
         agent = Agent(model=_almock(), guardrails=chain)
-        r = agent.response("Anything goes")
+        r = agent.run("Anything goes")
         assert r.content is not None
 
     def test_content_filter_case_sensitivity(self) -> None:
         chain = GuardrailChain([ContentFilter(blocked_words=["bad"])])
         agent = Agent(model=_almock(), guardrails=chain)
         # "Bad" (capitalized) — should still be caught (case-insensitive)
-        r = agent.response("This is Bad content")
+        r = agent.run("This is Bad content")
         # ContentFilter may or may not be case-insensitive — just verify no crash
         assert r is not None
 
     def test_length_guardrail_exact_at_limit(self) -> None:
         chain = GuardrailChain([LengthGuardrail(max_length=5)])
         agent = Agent(model=_almock(), guardrails=chain)
-        r = agent.response("Hello")  # exactly 5 chars
+        r = agent.run("Hello")  # exactly 5 chars
         # Should pass or block at boundary — no crash
         assert r is not None
 
     def test_guardrail_report_fields(self) -> None:
         chain = GuardrailChain([ContentFilter(blocked_words=["block"])])
         agent = Agent(model=_almock(), guardrails=chain)
-        r = agent.response("Please block this")
+        r = agent.run("Please block this")
         report = r.report.guardrail
         assert hasattr(report, "blocked")
         assert hasattr(report, "input_passed")
@@ -325,7 +325,7 @@ class TestHookEdgeCases:
         agent.events.on(Hook.AGENT_RUN_START, bad_handler)
         # Should still work (handler errors are logged, not propagated)
         try:
-            r = agent.response("Hello")
+            r = agent.run("Hello")
             # If it succeeds, great
             assert r.content is not None
         except RuntimeError:
@@ -335,14 +335,14 @@ class TestHookEdgeCases:
     def test_no_handlers_registered(self) -> None:
         """Agent works fine with no event handlers."""
         agent = Agent(model=_almock())
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.content is not None
 
     def test_hook_context_is_event_context(self) -> None:
         contexts = []
         agent = Agent(model=_almock())
         agent.events.on(Hook.AGENT_RUN_END, lambda ctx: contexts.append(ctx))
-        agent.response("Hello")
+        agent.run("Hello")
         assert len(contexts) == 1
         assert isinstance(contexts[0], EventContext)
 
@@ -368,12 +368,12 @@ class TestLoopEdgeCases:
 
     def test_react_loop_max_iterations_1(self) -> None:
         agent = Agent(model=_almock(), custom_loop=ReactLoop(max_iterations=1))
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.content is not None
 
     def test_react_loop_large_max_iterations(self) -> None:
         agent = Agent(model=_almock(), custom_loop=ReactLoop(max_iterations=1000))
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.content is not None
 
     def test_react_loop_invalid_max_iterations(self) -> None:
@@ -386,7 +386,7 @@ class TestLoopEdgeCases:
 
     def test_single_shot_no_tools(self) -> None:
         agent = Agent(model=_almock(), custom_loop=SingleShotLoop())
-        r = agent.response("Simple question")
+        r = agent.run("Simple question")
         assert r.content is not None
 
 
@@ -400,10 +400,10 @@ class TestConcurrentUsage:
 
     def test_sequential_rapid_fire(self) -> None:
         """Rapid sequential calls don't corrupt state."""
-        agent = Agent(model=_almock(), budget=Budget(run=100.0))
+        agent = Agent(model=_almock(), budget=Budget(max_cost=100.0))
         results = []
         for i in range(20):
-            r = agent.response(f"Message {i}")
+            r = agent.run(f"Message {i}")
             results.append(r)
         assert len(results) == 20
         assert all(r.content is not None for r in results)
@@ -439,14 +439,14 @@ class TestConcurrentUsage:
 
     def test_multiple_agents_independent(self) -> None:
         """Multiple agent instances don't share state."""
-        agent1 = Agent(model=_almock(), budget=Budget(run=10.0), memory=Memory())
-        agent2 = Agent(model=_almock(), budget=Budget(run=10.0), memory=Memory())
+        agent1 = Agent(model=_almock(), budget=Budget(max_cost=10.0), memory=Memory())
+        agent2 = Agent(model=_almock(), budget=Budget(max_cost=10.0), memory=Memory())
 
         agent1.remember("Agent 1 memory", memory_type=MemoryType.CORE)
         agent2.remember("Agent 2 memory", memory_type=MemoryType.CORE)
 
-        agent1.response("Hello from 1")
-        agent2.response("Hello from 2")
+        agent1.run("Hello from 1")
+        agent2.run("Hello from 2")
 
         mem1 = agent1.recall()
         mem2 = agent2.recall()
@@ -468,9 +468,9 @@ class TestReportEdgeCases:
     def test_report_reset_between_calls(self) -> None:
         """Report resets between response() calls."""
         agent = Agent(model=_almock())
-        agent.response("First")
+        agent.run("First")
         report1_tokens = agent.report.tokens.total_tokens
-        agent.response("Second")
+        agent.run("Second")
         report2_tokens = agent.report.tokens.total_tokens
         # Reports should be independent per call
         assert report1_tokens >= 0
@@ -479,7 +479,7 @@ class TestReportEdgeCases:
     def test_report_with_guardrails(self) -> None:
         chain = GuardrailChain([ContentFilter(blocked_words=["banned"])])
         agent = Agent(model=_almock(), guardrails=chain)
-        agent.response("Clean input")
+        agent.run("Clean input")
         assert agent.report.guardrail.input_passed is True
 
     def test_report_with_memory(self) -> None:
@@ -492,13 +492,13 @@ class TestReportEdgeCases:
         stores_before = agent.report.memory.stores
         assert stores_before >= 1
         # After response(), report resets
-        agent.response("Hello")
+        agent.run("Hello")
         # The response report won't include the pre-call remember
         assert agent.report is not None
 
     def test_report_budget_status(self) -> None:
-        agent = Agent(model=_almock(), budget=Budget(run=10.0))
-        agent.response("Hello")
+        agent = Agent(model=_almock(), budget=Budget(max_cost=10.0))
+        agent.run("Hello")
         report = agent.report
         assert report is not None
 
@@ -514,7 +514,7 @@ class TestModelEdgeCases:
     def test_almock_zero_latency(self) -> None:
         model = Model.Almock(latency_seconds=0.01, lorem_length=10)
         agent = Agent(model=model)
-        r = agent.response("Fast")
+        r = agent.run("Fast")
         assert r.content is not None
 
     def test_almock_custom_response(self) -> None:
@@ -524,14 +524,14 @@ class TestModelEdgeCases:
             custom_response="Custom reply",
         )
         agent = Agent(model=model)
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.content == "Custom reply"
 
     def test_almock_different_lorem_lengths(self) -> None:
         for length in [1, 10, 100, 500, 1000]:
             model = Model.Almock(latency_seconds=0.01, lorem_length=length)
             agent = Agent(model=model)
-            r = agent.response("Hello")
+            r = agent.run("Hello")
             assert len(r.content) >= length * 0.8  # approximate
 
     def test_model_registry_isolation(self) -> None:
@@ -556,7 +556,7 @@ class TestAgentInheritance:
             system_prompt = "You are a custom agent."
 
         agent = MyAgent()
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.content is not None
 
     def test_subclass_with_tools(self) -> None:
@@ -575,10 +575,10 @@ class TestAgentInheritance:
     def test_subclass_with_budget(self) -> None:
         class BudgetAgent(Agent):
             model = _almock()
-            budget = Budget(run=5.0)
+            budget = Budget(max_cost=5.0)
 
         agent = BudgetAgent()
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.content is not None
         assert agent.budget_state is not None and agent.budget_state.spent > 0
 
@@ -604,5 +604,5 @@ class TestAgentInheritance:
 
         agent = LeafAgent()
         assert agent._system_prompt == "Leaf"
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.content is not None

@@ -56,17 +56,17 @@ def main() -> None:
         model=models_list,
         model_router=RoutingConfig(router=router),
         system_prompt="You are helpful. Be concise.",
-        budget=Budget(run=0.50),
+        budget=Budget(max_cost=0.50),
         debug=use_trace,
     )
 
     # With full budget, COST_FIRST picks cheapest capable model
-    r = agent.response("Say hi", task_type=TaskType.GENERAL)
+    r = agent.run("Say hi", task_type=TaskType.GENERAL)
     print(f"GENERAL (full budget) -> {r.routing_reason.selected_model}: {r.routing_reason.reason}")
     print(f"  cost_estimate=${r.routing_reason.cost_estimate:.6f}")
 
     # CODE: both capable; COST_FIRST picks cheap
-    r = agent.response("Write one line of code", task_type=TaskType.CODE)
+    r = agent.run("Write one line of code", task_type=TaskType.CODE)
     print(f"CODE -> {r.routing_reason.selected_model}: {r.routing_reason.reason}")
 
 

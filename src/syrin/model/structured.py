@@ -84,10 +84,10 @@ class StructuredOutput:
     Rarely constructed directly; use @structured or model.with_output().
     """
 
-    _schema: dict[str, Any]
+    _schema: dict[str, object]
     _pydantic_model: type | None = None
 
-    def __init__(self, schema: dict[str, Any] | type) -> None:
+    def __init__(self, schema: dict[str, object] | type) -> None:
         if isinstance(schema, type):
             self._schema = self._class_to_schema(schema)
             self._pydantic_model = self._create_pydantic_model(schema)
@@ -95,23 +95,23 @@ class StructuredOutput:
             self._schema = schema
             self._pydantic_model = self._create_pydantic_model_from_schema(schema)
 
-    def _class_to_schema(self, cls: type) -> dict[str, Any]:
+    def _class_to_schema(self, cls: type) -> dict[str, object]:
         """Convert a Python class to JSON schema with $defs for nested types."""
-        schema: dict[str, Any] = {
+        schema: dict[str, object] = {
             "type": "object",
             "properties": {},
             "required": [],
             "additionalProperties": False,
         }
-        defs: dict[str, dict[str, Any]] = {}
+        defs: dict[str, dict[str, object]] = {}
 
         for name, hint in get_type_hints(cls, include_extras=True).items():
             prop_schema, nested_defs = self._hint_to_schema(hint, defs)
-            schema["properties"][name] = prop_schema
+            schema["properties"][name] = prop_schema  # type: ignore[index]
             defs.update(nested_defs)
 
             if not self._is_field_optional(cls, name, hint):
-                schema["required"].append(name)
+                schema["required"].append(name)  # type: ignore[attr-defined]
 
         if defs:
             schema["$defs"] = defs
@@ -121,8 +121,8 @@ class StructuredOutput:
     def _hint_to_schema(
         self,
         hint: type,
-        defs: dict[str, dict[str, Any]],
-    ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+        defs: dict[str, dict[str, object]],
+    ) -> tuple[dict[str, object], dict[str, dict[str, object]]]:
         """Convert type hint to JSON schema property. Returns (prop, additional_defs)."""
         description: str | None = None
         effective_hint = hint
@@ -135,7 +135,7 @@ class StructuredOutput:
             if meta:
                 description = _extract_description(meta)
 
-        inner_defs: dict[str, dict[str, Any]] = {}
+        inner_defs: dict[str, dict[str, object]] = {}
 
         origin = get_origin(effective_hint)
         args = get_args(effective_hint)
@@ -144,7 +144,7 @@ class StructuredOutput:
             item_type = args[0] if args else str
             item_schema, item_defs = self._inner_type_to_schema(item_type, defs)
             inner_defs.update(item_defs)
-            prop: dict[str, Any] = {"type": "array", "items": item_schema}
+            prop: dict[str, object] = {"type": "array", "items": item_schema}
         elif origin is dict:
             prop = {"type": "object"}
         else:
@@ -158,19 +158,19 @@ class StructuredOutput:
     def _inner_type_to_schema(
         self,
         py_type: type,
-        defs: dict[str, dict[str, Any]],
-    ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+        defs: dict[str, dict[str, object]],
+    ) -> tuple[dict[str, object], dict[str, dict[str, object]]]:
         """Convert inner type to schema. Handles primitives and @structured classes."""
         if py_type in _PRIMITIVE_JSON_TYPES:
-            return _PRIMITIVE_JSON_TYPES[py_type].copy(), {}
+            return _PRIMITIVE_JSON_TYPES[py_type].copy(), {}  # type: ignore[return-value]
 
         if getattr(py_type, "_is_structured", False):
             name = getattr(py_type, "__name__", "Unknown")
             nested = StructuredOutput(py_type)
             nested_schema = nested._schema
             nested_defs = nested_schema.pop("$defs", {})
-            ref_schema: dict[str, Any] = {"$ref": f"#/$defs/{name}"}
-            all_defs: dict[str, dict[str, Any]] = {name: nested_schema, **nested_defs}
+            ref_schema: dict[str, object] = {"$ref": f"#/$defs/{name}"}
+            all_defs: dict[str, dict[str, object]] = {name: nested_schema, **nested_defs}  # type: ignore[dict-item]
             return ref_schema, all_defs
 
         return {"type": "string"}, {}
@@ -190,7 +190,7 @@ class StructuredOutput:
             if not hints:
                 hints = self._fallback_hints(cls)
 
-            resolved: dict[str, Any] = {}
+            resolved: dict[str, object] = {}
             for name, hint in hints.items():
                 python_type = self._resolve_hint_to_python_type(hint)
                 if self._is_field_optional(cls, name, hint):
@@ -199,7 +199,7 @@ class StructuredOutput:
                     resolved[name] = (python_type, ...)
 
             if resolved:
-                return create_model(cls.__name__, **resolved, __base__=BaseModel)
+                return create_model(cls.__name__, **resolved, __base__=BaseModel)  # type: ignore[call-overload, no-any-return]
             return cls
         except Exception:
             return cls
@@ -243,7 +243,7 @@ class StructuredOutput:
                 hints[name] = type(val)
         return hints
 
-    def _create_pydantic_model_from_schema(self, schema: dict[str, Any]) -> type:
+    def _create_pydantic_model_from_schema(self, schema: dict[str, object]) -> type:
         """Create a Pydantic model from JSON schema."""
         try:
             from pydantic import create_model
@@ -251,19 +251,19 @@ class StructuredOutput:
             properties = schema.get("properties", {})
             required = schema.get("required", [])
 
-            field_definitions: dict[str, Any] = {}
-            for name, prop in properties.items():
+            field_definitions: dict[str, object] = {}
+            for name, prop in properties.items():  # type: ignore[attr-defined]
                 prop_type = self._json_type_to_python_type(prop)
-                if name in required:
+                if name in required:  # type: ignore[operator]
                     field_definitions[name] = (prop_type, ...)
                 else:
                     field_definitions[name] = (prop_type | None, None)
 
-            return create_model("StructuredOutput", **field_definitions)  # type: ignore[no-any-return]
+            return create_model("StructuredOutput", **field_definitions)  # type: ignore[call-overload, no-any-return]
         except Exception:
             return type  # Fallback on schema parse failure; callers must handle
 
-    def _json_type_to_python_type(self, prop: dict[str, Any]) -> type:
+    def _json_type_to_python_type(self, prop: dict[str, object]) -> type:
         """Convert JSON Schema type to Python type."""
         json_type = prop.get("type", "string")
         type_map: dict[str, type] = {
@@ -274,10 +274,10 @@ class StructuredOutput:
             "array": list,
             "object": dict,
         }
-        return type_map.get(json_type, str)
+        return type_map.get(json_type, str)  # type: ignore[call-overload, no-any-return]
 
     @property
-    def schema(self) -> dict[str, Any]:
+    def schema(self) -> dict[str, object]:
         """Get the JSON schema."""
         return self._schema
 
@@ -302,7 +302,7 @@ def structured(cls: type[T]) -> type[T]:
 
         model = Model.OpenAI("gpt-4o", output=Sentiment)
     """
-    obj = cast(Any, cls)
+    obj = cast(Any, cls)  # type: ignore[explicit-any]
     obj._is_structured = True
     so = StructuredOutput(cls)
     obj._structured_schema = so.schema
@@ -329,7 +329,7 @@ class OutputType:
         )
 
     @property
-    def schema(self) -> dict[str, Any]:
+    def schema(self) -> dict[str, object]:
         return self._structured.schema
 
     @property

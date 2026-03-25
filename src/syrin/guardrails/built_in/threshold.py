@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any
 
 from syrin.enums import DecisionAction
 from syrin.guardrails.base import Guardrail
@@ -61,7 +60,7 @@ class ThresholdApproval(Guardrail):
 
         # Track approvals: request_id -> set of approvers
         self._approvals: dict[str, set[str]] = {}
-        self._rejections: dict[str, list[dict[str, Any]]] = {}
+        self._rejections: dict[str, list[dict[str, object]]] = {}
         self._request_times: dict[str, datetime] = {}
 
     async def evaluate(self, context: GuardrailContext) -> GuardrailDecision:
@@ -87,7 +86,7 @@ class ThresholdApproval(Guardrail):
 
         # Check if request has expired
         if request_id in self._request_times:
-            elapsed = (datetime.now() - self._request_times[request_id]).total_seconds()
+            elapsed = (datetime.now() - self._request_times[request_id]).total_seconds()  # type: ignore[index]
             if elapsed > self.timeout:
                 return GuardrailDecision(
                     passed=False,
@@ -102,21 +101,21 @@ class ThresholdApproval(Guardrail):
                 )
         else:
             # First time seeing this request
-            self._request_times[request_id] = datetime.now()
+            self._request_times[request_id] = datetime.now()  # type: ignore[index]
 
         # Check for rejections
-        if request_id in self._rejections and self._rejections[request_id]:
-            rejection = self._rejections[request_id][0]
+        if request_id in self._rejections and self._rejections[request_id]:  # type: ignore[index]
+            rejection = self._rejections[request_id][0]  # type: ignore[index]
             return GuardrailDecision(
                 passed=False,
                 rule="approval_rejected",
                 reason=f"Rejected by {rejection['approver']}: {rejection.get('reason', 'No reason')}",
                 action=DecisionAction.BLOCK,
-                metadata={"request_id": request_id, "rejections": self._rejections[request_id]},
+                metadata={"request_id": request_id, "rejections": self._rejections[request_id]},  # type: ignore[index]
             )
 
         # Check approvals
-        approvals = self._approvals.get(request_id, set())
+        approvals = self._approvals.get(request_id, set())  # type: ignore[call-overload]
         approval_count = len(approvals)
 
         if approval_count >= self.k:

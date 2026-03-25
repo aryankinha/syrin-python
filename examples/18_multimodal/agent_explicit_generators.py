@@ -44,7 +44,7 @@ def main() -> None:
         ),
         image_generation=img_gen,
         video_generation=vid_gen,
-        budget=Budget(run=5.0),  # Image/video generation cost is recorded automatically
+        budget=Budget(max_cost=5.0),  # Image/video generation cost is recorded automatically
     )
 
     tool_names = [t.name for t in agent._tools]
@@ -53,7 +53,7 @@ def main() -> None:
     print("  video_generation:", "set" if agent._video_generator else "None")
 
     if "generate_image" in tool_names:
-        r = agent.response("Create a simple image of a blue square.")
+        r = agent.run("Create a simple image of a blue square.")
         print("Image response:", (r.content or "")[:150])
         print("Cost (includes LLM + image generation):", r.cost)
     else:

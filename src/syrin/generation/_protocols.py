@@ -5,7 +5,7 @@ Implement these to plug in different backends (Gemini, DALL·E, ElevenLabs, etc.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from syrin.generation import GenerationResult
@@ -22,7 +22,7 @@ class ImageGenerationProvider(Protocol):
         number_of_images: int = 1,
         output_mime_type: str = "image/png",
         model: str | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> list[GenerationResult]:
         """Generate image(s) from a text prompt.
 
@@ -53,7 +53,7 @@ class VideoGenerationProvider(Protocol):
         *,
         aspect_ratio: str = "16:9",
         model: str | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> GenerationResult:
         """Generate a short video from a text prompt.
 
@@ -79,7 +79,7 @@ class VoiceGenerationProvider(Protocol):
         voice_id: str = "default",
         speed: float = 1.0,
         language: str = "en",
-        **kwargs: Any,
+        **kwargs: object,
     ) -> GenerationResult:
         """Generate speech audio from text.
 
@@ -102,7 +102,7 @@ class VoiceGenerationProvider(Protocol):
         voice_id: str = "default",
         speed: float = 1.0,
         language: str = "en",
-        **kwargs: Any,
+        **kwargs: object,
     ) -> GenerationResult:
         """Async variant of generate."""
         ...

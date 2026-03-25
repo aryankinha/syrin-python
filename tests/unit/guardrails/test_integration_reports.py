@@ -330,7 +330,7 @@ class TestGuardrailHooks:
                 latency_ms=100,
             ),
         ):
-            agent.response("Test input")
+            agent.run("Test input")
 
         assert len(hooks_received) == 1
         assert hooks_received[0][0] == "input"
@@ -360,7 +360,7 @@ class TestGuardrailHooks:
                 latency_ms=100,
             ),
         ):
-            agent.response("Test input")
+            agent.run("Test input")
 
         assert len(hooks_received) == 1
         assert hooks_received[0][0] == "output"
@@ -376,7 +376,7 @@ class TestGuardrailHooks:
         agent = TestAgent()
         agent.events.on(Hook.GUARDRAIL_BLOCKED, lambda ctx: hooks_received.append(("blocked", ctx)))
 
-        agent.response("Test input")
+        agent.run("Test input")
 
         assert len(hooks_received) == 1
         assert hooks_received[0][0] == "blocked"
@@ -407,7 +407,7 @@ class TestGuardrailHooks:
                 latency_ms=100,
             ),
         ):
-            agent.response("Test input")
+            agent.run("Test input")
 
         assert len(hooks_received) == 0
 
@@ -428,7 +428,7 @@ class TestGuardrailInResponse:
             guardrails = [blocking_guardrail]
 
         agent = TestAgent()
-        result = agent.response("Blocked input")
+        result = agent.run("Blocked input")
 
         assert result.stop_reason == StopReason.GUARDRAIL
         assert result.content == ""
@@ -458,7 +458,7 @@ class TestGuardrailInResponse:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test input")
+            result = agent.run("Test input")
 
         assert result.stop_reason == StopReason.END_TURN
         assert result.report.guardrail.input_passed is True
@@ -503,7 +503,7 @@ class TestGuardrailInResponse:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test input")
+            result = agent.run("Test input")
 
         assert result.stop_reason == StopReason.GUARDRAIL
         assert result.report.guardrail.blocked is True
@@ -532,7 +532,7 @@ class TestGuardrailInResponse:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test input")
+            result = agent.run("Test input")
 
         # Should not be blocked because output guardrail wasn't checked
         assert result.report.guardrail.output_passed is True
@@ -559,7 +559,7 @@ class TestGuardrailInResponse:
                 latency_ms=100,
             ),
         ):
-            result1 = agent.response("First input")
+            result1 = agent.run("First input")
 
         # Reset mock for second call
         with patch.object(
@@ -575,7 +575,7 @@ class TestGuardrailInResponse:
                 latency_ms=200,
             ),
         ):
-            result2 = agent.response("Second input")
+            result2 = agent.run("Second input")
 
         # Each report should have its own data
         assert result1.report.tokens.input_tokens == 10
@@ -620,7 +620,7 @@ class TestGuardrailEdgeCases:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test input")
+            result = agent.run("Test input")
 
         # Exception should result in blocked
         assert result.stop_reason == StopReason.GUARDRAIL
@@ -658,7 +658,7 @@ class TestGuardrailEdgeCases:
                 ),
             ),
         ):
-            result = agent.response("Test input")
+            result = agent.run("Test input")
 
         assert result.stop_reason == StopReason.END_TURN
         assert "always_pass" in result.report.guardrail.input_guardrails
@@ -671,7 +671,7 @@ class TestGuardrailEdgeCases:
             guardrails = [passing_guardrail, blocking_guardrail]
 
         agent = TestAgent()
-        result = agent.response("Test input")
+        result = agent.run("Test input")
 
         assert result.stop_reason == StopReason.GUARDRAIL
         assert result.report.guardrail.blocked is True
@@ -700,7 +700,7 @@ class TestGuardrailEdgeCases:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test input")
+            result = agent.run("Test input")
 
         # Output guardrail should still be checked even with empty content
         assert result.report.guardrail.output_passed is True
@@ -729,7 +729,7 @@ class TestGuardrailEdgeCases:
                 latency_ms=100,
             ),
         ):
-            result = agent.response(long_input)
+            result = agent.run(long_input)
 
         assert result.report.guardrail.input_passed is True
 
@@ -757,7 +757,7 @@ class TestGuardrailEdgeCases:
                 latency_ms=100,
             ),
         ):
-            result = agent.response(special_input)
+            result = agent.run(special_input)
 
         assert result.report.guardrail.input_passed is True
 
@@ -785,7 +785,7 @@ class TestGuardrailEdgeCases:
                 latency_ms=100,
             ),
         ):
-            result = agent.response(unicode_input)
+            result = agent.run(unicode_input)
 
         assert result.report.guardrail.input_passed is True
         assert result.report.guardrail.output_passed is True
@@ -821,7 +821,7 @@ class TestReportDataAccuracy:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test")
+            result = agent.run("Test")
 
         assert result.report.tokens.input_tokens == 100
         assert result.report.tokens.output_tokens == 50
@@ -835,7 +835,7 @@ class TestReportDataAccuracy:
         class TestAgent(Agent):
             model = Model("openai/gpt-4o-mini")
             guardrails = [passing_guardrail]
-            budget = Budget(run=10.0)
+            budget = Budget(max_cost=10.0)
 
         agent = TestAgent()
 
@@ -852,7 +852,7 @@ class TestReportDataAccuracy:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test")
+            result = agent.run("Test")
 
         # Budget should be updated after the call
         assert result.budget_used is not None
@@ -880,7 +880,7 @@ class TestReportDataAccuracy:
                 latency_ms=100,
             ),
         ):
-            agent.response("Test")
+            agent.run("Test")
 
         # After response, agent.report should have data
         assert isinstance(agent.report, AgentReport)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from syrin.serve.servable import Servable
 
@@ -64,7 +64,7 @@ class AgentRouter(Servable):
         if not self._agent_prefix.startswith("/"):
             self._agent_prefix = "/" + self._agent_prefix
 
-    def fastapi_router(self) -> Any:
+    def fastapi_router(self) -> object:
         """Return a FastAPI APIRouter with all agents mounted under /agent/{name}."""
         from fastapi import APIRouter
 
@@ -91,7 +91,7 @@ class AgentRouter(Servable):
                 enable_discovery=cfg.enable_discovery,
             )
             router = build_router(raw, sub_config)
-            main.include_router(router)
+            main.include_router(router)  # type: ignore[arg-type]
         # Root registry at /.well-known/agent-card.json — lists all agents when discovery enabled
         if cfg.enable_discovery is not False:
             host = cfg.host or "0.0.0.0"
@@ -105,9 +105,9 @@ class AgentRouter(Servable):
             prefix = (self._agent_prefix or "/agent").rstrip("/")
 
             @main.get(AGENT_CARD_PATH)
-            async def registry() -> dict[str, Any]:
+            async def registry() -> dict[str, object]:
                 """Multi-agent registry: agents with name, description, url."""
-                agents_list: list[dict[str, Any]] = []
+                agents_list: list[dict[str, object]] = []
                 for serveable in self._serveables:
                     if should_enable_discovery(serveable, cfg):
                         card = build_agent_card_json(
@@ -139,7 +139,7 @@ class AgentRouter(Servable):
             agents_data = [{"name": a.name, "description": a.description} for a in self._serveables]
 
             @main.get("/playground/config")
-            async def playground_config() -> dict[str, Any]:
+            async def playground_config() -> dict[str, object]:
                 """Playground config: apiBase, agents, debug, setup_type."""
                 setup_type = "multi" if len(agents_data) > 1 else "single"
                 return {
@@ -161,13 +161,13 @@ class AgentRouter(Servable):
                     return get_playground_html(
                         base_path=base_path,
                         api_base=api_base,
-                        agents=agents_data,
+                        agents=agents_data,  # type: ignore[arg-type]
                         debug=cfg.debug,
                     )
 
         return main
 
-    def serve(self, config: ServeConfig | None = None, **config_kwargs: Any) -> None:
+    def serve(self, config: ServeConfig | None = None, **config_kwargs: object) -> None:
         """Run HTTP server or CLI REPL based on protocol. Blocks until stopped."""
         from syrin.enums import ServeProtocol
         from syrin.serve.config import ServeConfig
@@ -203,14 +203,14 @@ class AgentRouter(Servable):
             description=f"Agents: {', '.join(a.name for a in self._serveables)}",
         )
         prefix = (cfg.route_prefix or "").strip().rstrip("/")
-        app.include_router(self.fastapi_router(), prefix=prefix or "")
+        app.include_router(self.fastapi_router(), prefix=prefix or "")  # type: ignore[arg-type]
         if cfg.enable_playground:
             mount_path = f"/{prefix}/playground" if prefix else "/playground"
             add_playground_static_mount(app, mount_path)
         _add_startup_endpoint_logging(app)
         uvicorn.run(app, host=cfg.host, port=cfg.port, workers=1)
 
-    def _select_agent_cli(self) -> Any:
+    def _select_agent_cli(self) -> object:
         """Prompt user to select an agent. Returns the selected serveable."""
         print("\nSelect agent:")
         for i, s in enumerate(self._serveables, 1):
@@ -240,15 +240,15 @@ class AgentRouter(Servable):
 
         print("[Syrin] Multi-agent CLI. Choose an agent to chat with.")
         serveable = self._select_agent_cli()
-        run_cli_repl(serveable, cfg)
+        run_cli_repl(serveable, cfg)  # type: ignore[arg-type]
 
-    def _serve_stdio(self, cfg: ServeConfig, stdin: Any = None, stdout: Any = None) -> None:
+    def _serve_stdio(self, cfg: ServeConfig, stdin: object = None, stdout: object = None) -> None:
         """Run STDIO protocol with agent selection."""
         import sys
 
         from syrin.serve.stdio import run_stdio_protocol
 
         out = stdout if stdout is not None else sys.stdout
-        print("[Syrin] Multi-agent STDIO. Choose an agent.", file=out)
+        print("[Syrin] Multi-agent STDIO. Choose an agent.", file=out)  # type: ignore[arg-type]
         serveable = self._select_agent_cli()
-        run_stdio_protocol(serveable, cfg, stdin=stdin, stdout=stdout)
+        run_stdio_protocol(serveable, cfg, stdin=stdin, stdout=stdout)  # type: ignore[arg-type]

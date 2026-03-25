@@ -21,7 +21,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 # Avoid circular import; protocols are used for type hints only
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 from syrin.enums import AspectRatio, Hook, OutputMimeType, VoiceOutputFormat
 from syrin.generation._protocols import (
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     pass
 
 
-def _image_provider_factory(provider_name: str) -> Callable[..., ImageGenerator]:
+def _image_provider_factory(provider_name: str) -> Callable[..., ImageGenerator]:  # type: ignore[explicit-any]
     """Return a callable that creates ImageGenerator with the given provider."""
 
     def _create(
@@ -45,7 +45,7 @@ def _image_provider_factory(provider_name: str) -> Callable[..., ImageGenerator]
         aspect_ratio: AspectRatio = AspectRatio.ONE_TO_ONE,
         number_of_images: int = 1,
         output_mime_type: OutputMimeType = OutputMimeType.IMAGE_PNG,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> ImageGenerator:
         from syrin.generation._registry import get_image_provider
 
@@ -66,7 +66,7 @@ def _image_provider_factory(provider_name: str) -> Callable[..., ImageGenerator]
     return _create
 
 
-def _video_provider_factory(provider_name: str) -> Callable[..., VideoGenerator]:
+def _video_provider_factory(provider_name: str) -> Callable[..., VideoGenerator]:  # type: ignore[explicit-any]
     """Return a callable that creates VideoGenerator with the given provider."""
 
     def _create(
@@ -76,7 +76,7 @@ def _video_provider_factory(provider_name: str) -> Callable[..., VideoGenerator]
         aspect_ratio: AspectRatio = AspectRatio.SIXTEEN_NINE,
         poll_interval_seconds: float = 10.0,
         poll_timeout_seconds: float = 300.0,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> VideoGenerator:
         from syrin.generation._registry import get_video_provider
 
@@ -93,7 +93,7 @@ def _video_provider_factory(provider_name: str) -> Callable[..., VideoGenerator]
     return _create
 
 
-def _voice_provider_factory(provider_name: str) -> Callable[..., VoiceGenerator]:
+def _voice_provider_factory(provider_name: str) -> Callable[..., VoiceGenerator]:  # type: ignore[explicit-any]
     """Return a callable that creates VoiceGenerator with the given provider."""
 
     def _create(
@@ -104,7 +104,7 @@ def _voice_provider_factory(provider_name: str) -> Callable[..., VoiceGenerator]
         speed: float = 1.0,
         language: str = "en",
         output_format: VoiceOutputFormat | str = VoiceOutputFormat.MP3,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> VoiceGenerator:
         from syrin.generation._registry import get_voice_provider
 
@@ -140,7 +140,7 @@ def _voice_provider_factory(provider_name: str) -> Callable[..., VoiceGenerator]
 class _ImageGeneratorMeta(type):
     """Metaclass for dynamic provider namespaces: ImageGenerator.Leonardo() when registered."""
 
-    def __getattr__(cls, name: str) -> Any:
+    def __getattr__(cls, name: str) -> object:
         from syrin.generation._registry import is_image_provider_registered
 
         provider_name = name.lower()
@@ -155,7 +155,7 @@ class _ImageGeneratorMeta(type):
 class _VideoGeneratorMeta(type):
     """Metaclass for dynamic provider namespaces: VideoGenerator.Leonardo() when registered."""
 
-    def __getattr__(cls, name: str) -> Any:
+    def __getattr__(cls, name: str) -> object:
         from syrin.generation._registry import is_video_provider_registered
 
         provider_name = name.lower()
@@ -170,7 +170,7 @@ class _VideoGeneratorMeta(type):
 class _VoiceGeneratorMeta(type):
     """Metaclass for dynamic provider namespaces: VoiceGenerator.ElevenLabs() when registered."""
 
-    def __getattr__(cls, name: str) -> Any:
+    def __getattr__(cls, name: str) -> object:
         from syrin.generation._registry import is_voice_provider_registered
 
         provider_name = name.lower()
@@ -220,7 +220,7 @@ class ImageGenerator(metaclass=_ImageGeneratorMeta):
         aspect_ratio: AspectRatio = AspectRatio.ONE_TO_ONE,
         number_of_images: int = 1,
         output_mime_type: OutputMimeType = OutputMimeType.IMAGE_PNG,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> ImageGenerator:
         """Create ImageGenerator from a registered provider by name.
 
@@ -245,8 +245,8 @@ class ImageGenerator(metaclass=_ImageGeneratorMeta):
         model: str | None = None,
         number_of_images: int | None = None,
         output_mime_type: OutputMimeType | None = None,
-        emit: Callable[[str, dict[str, Any]], None] | None = None,
-        **kwargs: Any,
+        emit: Callable[[str, dict[str, object]], None] | None = None,
+        **kwargs: object,
     ) -> list[GenerationResult]:
         """Generate image(s) from a text prompt.
 
@@ -267,7 +267,7 @@ class ImageGenerator(metaclass=_ImageGeneratorMeta):
         m = model or self.image_model
         n = number_of_images if number_of_images is not None else self.number_of_images
         mime = (output_mime_type or self.output_mime_type).value
-        ctx: dict[str, Any] = {
+        ctx: dict[str, object] = {
             "prompt": prompt,
             "aspect_ratio": ar,
             "model": m,
@@ -332,7 +332,7 @@ class VideoGenerator(metaclass=_VideoGeneratorMeta):
         aspect_ratio: AspectRatio = AspectRatio.SIXTEEN_NINE,
         poll_interval_seconds: float = 10.0,
         poll_timeout_seconds: float = 300.0,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> VideoGenerator:
         """Create VideoGenerator from a registered provider by name.
 
@@ -357,8 +357,8 @@ class VideoGenerator(metaclass=_VideoGeneratorMeta):
         model: str | None = None,
         poll_interval_seconds: float | None = None,
         poll_timeout_seconds: float | None = None,
-        emit: Callable[[str, dict[str, Any]], None] | None = None,
-        **kwargs: Any,
+        emit: Callable[[str, dict[str, object]], None] | None = None,
+        **kwargs: object,
     ) -> GenerationResult:
         """Generate a short video from a text prompt.
 
@@ -383,7 +383,7 @@ class VideoGenerator(metaclass=_VideoGeneratorMeta):
             else self.poll_interval_seconds
         )
         pt = poll_timeout_seconds if poll_timeout_seconds is not None else self.poll_timeout_seconds
-        ctx: dict[str, Any] = {
+        ctx: dict[str, object] = {
             "prompt": prompt,
             "aspect_ratio": ar,
             "model": m,
@@ -415,8 +415,8 @@ class VideoGenerator(metaclass=_VideoGeneratorMeta):
         model: str | None = None,
         poll_interval_seconds: float | None = None,
         poll_timeout_seconds: float | None = None,
-        emit: Callable[[str, dict[str, Any]], None] | None = None,
-        **kwargs: Any,
+        emit: Callable[[str, dict[str, object]], None] | None = None,
+        **kwargs: object,
     ) -> GenerationResult:
         """Generate video asynchronously. Uses asyncio.sleep — does not block event loop."""
         ar = (aspect_ratio or self.aspect_ratio).value
@@ -427,7 +427,7 @@ class VideoGenerator(metaclass=_VideoGeneratorMeta):
             else self.poll_interval_seconds
         )
         pt = poll_timeout_seconds if poll_timeout_seconds is not None else self.poll_timeout_seconds
-        ctx: dict[str, Any] = {"prompt": prompt, "aspect_ratio": ar, "model": m}
+        ctx: dict[str, object] = {"prompt": prompt, "aspect_ratio": ar, "model": m}
         if emit:
             emit(Hook.GENERATION_VIDEO_START, ctx)
         try:
@@ -499,7 +499,7 @@ class VoiceGenerator(metaclass=_VoiceGeneratorMeta):
         speed: float = 1.0,
         language: str = "en",
         output_format: str | VoiceOutputFormat = "mp3",
-        **kwargs: Any,
+        **kwargs: object,
     ) -> VoiceGenerator:
         """Create VoiceGenerator from a registered provider by name."""
         result: VoiceGenerator = _voice_provider_factory(name.lower())(
@@ -521,15 +521,15 @@ class VoiceGenerator(metaclass=_VoiceGeneratorMeta):
         speed: float | None = None,
         language: str | None = None,
         output_format: str | None = None,
-        emit: Callable[[str, dict[str, Any]], None] | None = None,
-        **kwargs: Any,
+        emit: Callable[[str, dict[str, object]], None] | None = None,
+        **kwargs: object,
     ) -> GenerationResult:
         """Generate speech from text."""
         vid = voice_id if voice_id is not None else self.voice_id
         spd = speed if speed is not None else self.speed
         lang = language if language is not None else self.language
         fmt = output_format if output_format is not None else self.output_format
-        ctx: dict[str, Any] = {
+        ctx: dict[str, object] = {
             "text": text[:100] + "..." if len(text) > 100 else text,
             "voice_id": vid,
             "model": self.voice_model,
@@ -562,8 +562,8 @@ class VoiceGenerator(metaclass=_VoiceGeneratorMeta):
         speed: float | None = None,
         language: str | None = None,
         output_format: str | None = None,
-        emit: Callable[[str, dict[str, Any]], None] | None = None,
-        **kwargs: Any,
+        emit: Callable[[str, dict[str, object]], None] | None = None,
+        **kwargs: object,
     ) -> GenerationResult:
         """Async variant of generate."""
         import asyncio
@@ -574,7 +574,7 @@ class VoiceGenerator(metaclass=_VoiceGeneratorMeta):
             spd = speed if speed is not None else self.speed
             lang = language if language is not None else self.language
             fmt = output_format if output_format is not None else self.output_format
-            ctx: dict[str, Any] = {
+            ctx: dict[str, object] = {
                 "text": text[:100] + "..." if len(text) > 100 else text,
                 "model": self.voice_model,
             }

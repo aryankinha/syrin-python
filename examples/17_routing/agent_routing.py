@@ -47,7 +47,7 @@ def main() -> None:
         model=models_list,
         model_router=RoutingConfig(router=router),
         system_prompt="You are helpful.",
-        budget=Budget(run=1.0),
+        budget=Budget(max_cost=1.0),
         debug=use_trace,
     )
 
@@ -72,7 +72,7 @@ def main() -> None:
         ("write a function to sort a list", TaskType.CODE),
     ]
     for prompt, task in prompts:
-        r = agent.response(prompt, task_type=task)
+        r = agent.run(prompt, task_type=task)
         print(f"  {prompt!r}")
         print(
             f"    -> {r.routing_reason.selected_model if r.routing_reason else 'N/A'} | {r.routing_reason.reason if r.routing_reason else 'N/A'}"

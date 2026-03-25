@@ -38,7 +38,7 @@ def _override_payload(agent_id: str, version: int = 1) -> OverridePayload:
     return OverridePayload(
         agent_id=agent_id,
         version=version,
-        overrides=[ConfigOverride(path="budget.run", value=2.0)],
+        overrides=[ConfigOverride(path="budget.max_cost", value=2.0)],
     )
 
 

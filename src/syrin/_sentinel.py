@@ -5,6 +5,4 @@ when resolving subclass-inherited defaults. NOT_PROVIDED means 'use class defaul
 None can mean 'explicitly set to None'. Not part of the public API.
 """
 
-from typing import Any
-
-NOT_PROVIDED: Any = object()
+NOT_PROVIDED: object = object()

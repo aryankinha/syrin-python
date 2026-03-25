@@ -6,8 +6,6 @@ can access them without circular imports.
 
 from __future__ import annotations
 
-from typing import Any
-
 from syrin.generation._cartesia_voice import CartesiaVoiceProvider
 from syrin.generation._deepgram_voice import DeepgramVoiceProvider
 from syrin.generation._elevenlabs_voice import ElevenLabsVoiceProvider
@@ -26,7 +24,7 @@ _IMAGE_PROVIDERS: dict[str, type[ImageGenerationProvider]] = {
     "dalle": DalleImageProvider,
 }
 _VIDEO_PROVIDERS: dict[str, type[VideoGenerationProvider]] = {
-    "gemini": GeminiVideoProvider,
+    "gemini": GeminiVideoProvider,  # type: ignore[dict-item]
 }
 
 
@@ -42,7 +40,7 @@ def register_video_provider(name: str, cls: type[VideoGenerationProvider]) -> No
 
 def get_image_provider(
     name: str = "gemini",
-    **kwargs: Any,
+    **kwargs: object,
 ) -> ImageGenerationProvider:
     """Create an image provider instance by registered name."""
     cls = _IMAGE_PROVIDERS.get(name.lower())
@@ -56,7 +54,7 @@ def get_image_provider(
 
 def get_video_provider(
     name: str = "gemini",
-    **kwargs: Any,
+    **kwargs: object,
 ) -> VideoGenerationProvider:
     """Create a video provider instance by registered name."""
     cls = _VIDEO_PROVIDERS.get(name.lower())
@@ -79,11 +77,11 @@ def is_video_provider_registered(name: str) -> bool:
 
 
 _VOICE_PROVIDERS: dict[str, type[VoiceGenerationProvider]] = {
-    "openai": OpenAIVoiceProvider,
-    "elevenlabs": ElevenLabsVoiceProvider,
-    "deepgram": DeepgramVoiceProvider,
-    "cartesia": CartesiaVoiceProvider,
-    "sarvam": SarvamVoiceProvider,
+    "openai": OpenAIVoiceProvider,  # type: ignore[dict-item]
+    "elevenlabs": ElevenLabsVoiceProvider,  # type: ignore[dict-item]
+    "deepgram": DeepgramVoiceProvider,  # type: ignore[dict-item]
+    "cartesia": CartesiaVoiceProvider,  # type: ignore[dict-item]
+    "sarvam": SarvamVoiceProvider,  # type: ignore[dict-item]
 }
 
 
@@ -94,7 +92,7 @@ def register_voice_provider(name: str, cls: type[VoiceGenerationProvider]) -> No
 
 def get_voice_provider(
     name: str = "openai",
-    **kwargs: Any,
+    **kwargs: object,
 ) -> VoiceGenerationProvider:
     """Create a voice provider instance by registered name."""
     cls = _VOICE_PROVIDERS.get(name.lower())

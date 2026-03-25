@@ -93,7 +93,7 @@ class TestGuardrailReport:
             guardrails = [blocking_guardrail]
 
         agent = TestAgent()
-        result = agent.response("Blocked input")
+        result = agent.run("Blocked input")
 
         assert result.stop_reason == StopReason.GUARDRAIL
         assert result.content == ""
@@ -123,7 +123,7 @@ class TestGuardrailReport:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test input")
+            result = agent.run("Test input")
 
         assert result.stop_reason == StopReason.END_TURN
         assert result.report.guardrail.input_passed is True
@@ -166,7 +166,7 @@ class TestGuardrailReport:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test input")
+            result = agent.run("Test input")
 
         assert result.stop_reason == StopReason.GUARDRAIL
         assert result.report.guardrail.blocked is True
@@ -206,7 +206,7 @@ class TestGuardrailHooks:
                 latency_ms=100,
             ),
         ):
-            agent.response("Test input")
+            agent.run("Test input")
 
         assert len(hooks_received) == 1
         assert hooks_received[0][0] == "input"
@@ -236,7 +236,7 @@ class TestGuardrailHooks:
                 latency_ms=100,
             ),
         ):
-            agent.response("Test input")
+            agent.run("Test input")
 
         assert len(hooks_received) == 1
         assert hooks_received[0][0] == "output"
@@ -252,7 +252,7 @@ class TestGuardrailHooks:
         agent = TestAgent()
         agent.events.on(Hook.GUARDRAIL_BLOCKED, lambda ctx: hooks_received.append(("blocked", ctx)))
 
-        agent.response("Test input")
+        agent.run("Test input")
 
         assert len(hooks_received) == 1
         assert hooks_received[0][0] == "blocked"
@@ -298,7 +298,7 @@ class TestGuardrailReportEdgeCases:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test input")
+            result = agent.run("Test input")
 
         # Exception should result in blocked
         assert result.stop_reason == StopReason.GUARDRAIL
@@ -336,7 +336,7 @@ class TestGuardrailReportEdgeCases:
                 ),
             ),
         ):
-            result = agent.response("Test input")
+            result = agent.run("Test input")
 
         assert result.stop_reason == StopReason.END_TURN
         assert "always_pass" in result.report.guardrail.input_guardrails

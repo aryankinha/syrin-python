@@ -17,8 +17,6 @@ Each backend may have different optional dependencies:
 
 from __future__ import annotations
 
-from typing import Any
-
 from syrin.enums import MemoryBackend
 
 from .chroma import ChromaBackend
@@ -31,7 +29,7 @@ from .sqlite import SQLiteBackend
 # Base type for all backends
 BackendBase = InMemoryBackend
 
-BACKENDS: dict[MemoryBackend, type[Any]] = {
+BACKENDS: dict[MemoryBackend, type[object]] = {
     MemoryBackend.MEMORY: InMemoryBackend,
     MemoryBackend.SQLITE: SQLiteBackend,
     MemoryBackend.QDRANT: QdrantBackend,
@@ -41,7 +39,7 @@ BACKENDS: dict[MemoryBackend, type[Any]] = {
 }
 
 
-def get_backend(backend: MemoryBackend, **kwargs: Any) -> InMemoryBackend:
+def get_backend(backend: MemoryBackend, **kwargs: object) -> InMemoryBackend:
     """Get a memory backend instance.
 
     Args:
@@ -72,7 +70,7 @@ def get_backend(backend: MemoryBackend, **kwargs: Any) -> InMemoryBackend:
     backend_class = BACKENDS.get(backend)
     if backend_class is None:
         raise ValueError(f"Unknown memory backend: {backend}. Available: {list(BACKENDS.keys())}")
-    return backend_class(**kwargs)  # type: ignore[no-any-return]
+    return backend_class(**kwargs)  # type: ignore[return-value]
 
 
 __all__ = [

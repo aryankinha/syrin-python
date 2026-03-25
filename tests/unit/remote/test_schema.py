@@ -26,11 +26,11 @@ class TestExtractPydanticSchema:
     """Pydantic model schema extraction."""
 
     def test_budget_run_field(self) -> None:
-        """Budget.run has path budget.run, type float, ge=0 constraint."""
+        """Budget.max_cost has path budget.max_cost, type float, ge=0 constraint."""
         fields = extract_pydantic_schema(Budget, "budget")
-        run = next((f for f in fields if f.name == "run"), None)
+        run = next((f for f in fields if f.name == "max_cost"), None)
         assert run is not None
-        assert run.path == "budget.run"
+        assert run.path == "budget.max_cost"
         assert run.type == "float"
         assert run.constraints.get("ge") == 0
         assert run.default is None
@@ -51,9 +51,9 @@ class TestExtractPydanticSchema:
         assert on_exceeded.remote_excluded is True
 
     def test_budget_per_nested_children(self) -> None:
-        """Budget.per (RateLimit) has children with budget.per.hour, etc."""
+        """Budget.rate_limits (RateLimit) has children with budget.rate_limits.hour, etc."""
         fields = extract_pydantic_schema(Budget, "budget")
-        per = next((f for f in fields if f.name == "per"), None)
+        per = next((f for f in fields if f.name == "rate_limits"), None)
         assert per is not None
         assert per.type == "object"
         assert per.children is not None
@@ -61,7 +61,7 @@ class TestExtractPydanticSchema:
         assert "hour" in names
         assert "day" in names
         child_hour = next(c for c in per.children if c.name == "hour")
-        assert child_hour.path == "budget.per.hour"
+        assert child_hour.path == "budget.rate_limits.hour"
         assert child_hour.type == "float"
 
     def test_decay_strategy_enum_values(self) -> None:
@@ -123,7 +123,7 @@ class TestExtractPydanticSchema:
     def test_description_propagated(self) -> None:
         """Field description from Pydantic Field is set."""
         fields = extract_pydantic_schema(Budget, "budget")
-        run = next((f for f in fields if f.name == "run"), None)
+        run = next((f for f in fields if f.name == "max_cost"), None)
         assert run is not None
         assert run.description is not None and "cost" in run.description.lower()
 
@@ -292,15 +292,15 @@ class TestExtractAgentSchema:
 
         agent = Agent(
             model=Model.Almock(),
-            budget=Budget(run=1.0),
+            budget=Budget(max_cost=1.0),
         )
         schema = extract_agent_schema(agent)
         assert "budget" in schema.sections
         budget_section = schema.sections["budget"]
         assert budget_section.class_name == "Budget"
-        run = next((f for f in budget_section.fields if f.name == "run"), None)
+        run = next((f for f in budget_section.fields if f.name == "max_cost"), None)
         assert run is not None
-        assert schema.current_values.get("budget.run") == 1.0
+        assert schema.current_values.get("budget.max_cost") == 1.0
 
     def test_agent_schema_memory_section_when_memory_set(self) -> None:
         """When agent has memory, memory section present."""

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import re
-from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Literal, TypeVar, cast, overload
 
 from pydantic import BaseModel
 
@@ -145,7 +145,7 @@ class ModelVariable:
         self,
         name: str,
         type_hint: type,
-        default: Any = None,
+        default: object = None,
         description: str = "",
         required: bool = False,
     ) -> None:
@@ -182,7 +182,7 @@ class ModelSettings:
         top_p: float | None = None,
         top_k: int | None = None,
         stop: list[str] | None = None,
-        **extra: Any,
+        **extra: object,
     ) -> None:
         self.context_window = context_window
         self.max_output_tokens = max_output_tokens
@@ -211,8 +211,8 @@ class Middleware:
     def transform_request(
         self,
         messages: list[Message],
-        **kwargs: Any,
-    ) -> tuple[list[Message], dict[str, Any]]:
+        **kwargs: object,
+    ) -> tuple[list[Message], dict[str, object]]:
         return messages, kwargs
 
     def transform_response(self, response: ProviderResponse) -> ProviderResponse:
@@ -263,7 +263,7 @@ class Model:
         priority: int = 100,
         supports_tools: bool = True,
         profile_name: str | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> Model:
         """Create an OpenAI model.
 
@@ -306,7 +306,7 @@ class Model:
             priority=priority,
             supports_tools=supports_tools,
             profile_name=profile_name,
-            **kwargs,
+            **kwargs,  # type: ignore[arg-type]
         )
 
     @staticmethod
@@ -332,7 +332,7 @@ class Model:
         priority: int = 100,
         supports_tools: bool = True,
         profile_name: str | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> Model:
         """Create an Anthropic Claude model.
 
@@ -370,7 +370,7 @@ class Model:
             priority=priority,
             supports_tools=supports_tools,
             profile_name=profile_name,
-            **kwargs,
+            **kwargs,  # type: ignore[arg-type]
         )
 
     @staticmethod
@@ -396,7 +396,7 @@ class Model:
         priority: int = 100,
         supports_tools: bool = True,
         profile_name: str | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> Model:
         """Create an Ollama (local) model. No API key needed.
 
@@ -432,7 +432,7 @@ class Model:
             priority=priority,
             supports_tools=supports_tools,
             profile_name=profile_name,
-            **kwargs,
+            **kwargs,  # type: ignore[arg-type]
         )
 
     @staticmethod
@@ -458,7 +458,7 @@ class Model:
         priority: int = 100,
         supports_tools: bool = True,
         profile_name: str | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> Model:
         """Create a Google Gemini model.
 
@@ -497,7 +497,7 @@ class Model:
             priority=priority,
             supports_tools=supports_tools,
             profile_name=profile_name,
-            **kwargs,
+            **kwargs,  # type: ignore[arg-type]
         )
 
     @staticmethod
@@ -522,7 +522,7 @@ class Model:
         priority: int = 100,
         supports_tools: bool = True,
         profile_name: str | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> Model:
         """Create an OpenRouter model. Single API, multiple providers.
 
@@ -562,7 +562,7 @@ class Model:
             priority=priority,
             supports_tools=supports_tools,
             profile_name=profile_name,
-            **kwargs,
+            **kwargs,  # type: ignore[arg-type]
         )
 
     @staticmethod
@@ -588,7 +588,7 @@ class Model:
         priority: int = 100,
         supports_tools: bool = True,
         profile_name: str | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> Model:
         """Create a LiteLLM model. Supports 100+ providers via unified interface.
 
@@ -626,7 +626,7 @@ class Model:
             priority=priority,
             supports_tools=supports_tools,
             profile_name=profile_name,
-            **kwargs,
+            **kwargs,  # type: ignore[arg-type]
         )
 
     @staticmethod
@@ -654,7 +654,7 @@ class Model:
         priority: int = 100,
         supports_tools: bool = True,
         profile_name: str | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> Model:
         """Create a model for any OpenAI-compatible or custom API endpoint.
 
@@ -710,7 +710,7 @@ class Model:
             priority=priority,
             supports_tools=supports_tools,
             profile_name=profile_name,
-            **kwargs,
+            **kwargs,  # type: ignore[arg-type]
         )
 
     @staticmethod
@@ -730,7 +730,7 @@ class Model:
         priority: int = 100,
         supports_tools: bool = True,
         profile_name: str | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> Model:
         """Create an Almock (An LLM Mock) model — no API calls, for testing and development.
 
@@ -753,7 +753,7 @@ class Model:
         Example:
             model = Model.Almock(pricing_tier="medium", lorem_length=50)
             agent = Agent(model=model)
-            r = agent.response("Hello")
+            r = agent.run("Hello")
         """
         from syrin.enums import AlmockPricing
         from syrin.providers.almock import ALMOCK_PRICING
@@ -784,7 +784,7 @@ class Model:
             priority=priority,
             supports_tools=supports_tools,
             profile_name=profile_name,
-            **kwargs,
+            **kwargs,  # type: ignore[arg-type]
         )
 
     def __init__(
@@ -817,7 +817,7 @@ class Model:
         priority: int = 100,
         supports_tools: bool = True,
         profile_name: str | None = None,
-        **provider_kwargs: Any,
+        **provider_kwargs: object,
     ) -> None:
         # Check if this is a subclass (for custom LLM providers)
         is_subclass = type(self) is not Model
@@ -974,7 +974,7 @@ class Model:
         return self._version
 
     @property
-    def metadata(self) -> dict[str, Any]:
+    def metadata(self) -> dict[str, object]:
         """Metadata dict: model_id, provider, context_window, has_fallback, etc.
 
         Use for logging, analytics, or passing context to downstream systems.
@@ -1101,7 +1101,7 @@ class Model:
         stop: list[str] | None = None,
         context_window: int | None = None,
         output: type | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> Model:
         """Return a copy of this model with overridden parameters.
 
@@ -1140,8 +1140,8 @@ class Model:
             supports_tools=self._supports_tools,
             profile_name=self._profile_name,
             _internal=True,
-            **self._provider_kwargs,
-            **kwargs,
+            **self._provider_kwargs,  # type: ignore[arg-type]
+            **kwargs,  # type: ignore[arg-type]
         )
 
     def with_fallback(self, *models: Model) -> Model:
@@ -1180,10 +1180,10 @@ class Model:
             supports_tools=self._supports_tools,
             profile_name=self._profile_name,
             _internal=True,
-            **self._provider_kwargs,
+            **self._provider_kwargs,  # type: ignore[arg-type]
         )
 
-    def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:
+    def get_remote_config_schema(self, section_key: str) -> tuple[object, dict[str, object]]:
         """RemoteConfigurable: return (schema, current_values) for the model section."""
         from syrin.remote._types import ConfigSchema, FieldSchema
 
@@ -1215,9 +1215,9 @@ class Model:
 
     def apply_remote_overrides(
         self,
-        agent: Any,
+        agent: object,
         pairs: list[tuple[str, object]],
-        section_schema: Any,
+        section_schema: object,
     ) -> None:
         """RemoteConfigurable: apply model overrides via agent.switch_model."""
         from syrin.remote._resolver_helpers import build_nested_update
@@ -1225,7 +1225,7 @@ class Model:
         section = getattr(section_schema, "section", None)
         if section != "model":
             return
-        update = build_nested_update(section_schema, pairs, "model")
+        update = build_nested_update(section_schema, pairs, "model")  # type: ignore[arg-type]
         if not update:
             return
         new_model: Model | None = None
@@ -1256,12 +1256,12 @@ class Model:
                 new_model = new_model.with_output(self._output_type)
         elif "temperature" in update or "max_tokens" in update:
             temp = (
-                float(update["temperature"])
+                float(update["temperature"])  # type: ignore[arg-type]
                 if "temperature" in update
                 else self._settings.temperature
             )
             max_tok = (
-                int(update["max_tokens"])
+                int(update["max_tokens"])  # type: ignore[call-overload]
                 if "max_tokens" in update
                 else self._settings.max_output_tokens
             )
@@ -1308,7 +1308,7 @@ class Model:
             supports_tools=supports_tools if supports_tools is not None else self._supports_tools,
             profile_name=profile_name if profile_name is not None else self._profile_name,
             _internal=True,
-            **self._provider_kwargs,
+            **self._provider_kwargs,  # type: ignore[arg-type]
         )
 
     def with_output(
@@ -1358,10 +1358,10 @@ class Model:
             supports_tools=self._supports_tools,
             profile_name=self._profile_name,
             _internal=True,
-            **self._provider_kwargs,
+            **self._provider_kwargs,  # type: ignore[arg-type]
         )
 
-    def _get_provider_instance(self) -> Any:
+    def _get_provider_instance(self) -> object:
         """Get the provider instance for this model."""
         if self._provider == "almock":
             from syrin.providers.almock import AlmockProvider
@@ -1404,7 +1404,7 @@ class Model:
         temperature: float | None = None,
         max_tokens: int | None = None,
         stream: bool = False,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> ProviderResponse | Iterator[ProviderResponse]:
         """Send messages to the LLM and return a response (sync).
 
@@ -1451,10 +1451,10 @@ class Model:
             if stream:
                 return cast(
                     Iterator[ProviderResponse],
-                    provider.stream_sync(messages, self.to_config(), tools, **settings),
+                    provider.stream_sync(messages, self.to_config(), tools, **settings),  # type: ignore[attr-defined]
                 )
 
-            response = provider.complete_sync(
+            response = provider.complete_sync(  # type: ignore[attr-defined]
                 messages=messages,
                 model=self.to_config(),
                 tools=tools,
@@ -1487,7 +1487,7 @@ class Model:
         temperature: float | None = None,
         max_tokens: int | None = None,
         stream: bool = False,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> ProviderResponse | AsyncIterator[ProviderResponse]:
         """Send messages to the LLM and return a response (async).
 
@@ -1529,7 +1529,7 @@ class Model:
             )
 
         try:
-            response = await provider.complete(
+            response = await provider.complete(  # type: ignore[attr-defined]
                 messages=messages,
                 model=self.to_config(),
                 tools=tools,
@@ -1558,7 +1558,7 @@ class Model:
         tools: list[ToolSpec] | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> AsyncIterator[ProviderResponse]:
         """Internal async streaming implementation."""
         provider = self._get_provider_instance()
@@ -1582,7 +1582,7 @@ class Model:
             )
 
         try:
-            async for chunk in provider.stream(messages, self.to_config(), tools, **settings):
+            async for chunk in provider.stream(messages, self.to_config(), tools, **settings):  # type: ignore[attr-defined]
                 yield chunk
         except Exception as e:
             self._record_provider_error_on_span(self._model_id, e)
@@ -1601,7 +1601,7 @@ class Model:
         tools: list[ToolSpec] | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> AsyncIterator[ProviderResponse]:
         """Stream response chunks asynchronously. Yields ProviderResponse per chunk."""
         async for chunk in self._astream_internal(
@@ -1660,23 +1660,23 @@ class Model:
         self,
         phase: Literal["request"],
         messages_or_response: list[Message],
-        **kwargs: Any,
-    ) -> tuple[list[Message], dict[str, Any]]: ...
+        **kwargs: object,
+    ) -> tuple[list[Message], dict[str, object]]: ...
 
     @overload
     def _apply_transformer(
         self,
         phase: Literal["response"],
         messages_or_response: ProviderResponse,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> ProviderResponse: ...
 
     def _apply_transformer(
         self,
         phase: str,
         messages_or_response: list[Message] | ProviderResponse,
-        **kwargs: Any,
-    ) -> tuple[list[Message], dict[str, Any]] | ProviderResponse:
+        **kwargs: object,
+    ) -> tuple[list[Message], dict[str, object]] | ProviderResponse:
         """Apply response transformer if set."""
         if self._transformer is None:
             if phase == "request":
@@ -1721,7 +1721,7 @@ class Model:
 
             span = current_span()
             if span is not None:
-                attrs: dict[str, Any] = {
+                attrs: dict[str, object] = {
                     SemanticAttributes.LLM_FALLBACK_FROM: from_model_id,
                     SemanticAttributes.LLM_FALLBACK_TO: to_model_id,
                 }
@@ -1738,7 +1738,7 @@ class Model:
         *,
         tools: list[ToolSpec] | None = None,
         initial_error: Exception | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> ProviderResponse | Iterator[ProviderResponse]:
         """Try fallback models in order."""
         failed_model_id = self._model_id
@@ -1746,7 +1746,7 @@ class Model:
         for fb in self._fallback:
             try:
                 self._record_fallback_on_span(failed_model_id, fb._model_id, last_error)
-                return fb.complete(messages, tools=tools, **kwargs)
+                return fb.complete(messages, tools=tools, **kwargs)  # type: ignore[arg-type]
             except Exception as e:
                 last_error = e
                 self._record_provider_error_on_span(fb._model_id, e)
@@ -1760,7 +1760,7 @@ class Model:
         *,
         tools: list[ToolSpec] | None = None,
         initial_error: Exception | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> ProviderResponse | AsyncIterator[ProviderResponse]:
         """Try fallback models in order (async)."""
         failed_model_id = self._model_id
@@ -1768,7 +1768,7 @@ class Model:
         for fb in self._fallback:
             try:
                 self._record_fallback_on_span(failed_model_id, fb._model_id, last_error)
-                return await fb.acomplete(messages, tools=tools, **kwargs)
+                return await fb.acomplete(messages, tools=tools, **kwargs)  # type: ignore[arg-type]
             except Exception as e:
                 last_error = e
                 self._record_provider_error_on_span(fb._model_id, e)
@@ -1782,7 +1782,7 @@ class Model:
         *,
         tools: list[ToolSpec] | None = None,
         initial_error: Exception | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> AsyncIterator[ProviderResponse]:
         """Try fallback models in order for streaming."""
         failed_model_id = self._model_id
@@ -1790,7 +1790,7 @@ class Model:
         for fb in self._fallback:
             try:
                 self._record_fallback_on_span(failed_model_id, fb._model_id, last_error)
-                async for chunk in fb.astream(messages, tools=tools, **kwargs):
+                async for chunk in fb.astream(messages, tools=tools, **kwargs):  # type: ignore[arg-type]
                     yield chunk
                 return
             except Exception as e:
@@ -1837,7 +1837,7 @@ class Model:
         return response
 
     @classmethod
-    def _create(cls, **kwargs: Any) -> Model:
+    def _create(cls, **kwargs: object) -> Model:
         """Internal method for creating Model instances (for testing).
 
         Use provider namespaces or inherit from Model instead:
@@ -1847,7 +1847,7 @@ class Model:
             class MyModel(Model):
                 ...
         """
-        return cls(**kwargs, _internal=True)
+        return cls(**kwargs, _internal=True)  # type: ignore[arg-type]
 
     def __repr__(self) -> str:
         fallback_info = f", {len(self._fallback)} fallbacks" if self._fallback else ""

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from syrin.guardrails.enums import GuardrailStage
 
@@ -32,26 +31,26 @@ class GuardrailContext:
     """Which stage of the pipeline this is (input/action/output)."""
 
     # Context objects (optional)
-    conversation: Any | None = field(default=None)
+    conversation: object | None = field(default=None)
     """Conversation history/object if available."""
 
-    user: Any | None = field(default=None)
+    user: object | None = field(default=None)
     """User object with identity and permissions."""
 
-    agent: Any | None = field(default=None)
+    agent: object | None = field(default=None)
     """Agent instance being guarded."""
 
-    budget: Any | None = field(default=None)
+    budget: object | None = field(default=None)
     """Budget tracker for this session."""
 
-    action: Any | None = field(default=None)
+    action: object | None = field(default=None)
     """Action being evaluated (for action-stage guardrails)."""
 
     # Additional metadata
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
     """Arbitrary metadata for this evaluation."""
 
-    def copy(self, **kwargs: Any) -> GuardrailContext:
+    def copy(self, **kwargs: object) -> GuardrailContext:
         """Create a copy with optional modifications.
 
         Args:
@@ -61,7 +60,7 @@ class GuardrailContext:
             New GuardrailContext with specified modifications.
         """
         # Build kwargs for new instance
-        new_kwargs: dict[str, Any] = {
+        new_kwargs: dict[str, object] = {
             "text": kwargs.get("text", self.text),
             "stage": kwargs.get("stage", self.stage),
             "conversation": kwargs.get("conversation", self.conversation),
@@ -72,9 +71,9 @@ class GuardrailContext:
             "metadata": kwargs.get("metadata", self.metadata.copy()),
         }
 
-        return GuardrailContext(**new_kwargs)
+        return GuardrailContext(**new_kwargs)  # type: ignore[arg-type]
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Convert context to dictionary for serialization.
 
         Returns:

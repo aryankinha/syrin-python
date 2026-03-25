@@ -19,7 +19,6 @@ import threading
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any
 
 from syrin.observability import Span
 
@@ -177,20 +176,20 @@ class MetricsCollector:
             tokens_input = attrs.get("llm.tokens.input", 0) or 0
             tokens_output = attrs.get("llm.tokens.output", 0) or 0
             tokens_total_attr = attrs.get("llm.tokens.total", 0) or 0
-            tokens_total = (tokens_input + tokens_output) or tokens_total_attr
+            tokens_total = (tokens_input + tokens_output) or tokens_total_attr  # type: ignore[operator]
             cost = attrs.get("llm.cost", 0)
 
-            self.increment("llm.requests.total", tags={"model": attrs.get("llm.model", "")})
-            self.record("llm.tokens.input", tokens_input)
-            self.record("llm.tokens.output", tokens_output)
-            self.record("llm.tokens.total", tokens_total)
-            self.record("llm.cost", cost)
+            self.increment("llm.requests.total", tags={"model": attrs.get("llm.model", "")})  # type: ignore[dict-item]
+            self.record("llm.tokens.input", tokens_input)  # type: ignore[arg-type]
+            self.record("llm.tokens.output", tokens_output)  # type: ignore[arg-type]
+            self.record("llm.tokens.total", tokens_total)  # type: ignore[arg-type]
+            self.record("llm.cost", cost)  # type: ignore[arg-type]
             self.timing("llm.latency", span.duration_ms)
 
         # Tool metrics
         elif span.kind.value == "tool":
             tool_name = attrs.get("tool.name", "unknown")
-            self.increment("tool.calls.total", tags={"tool": tool_name})
+            self.increment("tool.calls.total", tags={"tool": tool_name})  # type: ignore[dict-item]
             self.timing(f"tool.{tool_name}.latency", span.duration_ms)
 
         # Agent metrics
@@ -201,8 +200,8 @@ class MetricsCollector:
             )
 
             self.increment("agent.runs.total")
-            self.record("agent.cost", cost)
-            self.record("agent.iterations", iterations)
+            self.record("agent.cost", cost)  # type: ignore[arg-type]
+            self.record("agent.iterations", iterations)  # type: ignore[arg-type]
             self.timing("agent.latency", span.duration_ms)
 
             if span.status.value == "error":
@@ -214,9 +213,9 @@ class MetricsCollector:
             stage = attrs.get("guardrail.stage", "unknown")
 
             if passed:
-                self.increment("guardrail.passed.total", tags={"stage": stage})
+                self.increment("guardrail.passed.total", tags={"stage": stage})  # type: ignore[dict-item]
             else:
-                self.increment("guardrail.blocked.total", tags={"stage": stage})
+                self.increment("guardrail.blocked.total", tags={"stage": stage})  # type: ignore[dict-item]
 
         # Memory metrics
         elif span.kind.value == "memory":
@@ -224,15 +223,15 @@ class MetricsCollector:
             results = attrs.get("memory.results.count", 0)
 
             self.increment(f"memory.{op}.total")
-            self.record(f"memory.{op}.results", results)
+            self.record(f"memory.{op}.results", results)  # type: ignore[arg-type]
 
         # Budget metrics
         elif span.kind.value == "budget":
             remaining = attrs.get("budget.remaining")
             if remaining is not None:
-                self.gauge("budget.remaining", remaining)
+                self.gauge("budget.remaining", remaining)  # type: ignore[arg-type]
 
-    def get_summary(self, window: timedelta | None = None) -> dict[str, Any]:
+    def get_summary(self, window: timedelta | None = None) -> dict[str, object]:
         """Get a summary of all metrics."""
         return {
             "counters": dict(self._counters),

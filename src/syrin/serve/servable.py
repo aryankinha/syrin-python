@@ -6,7 +6,7 @@ serve() behavior that respects protocol (HTTP or CLI).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Union, cast
+from typing import TYPE_CHECKING, Union, cast
 
 if TYPE_CHECKING:
     from syrin.agent import Agent
@@ -35,9 +35,9 @@ class Servable:
         self,
         config: ServeConfig | None = None,
         *,
-        stdin: Any = None,
-        stdout: Any = None,
-        **config_kwargs: Any,
+        stdin: object = None,
+        stdout: object = None,
+        **config_kwargs: object,
     ) -> None:
         """Serve this agent or pipeline via HTTP, CLI, or STDIO. Blocks until stopped.
 
@@ -72,7 +72,7 @@ class Servable:
         from syrin.enums import ServeProtocol
         from syrin.serve.config import ServeConfig
 
-        cfg = config if isinstance(config, ServeConfig) else ServeConfig(**config_kwargs)
+        cfg = config if isinstance(config, ServeConfig) else ServeConfig(**config_kwargs)  # type: ignore[arg-type]
 
         if cfg.protocol == ServeProtocol.HTTP:
             try:
@@ -86,7 +86,7 @@ class Servable:
             app = create_http_app(cast(_ServableUnion, self), cfg)
             # workers=1: in-memory state (memory, budget) is per-process; multiple
             # workers would each have separate state, breaking memory and cost tracking
-            uvicorn.run(app, host=cfg.host, port=cfg.port, workers=1)
+            uvicorn.run(app, host=cfg.host, port=cfg.port, workers=1)  # type: ignore[arg-type]
 
         elif cfg.protocol == ServeProtocol.CLI:
             from syrin.serve.adapter import to_serveable
@@ -100,7 +100,7 @@ class Servable:
             from syrin.serve.stdio import run_stdio_protocol
 
             serveable = to_serveable(cast(_ServableUnion, self))
-            run_stdio_protocol(serveable, cfg, stdin=stdin, stdout=stdout)
+            run_stdio_protocol(serveable, cfg, stdin=stdin, stdout=stdout)  # type: ignore[arg-type]
 
         else:
             raise ValueError(f"Unknown protocol: {cfg.protocol}")

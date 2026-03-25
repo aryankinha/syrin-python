@@ -1,6 +1,6 @@
 [project]
 name = "syrin"
-version = "0.8.1"
+version = "0.9.0"
 description = "Python library for building AI agents with budget management, declarative definitions, and production-ready observability."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -109,7 +109,7 @@ warn_return_any = true
 warn_unused_ignores = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
-# disallow_any_explicit = true  # Target: enable after reducing Any usage
+disallow_any_explicit = true
 check_untyped_defs = true
 no_implicit_optional = true
 warn_redundant_casts = true
@@ -150,7 +150,7 @@ module = "deepgram"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "elevenlabs"
+module = ["elevenlabs", "elevenlabs.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

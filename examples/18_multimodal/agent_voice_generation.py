@@ -46,7 +46,7 @@ def main() -> None:
         model=model,
         output_media={Media.TEXT, Media.AUDIO},
         voice_generation=voice_gen,
-        budget=Budget(run=5.0),
+        budget=Budget(max_cost=5.0),
         system_prompt=(
             "You are helpful. When the user asks you to speak, say something aloud, "
             "or produce audio, use the generate_voice tool to create speech."
@@ -57,7 +57,7 @@ def main() -> None:
     print("Agent tools:", tool_names)
     if "generate_voice" in tool_names:
         print("  generate_voice: available")
-        r = agent.response("Say 'Hello, welcome to Syrin' in a friendly tone.")
+        r = agent.run("Say 'Hello, welcome to Syrin' in a friendly tone.")
         print("Voice request response:", (r.content or "")[:200])
         print("Cost (LLM + voice):", r.cost)
     else:

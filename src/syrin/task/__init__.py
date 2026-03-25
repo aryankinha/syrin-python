@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Callable
-from typing import Any, get_type_hints
+from typing import get_type_hints
 
 from syrin.types import TaskSpec
 
 
-def task(
-    func: Callable[..., Any] | None = None,
+def task(  # type: ignore[explicit-any]
+    func: Callable[..., object] | None = None,
     *,
     name: str | None = None,
 ) -> TaskSpec | Callable[..., TaskSpec]:
@@ -33,11 +33,11 @@ def task(
         ...         return self.response(f"Summarize: {text}").content
     """
 
-    def decorator(f: Callable[..., Any]) -> TaskSpec:
+    def decorator(f: Callable[..., object]) -> TaskSpec:  # type: ignore[explicit-any]
         task_name = name or f.__name__
         hints = get_type_hints(f) if hasattr(f, "__annotations__") else {}
         sig = inspect.signature(f)
-        parameters: dict[str, Any] = {}
+        parameters: dict[str, object] = {}
         for param_name, param in sig.parameters.items():
             if param_name in ("self", "cls"):
                 continue

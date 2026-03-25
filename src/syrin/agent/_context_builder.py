@@ -19,7 +19,7 @@ from syrin.enums import FormationMode, MessageRole
 from syrin.types import Message
 
 
-def _user_input_to_search_str(user_input: str | list[dict[str, Any]]) -> str:
+def _user_input_to_search_str(user_input: str | list[dict[str, object]]) -> str:
     """Extract text from user_input for memory search. Str passthrough; list[dict] -> text parts."""
     if isinstance(user_input, str):
         return user_input
@@ -33,18 +33,18 @@ def _user_input_to_search_str(user_input: str | list[dict[str, Any]]) -> str:
 
 
 def build_messages(
-    user_input: str | list[dict[str, Any]],
+    user_input: str | list[dict[str, object]],
     *,
     system_prompt: str,
-    tools: list[Any],
-    conversation_memory: Any = None,
-    memory_backend: Any = None,
-    persistent_memory: Any = None,
-    context_manager: Any = None,
+    tools: list[object],
+    conversation_memory: object = None,
+    memory_backend: object = None,
+    persistent_memory: object = None,
+    context_manager: object = None,
     get_capacity: Callable[[], ContextWindowCapacity],
     call_context: Context | None = None,
-    tracer: Any = None,
-    inject: list[dict[str, Any]] | None = None,
+    tracer: object = None,
+    inject: list[dict[str, object]] | None = None,
     inject_source_detail: str | None = None,
 ) -> list[Message]:
     """Build the message list for the next LLM call.
@@ -81,12 +81,12 @@ def build_messages(
             tracer,
             "memory.recall",
             {"memory.kind": "persistent"},
-            lambda: memory_backend.search(_user_input_to_search_str(user_input), None, top_k),
+            lambda: memory_backend.search(_user_input_to_search_str(user_input), None, top_k),  # type: ignore[attr-defined]
             result_attr=("MEMORY_RESULTS_COUNT", len),
         )
         if memories:
             memory_context = "## Relevant Memories:\n"
-            for mem in memories:
+            for mem in memories:  # type: ignore[attr-defined]
                 type_val = getattr(mem, "type", None)
                 type_str = (
                     type_val.value
@@ -100,9 +100,9 @@ def build_messages(
     if system_content:
         messages.append(Message(role=MessageRole.SYSTEM, content=system_content))
 
-    pulled_segments_data: list[dict[str, Any]] = []
+    pulled_segments_data: list[dict[str, object]] = []
     pull_scores_list: list[float] = []
-    output_chunks_data: list[dict[str, Any]] = []
+    output_chunks_data: list[dict[str, object]] = []
     output_chunk_scores_list: list[float] = []
 
     # Conversation: push (conversation_memory or persistent Memory) or pull (persistent Memory)
@@ -119,7 +119,7 @@ def build_messages(
     ):
         top_k = getattr(effective_context, "pull_top_k", 10)
         threshold = getattr(effective_context, "pull_threshold", 0.0)
-        pulled = persistent_memory.get_relevant_segments(
+        pulled = persistent_memory.get_relevant_segments(  # type: ignore[attr-defined]
             _user_input_to_search_str(user_input), top_k=top_k, threshold=threshold
         )
         for seg, score in pulled:
@@ -140,10 +140,10 @@ def build_messages(
             tracer,
             "memory.recall",
             {"memory.kind": "conversation"},
-            lambda: persistent_memory.get_conversation_messages(),
+            lambda: persistent_memory.get_conversation_messages(),  # type: ignore[attr-defined]
             result_attr=("MEMORY_RESULTS_COUNT", len),
         )
-        messages.extend(mem_messages)
+        messages.extend(mem_messages)  # type: ignore[arg-type]
 
     # Output chunks: when store_output_chunks=True, retrieve relevant chunks and add before current user
     if (
@@ -153,7 +153,7 @@ def build_messages(
     ):
         top_k_oc = getattr(effective_context, "output_chunk_top_k", 5)
         threshold_oc = getattr(effective_context, "output_chunk_threshold", 0.0)
-        oc_result = persistent_memory.get_relevant_output_chunks(
+        oc_result = persistent_memory.get_relevant_output_chunks(  # type: ignore[attr-defined]
             _user_input_to_search_str(user_input), top_k=top_k_oc, threshold=threshold_oc
         )
         for seg, score in oc_result:
@@ -192,7 +192,7 @@ def build_messages(
         return messages
 
     capacity = get_capacity()
-    payload = context_manager.prepare(
+    payload = context_manager.prepare(  # type: ignore[attr-defined]
         messages=msg_dicts,
         system_prompt=system_content,
         tools=tool_dicts,
@@ -220,13 +220,13 @@ def build_messages(
     return final_messages
 
 
-def _in_span(
-    tracer: Any,
+def _in_span(  # type: ignore[explicit-any]
+    tracer: object,
     name: str,
-    extra_attrs: dict[str, Any],
+    extra_attrs: dict[str, object],
     fn: Callable[[], Any],
     result_attr: tuple[str, Callable[[Any], int]] | None = None,
-) -> Any:
+) -> object:
     """Run fn inside a span if tracer is available. Return fn()."""
     if tracer is None or not hasattr(tracer, "span"):
         return fn()

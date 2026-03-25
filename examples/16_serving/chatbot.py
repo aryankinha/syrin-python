@@ -152,7 +152,7 @@ class Chatbot(Agent):
     context = context
     guardrails = guardrails
     checkpoint = checkpoint
-    budget = Budget(run=0.50, per=RateLimit(hour=10, day=100))
+    budget = Budget(max_cost=0.50, rate_limits=RateLimit(hour=10, day=100))
     image_generation = ImageGenerator.Gemini(api_key=gen_key) if gen_key else None
     video_generation = VideoGenerator.Gemini(api_key=gen_key) if gen_key else None
 

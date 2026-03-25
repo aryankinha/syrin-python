@@ -98,9 +98,9 @@ class ChromaBackend:
         embedding.extend([0.0] * (384 - len(embedding)))
         return embedding
 
-    def _entry_to_metadata(self, entry: MemoryEntry) -> dict[str, Any]:
+    def _entry_to_metadata(self, entry: MemoryEntry) -> dict[str, object]:
         """Convert MemoryEntry to Chroma metadata."""
-        metadata: dict[str, Any] = {
+        metadata: dict[str, object] = {
             "id": entry.id,
             "content": entry.content,
             "type": entry.type.value,
@@ -123,26 +123,26 @@ class ChromaBackend:
             ids=[memory.id],
             embeddings=[embedding],  # type: ignore[arg-type]
             documents=[memory.content],
-            metadatas=[metadata],
+            metadatas=[metadata],  # type: ignore[list-item]
         )
 
     def get(self, memory_id: str) -> MemoryEntry | None:
         """Get a memory by ID."""
         try:
             raw = self._collection.get(ids=[memory_id])
-            result: dict[str, Any] = dict(raw) if isinstance(raw, dict) else {}
-            ids_list: list[str] = result.get("ids") or []
-            metas: list[dict[str, Any]] | None = result.get("metadatas")
-            docs: list[str] | None = result.get("documents")
+            result: dict[str, object] = dict(raw) if isinstance(raw, dict) else {}
+            ids_list: list[str] = result.get("ids") or []  # type: ignore[assignment]
+            metas: list[dict[str, object]] | None = result.get("metadatas")  # type: ignore[assignment]
+            docs: list[str] | None = result.get("documents")  # type: ignore[assignment]
             if not ids_list or metas is None or docs is None or not metas or not docs:
                 return None
-            meta: dict[str, Any] = dict(metas[0]) if metas[0] is not None else {}
+            meta: dict[str, object] = dict(metas[0]) if metas[0] is not None else {}
             doc_str: str = str(docs[0]) if docs[0] is not None else ""
             return self._metadata_to_entry(meta, doc_str)
         except Exception:
             return None
 
-    def _metadata_to_entry(self, metadata: dict[str, Any], content: str) -> MemoryEntry:
+    def _metadata_to_entry(self, metadata: dict[str, object], content: str) -> MemoryEntry:
         """Convert Chroma metadata to MemoryEntry."""
         raw_id = metadata.get("id", "")
         raw_type = metadata.get("type", "core")
@@ -155,7 +155,7 @@ class ChromaBackend:
             id=str(raw_id),
             content=content,
             type=MemoryType(str(raw_type)),
-            importance=float(raw_importance) if raw_importance is not None else 1.0,
+            importance=float(raw_importance) if raw_importance is not None else 1.0,  # type: ignore[arg-type]
             scope=MemoryScope(str(raw_scope)),
             source=str(raw_source) if raw_source is not None else None,
             created_at=datetime.fromisoformat(str(raw_created)) if raw_created else datetime.now(),
@@ -166,9 +166,9 @@ class ChromaBackend:
         self,
         memory_type: MemoryType | None = None,
         scope: MemoryScope | None = None,
-    ) -> dict[str, Any] | None:
+    ) -> dict[str, object] | None:
         """Build Chroma where filter for memory_type, scope, and namespace."""
-        conditions: list[dict[str, Any]] = []
+        conditions: list[dict[str, object]] = []
         if memory_type is not None:
             conditions.append({"type": memory_type.value})
         if scope is not None:
@@ -195,18 +195,18 @@ class ChromaBackend:
         raw_query = self._collection.query(
             query_embeddings=[query_embedding],  # type: ignore[arg-type]
             n_results=top_k,
-            where=where,
+            where=where,  # type: ignore[arg-type]
         )
-        query_result: dict[str, Any] = dict(raw_query) if isinstance(raw_query, dict) else {}
-        docs_list: list[list[str]] | None = query_result.get("documents")
-        metas_list: list[list[dict[str, Any]]] | None = query_result.get("metadatas")
+        query_result: dict[str, object] = dict(raw_query) if isinstance(raw_query, dict) else {}
+        docs_list: list[list[str]] | None = query_result.get("documents")  # type: ignore[assignment]
+        metas_list: list[list[dict[str, object]]] | None = query_result.get("metadatas")  # type: ignore[assignment]
         if not docs_list or not docs_list[0] or metas_list is None or not metas_list:
             return []
 
         entries: list[MemoryEntry] = []
         for i, doc in enumerate(docs_list[0]):
             meta_row = metas_list[0][i] if i < len(metas_list[0]) else {}
-            meta_dict: dict[str, Any] = dict(meta_row) if meta_row is not None else {}
+            meta_dict: dict[str, object] = dict(meta_row) if meta_row is not None else {}
             entries.append(self._metadata_to_entry(meta_dict, str(doc)))
 
         return entries
@@ -221,18 +221,18 @@ class ChromaBackend:
         where = self._build_where(memory_type=memory_type, scope=scope)
 
         try:
-            raw = self._collection.get(where=where, limit=limit)
-            list_result: dict[str, Any] = dict(raw) if isinstance(raw, dict) else {}
-            ids_list: list[str] = list_result.get("ids") or []
-            docs: list[str] = list_result.get("documents") or []
-            metas: list[dict[str, Any]] = list_result.get("metadatas") or []
+            raw = self._collection.get(where=where, limit=limit)  # type: ignore[arg-type]
+            list_result: dict[str, object] = dict(raw) if isinstance(raw, dict) else {}
+            ids_list: list[str] = list_result.get("ids") or []  # type: ignore[assignment]
+            docs: list[str] = list_result.get("documents") or []  # type: ignore[assignment]
+            metas: list[dict[str, object]] = list_result.get("metadatas") or []  # type: ignore[assignment]
             if not ids_list:
                 return []
 
             entries: list[MemoryEntry] = []
             for i, doc in enumerate(docs):
                 meta_row = metas[i] if i < len(metas) else {}
-                meta_dict: dict[str, Any] = dict(meta_row) if meta_row is not None else {}
+                meta_dict: dict[str, object] = dict(meta_row) if meta_row is not None else {}
                 doc_str = str(doc) if doc is not None else ""
                 entries.append(self._metadata_to_entry(meta_dict, doc_str))
 
@@ -251,7 +251,7 @@ class ChromaBackend:
     def clear(self) -> None:
         """Clear all memories."""
         # Chroma where: $exists matches all (our memories have type). Chroma Where type is strict.
-        self._collection.delete(where=cast(Any, {"type": {"$exists": True}}))
+        self._collection.delete(where=cast(Any, {"type": {"$exists": True}}))  # type: ignore[explicit-any]
 
     def close(self) -> None:
         """Close the client connection. Chroma PersistentClient uses SQLite internally."""

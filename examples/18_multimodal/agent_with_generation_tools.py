@@ -54,14 +54,14 @@ def main() -> None:
         print("  generate_video: not added (set GOOGLE_API_KEY for Gemini)")
 
     # Text-only question
-    r = agent.response("What is 2 + 2? Reply with just the number.")
+    r = agent.run("What is 2 + 2? Reply with just the number.")
     print("Q: What is 2 + 2?")
     print("A:", r.content[:200] if r.content else "(empty)")
 
     # If tools are available, the agent can be asked to generate an image
     if "generate_image" in tool_names:
         print("\nAsking agent to create an image...")
-        r2 = agent.response("Create a simple image of a red circle on white background.")
+        r2 = agent.run("Create a simple image of a red circle on white background.")
         print("Image request response:", (r2.content or "")[:300])
 
 

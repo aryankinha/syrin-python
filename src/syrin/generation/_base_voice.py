@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import base64
 from abc import ABC, abstractmethod
-from typing import Any
 
 from syrin.cost import calculate_voice_cost
 from syrin.generation._result import GenerationResult
@@ -28,7 +27,7 @@ class BaseVoiceProvider(ABC):
         self,
         api_key: str | None = None,
         model: str = "",
-        **kwargs: Any,
+        **kwargs: object,
     ) -> None:
         self.api_key = api_key
         self.model = model
@@ -55,7 +54,7 @@ class BaseVoiceProvider(ABC):
         language: str,
         output_format: str,
         model_id: str,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> tuple[bytes, str, str]:
         """Perform the actual TTS API call.
 
@@ -95,7 +94,7 @@ class BaseVoiceProvider(ABC):
         speed: float = 1.0,
         language: str = "en",
         output_format: str = "mp3",
-        **kwargs: Any,
+        **kwargs: object,
     ) -> GenerationResult:
         """Generate speech audio from text.
 
@@ -128,7 +127,7 @@ class BaseVoiceProvider(ABC):
                 speed=speed,
                 language=language,
                 output_format=output_format,
-                model_id=model_id,
+                model_id=model_id,  # type: ignore[arg-type]
                 **kwargs,
             )
         except ImportError as e:
@@ -165,7 +164,7 @@ class BaseVoiceProvider(ABC):
         language: str,
         output_format: str,
         model_id: str,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> tuple[bytes, str, str] | None:
         """Optional native async synthesis. Override in providers with async SDKs.
 
@@ -182,7 +181,7 @@ class BaseVoiceProvider(ABC):
         speed: float = 1.0,
         language: str = "en",
         output_format: str = "mp3",
-        **kwargs: Any,
+        **kwargs: object,
     ) -> GenerationResult:
         """Async variant — uses native async if provider supports it, else threads."""
         key = self._resolve_api_key()
@@ -203,7 +202,7 @@ class BaseVoiceProvider(ABC):
                 speed=speed,
                 language=language,
                 output_format=output_format,
-                model_id=model_id,
+                model_id=model_id,  # type: ignore[arg-type]
                 **kwargs,
             )
             if result is not None:
@@ -218,7 +217,7 @@ class BaseVoiceProvider(ABC):
                     speed=speed,
                     language=language,
                     output_format=output_format,
-                    model_id=model_id,
+                    model_id=model_id,  # type: ignore[arg-type]
                     **kwargs,
                 )
         except ImportError as e:

@@ -40,12 +40,12 @@ def _main() -> None:
         ),
     )
 
-    agent.response("Tell me about Python in one sentence.")
-    agent.response("Tell me about JavaScript in one sentence.")
-    agent.response("Tell me about Rust in one sentence.")
+    agent.run("Tell me about Python in one sentence.")
+    agent.run("Tell me about JavaScript in one sentence.")
+    agent.run("Tell me about Rust in one sentence.")
 
     # Ask about Python — only Python-related segments should be pulled
-    result = agent.response("Give me a Python example")
+    result = agent.run("Give me a Python example")
     snap = agent.context.snapshot()
     print(f"Response: {result.content[:80] if result.content else '(empty)'}...")
     print(f"pulled_segments count: {len(snap.pulled_segments)}")

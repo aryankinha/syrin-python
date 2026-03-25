@@ -27,7 +27,7 @@ class TestCheckpointTriggerStep:
             system_prompt="Test.",
             config=AgentConfig(checkpoint=config),
         )
-        agent.response("Hi")
+        agent.run("Hi")
         assert agent._run_report.checkpoints.saves >= 1
 
     def test_manual_trigger_does_not_auto_save_on_step(self) -> None:
@@ -38,7 +38,7 @@ class TestCheckpointTriggerStep:
             system_prompt="Test.",
             config=AgentConfig(checkpoint=config),
         )
-        agent.response("Hi")
+        agent.run("Hi")
         assert agent._run_report.checkpoints.saves == 0
 
 
@@ -102,7 +102,7 @@ class TestCheckpointTriggerError:
             ),
             pytest.raises(RuntimeError, match="simulated"),
         ):
-            agent.response("Hi")
+            agent.run("Hi")
         assert agent._run_report.checkpoints.saves >= 1
 
     def test_error_trigger_config(self) -> None:
@@ -127,11 +127,11 @@ class TestCheckpointTriggerBudget:
         agent = Agent(
             model=_almock_model(),
             system_prompt="Test.",
-            budget=Budget(run=0.0001),  # very low so one call exceeds
+            budget=Budget(max_cost=0.0001),  # very low so one call exceeds
             config=AgentConfig(checkpoint=config),
         )
         with pytest.raises(BudgetExceededError):
-            agent.response("Hi")
+            agent.run("Hi")
         assert agent._run_report.checkpoints.saves >= 1
 
     def test_budget_trigger_config(self) -> None:

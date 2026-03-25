@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 
 
 def serialize_metadata_value(obj: object) -> object:
@@ -19,7 +18,7 @@ def serialize_metadata_value(obj: object) -> object:
 
 
 def metadata_to_flat(
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
 ) -> dict[str, str | int | float | bool]:
     """Flatten chunk metadata for backends that only accept scalar values (Chroma, Qdrant).
 

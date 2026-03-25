@@ -23,8 +23,8 @@ class TestMemoryDefault:
     def test_agent_default_memory_multi_turn_works(self) -> None:
         """Default Memory retains conversation across turns."""
         agent = Agent(model=_almock(), system_prompt="Be brief.")
-        agent.response("Hello")
-        agent.response("What did I say first?")
+        agent.run("Hello")
+        agent.run("What did I say first?")
         msgs = agent.messages
         assert len(msgs) >= 2
         contents = [m.content for m in msgs]

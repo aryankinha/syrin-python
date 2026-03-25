@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from syrin.agent import Agent
 
 
-def agent_guardrails_schema_and_values(agent: Any) -> tuple[Any, dict[str, object]]:
+def agent_guardrails_schema_and_values(agent: Agent) -> tuple[Any, dict[str, object]]:  # type: ignore[explicit-any]
     """Build (ConfigSchema, current_values) for guardrails section (enable/disable by name)."""
     from syrin.remote._types import ConfigSchema, FieldSchema
 
     guardrail_list = getattr(agent._guardrails, "_guardrails", [])
-    fields: list[Any] = []
+    fields: list[object] = []
     current_values: dict[str, object] = {}
     disabled: set[str] = getattr(agent, "_guardrails_disabled", set()) or set()
     for g in guardrail_list:
@@ -30,15 +33,15 @@ def agent_guardrails_schema_and_values(agent: Any) -> tuple[Any, dict[str, objec
             )
         )
         current_values[path] = name not in disabled
-    return (ConfigSchema(section="guardrails", class_name="Agent", fields=fields), current_values)
+    return (ConfigSchema(section="guardrails", class_name="Agent", fields=fields), current_values)  # type: ignore[arg-type]
 
 
-def agent_template_vars_schema_and_values(agent: Any) -> tuple[Any, dict[str, object]]:
+def agent_template_vars_schema_and_values(agent: Agent) -> tuple[Any, dict[str, object]]:  # type: ignore[explicit-any]
     """Build (ConfigSchema, current_values) for template_variables section."""
     from syrin.remote._types import ConfigSchema, FieldSchema
 
     pv = getattr(agent, "_template_vars", {}) or {}
-    fields: list[Any] = []
+    fields: list[object] = []
     current_values: dict[str, object] = {}
     for key, val in pv.items():
         path = f"template_variables.{key}"
@@ -57,18 +60,18 @@ def agent_template_vars_schema_and_values(agent: Any) -> tuple[Any, dict[str, ob
         )
         current_values[path] = val
     return (
-        ConfigSchema(section="template_variables", class_name="Agent", fields=fields),
+        ConfigSchema(section="template_variables", class_name="Agent", fields=fields),  # type: ignore[arg-type]
         current_values,
     )
 
 
-def agent_tools_schema_and_values(agent: Any) -> tuple[Any, dict[str, object]]:
+def agent_tools_schema_and_values(agent: Agent) -> tuple[Any, dict[str, object]]:  # type: ignore[explicit-any]
     """Build (ConfigSchema, current_values) for tools section (enable/disable by name)."""
     from syrin.remote._types import ConfigSchema, FieldSchema
 
     tools_list = getattr(agent, "_tools", []) or []
     disabled: set[str] = getattr(agent, "_tools_disabled", set()) or set()
-    fields: list[Any] = []
+    fields: list[object] = []
     current_values: dict[str, object] = {}
     for t in tools_list:
         name = getattr(t, "name", "")
@@ -89,16 +92,16 @@ def agent_tools_schema_and_values(agent: Any) -> tuple[Any, dict[str, object]]:
             )
         )
         current_values[path] = name not in disabled
-    return (ConfigSchema(section="tools", class_name="Agent", fields=fields), current_values)
+    return (ConfigSchema(section="tools", class_name="Agent", fields=fields), current_values)  # type: ignore[arg-type]
 
 
-def agent_mcp_schema_and_values(agent: Any) -> tuple[Any, dict[str, object]]:
+def agent_mcp_schema_and_values(agent: Agent) -> tuple[Any, dict[str, object]]:  # type: ignore[explicit-any]
     """Build (ConfigSchema, current_values) for mcp section (enable/disable by index)."""
     from syrin.remote._types import ConfigSchema, FieldSchema
 
     mcp_list = getattr(agent, "_mcp_instances", []) or []
     disabled: set[int] = getattr(agent, "_mcp_disabled", set()) or set()
-    fields: list[Any] = []
+    fields: list[object] = []
     current_values: dict[str, object] = {}
     for i in range(len(mcp_list)):
         path = f"mcp.{i}.enabled"
@@ -116,10 +119,10 @@ def agent_mcp_schema_and_values(agent: Any) -> tuple[Any, dict[str, object]]:
             )
         )
         current_values[path] = i not in disabled
-    return (ConfigSchema(section="mcp", class_name="Agent", fields=fields), current_values)
+    return (ConfigSchema(section="mcp", class_name="Agent", fields=fields), current_values)  # type: ignore[arg-type]
 
 
-def apply_guardrails_overrides(agent: Any, pairs: list[tuple[str, object]]) -> None:
+def apply_guardrails_overrides(agent: Agent, pairs: list[tuple[str, object]]) -> None:
     """Apply guardrails.*.enabled overrides to agent._guardrails_disabled."""
     disabled: set[str] | None = getattr(agent, "_guardrails_disabled", None)
     if disabled is None:
@@ -136,7 +139,7 @@ def apply_guardrails_overrides(agent: Any, pairs: list[tuple[str, object]]) -> N
                 disabled.add(name)
 
 
-def apply_template_vars_overrides(agent: Any, pairs: list[tuple[str, object]]) -> None:
+def apply_template_vars_overrides(agent: Agent, pairs: list[tuple[str, object]]) -> None:
     """Apply template_variables.* overrides to agent._template_vars."""
     pv = getattr(agent, "_template_vars", None)
     if pv is None:
@@ -150,7 +153,7 @@ def apply_template_vars_overrides(agent: Any, pairs: list[tuple[str, object]]) -
             pv[key] = value if value is not None else ""
 
 
-def apply_tools_overrides(agent: Any, pairs: list[tuple[str, object]]) -> None:
+def apply_tools_overrides(agent: Agent, pairs: list[tuple[str, object]]) -> None:
     """Apply tools.*.enabled overrides to agent._tools_disabled."""
     disabled: set[str] | None = getattr(agent, "_tools_disabled", None)
     if disabled is None:
@@ -167,7 +170,7 @@ def apply_tools_overrides(agent: Any, pairs: list[tuple[str, object]]) -> None:
                 disabled.add(name)
 
 
-def apply_mcp_overrides(agent: Any, pairs: list[tuple[str, object]]) -> None:
+def apply_mcp_overrides(agent: Agent, pairs: list[tuple[str, object]]) -> None:
     """Apply mcp.*.enabled overrides to agent._mcp_disabled."""
     disabled: set[int] | None = getattr(agent, "_mcp_disabled", None)
     if disabled is None:

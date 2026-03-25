@@ -14,8 +14,8 @@ model = Model.Almock()
 # ============================================================
 # 1. Simple run budget — spend up to $0.50 per run
 # ============================================================
-agent = Agent(model=model, budget=Budget(run=0.50))
-result = agent.response("What is machine learning?")
+agent = Agent(model=model, budget=Budget(max_cost=0.50))
+result = agent.run("What is machine learning?")
 
 print("=== Simple Budget ===")
 print(f"Answer: {result.content[:60]}...")
@@ -26,8 +26,8 @@ print()
 # ============================================================
 # 2. warn_on_exceeded — log a warning but keep running
 # ============================================================
-agent2 = Agent(model=model, budget=Budget(run=0.05, on_exceeded=warn_on_exceeded))
-result2 = agent2.response("Summarize Python in two sentences.")
+agent2 = Agent(model=model, budget=Budget(max_cost=0.05, on_exceeded=warn_on_exceeded))
+result2 = agent2.run("Summarize Python in two sentences.")
 
 print("=== Warn on Exceeded ===")
 print(f"Cost:  ${result2.cost:.6f}")
@@ -37,11 +37,11 @@ print()
 # ============================================================
 # 3. raise_on_exceeded — hard stop when budget is hit
 # ============================================================
-agent3 = Agent(model=model, budget=Budget(run=0.0001, on_exceeded=raise_on_exceeded))
+agent3 = Agent(model=model, budget=Budget(max_cost=0.0001, on_exceeded=raise_on_exceeded))
 
 print("=== Raise on Exceeded ===")
 try:
-    agent3.response("This will likely exceed the tiny budget")
+    agent3.run("This will likely exceed the tiny budget")
 except BudgetExceededError as e:
     print(f"Caught: {e}")
 print()
@@ -58,8 +58,8 @@ def my_callback(ctx):
     print(f"  [custom callback] {ctx.message}")
 
 
-agent4 = Agent(model=model, budget=Budget(run=0.0001, on_exceeded=my_callback))
-agent4.response("Hello!")
+agent4 = Agent(model=model, budget=Budget(max_cost=0.0001, on_exceeded=my_callback))
+agent4.run("Hello!")
 print(f"Events captured: {len(exceeded_events)}")
 print()
 
@@ -70,11 +70,11 @@ print()
 class CostAwareAgent(Agent):
     model = model
     system_prompt = "You are a concise assistant."
-    budget = Budget(run=1.00, on_exceeded=warn_on_exceeded)
+    budget = Budget(max_cost=1.00, on_exceeded=warn_on_exceeded)
 
 
 agent5 = CostAwareAgent()
-result5 = agent5.response("Hello!")
+result5 = agent5.run("Hello!")
 print("=== Class-level Budget ===")
 print(f"Cost: ${result5.cost:.6f}")
 print(f"State: {agent5.budget_state}")

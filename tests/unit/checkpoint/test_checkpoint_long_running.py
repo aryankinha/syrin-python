@@ -54,7 +54,7 @@ class TestCheckpointStoresMessages:
             config=AgentConfig(checkpoint=CheckpointConfig(storage="memory")),
         )
         # Run a response to trigger prepare and populate snapshot
-        agent.response("Hello")
+        agent.run("Hello")
         checkpoint_id = agent.save_checkpoint()
         assert checkpoint_id is not None
         state = agent._checkpointer.load(checkpoint_id)
@@ -147,8 +147,8 @@ class TestCheckpointRoundtrip:
             memory=mem,
             config=AgentConfig(checkpoint=CheckpointConfig(storage="memory")),
         )
-        agent.response("What is 2+2?")
-        agent.response("And 3+3?")
+        agent.run("What is 2+2?")
+        agent.run("And 3+3?")
         assert len(agent.messages) >= 4  # user, assistant, user, assistant
         cid = agent.save_checkpoint()
 

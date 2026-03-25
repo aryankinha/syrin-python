@@ -11,7 +11,7 @@ Tests:
 - GET /config: schema has enum_values for agent.loop_strategy (dropdown in UI)
 - PATCH loop_strategy (react <-> single_shot)
 - PATCH tools.<name>.enabled (toggle tool off/on)
-- PATCH budget.run
+- PATCH budget.max_cost
 - Revert (value: null)
 - Stress: many PATCHes in sequence
 
@@ -149,16 +149,16 @@ def main() -> int:
         return 1
     print("OK: tools.remember_fact.enabled -> false applied")
 
-    # 4) Change budget.run
-    status, res = patch_config(agent_id, [{"path": "budget.run", "value": 0.25}], version=4)
+    # 4) Change budget.max_cost
+    status, res = patch_config(agent_id, [{"path": "budget.max_cost", "value": 0.25}], version=4)
     if status != 200:
-        print("FAIL: PATCH budget.run:", status, res)
+        print("FAIL: PATCH budget.max_cost:", status, res)
         return 1
     _, data4 = get_config()
-    if data4.get("current_values", {}).get("budget.run") != 0.25:
-        print("FAIL: budget.run not 0.25 after PATCH:", data4.get("current_values"))
+    if data4.get("current_values", {}).get("budget.max_cost") != 0.25:
+        print("FAIL: budget.max_cost not 0.25 after PATCH:", data4.get("current_values"))
         return 1
-    print("OK: budget.run -> 0.25 applied")
+    print("OK: budget.max_cost -> 0.25 applied")
 
     # 5) Revert loop_strategy (value: null)
     status, res = patch_config(
@@ -189,7 +189,7 @@ def main() -> int:
 
     # 7) Stress: many PATCHes (loop_strategy flip, budget flip, tool flip)
     print()
-    print("Stress: 20 PATCHes (loop_strategy, budget.run, tool toggle)...")
+    print("Stress: 20 PATCHes (loop_strategy, budget.max_cost, tool toggle)...")
     for i in range(20):
         v = 100 + i
         which = i % 3
@@ -197,7 +197,7 @@ def main() -> int:
             val = "single_shot" if (i // 3) % 2 == 0 else "react"
             ov = [{"path": "agent.loop_strategy", "value": val}]
         elif which == 1:
-            ov = [{"path": "budget.run", "value": 0.1 + (i % 5) * 0.1}]
+            ov = [{"path": "budget.max_cost", "value": 0.1 + (i % 5) * 0.1}]
         else:
             ov = [{"path": "tools.remember_fact.enabled", "value": i % 2 == 0}]
         status, res = patch_config(agent_id, ov, version=v)

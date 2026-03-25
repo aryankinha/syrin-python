@@ -22,7 +22,7 @@ def _make_agent(
 ) -> Agent:
     """Agent with optional budget and memory for resolver tests."""
     if budget is None:
-        budget = Budget(run=1.0)
+        budget = Budget(max_cost=1.0)
     return Agent(
         model=Model.Almock(),
         name=name,
@@ -64,7 +64,7 @@ def _make_agent_with_knowledge(
     return Agent(
         model=Model.Almock(),
         name="resolver_knowledge_test",
-        budget=Budget(run=1.0),
+        budget=Budget(max_cost=1.0),
         knowledge=knowledge,
     )
 
@@ -74,7 +74,7 @@ def _make_agent_with_model() -> Agent:
     return Agent(
         model=Model.Ollama("llama3"),
         name="resolver_model_test",
-        budget=Budget(run=1.0),
+        budget=Budget(max_cost=1.0),
     )
 
 
@@ -102,17 +102,17 @@ class TestResolveResultShape:
 
     def test_resolve_result_accepted_list_of_paths(self) -> None:
         """accepted is list of path strings."""
-        r = ResolveResult(accepted=["budget.run"], rejected=[], pending_restart=[])
-        assert r.accepted == ["budget.run"]
+        r = ResolveResult(accepted=["budget.max_cost"], rejected=[], pending_restart=[])
+        assert r.accepted == ["budget.max_cost"]
 
     def test_resolve_result_rejected_list_of_tuples(self) -> None:
         """rejected is list of (path, reason) tuples."""
         r = ResolveResult(
             accepted=[],
-            rejected=[("budget.run", "validation error")],
+            rejected=[("budget.max_cost", "validation error")],
             pending_restart=[],
         )
-        assert r.rejected == [("budget.run", "validation error")]
+        assert r.rejected == [("budget.max_cost", "validation error")]
 
 
 # --- Valid overrides ---
@@ -122,35 +122,37 @@ class TestValidOverrides:
     """Applying valid overrides updates agent config."""
 
     def test_apply_budget_run(self) -> None:
-        """Apply budget.run=2.0 -> agent._budget.run == 2.0."""
+        """Apply budget.max_cost=2.0 -> agent._budget.max_cost == 2.0."""
         agent = _make_agent()
         reg = get_registry()
         reg.register(agent)
         agent_id = reg.make_agent_id(agent)
         schema = reg.get_schema(agent_id)
         assert schema is not None
-        payload = _payload(agent_id, ("budget.run", 2.0))
+        payload = _payload(agent_id, ("budget.max_cost", 2.0))
         result = ConfigResolver().apply_overrides(agent, payload, schema=schema)
-        assert "budget.run" in result.accepted
+        assert "budget.max_cost" in result.accepted
         assert agent._budget is not None
-        assert agent._budget.run == 2.0
+        assert agent._budget.max_cost == 2.0
         reg.unregister(agent_id)
 
     def test_apply_budget_nested_per_hour(self) -> None:
-        """Apply budget.per.hour -> nested RateLimit updated."""
-        agent = _make_agent(budget=Budget(run=1.0, per=RateLimit(hour=10.0, day=100.0)))
+        """Apply budget.rate_limits.hour -> nested RateLimit updated."""
+        agent = _make_agent(
+            budget=Budget(max_cost=1.0, rate_limits=RateLimit(hour=10.0, day=100.0))
+        )
         reg = get_registry()
         reg.register(agent)
         agent_id = reg.make_agent_id(agent)
         schema = reg.get_schema(agent_id)
         assert schema is not None
-        payload = _payload(agent_id, ("budget.per.hour", 50.0))
+        payload = _payload(agent_id, ("budget.rate_limits.hour", 50.0))
         result = ConfigResolver().apply_overrides(agent, payload, schema=schema)
-        assert "budget.per.hour" in result.accepted
+        assert "budget.rate_limits.hour" in result.accepted
         assert agent._budget is not None
-        assert agent._budget.per is not None
-        assert agent._budget.per.hour == 50.0
-        assert agent._budget.per.day == 100.0
+        assert agent._budget.rate_limits is not None
+        assert agent._budget.rate_limits.hour == 50.0
+        assert agent._budget.rate_limits.day == 100.0
         reg.unregister(agent_id)
 
     def test_apply_memory_decay_strategy_enum(self) -> None:
@@ -344,19 +346,19 @@ class TestValidationRejection:
     """Invalid values are rejected; agent config unchanged."""
 
     def test_budget_run_negative_rejected(self) -> None:
-        """budget.run=-1 -> section rejected, agent unchanged."""
+        """budget.max_cost=-1 -> section rejected, agent unchanged."""
         agent = _make_agent()
-        original_run = agent._budget.run if agent._budget else None
+        original_run = agent._budget.max_cost if agent._budget else None
         reg = get_registry()
         reg.register(agent)
         agent_id = reg.make_agent_id(agent)
         schema = reg.get_schema(agent_id)
-        payload = _payload(agent_id, ("budget.run", -1.0))
+        payload = _payload(agent_id, ("budget.max_cost", -1.0))
         result = ConfigResolver().apply_overrides(agent, payload, schema=schema)
-        assert "budget.run" not in result.accepted
-        assert any(p == "budget.run" for p, _ in result.rejected)
+        assert "budget.max_cost" not in result.accepted
+        assert any(p == "budget.max_cost" for p, _ in result.rejected)
         assert agent._budget is not None
-        assert agent._budget.run == original_run
+        assert agent._budget.max_cost == original_run
         reg.unregister(agent_id)
 
     def test_memory_top_k_negative_rejected(self) -> None:
@@ -468,7 +470,7 @@ class TestHotSwapBlocklist:
         agent = Agent(
             model=Model.Almock(),
             name="cp_agent",
-            budget=Budget(run=1.0),
+            budget=Budget(max_cost=1.0),
             config=AgentConfig(checkpoint=CheckpointConfig(storage="memory", path=None)),
         )
         reg = get_registry()
@@ -489,7 +491,7 @@ class TestPartialFailure:
     """When one section fails validation, others can still be applied."""
 
     def test_valid_and_invalid_separate_sections(self) -> None:
-        """budget.run=2.0 (valid) and memory.top_k=-1 (invalid) -> budget applied, memory rejected."""
+        """budget.max_cost=2.0 (valid) and memory.top_k=-1 (invalid) -> budget applied, memory rejected."""
         agent = _make_agent()
         reg = get_registry()
         reg.register(agent)
@@ -497,13 +499,13 @@ class TestPartialFailure:
         schema = reg.get_schema(agent_id)
         payload = _payload(
             agent_id,
-            ("budget.run", 2.0),
+            ("budget.max_cost", 2.0),
             ("memory.top_k", -1),
         )
         result = ConfigResolver().apply_overrides(agent, payload, schema=schema)
-        assert "budget.run" in result.accepted
+        assert "budget.max_cost" in result.accepted
         assert agent._budget is not None
-        assert agent._budget.run == 2.0
+        assert agent._budget.max_cost == 2.0
         assert "memory.top_k" not in result.accepted
         assert any(p == "memory.top_k" for p, _ in result.rejected)
         reg.unregister(agent_id)
@@ -521,11 +523,11 @@ class TestSchemaFromRegistry:
         reg = get_registry()
         reg.register(agent)
         agent_id = reg.make_agent_id(agent)
-        payload = _payload(agent_id, ("budget.run", 3.0))
+        payload = _payload(agent_id, ("budget.max_cost", 3.0))
         result = ConfigResolver().apply_overrides(agent, payload)
-        assert "budget.run" in result.accepted
+        assert "budget.max_cost" in result.accepted
         assert agent._budget is not None
-        assert agent._budget.run == 3.0
+        assert agent._budget.max_cost == 3.0
         reg.unregister(agent_id)
 
     def test_apply_without_schema_and_not_registered_uses_extract_schema(self) -> None:
@@ -534,11 +536,11 @@ class TestSchemaFromRegistry:
         reg = get_registry()
         agent_id = reg.make_agent_id(agent)
         # Do not register agent
-        payload = _payload(agent_id, ("budget.run", 3.0))
+        payload = _payload(agent_id, ("budget.max_cost", 3.0))
         result = ConfigResolver().apply_overrides(agent, payload)
-        assert "budget.run" in result.accepted
+        assert "budget.max_cost" in result.accepted
         assert agent._budget is not None
-        assert agent._budget.run == 3.0
+        assert agent._budget.max_cost == 3.0
 
 
 # --- Stress / concurrency ---
@@ -562,7 +564,7 @@ class TestStressConcurrency:
             for i in range(applies_per_thread):
                 try:
                     val = 1.0 + (i % 10) * 0.5
-                    payload = _payload(agent_id, ("budget.run", val))
+                    payload = _payload(agent_id, ("budget.max_cost", val))
                     resolver.apply_overrides(agent, payload)
                 except Exception as e:
                     errors.append(e)
@@ -574,7 +576,7 @@ class TestStressConcurrency:
             t.join()
         assert not errors, errors
         assert agent._budget is not None
-        assert agent._budget.run >= 0
+        assert agent._budget.max_cost >= 0
         reg.unregister(agent_id)
 
     def test_concurrent_apply_overrides_multiple_agents(self) -> None:
@@ -595,7 +597,7 @@ class TestStressConcurrency:
             aid = agent_ids[idx]
             for j in range(20):
                 try:
-                    payload = _payload(aid, ("budget.run", 1.0 + j * 0.1))
+                    payload = _payload(aid, ("budget.max_cost", 1.0 + j * 0.1))
                     resolver.apply_overrides(agent, payload)
                 except Exception as e:
                     errors.append(e)
@@ -608,6 +610,6 @@ class TestStressConcurrency:
         assert not errors, errors
         for a in agents:
             assert a._budget is not None
-            assert a._budget.run >= 0
+            assert a._budget.max_cost >= 0
         for aid in agent_ids:
             reg.unregister(aid)

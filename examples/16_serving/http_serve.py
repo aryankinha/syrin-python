@@ -34,7 +34,7 @@ class Assistant(Agent):
     _agent_description = "Helpful assistant for questions and tasks"
     model = almock
     system_prompt = "You are a helpful assistant. Be concise."
-    budget = Budget(run=0.5, per=RateLimit(hour=10, day=100, week=700))
+    budget = Budget(max_cost=0.5, rate_limits=RateLimit(hour=10, day=100, week=700))
 
 
 if __name__ == "__main__":

@@ -142,7 +142,7 @@ class TestAgentMultimodalInput:
     def test_agent_response_accepts_str(self) -> None:
         """agent.response accepts str input (existing behavior)."""
         agent = Agent(model=Model.Almock(), system_prompt="Hi")
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.content is not None
         assert isinstance(r.content, str)
 
@@ -153,5 +153,5 @@ class TestAgentMultimodalInput:
             {"type": "text", "text": "What is in this image?"},
             {"type": "image_url", "image_url": {"url": "data:image/png;base64,iVBORw"}},
         ]
-        r = agent.response(content_parts)
+        r = agent.run(content_parts)
         assert r.content is not None

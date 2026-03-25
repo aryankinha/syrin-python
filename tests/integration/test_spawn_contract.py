@@ -72,7 +72,7 @@ def test_spawn_budget_inheritance_shared_parent_remaining_decreases(
     class Child(Agent):
         model = Model("test/model")
 
-    parent = Parent(budget=Budget(run=10.0, shared=True))
+    parent = Parent(budget=Budget(max_cost=10.0, shared=True))
     initial_remaining = parent._budget.remaining
     assert initial_remaining is not None
 
@@ -86,7 +86,7 @@ def test_spawn_budget_inheritance_shared_parent_remaining_decreases(
 
 @patch("syrin.agent._resolve_provider")
 def test_spawn_pocket_money_child_has_budget_cap(mock_resolve: MagicMock) -> None:
-    """spawn(Child, budget=Budget(run=0.50)) gives child that run cap."""
+    """spawn(Child, budget=Budget(max_cost=0.50)) gives child that run cap."""
     mock_resolve.return_value = _mock_provider()
 
     class Parent(Agent):
@@ -95,15 +95,15 @@ def test_spawn_pocket_money_child_has_budget_cap(mock_resolve: MagicMock) -> Non
     class Child(Agent):
         model = Model("test/model")
 
-    parent = Parent(budget=Budget(run=5.0))
-    child = parent.spawn(Child, budget=Budget(run=0.50))
+    parent = Parent(budget=Budget(max_cost=5.0))
+    child = parent.spawn(Child, budget=Budget(max_cost=0.50))
     assert child._budget is not None
-    assert child._budget.run == 0.50
+    assert child._budget.max_cost == 0.50
 
 
 @patch("syrin.agent._resolve_provider")
 def test_spawn_pocket_money_exceeds_parent_raises(mock_resolve: MagicMock) -> None:
-    """spawn(Child, budget=Budget(run=...)) with run > parent remaining raises ValueError."""
+    """spawn(Child, budget=Budget(max_cost=...)) with run > parent remaining raises ValueError."""
     mock_resolve.return_value = _mock_provider()
 
     class Parent(Agent):
@@ -112,6 +112,6 @@ def test_spawn_pocket_money_exceeds_parent_raises(mock_resolve: MagicMock) -> No
     class Child(Agent):
         model = Model("test/model")
 
-    parent = Parent(budget=Budget(run=1.0))
+    parent = Parent(budget=Budget(max_cost=1.0))
     with pytest.raises(ValueError, match="cannot exceed parent"):
-        parent.spawn(Child, budget=Budget(run=2.0))
+        parent.spawn(Child, budget=Budget(max_cost=2.0))

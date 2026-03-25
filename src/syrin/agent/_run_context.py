@@ -12,7 +12,10 @@ This module is internal; the public API is Agent and Loop.
 
 from __future__ import annotations
 
-from typing import Any, Protocol, cast
+from typing import TYPE_CHECKING, Protocol, cast
+
+if TYPE_CHECKING:
+    from syrin.agent import Agent
 
 # Hook is used in emit_event; avoid circular import by importing inside methods
 # or use TYPE_CHECKING. We need it at runtime for the Protocol.
@@ -45,7 +48,7 @@ class AgentRunContext(Protocol):
     """
 
     # ---- Message and completion ----
-    def build_messages(self, user_input: str | list[dict[str, Any]]) -> list[Message]:
+    def build_messages(self, user_input: str | list[dict[str, object]]) -> list[Message]:
         """Build the message list for the next LLM call (memory + context + user)."""
         ...
 
@@ -55,7 +58,7 @@ class AgentRunContext(Protocol):
         """Call the LLM with messages and optional tools."""
         ...
 
-    async def execute_tool(self, name: str, arguments: dict[str, Any]) -> str:
+    async def execute_tool(self, name: str, arguments: dict[str, object]) -> str:
         """Execute a tool by name with the given arguments."""
         ...
 
@@ -73,7 +76,9 @@ class AgentRunContext(Protocol):
         """Check rate limits and apply threshold actions (e.g. wait, switch)."""
         ...
 
-    def pre_call_budget_check(self, messages: list[Any], *, max_output_tokens: int = 1024) -> None:
+    def pre_call_budget_check(
+        self, messages: list[object], *, max_output_tokens: int = 1024
+    ) -> None:
         """Run budget/rate checks before an LLM call. Call once per request."""
         ...
 
@@ -112,12 +117,12 @@ class AgentRunContext(Protocol):
         ...
 
     @property
-    def pricing_override(self) -> Any:
+    def pricing_override(self) -> object:
         """Optional pricing override from the model for cost calculation."""
         ...
 
     @property
-    def approval_gate(self) -> Any:
+    def approval_gate(self) -> object:
         """Optional ApprovalGate for HITL. None = no approval required."""
         ...
 
@@ -127,7 +132,7 @@ class AgentRunContext(Protocol):
         ...
 
     @property
-    def tracer(self) -> Any:
+    def tracer(self) -> object:
         """Optional tracer for observability; when set, loop creates LLM/tool spans."""
         ...
 
@@ -160,19 +165,19 @@ class DefaultAgentRunContext:
     complete, execute_tool, emit_event, budget checks, etc.
     """
 
-    def __init__(self, agent: Any) -> None:
+    def __init__(self, agent: Agent) -> None:
         self._agent = agent
 
-    def build_messages(self, user_input: str | list[dict[str, Any]]) -> list[Message]:
-        return cast(list[Message], self._agent._build_messages(user_input))
+    def build_messages(self, user_input: str | list[dict[str, object]]) -> list[Message]:
+        return self._agent._build_messages(user_input)
 
     async def complete(
         self, messages: list[Message], tools: list[ToolSpec] | None = None
     ) -> ProviderResponse:
-        return cast(ProviderResponse, await self._agent.complete(messages, tools))
+        return await self._agent.complete(messages, tools)
 
-    async def execute_tool(self, name: str, arguments: dict[str, Any]) -> str:
-        return cast(str, await self._agent.execute_tool(name, arguments))
+    async def execute_tool(self, name: str, arguments: dict[str, object]) -> str:
+        return await self._agent.execute_tool(name, arguments)
 
     def emit_event(self, hook: Hook, ctx: EventContext) -> None:
         self._agent._emit_event(hook, ctx)
@@ -183,7 +188,9 @@ class DefaultAgentRunContext:
     def check_and_apply_rate_limit(self) -> None:
         self._agent._check_and_apply_rate_limit()
 
-    def pre_call_budget_check(self, messages: list[Any], *, max_output_tokens: int = 1024) -> None:
+    def pre_call_budget_check(
+        self, messages: list[object], *, max_output_tokens: int = 1024
+    ) -> None:
         self._agent._pre_call_budget_check(messages, max_output_tokens=max_output_tokens)
 
     def record_rate_limit_usage(self, token_usage: TokenUsage) -> None:
@@ -218,7 +225,7 @@ class DefaultAgentRunContext:
         return getattr(self._agent, "_rate_limit_manager_internal", None) is not None
 
     @property
-    def pricing_override(self) -> Any:
+    def pricing_override(self) -> object:
         from syrin.cost import ModelPricing
 
         active = getattr(self._agent, "_active_model", None) or getattr(self._agent, "_model", None)
@@ -228,7 +235,7 @@ class DefaultAgentRunContext:
         return p if isinstance(p, ModelPricing) else None
 
     @property
-    def approval_gate(self) -> Any:
+    def approval_gate(self) -> object:
         return getattr(self._agent, "_approval_gate", None)
 
     @property
@@ -236,7 +243,7 @@ class DefaultAgentRunContext:
         return getattr(self._agent, "_human_approval_timeout", 300)
 
     @property
-    def tracer(self) -> Any:
+    def tracer(self) -> object:
         """Return agent's tracer so loops can create LLM/tool child spans."""
         return getattr(self._agent, "_tracer", None)
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 
 from syrin.enums import MessageRole
 from syrin.exceptions import ProviderError
@@ -19,14 +18,14 @@ from syrin.types import (
 from .base import Provider
 
 
-def _message_to_litellm(msg: Message) -> dict[str, Any]:
+def _message_to_litellm(msg: Message) -> dict[str, object]:
     if msg.role == MessageRole.TOOL:
         return {
             "role": "tool",
             "content": msg.content,
             "tool_call_id": msg.tool_call_id,
         }
-    out: dict[str, Any] = {"role": msg.role.value, "content": msg.content or ""}
+    out: dict[str, object] = {"role": msg.role.value, "content": msg.content or ""}
     if msg.role == MessageRole.ASSISTANT and msg.tool_calls:
         out["tool_calls"] = [
             {
@@ -39,7 +38,7 @@ def _message_to_litellm(msg: Message) -> dict[str, Any]:
     return out
 
 
-def _tools_to_litellm(tools: list[ToolSpec]) -> list[dict[str, Any]]:
+def _tools_to_litellm(tools: list[ToolSpec]) -> list[dict[str, object]]:
     return [
         {
             "type": "function",
@@ -56,14 +55,14 @@ def _tools_to_litellm(tools: list[ToolSpec]) -> list[dict[str, Any]]:
 class LiteLLMProvider(Provider):
     """Provider using LiteLLM for unified completion (supports many backends)."""
 
-    async def complete(
+    async def complete(  # type: ignore[override]
         self,
         messages: list[Message],
         model: ModelConfig,
         tools: list[ToolSpec] | None = None,
         *,
         max_tokens: int = 1024,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> ProviderResponse:
         try:
             import litellm
@@ -80,7 +79,7 @@ class LiteLLMProvider(Provider):
         if model.model_id.startswith("gemini-"):
             model_id = f"gemini/{model.model_id}"
 
-        request_kwargs: dict[str, Any] = {
+        request_kwargs: dict[str, object] = {
             "model": model_id,
             "messages": api_messages,
             "max_tokens": max_tokens,

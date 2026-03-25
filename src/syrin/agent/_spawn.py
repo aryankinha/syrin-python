@@ -6,7 +6,7 @@ Agent delegates to functions here. Public API stays on Agent.
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 from syrin.budget import Budget
 from syrin.enums import Hook
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from syrin.agent import Agent
 
 
-def update_parent_budget(agent: Any, cost: float) -> None:
+def update_parent_budget(agent: Agent, cost: float) -> None:
     """Update parent's budget when child spends (borrow mechanism)."""
     if agent._budget is not None:
         from syrin.types import CostInfo
@@ -33,7 +33,7 @@ def update_parent_budget(agent: Any, cost: float) -> None:
 
 
 def spawn(
-    agent: Any,
+    agent: Agent,
     agent_class: type[Agent],
     task: str | None = None,
     *,
@@ -78,26 +78,26 @@ def spawn(
     if use_instance_limit:
         agent._child_count += 1
 
-    agent_kwargs: dict[str, Any] = {}
+    agent_kwargs: dict[str, object] = {}
 
     if budget is not None:
-        if agent._budget is not None and agent._budget.run is not None:
+        if agent._budget is not None and agent._budget.max_cost is not None:
             parent_remaining = agent._budget.remaining
             if (
                 parent_remaining is not None
-                and budget.run is not None
-                and budget.run > parent_remaining
+                and budget.max_cost is not None
+                and budget.max_cost > parent_remaining
             ):
                 raise ValueError(
-                    f"Child budget (${budget.run:.2f}) cannot exceed parent's "
+                    f"Child budget (${budget.max_cost:.2f}) cannot exceed parent's "
                     f"remaining budget (${parent_remaining:.2f}). "
                     "Pocket money must be less than or equal to parent's available funds."
                 )
         agent_kwargs["budget"] = budget
     elif agent._budget is not None and agent._budget.shared:
         borrowed_budget = Budget(
-            run=agent._budget.remaining,
-            per=agent._budget.per,
+            max_cost=agent._budget.remaining,
+            rate_limits=agent._budget.rate_limits,
             on_exceeded=agent._budget.on_exceeded,
             thresholds=agent._budget.thresholds,
             shared=True,
@@ -105,7 +105,7 @@ def spawn(
         borrowed_budget._parent_budget = agent._budget
         agent_kwargs["budget"] = borrowed_budget
 
-    child_agent = agent_class(**agent_kwargs)
+    child_agent = agent_class(**agent_kwargs)  # type: ignore[arg-type]
 
     borrowed = agent_kwargs.get("budget")
     if borrowed is not None and getattr(borrowed, "_parent_budget", None) is not None:
@@ -116,7 +116,7 @@ def spawn(
     if task:
         t0 = time.perf_counter()
         try:
-            result = child_agent.response(task)
+            result = child_agent.run(task)
         finally:
             if use_instance_limit and agent._child_count > 0:
                 agent._child_count -= 1
@@ -139,7 +139,7 @@ def spawn(
 
 
 def spawn_parallel(
-    agent: Any,
+    agent: Agent,
     agents_spec: list[tuple[type[Agent], str]],
 ) -> list[Response[str]]:
     """Run multiple agents via spawn(), each with its own task."""

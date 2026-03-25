@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from syrin.config import get_config
 from syrin.remote._types import OverridePayload
@@ -65,14 +65,14 @@ def on_agent_init(agent: Agent) -> None:
 
 
 def _apply_payload_and_emit(
-    agent: Any,
+    agent: object,
     payload: OverridePayload,
-    resolver: Any,
+    resolver: object,
 ) -> None:
     """Apply payload via resolver; emit REMOTE_CONFIG_UPDATE or REMOTE_CONFIG_ERROR."""
     from syrin.events import EventContext
 
-    result = resolver.apply_overrides(agent, payload)
+    result = resolver.apply_overrides(agent, payload)  # type: ignore[attr-defined]
     emit = getattr(agent, "_emit_event", None)
     if emit is None:
         return

@@ -43,7 +43,7 @@ class TestMemoryReport:
                 latency_ms=100,
             ),
         ):
-            agent.response("Test")
+            agent.run("Test")
 
         # Initial store count should be 0
         initial_stores = agent.report.memory.stores
@@ -85,7 +85,7 @@ class TestMemoryReport:
                 latency_ms=100,
             ),
         ):
-            agent.response("Test")
+            agent.run("Test")
 
         # Initial recall count should be 0
         initial_recalls = agent.report.memory.recalls
@@ -122,7 +122,7 @@ class TestMemoryReport:
                 latency_ms=100,
             ),
         ):
-            agent.response("Test")
+            agent.run("Test")
 
         # Initial forget count should be 0
         initial_forgets = agent.report.memory.forgets
@@ -161,7 +161,7 @@ class TestMemoryReport:
                 latency_ms=100,
             ),
         ):
-            agent.response("Test")
+            agent.run("Test")
 
         # Perform multiple operations
         agent.remember("Memory 1")
@@ -233,7 +233,7 @@ class TestMemoryReportEdgeCases:
                 latency_ms=100,
             ),
         ):
-            agent.response("Test")
+            agent.run("Test")
 
         # Perform operations multiple times
         for i in range(5):
@@ -272,7 +272,7 @@ class TestMemoryReportEdgeCases:
                 latency_ms=100,
             ),
         ):
-            agent.response("Test")
+            agent.run("Test")
 
         initial_stores = agent.report.memory.stores
 

@@ -13,7 +13,7 @@ Example:
     >>> from syrin.threshold import BudgetThreshold
     >>>
     >>> budget = Budget(
-    ...     run=10.0,
+    ...     max_cost=10.0,
     ...     thresholds=[
     ...         BudgetThreshold(at=80, action=lambda ctx: print(f"At {ctx.percentage}%"))
     ...     ]
@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, TypeVar
+from typing import TypeVar
 
 from syrin.enums import ThresholdMetric, ThresholdWindow
 
@@ -68,7 +68,7 @@ class ThresholdContext:
 
     percentage: int
     """Utilization percentage (0-100) that triggered this threshold."""
-    metric: Any  # ThresholdMetric
+    metric: object  # ThresholdMetric
     """Metric being tracked (e.g. ThresholdMetric.TOKENS, ThresholdMetric.COST)."""
     current_value: float
     """Current value (e.g. tokens used, cost so far)."""
@@ -76,9 +76,9 @@ class ThresholdContext:
     """Limit or cap (e.g. max_tokens, run budget)."""
     budget_run: float = 0.0
     """Alias for limit_value (for COST metric)."""
-    parent: Any = None
+    parent: object = None
     """Parent object (e.g. Agent, Budget) when available."""
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
     """Extra key-value data."""
     compact: Callable[[], None] = field(default=_noop_compact)
     """(Context only.) Call to compact; no-op when not inside prepare."""
@@ -87,12 +87,10 @@ class ThresholdContext:
 # Alias: event passed to threshold action (avoids confusion with Context config).
 
 
-# Type alias for threshold action handlers
-def _threshold_action_handler() -> None:
-    pass
+# Type alias for threshold action handlers: callable receiving ThresholdContext, returns None.
+from collections.abc import Callable as _Callable
 
-
-ThresholdAction = type(_threshold_action_handler)
+ThresholdAction = _Callable[["ThresholdContext"], None]
 
 
 T = TypeVar("T", bound="BaseThreshold")
@@ -110,8 +108,8 @@ class BaseThreshold:
     """
 
     at: int = 0
-    action: Any = None  # Callable[[ThresholdContext], None]
-    metric: Any = None  # ThresholdMetric
+    action: Callable[[ThresholdContext], None] | None = None
+    metric: object = None  # ThresholdMetric
     at_range: tuple[int, int] | None = None  # (min, max): trigger when min <= pct <= max
 
     def __post_init__(self) -> None:
@@ -127,7 +125,7 @@ class BaseThreshold:
         if self.action is None:
             raise ValueError("Threshold 'action' is required")
 
-    def should_trigger(self, percentage: int, metric: Any = None) -> bool:
+    def should_trigger(self, percentage: int, metric: object = None) -> bool:
         """Check if this threshold should trigger."""
         if self.at_range is not None:
             lo, hi = self.at_range
@@ -139,7 +137,8 @@ class BaseThreshold:
         return in_range
 
     def execute(self, ctx: ThresholdContext) -> None:
-        self.action(ctx)
+        if self.action is not None:
+            self.action(ctx)
 
 
 @dataclass
@@ -161,7 +160,7 @@ class BudgetThreshold(BaseThreshold):
         >>> BudgetThreshold(at_range=(70, 75), action=alert)
     """
 
-    metric: Any = ThresholdMetric.COST
+    metric: object = ThresholdMetric.COST
     window: ThresholdWindow = ThresholdWindow.RUN
 
     def __post_init__(self) -> None:
@@ -202,8 +201,8 @@ class ContextThreshold(BaseThreshold):
         >>> ContextThreshold(at_range=(70, 75), action=warn)
     """
 
-    metric: Any = ThresholdMetric.TOKENS
-    window: Any = ThresholdWindow.MAX_TOKENS
+    metric: object = ThresholdMetric.TOKENS
+    window: object = ThresholdWindow.MAX_TOKENS
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -236,7 +235,7 @@ class RateLimitThreshold(BaseThreshold):
         >>> RateLimitThreshold(at=80, action=on_threshold, metric=ThresholdMetric.RPM)
     """
 
-    metric: Any = None
+    metric: object = None
 
     def __post_init__(self) -> None:
         super().__post_init__()

@@ -85,7 +85,7 @@ class TestAgentOutputConfigTemplate:
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
-            r = agent.response("Return name and value.")
+            r = agent.run("Return name and value.")
         assert r.content == "Name: Alice, Value: 42"
         assert r.template_data == {"name": "Alice", "value": 42}
         assert r.structured is not None
@@ -118,7 +118,7 @@ class TestAgentOutputConfigFileGeneration:
             new_callable=AsyncMock,
             return_value=_mock_provider_response(content="Hello world"),
         ):
-            r = agent.response("Say hello")
+            r = agent.run("Say hello")
         assert r.content == "Hello world"
         assert r.file is not None
         assert r.file.exists()
@@ -138,7 +138,7 @@ class TestAgentOutputConfigFileGeneration:
             new_callable=AsyncMock,
             return_value=_mock_provider_response(content="Hi"),
         ):
-            r = agent.response("Hi")
+            r = agent.run("Hi")
         assert r.file is None
         assert r.file_bytes is None
 
@@ -161,7 +161,7 @@ class TestAgentOutputConfigFileGeneration:
                 return_value=_mock_provider_response(content="PDF content here"),
             ),
         ):
-            r = agent.response("Generate PDF")
+            r = agent.run("Generate PDF")
         assert r.content == "PDF content here"
         assert r.file is None
         assert r.file_bytes is None
@@ -185,7 +185,7 @@ class TestAgentOutputConfigFileGeneration:
                 return_value=_mock_provider_response(content="DOCX content here"),
             ),
         ):
-            r = agent.response("Generate DOCX")
+            r = agent.run("Generate DOCX")
         assert r.content == "DOCX content here"
         assert r.file is None
         assert r.file_bytes is None
@@ -211,7 +211,7 @@ class TestAgentOutputConfigCitation:
             new_callable=AsyncMock,
             return_value=_mock_provider_response(content=content_with_citation),
         ):
-            r = agent.response("What is the capital?")
+            r = agent.run("What is the capital?")
         assert r.citations is not None
         assert len(r.citations) == 1
         assert r.citations[0].source == "moa.pdf"
@@ -232,6 +232,6 @@ class TestAgentOutputConfigCitation:
             new_callable=AsyncMock,
             return_value=_mock_provider_response(content="Text [Source: doc.pdf, Page 1]"),
         ):
-            r = agent.response("Hi")
+            r = agent.run("Hi")
         assert r.citations == []
         assert "[Source:" in r.content

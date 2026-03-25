@@ -50,10 +50,10 @@ def main() -> None:
         system_prompt="You are helpful.",
     )
 
-    r = agent.response("write a python function", task_type=TaskType.CODE)
+    r = agent.run("write a python function", task_type=TaskType.CODE)
     print(f"CODE -> {r.routing_reason.selected_model}")
 
-    r = agent.response("hello", task_type=TaskType.GENERAL)
+    r = agent.run("hello", task_type=TaskType.GENERAL)
     print(f"GENERAL -> {r.routing_reason.selected_model}")
 
 

@@ -1,6 +1,8 @@
 # OpenMemory - IDE/Assistant specific rules
 .cursor/rules/openmemory.mdc
 
+.DS_Store
+
 plan/
 openmemory.md
 .credentials/

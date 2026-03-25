@@ -146,13 +146,13 @@ class TestAlmockLatencyBehavior:
 
 
 class TestAlmockWithAgent:
-    """Agent.response() works with Model.Almock (no API key)."""
+    """Agent.run() works with Model.Almock (no API key)."""
 
     def test_agent_almock_returns_response(self) -> None:
         """Agent(model=Model.Almock()) returns a Response with content."""
         model = Model.Almock(latency_min=0, latency_max=0, lorem_length=20)
         agent = Agent(model=model, system_prompt="You are helpful.")
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.content is not None
         assert r.cost >= 0
         assert r.tokens.total_tokens >= 0
@@ -165,9 +165,9 @@ class TestAlmockWithAgent:
         agent = Agent(
             model=model,
             system_prompt="Test.",
-            budget=Budget(run=10.0),
+            budget=Budget(max_cost=10.0),
         )
-        r = agent.response("Hi")
+        r = agent.run("Hi")
         assert r.cost >= 0
         assert r.budget_used >= 0
 

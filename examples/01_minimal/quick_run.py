@@ -14,16 +14,16 @@ model = Model.Almock()  # No API key needed
 agent = (
     Agent.builder(model)
     .with_system_prompt("Explain like I'm five years old.")
-    .with_budget(Budget(run=0.50))
+    .with_budget(Budget(max_cost=0.50))
     .build()
 )
-response = agent.response("What is gravity?")
+response = agent.run("What is gravity?")
 print(f"Builder: {response.content[:80]}...")
 print()
 
 # --- Way 2: Preset (one-liner) ---
 agent2 = Agent.basic(model, system_prompt="You are a helpful assistant.")
-response2 = agent2.response("What is 2 + 2?")
+response2 = agent2.run("What is 2 + 2?")
 print(f"Preset:  {response2.content}")
 print()
 
@@ -32,9 +32,9 @@ print()
 class MyAgent(Agent):
     model = model
     system_prompt = "You are helpful and concise."
-    budget = Budget(run=1.00, on_exceeded=warn_on_exceeded)
+    budget = Budget(max_cost=1.00, on_exceeded=warn_on_exceeded)
 
 
 agent3 = MyAgent()
-response3 = agent3.response("Hello!")
+response3 = agent3.run("Hello!")
 print(f"Class:   {response3.content}")

@@ -18,7 +18,7 @@ def test_agent_static_system_prompt_unchanged() -> None:
     vars_ = agent.effective_template_variables()
     assert "date" in vars_
     assert "agent_id" in vars_
-    assert agent.response("Hi").content is not None
+    assert agent.run("Hi").content is not None
 
 
 def test_agent_with_prompt_and_prompt_vars() -> None:
@@ -37,7 +37,7 @@ def test_agent_with_prompt_and_prompt_vars() -> None:
     resolved = agent._resolve_system_prompt(agent.effective_template_variables(), ctx)
     assert "Alice" in resolved
     assert "friendly" in resolved
-    assert agent.response("Hi").content is not None
+    assert agent.run("Hi").content is not None
 
 
 def test_agent_prompt_vars_merge_class_instance() -> None:
@@ -74,7 +74,7 @@ def test_agent_per_call_prompt_vars() -> None:
         system_prompt=p,
         template_variables={"user_name": "Default"},
     )
-    r1 = agent.response("Hi", template_variables={"user_name": "Alice"})
+    r1 = agent.run("Hi", template_variables={"user_name": "Alice"})
     assert r1.content is not None
 
 
@@ -88,7 +88,7 @@ def test_agent_callable_system_prompt_with_ctx() -> None:
         return f"You are agent {ctx.agent_id}. Today is {ctx.date.date()}."
 
     agent = Agent(model=_almock(), system_prompt=build_prompt)
-    r = agent.response("Hi")
+    r = agent.run("Hi")
     assert r.content is not None
 
 
@@ -107,7 +107,7 @@ def test_agent_system_prompt_in_class() -> None:
     ctx = make_prompt_context(agent, inject_template_vars=True)
     resolved = agent._resolve_system_prompt(vars_, ctx)
     assert "Carol" in resolved
-    r = agent.response("Hi")
+    r = agent.run("Hi")
     assert r.content is not None
 
 
@@ -122,7 +122,7 @@ def test_agent_system_prompt_in_class_no_params() -> None:
             return "You are helpful."
 
     agent = SimpleAgent()
-    r = agent.response("Hi")
+    r = agent.run("Hi")
     assert r.content is not None
 
 
@@ -171,7 +171,7 @@ def test_agent_prompt_missing_var_raises() -> None:
 
     agent = Agent(model=_almock(), system_prompt=p, template_variables={})
     with pytest.raises(ValueError, match="required|missing"):
-        agent.response("Hi")
+        agent.run("Hi")
 
 
 def test_agent_system_prompt_int_rejects() -> None:

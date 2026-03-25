@@ -5,8 +5,6 @@ Ultra-low latency (~90ms TTFB). Best for real-time voice agents.
 
 from __future__ import annotations
 
-from typing import Any
-
 from syrin.generation._base_voice import BaseVoiceProvider
 
 
@@ -22,7 +20,7 @@ class CartesiaVoiceProvider(BaseVoiceProvider):
         api_key: str | None = None,
         voice_id: str = "default",
         model: str = "sonic-3",
-        **kwargs: Any,
+        **kwargs: object,
     ) -> None:
         super().__init__(api_key=api_key, model=model, **kwargs)
         self.voice_id = voice_id
@@ -43,7 +41,7 @@ class CartesiaVoiceProvider(BaseVoiceProvider):
         language: str,
         output_format: str,
         model_id: str,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> tuple[bytes, str, str]:
         from cartesia import Cartesia
 
@@ -54,7 +52,7 @@ class CartesiaVoiceProvider(BaseVoiceProvider):
             transcript=text,
             voice=vid,  # type: ignore[arg-type]
             output_format=output_format,  # type: ignore[arg-type]
-            **{**self._kwargs, **kwargs},
+            **{**self._kwargs, **kwargs},  # type: ignore[arg-type]
         )
         content_bytes = response.parse()  # BinaryAPIResponse.parse() returns bytes
         mime = "audio/mpeg" if output_format == "mp3" else f"audio/{output_format}"

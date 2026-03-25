@@ -15,7 +15,7 @@ Example:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from syrin.observability import Span, SpanExporter, SpanKind
 
@@ -122,7 +122,7 @@ class LangfuseExporter(SpanExporter):
                         usage={
                             "input": tokens_input or 0,
                             "output": tokens_output or 0,
-                            "total": (tokens_input or 0) + (tokens_output or 0),
+                            "total": (tokens_input or 0) + (tokens_output or 0),  # type: ignore[operator]
                         }
                     )
                 break
@@ -145,7 +145,7 @@ class LangfuseExporter(SpanExporter):
         if generation:
             generation.end()
 
-    def _extract_metadata(self, span: Span) -> dict[str, Any]:
+    def _extract_metadata(self, span: Span) -> dict[str, object]:
         """Extract relevant metadata from span attributes."""
         metadata = {}
 

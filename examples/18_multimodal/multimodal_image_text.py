@@ -48,7 +48,7 @@ def main() -> None:
         {"type": "image_url", "image_url": {"url": data_url}},
     ]
 
-    r = agent.response(content_parts)
+    r = agent.run(content_parts)
     print("Response:", r.content)
 
 

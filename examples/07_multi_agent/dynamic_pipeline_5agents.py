@@ -105,7 +105,7 @@ class SummarizerAgent(Agent):
 
 
 def main() -> None:
-    budget = Budget(run=2.0)
+    budget = Budget(max_cost=2.0)
     pipeline = DynamicPipeline(
         agents=[
             ResearcherAgent,
@@ -141,7 +141,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-    budget = Budget(run=2.0)
+    budget = Budget(max_cost=2.0)
     serve_pipeline = DynamicPipeline(
         agents=[
             ResearcherAgent,

@@ -31,7 +31,7 @@ if __name__ == "__main__":
     print("--- Persona Prompt Example ---")
     print(f"System prompt resolves to: {agent._system_prompt}")
 
-    r = agent.response("What's your personality?")
+    r = agent.run("What's your personality?")
     print(f"Response: {r.content[:120]}")
     print(f"Cost: ${r.cost:.6f}")
     print("Done.")

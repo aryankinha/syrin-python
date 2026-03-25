@@ -32,7 +32,7 @@ def main() -> None:
         ),
     )
 
-    r = agent.response("Say hello in one word.")
+    r = agent.run("Say hello in one word.")
     print(f"\nReply: {r.content}")
     print(
         f"Context stats: tokens={agent.context_stats.total_tokens}, utilization={agent.context_stats.utilization:.2%}"

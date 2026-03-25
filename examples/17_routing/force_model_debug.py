@@ -39,7 +39,7 @@ def main() -> None:
     )
 
     # Routing bypassed; always uses force_model
-    r = agent.response("write code", task_type=TaskType.CODE)
+    r = agent.run("write code", task_type=TaskType.CODE)
     print(f"routing_reason: {r.routing_reason.reason}")
     assert "force_model" in r.routing_reason.reason
 

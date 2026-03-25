@@ -99,7 +99,7 @@ class TestAgentCheckpointIntegration:
 
         agent = Agent(
             model=Model(provider="openai", model_id="gpt-4o-mini"),
-            budget=Budget(run=10.0),
+            budget=Budget(max_cost=10.0),
             config=AgentConfig(checkpoint=CheckpointConfig(storage="memory")),
         )
         agent._budget_tracker.record(

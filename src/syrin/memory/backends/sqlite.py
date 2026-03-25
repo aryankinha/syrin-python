@@ -4,16 +4,19 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from syrin.enums import MemoryScope, MemoryType
 from syrin.memory.config import MemoryEntry
 
 
 class SQLiteBackend:
-    """SQLite-based storage for memories (persistent, file-based)."""
+    """SQLite-based storage for memories (persistent, file-based).
+
+    Thread-safe: all operations are serialized via an internal lock.
+    """
 
     def __init__(self, path: str | None = None) -> None:
         """Initialize SQLite backend.
@@ -28,38 +31,40 @@ class SQLiteBackend:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
 
         self._path = path
+        self._lock = threading.Lock()
         self._conn = sqlite3.connect(path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._create_tables()
 
     def _create_tables(self) -> None:
         """Create the memories table if it doesn't exist."""
-        self._conn.execute("""
-            CREATE TABLE IF NOT EXISTS memories (
-                id TEXT PRIMARY KEY,
-                content TEXT NOT NULL,
-                type TEXT NOT NULL,
-                importance REAL DEFAULT 1.0,
-                scope TEXT DEFAULT 'user',
-                source TEXT,
-                created_at TEXT NOT NULL,
-                last_accessed TEXT,
-                access_count INTEGER DEFAULT 0,
-                valid_from TEXT,
-                valid_until TEXT,
-                keywords TEXT DEFAULT '[]',
-                related_ids TEXT DEFAULT '[]',
-                supersedes TEXT,
-                metadata TEXT DEFAULT '{}'
-            )
-        """)
-        self._conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_memories_type ON memories(type)
-        """)
-        self._conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_memories_importance ON memories(importance DESC)
-        """)
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute("""
+                CREATE TABLE IF NOT EXISTS memories (
+                    id TEXT PRIMARY KEY,
+                    content TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    importance REAL DEFAULT 1.0,
+                    scope TEXT DEFAULT 'user',
+                    source TEXT,
+                    created_at TEXT NOT NULL,
+                    last_accessed TEXT,
+                    access_count INTEGER DEFAULT 0,
+                    valid_from TEXT,
+                    valid_until TEXT,
+                    keywords TEXT DEFAULT '[]',
+                    related_ids TEXT DEFAULT '[]',
+                    supersedes TEXT,
+                    metadata TEXT DEFAULT '{}'
+                )
+            """)
+            self._conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_memories_type ON memories(type)
+            """)
+            self._conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_memories_importance ON memories(importance DESC)
+            """)
+            self._conn.commit()
 
     def _row_to_entry(self, row: sqlite3.Row) -> MemoryEntry:
         """Convert a database row to a MemoryEntry."""
@@ -85,40 +90,42 @@ class SQLiteBackend:
 
     def add(self, memory: MemoryEntry) -> None:
         """Add a memory to the database."""
-        self._conn.execute(
-            """
-            INSERT OR REPLACE INTO memories
-            (id, content, type, importance, scope, source, created_at, last_accessed,
-             access_count, valid_from, valid_until, keywords, related_ids, supersedes, metadata)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                memory.id,
-                memory.content,
-                memory.type.value,
-                memory.importance,
-                memory.scope.value,
-                memory.source,
-                memory.created_at.isoformat(),
-                memory.last_accessed.isoformat() if memory.last_accessed else None,
-                memory.access_count,
-                memory.valid_from.isoformat() if memory.valid_from else None,
-                memory.valid_until.isoformat() if memory.valid_until else None,
-                json.dumps(memory.keywords),
-                json.dumps(memory.related_ids),
-                memory.supersedes,
-                json.dumps(memory.metadata),
-            ),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT OR REPLACE INTO memories
+                (id, content, type, importance, scope, source, created_at, last_accessed,
+                 access_count, valid_from, valid_until, keywords, related_ids, supersedes, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    memory.id,
+                    memory.content,
+                    memory.type.value,
+                    memory.importance,
+                    memory.scope.value,
+                    memory.source,
+                    memory.created_at.isoformat(),
+                    memory.last_accessed.isoformat() if memory.last_accessed else None,
+                    memory.access_count,
+                    memory.valid_from.isoformat() if memory.valid_from else None,
+                    memory.valid_until.isoformat() if memory.valid_until else None,
+                    json.dumps(memory.keywords),
+                    json.dumps(memory.related_ids),
+                    memory.supersedes,
+                    json.dumps(memory.metadata),
+                ),
+            )
+            self._conn.commit()
 
     def get(self, memory_id: str) -> MemoryEntry | None:
         """Get a memory by ID."""
-        cursor = self._conn.execute(
-            "SELECT * FROM memories WHERE id = ?",
-            (memory_id,),
-        )
-        row = cursor.fetchone()
+        with self._lock:
+            cursor = self._conn.execute(
+                "SELECT * FROM memories WHERE id = ?",
+                (memory_id,),
+            )
+            row = cursor.fetchone()
         return self._row_to_entry(row) if row else None
 
     def search(
@@ -128,7 +135,7 @@ class SQLiteBackend:
         top_k: int = 10,
     ) -> list[MemoryEntry]:
         """Search memories by query (simple substring match)."""
-        params: tuple[Any, ...]
+        params: tuple[object, ...]
         if query:
             like_pattern = f"%{query}%"
             sql = "SELECT * FROM memories WHERE content LIKE ?"
@@ -147,8 +154,10 @@ class SQLiteBackend:
             sql += " ORDER BY importance DESC LIMIT ?"
             params = (params[0], top_k) if params else (top_k,)
 
-        cursor = self._conn.execute(sql, params)
-        return [self._row_to_entry(row) for row in cursor.fetchall()]
+        with self._lock:
+            cursor = self._conn.execute(sql, params)
+            rows = cursor.fetchall()
+        return [self._row_to_entry(row) for row in rows]
 
     def list(
         self,
@@ -159,7 +168,7 @@ class SQLiteBackend:
         """List all memories, optionally filtered."""
         sql = "SELECT * FROM memories"
         conditions = []
-        params: list[Any] = []
+        params: list[object] = []
 
         if memory_type:
             conditions.append("type = ?")
@@ -173,8 +182,10 @@ class SQLiteBackend:
 
         sql += f" ORDER BY importance DESC LIMIT {limit}"
 
-        cursor = self._conn.execute(sql, params)
-        return [self._row_to_entry(row) for row in cursor.fetchall()]
+        with self._lock:
+            cursor = self._conn.execute(sql, params)
+            rows = cursor.fetchall()
+        return [self._row_to_entry(row) for row in rows]
 
     def update(self, memory: MemoryEntry) -> None:
         """Update a memory."""
@@ -182,17 +193,20 @@ class SQLiteBackend:
 
     def delete(self, memory_id: str) -> None:
         """Delete a memory by ID."""
-        self._conn.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
+            self._conn.commit()
 
     def clear(self) -> None:
         """Clear all memories."""
-        self._conn.execute("DELETE FROM memories")
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute("DELETE FROM memories")
+            self._conn.commit()
 
     def close(self) -> None:
         """Close the database connection."""
-        self._conn.close()
+        with self._lock:
+            self._conn.close()
 
 
 __all__ = ["SQLiteBackend"]

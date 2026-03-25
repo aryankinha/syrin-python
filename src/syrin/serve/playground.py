@@ -12,13 +12,13 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from syrin.agent import Agent
 
 
-def add_playground_static_mount(app: Any, mount_path: str) -> None:
+def add_playground_static_mount(app: object, mount_path: str) -> None:
     """Mount playground static files on the app at the given path.
 
     Must be called on the main FastAPI app (not an APIRouter) because include_router
@@ -32,7 +32,7 @@ def add_playground_static_mount(app: Any, mount_path: str) -> None:
     path = mount_path.rstrip("/") or "/playground"
     if not path.startswith("/"):
         path = "/" + path
-    app.mount(path, StaticFiles(directory=str(static_dir), html=True), name="playground_static")
+    app.mount(path, StaticFiles(directory=str(static_dir), html=True), name="playground_static")  # type: ignore[attr-defined]
 
 
 def _playground_static_dir() -> Path | None:
@@ -59,7 +59,7 @@ def _playground_static_dir() -> Path | None:
     return None
 
 
-_playground_events: contextvars.ContextVar[list[tuple[str, dict[str, Any]]] | None] = (
+_playground_events: contextvars.ContextVar[list[tuple[str, dict[str, object]]] | None] = (
     contextvars.ContextVar("syrin_playground_events", default=None)
 )
 
@@ -68,7 +68,7 @@ _TRUNCATE_DATA_URL_AT = 100
 _TRUNCATE_STRING_AT = 200
 
 
-def _truncate_data_urls(obj: Any) -> Any:
+def _truncate_data_urls(obj: object) -> object:
     """Truncate long data URLs, content_bytes reprs, and other huge strings in events."""
     if obj is None or isinstance(obj, (bool, int, float)):
         return obj
@@ -89,7 +89,7 @@ def _truncate_data_urls(obj: Any) -> Any:
     return obj
 
 
-def _to_json_safe(obj: Any) -> Any:
+def _to_json_safe(obj: object) -> object:
     """Convert object to JSON-serializable form (handles datetime, objects)."""
     if obj is None or isinstance(obj, (bool, int, float)):
         return obj
@@ -116,21 +116,21 @@ def _attach_event_collector(agent: Agent) -> None:
     _collect_events() so events from the current request are captured.
     """
 
-    def handler(hook: Any, ctx: Any) -> None:
+    def handler(hook: object, ctx: object) -> None:
         events = _playground_events.get()
         if events is not None and isinstance(events, list):
             hook_value = getattr(hook, "value", str(hook))
-            ctx_dict: dict[str, Any] = dict(ctx) if hasattr(ctx, "items") else {}
+            ctx_dict: dict[str, object] = dict(ctx) if hasattr(ctx, "items") else {}  # type: ignore[call-overload]
             safe = _to_json_safe(ctx_dict)
-            events.append((hook_value, safe))
+            events.append((hook_value, safe))  # type: ignore[arg-type]
 
     agent.events.on_all(handler)
 
 
 @contextmanager
-def _collect_events() -> Generator[list[tuple[str, dict[str, Any]]], None, None]:
+def _collect_events() -> Generator[list[tuple[str, dict[str, object]]], None, None]:
     """Context manager that sets context var to empty list, yields, then returns the list."""
-    events: list[tuple[str, dict[str, Any]]] = []
+    events: list[tuple[str, dict[str, object]]] = []
     token = _playground_events.set(events)
     try:
         yield events
@@ -141,7 +141,7 @@ def _collect_events() -> Generator[list[tuple[str, dict[str, Any]]], None, None]
 def get_playground_html(
     base_path: str,
     api_base: str,
-    agents: list[dict[str, Any]],
+    agents: list[dict[str, object]],
     *,
     debug: bool = False,
 ) -> str:

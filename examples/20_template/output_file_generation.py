@@ -33,7 +33,7 @@ def main() -> None:
         output_config=OutputFormat.TEXT,
     )
 
-    response = agent.response("Summarize capital structure.")
+    response = agent.run("Summarize capital structure.")
     print("Content:", response.content)
     print("File path:", response.file)
     print("File bytes length:", len(response.file_bytes) if response.file_bytes else 0)
@@ -55,7 +55,7 @@ def main() -> None:
             citation=CitationConfig(style=CitationStyle.FOOTNOTE, include_page=True),
         ),
     )
-    r = agent_cited.response("Summarize capital.")
+    r = agent_cited.run("Summarize capital.")
     print("Content with footnotes:", r.content)
     print("Citations:", [(c.source, c.page) for c in r.citations])
 

@@ -129,8 +129,8 @@ def test_validation_error_has_attempts_and_last_error() -> None:
 
 def test_budget_valid_run_and_callback() -> None:
     """Budget accepts run=float and on_exceeded=callable."""
-    b = Budget(run=0.5, on_exceeded=raise_on_exceeded)
-    assert b.run == 0.5
+    b = Budget(max_cost=0.5, on_exceeded=raise_on_exceeded)
+    assert b.max_cost == 0.5
     assert b.on_exceeded is raise_on_exceeded
 
 
@@ -148,12 +148,12 @@ def test_budget_valid_with_thresholds() -> None:
 def test_budget_invalid_threshold_not_budget_threshold_raises() -> None:
     """Budget must only accept BudgetThreshold in thresholds."""
     with pytest.raises(TypeError, match="Budget only accepts BudgetThreshold"):
-        Budget(run=1.0, thresholds=[{"at": 80}])  # type: ignore[arg-type]
+        Budget(max_cost=1.0, thresholds=[{"at": 80}])  # type: ignore[arg-type]
 
 
 def test_budget_valid_reserve() -> None:
     """Budget accepts reserve."""
-    b = Budget(run=10.0, reserve=1.0)
+    b = Budget(max_cost=10.0, reserve=1.0)
     assert b.reserve == 1.0
 
 

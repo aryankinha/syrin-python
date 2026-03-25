@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from syrin.enums import KnowledgeBackend
 
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 # Registry: maps backend name to (module_path, class_name) for lazy imports,
 # or directly to a class.
-_STORE_REGISTRY: dict[str, type[Any] | tuple[str, str]] = {
+_STORE_REGISTRY: dict[str, type[object] | tuple[str, str]] = {
     KnowledgeBackend.MEMORY: InMemoryKnowledgeStore,
     KnowledgeBackend.POSTGRES: ("syrin.knowledge.stores._postgres", "PostgresKnowledgeStore"),
     KnowledgeBackend.QDRANT: ("syrin.knowledge.stores._qdrant", "QdrantKnowledgeStore"),
@@ -43,7 +43,7 @@ _BACKEND_KWARGS: dict[str, set[str]] = {
 }
 
 
-def register_knowledge_store(name: str, cls: type[Any]) -> None:
+def register_knowledge_store(name: str, cls: type[object]) -> None:
     """Register a custom knowledge store backend.
 
     Args:
@@ -56,7 +56,7 @@ def register_knowledge_store(name: str, cls: type[Any]) -> None:
     _STORE_REGISTRY[name] = cls
 
 
-def _resolve_class(entry: type[Any] | tuple[str, str]) -> type[Any]:
+def _resolve_class(entry: type[object] | tuple[str, str]) -> type[object]:
     """Resolve a registry entry to a class (lazy import if needed)."""
     if isinstance(entry, tuple):
         import importlib
@@ -106,7 +106,7 @@ def get_knowledge_store(
     cls = _resolve_class(_STORE_REGISTRY[backend_key])
 
     # Build kwargs for the specific backend
-    all_kwargs: dict[str, Any] = {
+    all_kwargs: dict[str, object] = {
         "embedding_dimensions": embedding_dimensions,
         "connection_url": connection_url,
         "path": path,
@@ -121,4 +121,4 @@ def get_knowledge_store(
         # Custom backends: pass all non-None kwargs
         filtered = {k: v for k, v in all_kwargs.items() if v is not None}
 
-    return cls(**filtered)  # type: ignore[no-any-return]
+    return cls(**filtered)  # type: ignore[return-value]

@@ -32,7 +32,7 @@ def example_single_shot() -> None:
     print("Use case: Simple Q&A without tools")
 
     agent = Agent(model=model, custom_loop=SingleShotLoop())
-    result = agent.response("What is the capital of France?")
+    result = agent.run("What is the capital of France?")
     print("Q: What is the capital of France?")
     print(f"A: {result.content[:80]}...")
 
@@ -43,7 +43,7 @@ def example_react() -> None:
     print("Use case: Multi-step tasks with tools")
 
     agent = Agent(model=model, custom_loop=ReactLoop(max_iterations=5))
-    result = agent.response("What is 5 + 3?")
+    result = agent.run("What is 5 + 3?")
     print("Q: What is 5 + 3?")
     print(f"A: {result.content[:80]}...")
 
@@ -62,7 +62,7 @@ def example_human_in_the_loop() -> None:
         return True
 
     agent = Agent(model=model, custom_loop=HumanInTheLoop(approve=approve, max_iterations=5))
-    result = agent.response("What is the square root of 144?")
+    result = agent.run("What is the square root of 144?")
     print(f"A: {result.content[:80]}...")
     print(f"Tools evaluated: {approved_count}")
 
@@ -76,7 +76,7 @@ def example_plan_execute() -> None:
         model=model,
         custom_loop=PlanExecuteLoop(max_plan_iterations=3, max_execution_iterations=10),
     )
-    result = agent.response("Research programming languages and summarize pros/cons")
+    result = agent.run("Research programming languages and summarize pros/cons")
     print(f"A: {result.content[:100]}...")
     print(f"Iterations: {result.iterations}")
 
@@ -87,7 +87,7 @@ def example_code_action() -> None:
     print("Use case: Math, data processing, code execution")
 
     agent = Agent(model=model, custom_loop=CodeActionLoop(max_iterations=5, timeout_seconds=30))
-    result = agent.response("What is the sum of even numbers from 1 to 100?")
+    result = agent.run("What is the sum of even numbers from 1 to 100?")
     print(f"A: {result.content[:80]}...")
     print(f"Iterations: {result.iterations}")
 
@@ -115,7 +115,7 @@ def example_custom_loop() -> None:
             )
 
     agent = Agent(model=model, custom_loop=MyLoop())
-    result = agent.response("Hello!")
+    result = agent.run("Hello!")
     print(f"A: {result.content[:80]}...")
 
 

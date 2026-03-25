@@ -5,8 +5,6 @@ Models: eleven_flash_v2_5 (fast), eleven_turbo_v2_5 (quality), eleven_multilingu
 
 from __future__ import annotations
 
-from typing import Any
-
 from syrin.generation._base_voice import BaseVoiceProvider
 
 
@@ -22,7 +20,7 @@ class ElevenLabsVoiceProvider(BaseVoiceProvider):
         api_key: str | None = None,
         voice_id: str = "JBFqnCBsd6RMkjVDRZzb",
         model: str = "eleven_flash_v2_5",
-        **kwargs: Any,
+        **kwargs: object,
     ) -> None:
         super().__init__(api_key=api_key, model=model, **kwargs)
         self.voice_id = voice_id
@@ -43,7 +41,7 @@ class ElevenLabsVoiceProvider(BaseVoiceProvider):
         language: str,
         output_format: str,
         model_id: str,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> tuple[bytes, str, str]:
         from elevenlabs.client import ElevenLabs
 
@@ -70,7 +68,7 @@ class ElevenLabsVoiceProvider(BaseVoiceProvider):
         language: str,
         output_format: str,
         model_id: str,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> tuple[bytes, str, str]:
         from elevenlabs.client import AsyncElevenLabs
 

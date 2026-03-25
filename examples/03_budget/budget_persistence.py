@@ -35,8 +35,8 @@ class PersistentAgent(Agent):
     model = almock
     system_prompt = "You are concise."
     budget = Budget(
-        run=0.10,
-        per=RateLimit(day=5.00, month=50.00, month_days=30),
+        max_cost=0.10,
+        rate_limits=RateLimit(day=5.00, month=50.00, month_days=30),
         on_exceeded=raise_on_exceeded,
     )
 
@@ -45,7 +45,7 @@ agent = PersistentAgent(
     budget_store=FileBudgetStore(store_path, single_file=True),
     budget_store_key="example_user",
 )
-result = agent.response("Summarize Python in two sentences.")
+result = agent.run("Summarize Python in two sentences.")
 print(f"Cost: ${result.cost:.6f}")
 print(f"Budget state: {agent.budget_state}")
 
@@ -58,8 +58,8 @@ agent_bob = PersistentAgent(
     budget_store=FileBudgetStore(store_path, single_file=True),
     budget_store_key="bob",
 )
-agent_alice.response("Hello from Alice")
-agent_bob.response("Hello from Bob")
+agent_alice.run("Hello from Alice")
+agent_bob.run("Hello from Bob")
 print(f"Alice budget: {agent_alice.budget_state}")
 print(f"Bob budget: {agent_bob.budget_state}")
 

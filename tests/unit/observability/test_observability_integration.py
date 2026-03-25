@@ -52,7 +52,7 @@ class TestSpanCoverageAgentSpan:
                 token_usage=TokenUsage(input_tokens=10, output_tokens=5, total_tokens=15),
             ),
         ):
-            agent.response("Hello")
+            agent.run("Hello")
 
         roots = exporter.get_root_spans()
         assert len(roots) >= 1
@@ -87,7 +87,7 @@ class TestSpanCoverageAgentSpan:
                 token_usage=TokenUsage(input_tokens=10, output_tokens=5, total_tokens=15),
             ),
         ):
-            agent.response("Hello")
+            agent.run("Hello")
 
         roots = exporter.get_root_spans()
         agent_span = next((s for s in roots if s.kind == SpanKind.AGENT), None)
@@ -128,7 +128,7 @@ class TestSpanCoverageLLMSpan:
                 token_usage=TokenUsage(input_tokens=10, output_tokens=5, total_tokens=15),
             ),
         ):
-            agent.response("Hello")
+            agent.run("Hello")
 
         all_spans = exporter.spans
         llm_spans = [s for s in all_spans if s.kind == SpanKind.LLM]
@@ -163,7 +163,7 @@ class TestSpanCoverageLLMSpan:
                 token_usage=TokenUsage(input_tokens=10, output_tokens=5, total_tokens=15),
             ),
         ):
-            agent.response("Hello")
+            agent.run("Hello")
 
         llm_spans = [s for s in exporter.spans if s.kind == SpanKind.LLM]
         assert len(llm_spans) >= 1
@@ -218,7 +218,7 @@ class TestSpanCoverageToolSpan:
             )
 
         with patch.object(agent._provider, "complete", side_effect=mock_complete):
-            agent.response("Echo hello")
+            agent.run("Echo hello")
 
         tool_spans = [s for s in exporter.spans if s.kind == SpanKind.TOOL]
         assert len(tool_spans) >= 1, "Expected at least one TOOL span"
@@ -262,7 +262,7 @@ class TestSessionTracking:
             ),
             session("session_123"),
         ):
-            agent.response("Hello")
+            agent.run("Hello")
 
         roots = exporter.get_root_spans()
         assert len(roots) >= 1
@@ -294,7 +294,7 @@ class TestSessionTracking:
                 token_usage=TokenUsage(input_tokens=10, output_tokens=5, total_tokens=15),
             ),
         ):
-            agent.response("Hello")
+            agent.run("Hello")
 
         for span in exporter.spans:
             # session_id can be None when no session() is used

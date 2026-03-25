@@ -32,7 +32,7 @@ class TestModelFallbackWhenPrimaryFails:
         agent = Agent(model=model, system_prompt="Hi")
 
         # Primary would fail (no API key), but fallback (Almock) should succeed
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.content is not None
         assert len(r.content) > 0
 
@@ -51,10 +51,10 @@ class TestModelFallbackWhenPrimaryFails:
 
 
 class TestResponseTransformerAtAgentLevel:
-    """Model.with_middleware(): response transformer applied in agent.response()."""
+    """Model.with_middleware(): response transformer applied in agent.run()."""
 
     def test_agent_applies_response_transformer(self) -> None:
-        """When model has response transformer, agent.response() returns transformed content."""
+        """When model has response transformer, agent.run() returns transformed content."""
         transformed_content: list[str] = []
 
         class AppendTransformer(Middleware):
@@ -71,7 +71,7 @@ class TestResponseTransformerAtAgentLevel:
         )
         agent = Agent(model=model, system_prompt="Hi")
 
-        r = agent.response("Hello")
+        r = agent.run("Hello")
         assert r.content is not None
         assert r.content.endswith(" [transformed]")
         assert len(transformed_content) == 1
@@ -101,6 +101,6 @@ class TestResponseRawResponse:
             new_callable=AsyncMock,
             return_value=mock_resp,
         ):
-            r = agent.response("Hi")
+            r = agent.run("Hi")
         assert hasattr(r, "raw_response")
         assert r.raw_response == {"almock": True}

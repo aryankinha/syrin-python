@@ -84,7 +84,7 @@ def main() -> None:
         model=models_list,
         model_router=RoutingConfig(router=router),
         system_prompt="You are helpful. Be concise.",
-        budget=Budget(run=2.0),
+        budget=Budget(max_cost=2.0),
     )
 
     decisions: list[dict] = []
@@ -112,7 +112,7 @@ def main() -> None:
 
     for prompt, task in prompts:
         try:
-            r = agent.response(prompt, task_type=task)
+            r = agent.run(prompt, task_type=task)
             model_used = r.model_used or r.model or "N/A"
             reason = r.routing_reason
             sel = reason.selected_model if reason else "N/A"

@@ -5,7 +5,7 @@ Run: PYTHONPATH=. python examples/12_remote_config/init_and_serve.py
 Then:
   curl -s http://localhost:8000/config | jq .
   curl -s -X PATCH http://localhost:8000/config -H "Content-Type: application/json" \
-    -d '{"agent_id":"<agent_id from GET>","version":1,"overrides":[{"path":"budget.run","value":2.0}]}'
+    -d '{"agent_id":"<agent_id from GET>","version":1,"overrides":[{"path":"budget.max_cost","value":2.0}]}'
 """
 
 from __future__ import annotations
@@ -28,11 +28,11 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 if os.getenv("SYRIN_API_KEY"):
     syrin.init()
 
-# Agent with budget so we can override budget.run via PATCH /config
+# Agent with budget so we can override budget.max_cost via PATCH /config
 agent = Agent(
     model=Model.Almock(),
     name="my_agent",
-    budget=Budget(run=1.0),
+    budget=Budget(max_cost=1.0),
     system_prompt="You are a helpful assistant.",
 )
 

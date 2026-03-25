@@ -6,14 +6,17 @@ Agent delegates to functions here. Public API stays on Agent.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from syrin.agent import Agent
 
 from syrin.types import TokenUsage
 
 _log = logging.getLogger(__name__)
 
 
-def check_and_apply_rate_limit(agent: Any) -> None:
+def check_and_apply_rate_limit(agent: Agent) -> None:
     """Check rate limits. Raise RuntimeError if exceeded."""
     if agent._rate_limit_manager is None:
         return
@@ -26,7 +29,7 @@ def check_and_apply_rate_limit(agent: Any) -> None:
         raise RuntimeError(f"Rate limit exceeded: {reason}")
 
 
-def record_rate_limit_usage(agent: Any, token_usage: TokenUsage) -> None:
+def record_rate_limit_usage(agent: Agent, token_usage: TokenUsage) -> None:
     """Record token usage for rate limit tracking."""
     if agent._rate_limit_manager is None:
         return

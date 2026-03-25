@@ -70,7 +70,7 @@ class FactVerificationGuardrail(Guardrail):
 
         verified_contents = {
             f.content.lower()
-            for f in facts
+            for f in facts  # type: ignore[attr-defined]
             if hasattr(f, "content")
             and hasattr(f, "confidence")
             and getattr(f, "confidence", 0) >= self.min_confidence

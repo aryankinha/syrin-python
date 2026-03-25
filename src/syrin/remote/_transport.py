@@ -12,7 +12,7 @@ import logging
 import threading
 import time
 from collections.abc import Callable
-from typing import Any, Protocol
+from typing import Protocol
 
 import httpx
 
@@ -106,7 +106,7 @@ class ServeTransport:
 
 def _parse_sse_stream(
     stream: httpx.Response,
-) -> Any:  # Generator[(tuple[str, str], None, None)]
+) -> object:  # Generator[(tuple[str, str], None, None)]
     """Read SSE stream and yield (event, data) for each event. Consumes stream."""
     buffer = b""
     event: str | None = None
@@ -152,7 +152,7 @@ def _run_sse_loop(
                     _log.warning("SSE stream %s returned %s", url, response.status_code)
                     break
                 backoff = _BACKOFF_INITIAL
-                for ev, data in _parse_sse_stream(response):
+                for ev, data in _parse_sse_stream(response):  # type: ignore[attr-defined]
                     if stopped.is_set():
                         return
                     if ev == "override" and data:

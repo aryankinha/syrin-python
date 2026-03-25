@@ -33,7 +33,7 @@ def test_agent_records_image_cost_on_generation_end_when_has_budget() -> None:
         model=Model.Almock(),
         system_prompt="Test.",
         image_generation=ImageGenerator.from_provider("gemini", api_key="test"),
-        budget=Budget(run=10.0),
+        budget=Budget(max_cost=10.0),
     )
     agent._image_generator = mock_img_gen
 
@@ -76,7 +76,7 @@ def test_agent_records_video_cost_on_generation_end_when_has_budget() -> None:
         model=Model.Almock(),
         system_prompt="Test.",
         video_generation=VideoGenerator.from_provider("gemini", api_key="test"),
-        budget=Budget(run=10.0),
+        budget=Budget(max_cost=10.0),
     )
 
     recorded: list[CostInfo] = []
@@ -113,7 +113,7 @@ def test_agent_records_voice_cost_on_generation_end_when_has_budget() -> None:
         model=Model.Almock(),
         system_prompt="Test.",
         voice_generation=VoiceGenerator.OpenAI(api_key="test"),
-        budget=Budget(run=10.0),
+        budget=Budget(max_cost=10.0),
     )
     agent._voice_generator = mock_voice_gen
 
@@ -172,7 +172,7 @@ def test_agent_does_not_record_when_metadata_lacks_cost_usd() -> None:
         model=Model.Almock(),
         system_prompt="Test.",
         image_generation=ImageGenerator.from_provider("gemini", api_key="test"),
-        budget=Budget(run=10.0),
+        budget=Budget(max_cost=10.0),
     )
 
     recorded: list[CostInfo] = []
@@ -211,7 +211,7 @@ def test_agent_does_not_record_when_cost_usd_is_zero() -> None:
         model=Model.Almock(),
         system_prompt="Test.",
         image_generation=ImageGenerator.from_provider("gemini", api_key="test"),
-        budget=Budget(run=10.0),
+        budget=Budget(max_cost=10.0),
     )
 
     recorded: list[CostInfo] = []
@@ -248,7 +248,7 @@ def test_agent_does_not_record_cost_for_failed_generation() -> None:
         model=Model.Almock(),
         system_prompt="Test.",
         image_generation=ImageGenerator.from_provider("gemini", api_key="test"),
-        budget=Budget(run=10.0),
+        budget=Budget(max_cost=10.0),
     )
 
     recorded: list[CostInfo] = []

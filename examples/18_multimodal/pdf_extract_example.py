@@ -58,10 +58,10 @@ startxref
             system_prompt="You summarize documents.",
         )
         if text.strip():
-            r = agent.response(f"Summarize this document:\n\n{text}")
+            r = agent.run(f"Summarize this document:\n\n{text}")
             print("Agent response (summary):", (r.content or "")[:200])
         else:
-            r = agent.response("I have a PDF with no extractable text. Say 'No text'.")
+            r = agent.run("I have a PDF with no extractable text. Say 'No text'.")
             print("Agent response:", (r.content or "")[:200])
     except ImportError as e:
         print("pdf_extract_text requires docling. Install with: pip install syrin[pdf]")

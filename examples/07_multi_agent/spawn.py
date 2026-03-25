@@ -49,7 +49,7 @@ print("\n-- 2. spawn() returns a child Agent --")
 child = parent.spawn(Child)
 assert child is not None
 
-r = child.response("Summarize machine learning")
+r = child.run("Summarize machine learning")
 print(f"  Child response: {r.content[:80]}...")
 
 # ---------------------------------------------------------------------------

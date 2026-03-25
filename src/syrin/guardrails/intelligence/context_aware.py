@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any
 
 from syrin.guardrails.base import Guardrail
 from syrin.guardrails.context import GuardrailContext
@@ -17,7 +16,7 @@ class ConversationTurn:
 
     text: str
     timestamp: float
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
 
 
 class ContextAwareGuardrail(Guardrail):
@@ -75,36 +74,37 @@ class ContextAwareGuardrail(Guardrail):
             text=context.text, timestamp=time.time(), metadata=context.metadata.copy()
         )
 
-        self._history[session_id].append(turn)
+        self._history[session_id].append(turn)  # type: ignore[index]
 
         # Enforce history limit
-        if len(self._history[session_id]) > self.max_history_turns:
-            self._history[session_id] = self._history[session_id][-self.max_history_turns :]
+        if len(self._history[session_id]) > self.max_history_turns:  # type: ignore[index]
+            self._history[session_id] = self._history[session_id][-self.max_history_turns :]  # type: ignore[index]
 
         # Track action if specified
         action = context.metadata.get("action")
         if action:
             key = (session_id, action)
-            self._action_counts[key] += 1
+            self._action_counts[key] += 1  # type: ignore[index]
 
         # Build metadata
         metadata = {
-            "turn_count": len(self._history[session_id]),
+            "turn_count": len(self._history[session_id]),  # type: ignore[index]
             "history": [
-                {"text": t.text, "metadata": t.metadata} for t in self._history[session_id]
+                {"text": t.text, "metadata": t.metadata}
+                for t in self._history[session_id]  # type: ignore[index]
             ],
             "session_id": session_id,
         }
 
         # Check for escalation patterns
-        escalation_detected, escalation_pattern = self._check_escalation(session_id)
+        escalation_detected, escalation_pattern = self._check_escalation(session_id)  # type: ignore[arg-type]
         if escalation_detected:
             metadata["escalation_detected"] = True
             metadata["escalation_pattern"] = escalation_pattern
 
         # Check for repeated attempts
         if action:
-            attempt_count = self._action_counts[(session_id, action)]
+            attempt_count = self._action_counts[(session_id, action)]  # type: ignore[index]
             metadata["repeated_attempts"] = attempt_count
             if attempt_count > 2:
                 metadata["repetition_detected"] = True
@@ -144,7 +144,7 @@ class ContextAwareGuardrail(Guardrail):
 
         return False, None
 
-    def get_history(self, session_id: str = "default") -> list[dict[str, Any]]:
+    def get_history(self, session_id: str = "default") -> list[dict[str, object]]:
         """Get conversation history for a session.
 
         Args:

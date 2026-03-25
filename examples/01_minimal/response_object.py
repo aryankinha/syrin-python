@@ -13,10 +13,10 @@ model = Model.Almock()
 agent = Agent(
     model=model,
     system_prompt="You are a helpful assistant. Be concise.",
-    budget=Budget(run=0.50),
+    budget=Budget(max_cost=0.50),
 )
 
-response = agent.response("What are the three primary colors?")
+response = agent.run("What are the three primary colors?")
 
 # --- Core fields ---
 print("=== Response Object ===")

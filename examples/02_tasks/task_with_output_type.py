@@ -29,7 +29,7 @@ class TriageAgent(Agent):
     @task
     def triage(self, item: str) -> dict:
         """Triage an item. Returns dict with priority, category, summary."""
-        response = self.response(
+        response = self.run(
             f"Triage this item: {item}. "
             "Respond with: priority (high/medium/low), category, and summary."
         )

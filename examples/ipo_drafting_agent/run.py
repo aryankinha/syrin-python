@@ -49,7 +49,7 @@ def main() -> None:
     agent = create_agent()
     print(f"  - Agent: {agent.name}")
     if agent._budget:
-        print(f"  - Budget: ${agent._budget.run}")
+        print(f"  - Budget: ${agent._budget.max_cost}")
     print(f"  - Guardrails: {len(agent._guardrails)}")
     print()
 
@@ -59,7 +59,7 @@ def main() -> None:
 
     prompt = "Draft the Capital Structure and Shareholding Pattern section for the DRHP."
 
-    result = agent.response(prompt)
+    result = agent.run(prompt)
 
     print("-" * 50)
     print()

@@ -25,7 +25,7 @@ import logging
 import os
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 from syrin.enums import Hook, KnowledgeBackend
 from syrin.knowledge._agentic import AgenticRAGConfig
@@ -440,7 +440,7 @@ class Knowledge:
 
     def apply_remote_overrides(
         self,
-        agent: Any,
+        agent: object,
         pairs: list[tuple[str, object]],
         section_schema: object,
     ) -> None:

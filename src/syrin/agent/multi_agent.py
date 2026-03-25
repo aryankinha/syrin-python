@@ -166,9 +166,9 @@ class PipelineRun:
 
             if result and task:
                 combined_input = f"{task}\n\nPrevious context: {result.content}"
-                result = agent.response(combined_input)
+                result = agent.run(combined_input)
             elif task:
-                result = agent.response(task)
+                result = agent.run(task)
 
             if result:
                 total_cost += result.cost
@@ -234,7 +234,7 @@ class PipelineRun:
             agent = agent_class(budget=budget) if budget else agent_class()
 
             if task:
-                result = agent.response(task)
+                result = agent.run(task)
             else:
                 result = Response(
                     content="",
@@ -600,11 +600,11 @@ class AgentTeam:
     def total_budget(self) -> float:
         """Get total budget across all agents."""
         if self._budget:
-            return self._budget.run or 0.0
+            return self._budget.max_cost or 0.0
         total = 0.0
         for agent in self._agents:
-            if agent._budget and agent._budget.run:
-                total += agent._budget.run
+            if agent._budget and agent._budget.max_cost:
+                total += agent._budget.max_cost
         return total
 
     def select_agent(self, task: str) -> Agent:
@@ -632,7 +632,7 @@ class AgentTeam:
     def run_task(self, task: str, agent: Agent | None = None) -> Response[str]:
         """Run a task using selected agent or automatic selection."""
         target = agent or self.select_agent(task)
-        return target.response(task)
+        return target.run(task)
 
     async def run_task_async(self, task: str, agent: Agent | None = None) -> Response[str]:
         """Run a task asynchronously."""
@@ -688,9 +688,9 @@ def sequential(
     for agent, task in agents:
         if result and pass_previous:
             combined = f"{task}\n\nContext: {result.content}"
-            result = agent.response(combined)
+            result = agent.run(combined)
         else:
-            result = agent.response(task)
+            result = agent.run(task)
 
     return result or Response(
         content="",
@@ -1041,7 +1041,7 @@ IMPORTANT: Return ONLY valid JSON, no other text."""
         )
 
         # Ask LLM to generate plan - it will use the tool to return JSON
-        response = orchestrator.response(task)
+        response = orchestrator.run(task)
 
         # Parse the JSON from response
         return self._parse_plan(response.content)
@@ -1246,7 +1246,7 @@ IMPORTANT: Return ONLY valid JSON, no other text."""
                 full_task = task
 
             agent = agent_class(budget=self._budget)
-            result = agent.response(full_task)
+            result = agent.run(full_task)
             results.append(result)
 
             agent_duration = time.time() - agent_start_time

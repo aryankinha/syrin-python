@@ -23,7 +23,7 @@ class Presenter(Agent):
 
 # Step 1: Analyzer processes the request
 analyzer = Analyzer()
-result = analyzer.response("Analyze the benefits of renewable energy")
+result = analyzer.run("Analyze the benefits of renewable energy")
 print("=== Analyzer ===")
 print(f"{result.content[:120]}...")
 print(f"Cost: ${result.cost:.6f}")

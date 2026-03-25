@@ -73,7 +73,7 @@ async def main() -> None:
         knowledge=knowledge,
     )
 
-    r = agent.response("Tell me about Syrin.")
+    r = agent.run("Tell me about Syrin.")
     print(f"  Agent response: {r.content[:80]}...")
 
 

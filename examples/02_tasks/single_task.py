@@ -26,7 +26,7 @@ class Researcher(Agent):
     @task
     def research(self, topic: str) -> str:
         """Research a topic and return a summary."""
-        response = self.response(f"Research the following topic and summarize: {topic}")
+        response = self.run(f"Research the following topic and summarize: {topic}")
         return response.content or ""
 
 

@@ -65,7 +65,7 @@ def main_handoff_context() -> None:
 
     # 2) Handoff after source ran response(): snapshot has non-zero tokens
     print("2) Handoff after source ran response() (snapshot reflects last prepare):\n")
-    source.response("What are key benefits of wind energy? Answer in one sentence.")
+    source.run("What are key benefits of wind energy? Answer in one sentence.")
     result2 = source.handoff(Writer, "Summarize that in five words.", transfer_context=False)
     print(f"Result: {result2.content[:80]}...\n")
 
@@ -92,7 +92,7 @@ def main_spawn_context_metadata() -> None:
 
     # 2) Spawn after parent ran response(): parent_context_tokens > 0
     print("2) Spawn after parent ran response() (parent_context_tokens from last prepare):\n")
-    parent.response("What is 2+2? Answer with one number.")
+    parent.run("What is 2+2? Answer with one number.")
     result2 = parent.spawn(ChildAgent, task="Reply with the number 4.")
     print(f"Result: {result2.content}\n")
 

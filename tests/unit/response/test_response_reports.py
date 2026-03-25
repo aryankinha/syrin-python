@@ -45,7 +45,7 @@ class TestOutputReport:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test")
+            result = agent.run("Test")
 
         # Output report should be populated
         assert result.report.output.validated is True
@@ -77,7 +77,7 @@ class TestOutputReport:
         )
 
         with patch.object(agent._provider, "complete", return_value=mock_response):
-            result = agent.response("Test")
+            result = agent.run("Test")
 
         # Output report should show failure
         assert result.report.output.validated is True
@@ -106,7 +106,7 @@ class TestOutputReport:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test")
+            result = agent.run("Test")
 
         # Output report should have defaults
         assert result.report.output.validated is False
@@ -153,7 +153,7 @@ class TestOutputReportEdgeCases:
         )
 
         with patch.object(agent._provider, "complete", return_value=mock_response):
-            result = agent.response("Test")
+            result = agent.run("Test")
 
         # Should show validation attempts were made
         assert result.report.output.validated is True
@@ -192,7 +192,7 @@ class TestOutputReportEdgeCases:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test")
+            result = agent.run("Test")
 
         assert result.report.output.validated is True
         assert result.report.output.is_valid is True
@@ -224,7 +224,7 @@ class TestOutputReportEdgeCases:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test")
+            result = agent.run("Test")
 
         assert result.report.output.validated is True
         assert result.report.output.is_valid is True
@@ -255,7 +255,7 @@ class TestOutputReportEdgeCases:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test")
+            result = agent.run("Test")
 
         assert result.report.output.validated is True
 
@@ -298,7 +298,7 @@ class TestContextReport:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test")
+            result = agent.run("Test")
 
         assert hasattr(result.report, "context")
         assert isinstance(result.report.context, ContextReport)
@@ -367,7 +367,7 @@ class TestCheckpointReport:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test")
+            result = agent.run("Test")
 
         assert hasattr(result.report, "checkpoints")
         assert isinstance(result.report.checkpoints, CheckpointReport)
@@ -431,7 +431,7 @@ class TestTokenReport:
                 latency_ms=100,
             ),
         ):
-            result = agent.response("Test")
+            result = agent.run("Test")
 
         assert result.report.tokens.input_tokens == 100
         assert result.report.tokens.output_tokens == 50

@@ -6,21 +6,21 @@ import json
 import threading
 from typing import Any
 
-_client_cache: dict[tuple[str, str], Any] = {}
+_client_cache: dict[tuple[str, str], Any] = {}  # type: ignore[explicit-any]
 _cache_lock = threading.Lock()
 
 
-def _get_client(api_key: str | None, base_url: str | None = None) -> Any:
+def _get_client(api_key: str | None, base_url: str | None = None) -> object:
     """Get or create cached AsyncAnthropic client per (api_key, base_url)."""
     import anthropic
 
     key = (api_key or "", base_url or "")
     with _cache_lock:
         if key not in _client_cache:
-            kwargs: dict[str, Any] = {"api_key": api_key}
+            kwargs: dict[str, object] = {"api_key": api_key}
             if base_url:
                 kwargs["base_url"] = base_url
-            _client_cache[key] = anthropic.AsyncAnthropic(**kwargs)
+            _client_cache[key] = anthropic.AsyncAnthropic(**kwargs)  # type: ignore[arg-type]
         return _client_cache[key]
 
 
@@ -38,7 +38,7 @@ from syrin.types import (
 from .base import Provider
 
 
-def _message_to_anthropic(msg: Message) -> dict[str, Any]:
+def _message_to_anthropic(msg: Message) -> dict[str, object]:
     role = msg.role
     if role == MessageRole.SYSTEM:
         return {"role": "user", "content": f"[System: {msg.content}]"}
@@ -46,7 +46,7 @@ def _message_to_anthropic(msg: Message) -> dict[str, Any]:
         return {"role": "user", "content": msg.content}
     if role == MessageRole.ASSISTANT:
         if msg.tool_calls:
-            blocks: list[dict[str, Any]] = []
+            blocks: list[dict[str, object]] = []
             if msg.content:
                 blocks.append({"type": "text", "text": msg.content})
             for tc in msg.tool_calls:
@@ -74,7 +74,7 @@ def _message_to_anthropic(msg: Message) -> dict[str, Any]:
     return {"role": "user", "content": msg.content}
 
 
-def _tools_to_anthropic(tools: list[ToolSpec]) -> list[dict[str, Any]]:
+def _tools_to_anthropic(tools: list[ToolSpec]) -> list[dict[str, object]]:
     return [
         {
             "name": t.name,
@@ -85,7 +85,7 @@ def _tools_to_anthropic(tools: list[ToolSpec]) -> list[dict[str, Any]]:
     ]
 
 
-def _parse_usage(usage: Any) -> TokenUsage:
+def _parse_usage(usage: object) -> TokenUsage:
     if usage is None:
         return TokenUsage()
     return TokenUsage(
@@ -95,12 +95,12 @@ def _parse_usage(usage: Any) -> TokenUsage:
     )
 
 
-def _content_to_text_and_tool_calls(content: Any) -> tuple[str, list[ToolCall]]:
+def _content_to_text_and_tool_calls(content: object) -> tuple[str, list[ToolCall]]:
     text_parts: list[str] = []
     tool_calls: list[ToolCall] = []
     if not content:
         return "", []
-    for block in content:
+    for block in content:  # type: ignore[attr-defined]
         if getattr(block, "type", None) == "text":
             text_parts.append(getattr(block, "text", "") or "")
         elif getattr(block, "type", None) == "tool_use":
@@ -125,14 +125,14 @@ def _content_to_text_and_tool_calls(content: Any) -> tuple[str, list[ToolCall]]:
 class AnthropicProvider(Provider):
     """Provider for Anthropic Claude via the anthropic SDK."""
 
-    async def complete(
+    async def complete(  # type: ignore[override]
         self,
         messages: list[Message],
         model: ModelConfig,
         tools: list[ToolSpec] | None = None,
         *,
         max_tokens: int = 1024,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> ProviderResponse:
         try:
             import importlib.util
@@ -170,7 +170,7 @@ class AnthropicProvider(Provider):
             if model.model_id.startswith("anthropic/")
             else model.model_id
         )
-        request_kwargs: dict[str, Any] = {
+        request_kwargs: dict[str, object] = {
             "model": api_model,
             "max_tokens": max_tokens,
             "messages": api_messages,
@@ -181,7 +181,7 @@ class AnthropicProvider(Provider):
         if tools:
             request_kwargs["tools"] = _tools_to_anthropic(tools)
 
-        response = await client.messages.create(**request_kwargs)
+        response = await client.messages.create(**request_kwargs)  # type: ignore[attr-defined]
         usage = _parse_usage(getattr(response, "usage", None))
         content = getattr(response, "content", [])
         text, tool_calls = _content_to_text_and_tool_calls(content)

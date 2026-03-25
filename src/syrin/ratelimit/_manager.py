@@ -3,7 +3,7 @@
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from syrin.ratelimit.backends import (
     RateLimitBackend,
@@ -30,15 +30,20 @@ class RateLimitEntry:
     tokens: int = 0
     timestamp: float = field(default_factory=time.time)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         return {"requests": self.requests, "tokens": self.tokens, "timestamp": self.timestamp}
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RateLimitEntry":
+    def from_dict(cls, data: dict[str, object]) -> "RateLimitEntry":
+        raw_requests = data.get("requests", 0)
+        raw_tokens = data.get("tokens", 0)
+        raw_timestamp = data.get("timestamp")
         return cls(
-            requests=data.get("requests", 0),
-            tokens=data.get("tokens", 0),
-            timestamp=data.get("timestamp", time.time()),
+            requests=int(raw_requests) if isinstance(raw_requests, (int, float, str)) else 0,
+            tokens=int(raw_tokens) if isinstance(raw_tokens, (int, float, str)) else 0,
+            timestamp=float(raw_timestamp)
+            if isinstance(raw_timestamp, (int, float, str))
+            else time.time(),
         )
 
 
@@ -62,12 +67,12 @@ class RateLimitManager(Protocol):
         """Get current rate limit statistics."""
         ...
 
-    def get_triggered_action(self) -> Any:
+    def get_triggered_action(self) -> object:
         """Get the currently triggered threshold action if any."""
         ...
 
     @property
-    def config(self) -> Any:
+    def config(self) -> object:
         """Get the rate limit configuration."""
         ...
 
@@ -78,38 +83,38 @@ class _NullSpan:
     def __enter__(self) -> "_NullSpan":
         return self
 
-    def __exit__(self, *args: Any) -> None:
+    def __exit__(self, *args: object) -> None:
         pass
 
-    def set_attribute(self, key: str, value: Any) -> None:
+    def set_attribute(self, key: str, value: object) -> None:
         pass
 
 
 class _RateLimitSpan:
     """Wrapper for tracer spans."""
 
-    def __init__(self, tracer: Any, name: str, **attrs: Any):
+    def __init__(self, tracer: object, name: str, **attrs: object) -> None:
         self._tracer = tracer
         self._name = name
         self._attrs = attrs
-        self._span: Any | None = None
+        self._span: object | None = None
 
-    def __enter__(self) -> Any:
+    def __enter__(self) -> object:
         if hasattr(self._tracer, "span"):
             self._span = self._tracer.span(self._name)
             for k, v in self._attrs.items():
-                if self._span is not None:
+                if self._span is not None and hasattr(self._span, "set_attribute"):
                     self._span.set_attribute(k, v)
-            if self._span is not None:
+            if self._span is not None and hasattr(self._span, "__enter__"):
                 return self._span.__enter__()
         return self
 
-    def __exit__(self, *args: Any) -> None:
-        if self._span is not None:
+    def __exit__(self, *args: object) -> None:
+        if self._span is not None and hasattr(self._span, "__exit__"):
             self._span.__exit__(*args)
 
-    def set_attribute(self, key: str, value: Any) -> None:
-        if self._span is not None:
+    def set_attribute(self, key: str, value: object) -> None:
+        if self._span is not None and hasattr(self._span, "set_attribute"):
             self._span.set_attribute(key, value)
 
 
@@ -126,28 +131,28 @@ class DefaultRateLimitManager:
 
     config: APIRateLimit = field(default_factory=APIRateLimit)
     _entries: list[RateLimitEntry] = field(default_factory=list)
-    _emit_fn: Callable[[str, dict[str, Any]], None] | None = field(default=None, repr=False)
-    _tracer: Any = field(default=None, repr=False)
+    _emit_fn: Callable[[str, dict[str, object]], None] | None = field(default=None, repr=False)
+    _tracer: object = field(default=None, repr=False)
     _stats: RateLimitStats = field(default_factory=RateLimitStats)
     _backend: RateLimitBackend | None = field(default=None, repr=False)
     _key: str = "default"
 
-    def _emit(self, event: str, ctx: dict[str, Any]) -> None:
+    def _emit(self, event: str, ctx: dict[str, object]) -> None:
         """Emit an event if emit_fn is configured."""
         if self._emit_fn:
             self._emit_fn(event, ctx)
 
-    def _span(self, name: str, **attrs: Any) -> _RateLimitSpan | _NullSpan:
+    def _span(self, name: str, **attrs: object) -> _RateLimitSpan | _NullSpan:
         """Create a span if tracer is configured."""
         if self._tracer is None:
             return _NullSpan()
         return _RateLimitSpan(self._tracer, name, **attrs)
 
-    def set_emit_fn(self, emit_fn: Callable[[str, dict[str, Any]], None]) -> None:
+    def set_emit_fn(self, emit_fn: Callable[[str, dict[str, object]], None]) -> None:
         """Set the event emit function for lifecycle hooks."""
         self._emit_fn = emit_fn
 
-    def set_tracer(self, tracer: Any) -> None:
+    def set_tracer(self, tracer: object) -> None:
         """Set the tracer for observability."""
         self._tracer = tracer
 
@@ -240,7 +245,7 @@ class DefaultRateLimitManager:
             (allowed, reason)
         """
         with self._span("ratelimit.check") as span:
-            if span:
+            if span and hasattr(span, "set_attribute"):
                 span.set_attribute("ratelimit.rpm", self._current_rpm())
                 span.set_attribute("ratelimit.tpm", self._current_tpm())
 
@@ -290,7 +295,8 @@ class DefaultRateLimitManager:
                 "rpd": (rpd, self.config.rpd or 0),
             }
 
-            used, limit = metric_values.get(threshold.metric, (0, 0))
+            metric_key = str(threshold.metric)
+            used, limit = metric_values.get(metric_key, (0, 0))
 
             if limit <= 0:
                 continue
@@ -298,9 +304,9 @@ class DefaultRateLimitManager:
             percentage = int((used / limit) * 100)
 
             if percentage >= threshold.at:
-                triggered.append(threshold.metric)
+                triggered.append(metric_key)
 
-                threshold_event = {
+                threshold_event: dict[str, object] = {
                     "at": threshold.at,
                     "percent": percentage,
                     "metric": threshold.metric,
@@ -337,7 +343,7 @@ class DefaultRateLimitManager:
                 "rpd": (rpd, self.config.rpd or 0),
             }
 
-            used, limit = metric_values.get(threshold.metric, (0, 0))
+            used, limit = metric_values.get(str(threshold.metric), (0, 0))
 
             if limit <= 0:
                 continue
@@ -349,7 +355,7 @@ class DefaultRateLimitManager:
 
         return None
 
-    def get_triggered_action(self) -> Any:
+    def get_triggered_action(self) -> object:
         """Get the currently triggered threshold action if any.
 
         Threshold behavior is fully controlled by the user's action callback
@@ -382,8 +388,8 @@ class DefaultRateLimitManager:
 
 def create_rate_limit_manager(
     config: APIRateLimit,
-    emit_fn: Callable[[str, dict[str, Any]], None] | None = None,
-    tracer: Any = None,
+    emit_fn: Callable[[str, dict[str, object]], None] | None = None,
+    tracer: object = None,
 ) -> DefaultRateLimitManager:
     """Create a default rate limit manager from config.
 
