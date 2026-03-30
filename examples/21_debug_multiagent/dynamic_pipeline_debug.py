@@ -25,6 +25,8 @@ from syrin import Agent, tool  # noqa: E402
 from syrin.agent.multi_agent import DynamicPipeline  # noqa: E402
 from syrin.debug import Pry  # noqa: E402
 
+_PRY = Pry.from_debug_flag()
+
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
@@ -75,7 +77,7 @@ class WriterAgent(Agent):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    pry = Pry()
+    pry = _PRY or Pry()
 
     # DynamicPipeline uses almock_orchestrator which returns a valid JSON plan:
     # [{"type":"researcher","task":"..."}, {"type":"fact_checker","task":"..."}]

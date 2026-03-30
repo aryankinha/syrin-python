@@ -89,6 +89,27 @@ class TestMultiAgentNesting:
         data = json.loads(captured[0])
         assert "event" in data
 
+    def test_second_tui_replaces_first_active_session(self, monkeypatch: object) -> None:
+        import syrin.debug._ui as ui_mod
+        from syrin.debug import Pry
+
+        def _fake_start_rich(self: Pry) -> None:
+            self._live = object()
+
+        monkeypatch.setattr(Pry, "_start_rich", _fake_start_rich)
+
+        first = Pry(json_fallback=False)
+        second = Pry(json_fallback=False)
+
+        first.start()
+        assert ui_mod._ACTIVE_PRY is first
+
+        second.start()
+
+        assert not first._started
+        assert ui_mod._ACTIVE_PRY is second
+        second.stop()
+
 
 # ─── Keyboard filter modes ─────────────────────────────────────────────────────
 
@@ -201,3 +222,67 @@ class TestFilterModes:
 
         ui = Pry(json_fallback=True, filter_mode="errors")
         assert ui.filter_mode == "errors"
+
+
+class TestDetailNavigation:
+    def test_escape_exits_stream_detail_mode(self) -> None:
+        from syrin.debug import Pry
+        from syrin.enums import Hook
+        from syrin.events import EventContext
+
+        ui = Pry(json_fallback=False)
+        ui._handle_event(str(Hook.AGENT_RUN_START), EventContext(input="hello", model="test-model"))
+        ui._handle_key("\r")
+
+        assert ui._mode == "detail"
+
+        ui._handle_key("\x1b")
+
+        assert ui._mode == "browse"
+
+    def test_escape_exits_right_detail_mode(self) -> None:
+        from syrin.debug import Pry
+        from syrin.enums import Hook
+        from syrin.events import EventContext
+
+        ui = Pry(json_fallback=False)
+        ui._handle_event(str(Hook.TOOL_CALL_START), EventContext(name="search", arguments='{"q":"x"}'))
+        ui._right_view = "tools"
+        ui._focus = "right"
+        ui._handle_key("\r")
+
+        assert ui._mode == "right_detail"
+
+        ui._handle_key("\x1b")
+
+        assert ui._mode == "browse"
+        assert ui._right_detail_rec is None
+
+    def test_up_down_scroll_right_event_preview(self) -> None:
+        from syrin.debug import Pry
+        from syrin.enums import Hook
+        from syrin.events import EventContext
+
+        ui = Pry(json_fallback=False)
+        ui._handle_event(
+            str(Hook.LLM_REQUEST_END),
+            EventContext(
+                iteration=1,
+                content="\n".join(f"line {i}" for i in range(30)),
+                tokens=30,
+                input_tokens=10,
+                output_tokens=20,
+                cost=0.01,
+                model="test-model",
+            ),
+        )
+        ui._focus = "right"
+        ui._right_view = "event"
+
+        assert ui._right_preview_scroll == 0
+
+        ui._handle_key("\x1b[A")
+        assert ui._right_preview_scroll > 0
+
+        ui._handle_key("\x1b[B")
+        assert ui._right_preview_scroll == 0

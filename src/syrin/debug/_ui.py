@@ -20,6 +20,10 @@ FilterMode = Literal["all", "errors", "tools", "memory"]
 _T = TypeVar("_T")
 _P = ParamSpec("_P")
 
+_DEBUG_FLAG = "--debug"
+_ACTIVE_PRY_LOCK = threading.RLock()
+_ACTIVE_PRY: Pry | None = None
+
 # Right-panel tab names — 7 focused debugging views
 _RIGHT_VIEWS: tuple[str, ...] = (
     "event",  # detail of the stream-selected event
@@ -193,6 +197,16 @@ def _trunc(val: object, n: int = _MAX_STR) -> str:
 def _now() -> str:
     t = time.localtime()
     return f"{t.tm_hour:02d}:{t.tm_min:02d}:{t.tm_sec:02d}"
+
+
+def _consume_debug_flag(argv: list[str] | None = None) -> bool:
+    """Remove ``--debug`` from argv and report whether it was present."""
+    target = sys.argv if argv is None else argv
+    try:
+        target.remove(_DEBUG_FLAG)
+    except ValueError:
+        return False
+    return True
 
 
 def _fmt_cost(raw: str) -> str:
@@ -450,6 +464,7 @@ class Pry:
 
         # Right-panel cursor — mirrors stream cursor logic for the active tab's items
         self._right_cursor: int = -1  # -1 = auto-follow last item
+        self._right_preview_scroll: int = 0
         self._right_detail_scroll: int = 0
         self._right_detail_rec: _EventRecord | None = None
 
@@ -495,6 +510,17 @@ class Pry:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    @classmethod
+    def from_debug_flag(
+        cls,
+        argv: list[str] | None = None,
+        **kwargs: object,
+    ) -> Pry | None:
+        """Create a Pry only when ``--debug`` is present, consuming the flag."""
+        if not _consume_debug_flag(argv):
+            return None
+        return cls(**kwargs)
 
     def attach(self, agent: object) -> Pry:
         """Attach the UI to an agent and start the panel immediately.
@@ -559,6 +585,7 @@ class Pry:
             return
         self._started = True
         if not self.json_fallback:
+            self._claim_terminal()
             self._start_rich()
 
     def stop(self) -> None:
@@ -571,6 +598,9 @@ class Pry:
         finalisation never races with a live Rich daemon thread.
         """
         self._started = False
+        self._paused = False
+        self._step_mode = False
+        self._pause_gate.set()
         # Stop Live first so the daemon thread is dead before we unblock callers
         if self._live is not None:
             with contextlib.suppress(Exception):
@@ -580,6 +610,7 @@ class Pry:
         if self._old_stdout is not None:
             sys.stdout = self._old_stdout
             self._old_stdout = None
+        self._release_terminal()
         # Set last — callers waiting on this event can now safely proceed
         self._stop_event.set()
 
@@ -860,6 +891,30 @@ class Pry:
     def __exit__(self, *_: object) -> None:
         self.detach()
 
+    def _claim_terminal(self) -> None:
+        """Ensure only one live Pry owns the terminal at a time."""
+        global _ACTIVE_PRY
+        with _ACTIVE_PRY_LOCK:
+            other = _ACTIVE_PRY
+            if other is self:
+                return
+            if other is not None:
+                other._shutdown_for_replacement()
+            _ACTIVE_PRY = self
+
+    def _release_terminal(self) -> None:
+        global _ACTIVE_PRY
+        with _ACTIVE_PRY_LOCK:
+            if _ACTIVE_PRY is self:
+                _ACTIVE_PRY = None
+
+    def _shutdown_for_replacement(self) -> None:
+        """Drop hooks and stop immediately when another Pry takes over."""
+        for agent in list(self._agents):
+            self._deregister_hooks(agent)
+        self._agents.clear()
+        self.stop()
+
     # ------------------------------------------------------------------
     # Internal — hook registration
     # ------------------------------------------------------------------
@@ -966,8 +1021,7 @@ class Pry:
             if model:
                 self._current_model = model
 
-        # Cost and tokens are only on agent.run.end (not llm.request.end)
-        if "agent.run.end" in h:
+        if "llm.request.end" in h:
             with contextlib.suppress(Exception):
                 tok = int(g(ctx, "tokens", "0") or "0")
                 if tok > 0:
@@ -983,7 +1037,25 @@ class Pry:
             with contextlib.suppress(Exception):
                 cost_val = float(g(ctx, "cost", "0") or "0")
                 if cost_val > 0:
-                    self._total_cost = cost_val  # absolute value from run end
+                    self._total_cost += cost_val
+
+        if "agent.run.end" in h:
+            with contextlib.suppress(Exception):
+                tok = int(g(ctx, "tokens", "0") or "0")
+                if tok > 0:
+                    self._total_tokens = max(self._total_tokens, tok)
+            with contextlib.suppress(Exception):
+                in_tok = int(g(ctx, "input_tokens", "0") or "0")
+                if in_tok > 0:
+                    self._input_tokens = max(self._input_tokens, in_tok)
+            with contextlib.suppress(Exception):
+                out_tok = int(g(ctx, "output_tokens", "0") or "0")
+                if out_tok > 0:
+                    self._output_tokens = max(self._output_tokens, out_tok)
+            with contextlib.suppress(Exception):
+                cost_val = float(g(ctx, "cost", "0") or "0")
+                if cost_val > 0:
+                    self._total_cost = max(self._total_cost, cost_val)
 
         # budget.threshold uses current_value / limit_value (not used / limit)
         if "budget.threshold" in h:
@@ -995,6 +1067,26 @@ class Pry:
                 lim = float(g(ctx, "limit_value", g(ctx, "limit", "")) or "0")
                 if lim > 0:
                     self._budget_limit = lim
+        elif "budget.check" in h:
+            with contextlib.suppress(Exception):
+                used = float(g(ctx, "used", g(ctx, "spent", "0")) or "0")
+                if used >= 0:
+                    self._total_cost = used
+            with contextlib.suppress(Exception):
+                remaining = float(g(ctx, "remaining", "0") or "0")
+                total = float(g(ctx, "total", "0") or "0")
+                if total > 0:
+                    self._budget_limit = total
+                elif remaining >= 0 and self._total_cost >= 0:
+                    self._budget_limit = self._total_cost + remaining
+        elif "budget.exceeded" in h:
+            with contextlib.suppress(Exception):
+                used = float(g(ctx, "used", g(ctx, "spent", "0")) or "0")
+                limit = float(g(ctx, "limit", "0") or "0")
+                if used > 0:
+                    self._total_cost = used
+                if limit > 0:
+                    self._budget_limit = limit
 
         if "memory.store" in h:
             self._memory_count += 1
@@ -2643,7 +2735,18 @@ class Pry:
                 lines.append(f"  [dim]{chunk}[/dim]")
         lines.append("")
         lines.append("[dim]↵ full detail  ← stream  → panel[/dim]")
-        return self._pad_rows(lines)
+        total = len(lines)
+        scroll = self._right_preview_scroll
+        rows = self._panel_rows
+        end = total - scroll
+        start = max(0, end - rows)
+        end = min(total, start + rows)
+        visible = list(lines[start:end])
+        if start > 0 and visible:
+            visible[0] = f"[dim]  ↑ {start} more above[/dim]"
+        if end < total and visible:
+            visible[-1] = f"[dim]  ↓ {total - end} more below[/dim]"
+        return self._pad_rows(visible)
 
     # ------------------------------------------------------------------
     # Right panel — navigatable item lists (tabs: agents/tools/memory/…)
@@ -2732,6 +2835,15 @@ class Pry:
                 self._right_cursor = -1
             else:
                 self._right_cursor = max(0, new)
+
+    def _right_preview_scroll_move(self, delta: int) -> None:
+        """Scroll the right-panel event preview when the event tab is focused."""
+        if self._right_view != "event":
+            return
+        if delta < 0:
+            self._right_preview_scroll = min(self._right_preview_scroll + 3, 5000)
+        elif delta > 0:
+            self._right_preview_scroll = max(0, self._right_preview_scroll - 3)
 
     def _right_panel_item_lines(
         self, recs: list[_EventRecord], header: list[str] | None = None
@@ -2849,14 +2961,20 @@ class Pry:
         if self._budget_limit > 0:
             pct = min(1.0, self._total_cost / self._budget_limit)
             bc = "red" if pct > 0.8 else "yellow" if pct > 0.5 else "green"
-            cost = f"[{bc}]${self._total_cost:.4f}[/{bc}][dim]/${self._budget_limit:.2f}[/dim]"
+            cost = (
+                f"[dim]budget[/dim] "
+                f"[{bc}]${self._total_cost:.4f}[/{bc}]"
+                f"[dim]/[/dim]"
+                f"[dim]${self._budget_limit:.4f}[/dim]"
+            )
         else:
-            cost = f"[green]${self._total_cost:.4f}[/green]"
+            cost = f"[dim]budget[/dim] [green]${self._total_cost:.4f}[/green]"
 
         model_s = f"  [dim blue]{self._current_model}[/dim blue]" if self._current_model else ""
         if self._input_tokens > 0 or self._output_tokens > 0:
             tok_s = (
-                f"  [dim cyan]in={self._input_tokens:,} out={self._output_tokens:,} tok[/dim cyan]"
+                f"  [cyan]in[/cyan][dim]=[/dim][bold cyan]{self._input_tokens:,}[/bold cyan]"
+                f" [cyan]out[/cyan][dim]=[/dim][bold cyan]{self._output_tokens:,}[/bold cyan][dim] tok[/dim]"
             )
         elif self._total_tokens > 0:
             tok_s = f"  [dim cyan]{self._total_tokens:,}tok[/dim cyan]"
@@ -3280,13 +3398,22 @@ class Pry:
                         continue
                     ch = _read1()
                     if ch == "\x1b":
-                        if _ready(0.05):
-                            ch2 = _read1()
-                            if ch2 == "[" and _ready(0.05):
-                                ch3 = _read1()
-                                self._handle_key(f"\x1b[{ch3}")
-                        # else: lone \x1b[ — ignore
-                        elif ch2 == "O" and _ready(0.05):
+                        if not _ready(0.05):
+                            self._handle_key("\x1b")
+                            continue
+
+                        ch2 = _read1()
+                        if ch2 == "[":
+                            if not _ready(0.05):
+                                self._handle_key("\x1b")
+                                continue
+                            ch3 = _read1()
+                            self._handle_key(f"\x1b[{ch3}")
+                            continue
+                        if ch2 == "O":
+                            if not _ready(0.05):
+                                self._handle_key("\x1b")
+                                continue
                             ch3 = _read1()
                             _ss3: dict[str, str] = {
                                 "A": "\x1b[A",
@@ -3295,10 +3422,11 @@ class Pry:
                                 "D": "\x1b[D",
                             }
                             self._handle_key(_ss3.get(ch3, f"\x1bO{ch3}"))
-                        # else: Alt+key — ignore
-                        else:
-                            # Bare ESC (no follow-up within 50ms)
-                            self._handle_key("\x1b")
+                            continue
+
+                        # Unknown / partial escape sequence. Treat it as a bare ESC
+                        # so detail views always have a reliable way to go back.
+                        self._handle_key("\x1b")
                     else:
                         self._handle_key(ch)
             finally:
@@ -3353,6 +3481,7 @@ class Pry:
             new_view = _RIGHT_KEY_MAP[ch]
             if self._right_view != new_view:
                 self._right_cursor = -1  # reset right cursor when switching tab
+                self._right_preview_scroll = 0
             self._right_view = new_view
             self._right_view_idx = list(_RIGHT_VIEWS).index(new_view)
             self._focus = "right"
@@ -3361,12 +3490,14 @@ class Pry:
             self._right_view_idx = (self._right_view_idx + 1) % len(_RIGHT_VIEWS)
             self._right_view = _RIGHT_VIEWS[self._right_view_idx]
             self._right_cursor = -1
+            self._right_preview_scroll = 0
             self._focus = "right"
 
         elif ch == "\x1b[Z":  # Shift+Tab → prev right tab
             self._right_view_idx = (self._right_view_idx - 1) % len(_RIGHT_VIEWS)
             self._right_view = _RIGHT_VIEWS[self._right_view_idx]
             self._right_cursor = -1
+            self._right_preview_scroll = 0
             self._focus = "right"
 
         elif ch == "\x1b[C":  # → Right arrow: focus right panel
@@ -3414,13 +3545,19 @@ class Pry:
 
         elif ch == "\x1b[A":  # ↑ Up arrow
             if self._focus == "right":
-                self._right_cursor_move(-1)
+                if self._right_view == "event":
+                    self._right_preview_scroll_move(-1)
+                else:
+                    self._right_cursor_move(-1)
             else:
                 self._cursor_move(-1)
 
         elif ch == "\x1b[B":  # ↓ Down arrow
             if self._focus == "right":
-                self._right_cursor_move(1)
+                if self._right_view == "event":
+                    self._right_preview_scroll_move(1)
+                else:
+                    self._right_cursor_move(1)
             else:
                 self._cursor_move(1)
 

@@ -421,6 +421,15 @@ class ReactLoop(Loop):
                 EventContext(
                     content=response.content or "",
                     iteration=iteration,
+                    tokens=response.token_usage.total_tokens,
+                    input_tokens=response.token_usage.input_tokens,
+                    output_tokens=response.token_usage.output_tokens,
+                    cost=calculate_cost(
+                        ctx.model_id,
+                        response.token_usage,
+                        pricing_override=ctx.pricing_override,  # type: ignore[arg-type]
+                    ),
+                    model=ctx.model_id,
                 ),
             )
 
@@ -930,7 +939,22 @@ class PlanExecuteLoop(Loop):
                 plan_response = response
                 break
 
-            ctx.emit_event(Hook.LLM_REQUEST_END, EventContext(iteration=plan_iteration))
+            ctx.emit_event(
+                Hook.LLM_REQUEST_END,
+                EventContext(
+                    iteration=plan_iteration,
+                    content=response.content or "",
+                    tokens=u.total_tokens,
+                    input_tokens=u.input_tokens,
+                    output_tokens=u.output_tokens,
+                    cost=calculate_cost(
+                        ctx.model_id,
+                        u,
+                        pricing_override=ctx.pricing_override,  # type: ignore[arg-type]
+                    ),
+                    model=ctx.model_id,
+                ),
+            )
 
         if plan_response is None:
             plan_response = response
@@ -998,7 +1022,20 @@ class PlanExecuteLoop(Loop):
                 )
 
             ctx.emit_event(
-                Hook.LLM_REQUEST_END, EventContext(iteration=plan_iteration + exec_iteration)
+                Hook.LLM_REQUEST_END,
+                EventContext(
+                    iteration=plan_iteration + exec_iteration,
+                    content=response.content or "",
+                    tokens=u.total_tokens,
+                    input_tokens=u.input_tokens,
+                    output_tokens=u.output_tokens,
+                    cost=calculate_cost(
+                        ctx.model_id,
+                        u,
+                        pricing_override=ctx.pricing_override,  # type: ignore[arg-type]
+                    ),
+                    model=ctx.model_id,
+                ),
             )
 
         if final_response is None:
@@ -1126,6 +1163,15 @@ class CodeActionLoop(Loop):
                 EventContext(
                     content=response.content or "",
                     iteration=iteration,
+                    tokens=u.total_tokens,
+                    input_tokens=u.input_tokens,
+                    output_tokens=u.output_tokens,
+                    cost=calculate_cost(
+                        ctx.model_id,
+                        u,
+                        pricing_override=ctx.pricing_override,  # type: ignore[arg-type]
+                    ),
+                    model=ctx.model_id,
                 ),
             )
 

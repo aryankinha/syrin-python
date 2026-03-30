@@ -9,7 +9,8 @@ Demonstrates:
 - In the [r] errors tab you see any failures clearly
 
 Run:
-    python examples/21_debug_multiagent/parallel_spawn_debug.py --debug
+    python examples/21_debug_multiagent/parallel_spawn_debug.py          # without TUI (JSON)
+    python examples/21_debug_multiagent/parallel_spawn_debug.py --debug # with TUI
 """
 
 from __future__ import annotations
@@ -24,6 +25,9 @@ if str(_ROOT) not in sys.path:
 from examples.models.models import gpt4_mini  # noqa: E402
 from syrin import Agent, tool  # noqa: E402
 from syrin.debug import Pry  # noqa: E402
+
+_PRY = Pry.from_debug_flag()
+_DEBUG = _PRY is not None
 
 # ---------------------------------------------------------------------------
 # Tools
@@ -83,19 +87,17 @@ class OrchestratorAgent(Agent):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    pry = Pry()
-
     orchestrator = OrchestratorAgent()
-    pry.attach(orchestrator)
 
-    def _run() -> None:
+    def _run(pry_instance: Pry | None = None) -> None:
         # Warm-up run so the agents tab has a run record
         orchestrator.run("Preparing sector analysis across 3 verticals...")
 
-        # ── Checkpoint before spawn ──────────────────────────────────────────
-        # In the TUI: [a] shows the completed run
-        # Press [p] to continue to the parallel spawn
-        pry.debugpoint("before parallel spawn — 3 agents will launch simultaneously")
+        if pry_instance is not None:
+            # ── Checkpoint before spawn ──────────────────────────────────────────
+            # In the TUI: [a] shows the completed run
+            # Press [p] to continue to the parallel spawn
+            pry_instance.debugpoint("before parallel spawn — 3 agents will launch simultaneously")
 
         # Spawn 3 agents in parallel.  Each fires SPAWN_START with:
         #   child_agent, source_agent, input_preview
@@ -108,10 +110,11 @@ if __name__ == "__main__":
             ]
         )
 
-        # ── Checkpoint after all parallel agents complete ────────────────────
-        # In the TUI: [a] shows 3 SPAWN_START + SPAWN_END events
-        # [t] shows tool calls from all 3 agents
-        pry.debugpoint("parallel spawn complete — all 3 agents finished")
+        if pry_instance is not None:
+            # ── Checkpoint after all parallel agents complete ────────────────────
+            # In the TUI: [a] shows 3 SPAWN_START + SPAWN_END events
+            # [t] shows tool calls from all 3 agents
+            pry_instance.debugpoint("parallel spawn complete — all 3 agents finished")
 
         # Final synthesis
         combined = "\n\n".join(r.content or "" for r in results)
@@ -119,7 +122,13 @@ if __name__ == "__main__":
             f"Synthesize these sector reports into an executive summary:\n{combined[:600]}"
         )
 
-    with pry:
-        t = pry.run(_run)
-        t.join()
-        pry.wait()
+    if _DEBUG:
+        pry = _PRY or Pry()
+        pry.attach(orchestrator)
+
+        with pry:
+            t = pry.run(_run, pry)
+            t.join()
+            pry.wait()
+    else:
+        _run()

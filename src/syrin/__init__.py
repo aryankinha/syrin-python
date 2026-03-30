@@ -93,16 +93,15 @@ def _auto_trace_check() -> None:
 def _auto_debug_check() -> None:
     """Check for --debug flag and auto-start Pry for all agents."""
     global _debug_pry
-    if _debug_pry is not None or "--debug" not in sys.argv:
+    if _debug_pry is not None:
         return
-
-    sys.argv.remove("--debug")
 
     try:
         from syrin.debug import Pry
 
-        _debug_pry = Pry()
-        _debug_pry.start()
+        _debug_pry = Pry.from_debug_flag()
+        if _debug_pry is not None:
+            _debug_pry.start()
     except Exception:
         pass
 

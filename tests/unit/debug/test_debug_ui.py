@@ -42,6 +42,23 @@ class TestPry:
         # In test environment (not a TTY) — json_fallback should be True or configurable
         assert hasattr(ui, "json_fallback")
 
+    def test_from_debug_flag_consumes_flag(self) -> None:
+        from syrin.debug import Pry
+
+        argv = ["prog", "--debug"]
+        ui = Pry.from_debug_flag(argv=argv, json_fallback=True)
+
+        assert ui is not None
+        assert "--debug" not in argv
+
+    def test_from_debug_flag_returns_none_when_absent(self) -> None:
+        from syrin.debug import Pry
+
+        argv = ["prog"]
+
+        assert Pry.from_debug_flag(argv=argv, json_fallback=True) is None
+        assert argv == ["prog"]
+
     def test_agent_has_debug_ui_shortcut(self) -> None:
         """Agent has .debug_ui property or method for convenience."""
         from syrin.agent import Agent
@@ -138,3 +155,47 @@ class TestStructuredLogging:
         parsed = json.loads(line)
         assert parsed.get("level") == "INFO"
         assert "test message" in parsed.get("message", "")
+
+
+class TestStatusBarStats:
+    def test_llm_request_end_updates_live_token_and_cost_stats(self) -> None:
+        from syrin.debug import Pry
+        from syrin.enums import Hook
+        from syrin.events import EventContext
+
+        ui = Pry(json_fallback=False)
+        ui._handle_event(
+            str(Hook.LLM_REQUEST_END),
+            EventContext(
+                iteration=1,
+                content="hi",
+                tokens=15,
+                input_tokens=10,
+                output_tokens=5,
+                cost=0.0015,
+                model="gpt-4o-mini",
+            ),
+        )
+
+        assert ui._input_tokens == 10
+        assert ui._output_tokens == 5
+        assert ui._total_tokens == 15
+        assert ui._total_cost == 0.0015
+
+    def test_budget_check_updates_budget_used_and_limit(self) -> None:
+        from syrin.debug import Pry
+        from syrin.enums import Hook
+        from syrin.events import EventContext
+
+        ui = Pry(json_fallback=False)
+        ui._handle_event(
+            str(Hook.BUDGET_CHECK),
+            EventContext(used=0.0123, remaining=0.0877, total=0.1),
+        )
+
+        assert ui._total_cost == 0.0123
+        assert ui._budget_limit == 0.1
+
+        status = ui._status_bar()
+        assert "$0.0123" in status
+        assert "/[/dim][dim]$0.1000" in status

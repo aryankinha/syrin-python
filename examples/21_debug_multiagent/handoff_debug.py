@@ -25,6 +25,8 @@ from examples.models.models import gpt4_mini  # noqa: E402
 from syrin import Agent, tool  # noqa: E402
 from syrin.debug import Pry  # noqa: E402
 
+_PRY = Pry.from_debug_flag()
+
 # ---------------------------------------------------------------------------
 # Tools — so the tool tab has something to show
 # ---------------------------------------------------------------------------
@@ -70,7 +72,7 @@ class PresentationAgent(Agent):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    pry = Pry()
+    pry = _PRY or Pry()
 
     researcher = ResearchAgent()
     presenter = PresentationAgent()

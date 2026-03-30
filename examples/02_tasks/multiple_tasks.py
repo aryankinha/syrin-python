@@ -11,6 +11,9 @@ Run: python examples/02_tasks/multiple_tasks.py
 from __future__ import annotations
 
 from syrin import Agent, Model, task
+from syrin.debug import Pry
+
+_PRY = Pry.from_debug_flag()
 
 # --- Define the agent with two tasks ---
 
@@ -39,14 +42,10 @@ class Writer(Agent):
 # --- Run it ---
 
 if __name__ == "__main__":
-    import sys
-
-    use_debug_ui = "--debug" in sys.argv
+    use_debug_ui = _PRY is not None
     writer = Writer()
 
     if use_debug_ui:
-        from syrin.debug import Pry
-
         # Use ui.run() to execute tasks in a background thread so the TUI key
         # loop (↑↓ navigate stream, Tab/Shift+Tab switch right panel, Enter detail,
         # ESC back, p pause/resume, q quit) stays fully responsive during execution.
@@ -58,7 +57,8 @@ if __name__ == "__main__":
         def _write() -> None:
             out[1] = writer.write("artificial intelligence", style="casual")
 
-        with Pry() as ui:
+        ui = _PRY or Pry()
+        with ui:
             ui.attach(writer)
             ui.run(_research).join()  # run in bg thread; join before next task
             ui.run(_write).join()

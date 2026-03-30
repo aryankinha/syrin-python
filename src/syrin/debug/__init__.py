@@ -31,6 +31,12 @@ anywhere in your code.
         pry.run(agent.run, "Hello")   # runs agent in background thread
         pry.wait()                    # hold open — [q] to exit
 
+**CLI helper**::
+
+    pry = Pry.from_debug_flag()      # consumes --debug safely
+    if pry is not None:
+        pry.attach(agent)
+
 **Filter modes**: ``"all"`` | ``"errors"`` | ``"tools"`` | ``"memory"``
 
 **Tabs** (letter hotkeys):

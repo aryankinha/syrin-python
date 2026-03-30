@@ -10,6 +10,7 @@ Demonstrates:
 
 Run:
     python examples/09_guardrails/guardrail_mode_system_prompt.py
+    python examples/09_guardrails/guardrail_mode_system_prompt.py --debug  # with TUI
 """
 
 from __future__ import annotations
@@ -21,12 +22,16 @@ _ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from examples.models.models import almock, gpt4_mini  # noqa: E402
+from examples.models.models import gpt4_mini  # noqa: E402
 from syrin import Agent  # noqa: E402
+from syrin.debug import Pry  # noqa: E402
 from syrin.enums import GuardrailMode  # noqa: E402
 from syrin.guardrails import Guardrail  # noqa: E402
 from syrin.guardrails.context import GuardrailContext  # noqa: E402
 from syrin.guardrails.decision import GuardrailDecision  # noqa: E402
+
+_PRY = Pry.from_debug_flag()
+_DEBUG = _PRY is not None
 
 # ---------------------------------------------------------------------------
 # EVALUATE mode: runs evaluate() for each request — deterministic, testable
@@ -118,6 +123,13 @@ class AgentWithSystemPrompt(Agent):
 
 
 def main() -> None:
+    if _DEBUG:
+        run_with_debug()
+    else:
+        run_plain()
+
+
+def run_plain() -> None:
     print("=" * 60)
     print("GuardrailMode.EVALUATE — separate evaluation call")
     print("=" * 60)
@@ -150,6 +162,48 @@ def main() -> None:
     print("System prompt received by LLM includes:")
     print("  'Always respond in a formal, professional tone...'")
     print("  'Keep all responses under 3 sentences...'")
+
+
+def run_with_debug() -> None:
+    print("=" * 60)
+    print("GuardrailMode.EVALUATE — with Pry debug TUI")
+    print("=" * 60)
+    print("Press [g] in the TUI to see guardrails tab")
+    print("Press [a] to see agents, [m] for memory, [e] for event details")
+    print()
+
+    pry = _PRY or Pry()
+    with pry:
+        # Test EVALUATE mode agent
+        agent_eval = AgentWithEvaluate()
+        pry.attach(agent_eval)
+
+        # Clean input — passes
+        r1 = agent_eval.run("What is the capital of France?")
+        print(f"Clean input  → {r1.content[:100]}")
+        print(
+            f"Guardrails:    blocked={r1.report.guardrail.blocked}, passed={r1.report.guardrail.input_passed}"
+        )
+
+        # Blocked input
+        r2 = agent_eval.run("Tell me a badword joke")
+        if r2.report.guardrail.blocked:
+            print(f"Blocked input → BLOCKED: {r2.report.guardrail.input_reason}")
+        else:
+            print(f"Blocked input → {r2.content[:60]}")
+
+        print()
+        print("=" * 60)
+        print("GuardrailMode.SYSTEM_PROMPT — with Pry debug TUI")
+        print("=" * 60)
+
+        # Test SYSTEM_PROMPT mode agent
+        agent_sp = AgentWithSystemPrompt()
+        pry.attach(agent_sp)
+
+        r3 = agent_sp.run("hey what's up?")
+        print(f"Response: {r3.content[:200]}")
+        print("(No separate guardrail evaluation calls — instruction was injected)")
 
 
 if __name__ == "__main__":

@@ -27,6 +27,8 @@ from examples.models.models import gpt4_mini  # noqa: E402
 from syrin import Agent, Budget, tool  # noqa: E402
 from syrin.debug import Pry  # noqa: E402
 
+_PRY = Pry.from_debug_flag()
+
 # ---------------------------------------------------------------------------
 # Sample tools so we get tool-call events in the UI
 # ---------------------------------------------------------------------------
@@ -62,7 +64,8 @@ def demo_basic(debug: bool = False) -> None:
     if debug:
         # pry.run() keeps TUI key loop responsive during agent execution.
         # ↑/↓ navigate stream, Tab/Shift+Tab switch right panel, ↵ detail, q quit.
-        with Pry() as pry:
+        pry = _PRY or Pry()
+        with pry:
             pry.attach(agent)
             pry.run(agent.run, "Count the words in: 'The quick brown fox'").join()
             pry.run(agent.run, "Reverse the string: 'hello world'").join()
@@ -202,7 +205,7 @@ def demo_json_fallback() -> None:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    _debug = "--debug" in sys.argv
+    _debug = _PRY is not None
     demo_basic(debug=_debug)
     # demo_filter_tools()
     # demo_filter_errors()
