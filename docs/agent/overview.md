@@ -218,14 +218,14 @@ model = Model.OpenAI("gpt-4o")
 
 ## What's Next?
 
-- [Agent Anatomy](/agent/anatomy) - Deep dive into each component
-- [Creating Agents](/agent/creating-agents) - Four ways to build an agent
-- [Running Agents](/agent/running-agents) - Sync, async, and streaming
-- [Builder Pattern](/agent/builder-pattern) - Fluent agent construction
+- [Agent Anatomy](/agent-kit/agent/anatomy) - Deep dive into each component
+- [Creating Agents](/agent-kit/agent/creating-agents) - Four ways to build an agent
+- [Running Agents](/agent-kit/agent/running-agents) - Sync, async, and streaming
+- [Builder Pattern](/agent-kit/agent/builder-pattern) - Fluent agent construction
 
 ## See Also
 
-- [Models](/core/models) - Choosing the right AI brain
-- [Memory](/core/memory) - Making agents remember
-- [Budget](/core/budget) - Controlling costs
-- [Tools](/agent/tools) - Giving agents abilities
+- [Models](/agent-kit/core/models) - Choosing the right AI brain
+- [Memory](/agent-kit/core/memory) - Making agents remember
+- [Budget](/agent-kit/core/budget) - Controlling costs
+- [Tools](/agent-kit/agent/tools) - Giving agents abilities

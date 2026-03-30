@@ -13,7 +13,6 @@ from enum import StrEnum
 
 __all__ = [
     "Citation",
-    "CitationConfig",
     "CitationStyle",
     "apply_citation_style",
     "parse_citations",

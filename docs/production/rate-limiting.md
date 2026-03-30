@@ -380,7 +380,7 @@ Use both together: rate limiting prevents provider throttling, budget prevents r
 
 ## See Also
 
-- [Budget](/core/budget) — Spending controls
-- [Circuit Breaker](/production/circuit-breaker) — Provider failure protection
-- [Debugging: Hooks](/debugging/hooks) — Lifecycle hooks reference
-- [Serving: Advanced](/production/serving-advanced) — Production deployment
+- [Budget](/agent-kit/core/budget) — Spending controls
+- [Circuit Breaker](/agent-kit/production/circuit-breaker) — Provider failure protection
+- [Debugging: Hooks](/agent-kit/debugging/hooks) — Lifecycle hooks reference
+- [Serving: Advanced](/agent-kit/production/serving-advanced) — Production deployment

@@ -10,6 +10,7 @@ Agent passes in memory, context manager, and config; this module returns list[Me
 
 from __future__ import annotations
 
+import functools
 from collections.abc import Callable
 from typing import Any
 
@@ -17,6 +18,25 @@ from syrin.context import Context
 from syrin.context.config import ContextWindowCapacity
 from syrin.enums import FormationMode, MessageRole
 from syrin.types import Message
+
+
+@functools.lru_cache(maxsize=4096)
+def _serialize_message_cached(role_str: str, content: str) -> dict[str, object]:
+    """P7: Cache serialized message dicts to avoid re-allocating on every LLM call.
+
+    Most messages are identical across consecutive turns (history grows monotonically).
+    Caching by (role_str, content) means the same Message object produces the same
+    dict reference — no re-serialization after the first call.
+    """
+    return {"role": role_str, "content": content}
+
+
+def _serialize_message(msg: Message) -> dict[str, object]:
+    """Serialize a Message to a provider-ready dict, using the LRU cache."""
+    role = msg.role
+    role_str = role.value if hasattr(role, "value") else str(role)
+    content = msg.content if isinstance(msg.content, str) else str(msg.content)
+    return _serialize_message_cached(role_str, content)
 
 
 def _user_input_to_search_str(user_input: str | list[dict[str, object]]) -> str:
@@ -172,12 +192,8 @@ def build_messages(
 
     messages.append(Message(role=MessageRole.USER, content=user_input))
 
-    # To dicts for context manager
-    msg_dicts = []
-    for msg in messages:
-        role = msg.role
-        role_str = role.value if hasattr(role, "value") else str(role)
-        msg_dicts.append({"role": role_str, "content": msg.content})
+    # To dicts for context manager — P7: use cached serialization to avoid per-call allocation
+    msg_dicts = [_serialize_message(msg) for msg in messages]
 
     tool_dicts = []
     for tool in tools:

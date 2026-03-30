@@ -168,7 +168,7 @@ result = agent.run("Use your tools to find today's weather")
 
 ## See Also
 
-- [Hooks](/debugging/hooks) — Complete hooks reference with examples
-- [Hooks Reference](/debugging/hooks-reference) — Every hook and its context
-- [Serving: HTTP API](/production/serving-http) — Debug mode in HTTP serving
-- [Playground](/production/playground) — Visual observability panel
+- [Hooks](/agent-kit/debugging/hooks) — Complete hooks reference with examples
+- [Hooks Reference](/agent-kit/debugging/hooks-reference) — Every hook and its context
+- [Serving: HTTP API](/agent-kit/production/serving-http) — Debug mode in HTTP serving
+- [Playground](/agent-kit/production/playground) — Visual observability panel

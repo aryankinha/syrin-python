@@ -226,12 +226,12 @@ result = agent.run([
 
 ## What's Next?
 
-- [Advanced: Multimodality](/advanced/multimodality) — Deep dive into media handling
-- [Advanced: Image Generation](/agent/input-output-media) — Generate images
-- [Advanced: Voice](/agent/input-output-media) — Voice output
+- [Advanced: Multimodality](/agent-kit/advanced/multimodality) — Deep dive into media handling
+- [Advanced: Image Generation](/agent-kit/agent/input-output-media) — Generate images
+- [Advanced: Voice](/agent-kit/agent/input-output-media) — Voice output
 
 ## See Also
 
-- [Core Concepts: Models](/core/models) — Multimodal models
-- [Agents: Tools](/agent/tools) — Tools that handle media
-- [Integrations: MCP](/integrations/mcp) — External media tools
+- [Core Concepts: Models](/agent-kit/core/models) — Multimodal models
+- [Agents: Tools](/agent-kit/agent/tools) — Tools that handle media
+- [Integrations: MCP](/agent-kit/integrations/mcp) — External media tools

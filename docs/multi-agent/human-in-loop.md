@@ -306,7 +306,7 @@ print(result.content)
 
 ## See Also
 
-- [Loop Strategies](/agent/running-agents) — All loop modes including HITL
-- [Pipeline](/multi-agent/pipeline) — Sequential agent execution
-- [Dynamic Pipeline](/multi-agent/dynamic-pipeline) — LLM-driven routing
-- [Hooks Reference](/debugging/hooks) — Complete hook lifecycle
+- [Loop Strategies](/agent-kit/agent/running-agents) — All loop modes including HITL
+- [Pipeline](/agent-kit/multi-agent/pipeline) — Sequential agent execution
+- [Dynamic Pipeline](/agent-kit/multi-agent/dynamic-pipeline) — LLM-driven routing
+- [Hooks Reference](/agent-kit/debugging/hooks) — Complete hook lifecycle

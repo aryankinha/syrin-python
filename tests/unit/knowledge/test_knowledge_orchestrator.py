@@ -12,7 +12,7 @@ import pytest
 
 from syrin.enums import KnowledgeBackend
 from syrin.knowledge import Knowledge, _deduplicate_search_results
-from syrin.knowledge._chunker import Chunk, ChunkConfig, ChunkStrategy
+from syrin.knowledge._chunker import Chunk, ChunkStrategy
 from syrin.knowledge._store import SearchResult
 from syrin.knowledge.loaders import RawTextLoader
 
@@ -117,16 +117,15 @@ class TestKnowledgeConstructor:
         assert k._chunk_config.strategy == ChunkStrategy.RECURSIVE
         assert k._chunk_config.chunk_size == 256
 
-    def test_chunk_config_explicit_overrides_shorthand(self) -> None:
-        """Explicit chunk_config takes precedence."""
+    def test_chunk_config_explicit_fields(self) -> None:
+        """chunk_strategy and chunk_size flat fields build correct config."""
         FakeEmb = _make_fake_embedding()
-        cfg = ChunkConfig(strategy=ChunkStrategy.PAGE, chunk_size=100)
         k = Knowledge(
             sources=[Knowledge.Text("x")],
             embedding=FakeEmb(),
             backend=KnowledgeBackend.MEMORY,
-            chunk_config=cfg,
-            chunk_strategy=ChunkStrategy.RECURSIVE,
+            chunk_strategy=ChunkStrategy.PAGE,
+            chunk_size=100,
         )
         assert k._chunk_config.strategy == ChunkStrategy.PAGE
         assert k._chunk_config.chunk_size == 100

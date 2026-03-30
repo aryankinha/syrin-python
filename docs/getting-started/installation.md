@@ -111,7 +111,7 @@ Run it:
 python test_agent.py
 ```
 
-You should see a response printed. If you get an error, see [Troubleshooting](/getting-started/troubleshooting).
+You should see a response printed. If you get an error, see [Troubleshooting](/agent-kit/getting-started/troubleshooting).
 
 ## Common Installation Errors
 
@@ -137,11 +137,11 @@ print(os.getenv("OPENAI_API_KEY"))  # Should print your key
 
 ## What's Next?
 
-- [Quick Start](/getting-started/quick-start) - Build your first working agent in 5 minutes
-- [Understanding Agents](/agent/overview) - Learn how agents work
-- [Models](/core/models) - Configure AI models
+- [Quick Start](/agent-kit/getting-started/quick-start) - Build your first working agent in 5 minutes
+- [Understanding Agents](/agent-kit/agent/overview) - Learn how agents work
+- [Models](/agent-kit/core/models) - Configure AI models
 
 ## See Also
 
-- [Troubleshooting](/getting-started/troubleshooting) - Common errors and fixes
-- [Models: Providers](/core/models-providers) - All supported AI providers
+- [Troubleshooting](/agent-kit/getting-started/troubleshooting) - Common errors and fixes
+- [Models: Providers](/agent-kit/core/models-providers) - All supported AI providers

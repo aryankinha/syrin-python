@@ -406,7 +406,7 @@ For streaming or concurrent requests, use HTTP mode instead.
 
 ## See Also
 
-- [Serving: HTTP API](/production/serving-http) — REST API for HTTP-based integration
-- [Serving: CLI](/production/serving-cli) — Interactive terminal testing
-- [Serving: Advanced](/production/serving-advanced) — Production deployment patterns
-- [MCP Integration](/integrations/mcp) — Model Context Protocol
+- [Serving: HTTP API](/agent-kit/production/serving-http) — REST API for HTTP-based integration
+- [Serving: CLI](/agent-kit/production/serving-cli) — Interactive terminal testing
+- [Serving: Advanced](/agent-kit/production/serving-advanced) — Production deployment patterns
+- [MCP Integration](/agent-kit/integrations/mcp) — Model Context Protocol

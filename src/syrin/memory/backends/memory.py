@@ -26,10 +26,12 @@ class InMemoryBackend:
         memory_type: MemoryType | None = None,
         top_k: int = 10,
     ) -> list[MemoryEntry]:
-        _ = query  # For interface completeness
         results = list(self._memories.values())
         if memory_type is not None:
             results = [m for m in results if m.type == memory_type]
+        if query:
+            q = query.lower()
+            results = [m for m in results if q in m.content.lower()]
         return results[:top_k]
 
     def list(

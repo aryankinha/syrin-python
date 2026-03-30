@@ -598,9 +598,9 @@ watch -n 5 'kubectl top pods | grep agent'
 
 ## See Also
 
-- [Serving: HTTP API](/production/serving-http) — REST API reference
-- [Serving: Advanced](/production/serving-advanced) — Production patterns
-- [Checkpointing](/production/checkpointing) — State persistence
-- [Budget](/core/budget) — Cost management
-- [Rate Limiting](/production/rate-limiting) — API quota management
-- [Circuit Breaker](/production/circuit-breaker) — Failure protection
+- [Serving: HTTP API](/agent-kit/production/serving-http) — REST API reference
+- [Serving: Advanced](/agent-kit/production/serving-advanced) — Production patterns
+- [Checkpointing](/agent-kit/production/checkpointing) — State persistence
+- [Budget](/agent-kit/core/budget) — Cost management
+- [Rate Limiting](/agent-kit/production/rate-limiting) — API quota management
+- [Circuit Breaker](/agent-kit/production/circuit-breaker) — Failure protection

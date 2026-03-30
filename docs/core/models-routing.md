@@ -457,12 +457,12 @@ Here's the routing flow:
 
 ## What's Next?
 
-- [Providers](/core/models-providers) - All supported models
-- [Custom Models](/core/models-custom) - Add your own models
-- [Budget](/core/budget) - Control your spending
+- [Providers](/agent-kit/core/models-providers) - All supported models
+- [Custom Models](/agent-kit/core/models-custom) - Add your own models
+- [Budget](/agent-kit/core/budget) - Control your spending
 
 ## See Also
 
-- [Structured Output](/agent/structured-output) - Get typed responses
-- [Tools](/agent/tools) - Give your agent abilities
-- [Prompts](/core/prompts) - Get the best from your model
+- [Structured Output](/agent-kit/agent/structured-output) - Get typed responses
+- [Tools](/agent-kit/agent/tools) - Give your agent abilities
+- [Prompts](/agent-kit/core/prompts) - Get the best from your model

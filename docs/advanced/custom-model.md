@@ -495,14 +495,14 @@ agent.events.on(Hook.LLM_REQUEST_END, lambda ctx: print(f"Tokens: {ctx.tokens}")
 
 ## What's Next?
 
-- [Custom Context](/advanced/custom-context) — Custom context management strategies
-- [Dependency Injection](/advanced/dependency-injection) — Testable agents with RunContext
-- [Event Bus](/advanced/event-bus) — Domain events and handlers
-- [Template Engine](/advanced/template-engine) — Structured generation
+- [Custom Context](/agent-kit/advanced/custom-context) — Custom context management strategies
+- [Dependency Injection](/agent-kit/advanced/dependency-injection) — Testable agents with RunContext
+- [Event Bus](/agent-kit/advanced/event-bus) — Domain events and handlers
+- [Template Engine](/agent-kit/advanced/template-engine) — Structured generation
 
 ## See Also
 
-- [Models Overview](/core/models) — Built-in model providers
-- [Model Routing](/core/models-routing) — Dynamic model selection
-- [Testing](/advanced/testing) — Mock models and tools
-- [Middleware](/advanced/dependency-injection) — Request/response transformation
+- [Models Overview](/agent-kit/core/models) — Built-in model providers
+- [Model Routing](/agent-kit/core/models-routing) — Dynamic model selection
+- [Testing](/agent-kit/advanced/testing) — Mock models and tools
+- [Middleware](/agent-kit/advanced/dependency-injection) — Request/response transformation

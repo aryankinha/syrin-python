@@ -9,7 +9,6 @@ from pydantic import BaseModel
 
 from syrin import (
     Agent,
-    CitationConfig,
     CitationStyle,
     Output,
     OutputConfig,
@@ -201,7 +200,7 @@ class TestAgentOutputConfigCitation:
             system_prompt="Return text with citations.",
             output_config=OutputConfig(
                 format=OutputFormat.TEXT,
-                citation=CitationConfig(style=CitationStyle.FOOTNOTE),
+                citation_style=CitationStyle.FOOTNOTE,
             ),
         )
         content_with_citation = "The authorized capital is ₹50,00,000 [Source: moa.pdf, Page 3]."

@@ -358,12 +358,12 @@ agent = MyAgent()
 
 ## What's Next?
 
-- [Models Overview](/core/models) - Recap of models and settings
-- [Custom Models](/core/models-custom) - Create your own provider
-- [Model Routing](/core/models-routing) - Automatically switch models
+- [Models Overview](/agent-kit/core/models) - Recap of models and settings
+- [Custom Models](/agent-kit/core/models-custom) - Create your own provider
+- [Model Routing](/agent-kit/core/models-routing) - Automatically switch models
 
 ## See Also
 
-- [Budget](/core/budget) - Control your spending per provider
-- [Context](/core/context) - Handle large contexts
-- [Memory](/core/memory) - Make agents remember
+- [Budget](/agent-kit/core/budget) - Control your spending per provider
+- [Context](/agent-kit/core/context) - Handle large contexts
+- [Memory](/agent-kit/core/memory) - Make agents remember

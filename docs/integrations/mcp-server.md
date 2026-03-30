@@ -308,12 +308,12 @@ syrin analyse --url http://localhost:3000/mcp
 
 ## What's Next?
 
-- [MCP Client](/integrations/mcp-client) — Connect to remote MCP servers
-- [Tools Reference](/agent/tools) — Master the @tool decorator
-- [Guardrails](/agent/guardrails) — Add input/output validation
+- [MCP Client](/agent-kit/integrations/mcp-client) — Connect to remote MCP servers
+- [Tools Reference](/agent-kit/agent/tools) — Master the @tool decorator
+- [Guardrails](/agent-kit/agent/guardrails) — Add input/output validation
 
 ## See Also
 
-- [MCP Overview](/integrations/mcp) — Protocol concepts
-- [Agent Tools](/agent/tools) — Tool definitions
-- [Audit Logging](/debugging/logging) — Track tool calls
+- [MCP Overview](/agent-kit/integrations/mcp) — Protocol concepts
+- [Agent Tools](/agent-kit/agent/tools) — Tool definitions
+- [Audit Logging](/agent-kit/debugging/logging) — Track tool calls

@@ -8,7 +8,9 @@ from syrin.knowledge._chunker import ChunkConfig, Chunker, ChunkStrategy
 from syrin.knowledge.chunkers._auto import AutoChunker
 from syrin.knowledge.chunkers._code import CodeChunker
 from syrin.knowledge.chunkers._markdown import MarkdownChunker
+from syrin.knowledge.chunkers._markdown_header import MarkdownHeaderChunker
 from syrin.knowledge.chunkers._page import PageChunker
+from syrin.knowledge.chunkers._python_ast import PythonASTChunker
 from syrin.knowledge.chunkers._recursive import RecursiveChunker
 from syrin.knowledge.chunkers._semantic import SemanticChunker
 from syrin.knowledge.chunkers._sentence import SentenceChunker
@@ -18,7 +20,9 @@ __all__ = [
     "AutoChunker",
     "CodeChunker",
     "MarkdownChunker",
+    "MarkdownHeaderChunker",
     "PageChunker",
+    "PythonASTChunker",
     "RecursiveChunker",
     "SemanticChunker",
     "SentenceChunker",

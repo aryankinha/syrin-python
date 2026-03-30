@@ -1,8 +1,8 @@
 """Budget Persistence Example.
 
 Demonstrates:
-- FileBudgetStore for persisting budget state across restarts
-- budget_store_key for per-user/per-org isolation
+- BudgetStore with backend="file" for persisting budget state across restarts
+- key= parameter for per-user/per-org isolation
 - Rate limits that survive process restarts
 
 Run: python -m examples.03_budget.budget_persistence
@@ -19,19 +19,19 @@ from dotenv import load_dotenv
 
 from examples.models.models import almock
 from syrin import Agent, Budget, RateLimit, raise_on_exceeded
-from syrin.budget_store import FileBudgetStore
+from syrin.budget_store import BudgetStore
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
-# 1. FileBudgetStore — persist to disk
+# 1. BudgetStore with backend="file" — persist to disk
 store_path = Path(__file__).resolve().parent.parent / "data" / "budget_example.json"
 store_path.parent.mkdir(parents=True, exist_ok=True)
 
 
 class PersistentAgent(Agent):
     _agent_name = "persistent-budget"
-    _agent_description = "Agent with FileBudgetStore (persists across restarts)"
+    _agent_description = "Agent with BudgetStore file backend (persists across restarts)"
     model = almock
     system_prompt = "You are concise."
     budget = Budget(
@@ -42,21 +42,18 @@ class PersistentAgent(Agent):
 
 
 agent = PersistentAgent(
-    budget_store=FileBudgetStore(store_path, single_file=True),
-    budget_store_key="example_user",
+    budget_store=BudgetStore(key="example_user", backend="file", path=store_path),
 )
 result = agent.run("Summarize Python in two sentences.")
 print(f"Cost: ${result.cost:.6f}")
 print(f"Budget state: {agent.budget_state}")
 
-# 2. Per-user isolation via budget_store_key
+# 2. Per-user isolation via key=
 agent_alice = PersistentAgent(
-    budget_store=FileBudgetStore(store_path, single_file=True),
-    budget_store_key="alice",
+    budget_store=BudgetStore(key="alice", backend="file", path=store_path),
 )
 agent_bob = PersistentAgent(
-    budget_store=FileBudgetStore(store_path, single_file=True),
-    budget_store_key="bob",
+    budget_store=BudgetStore(key="bob", backend="file", path=store_path),
 )
 agent_alice.run("Hello from Alice")
 agent_bob.run("Hello from Bob")
@@ -66,8 +63,7 @@ print(f"Bob budget: {agent_bob.budget_state}")
 
 if __name__ == "__main__":
     agent = PersistentAgent(
-        budget_store=FileBudgetStore(store_path, single_file=True),
-        budget_store_key="example_user",
+        budget_store=BudgetStore(key="example_user", backend="file", path=store_path),
     )
     print("Serving at http://localhost:8000/playground")
     agent.serve(port=8000, enable_playground=True, debug=True)

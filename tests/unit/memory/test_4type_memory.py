@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import patch  # noqa: F401 — used in TestMemoryBudget
 
-from syrin.budget import warn_on_exceeded
 from syrin.enums import DecayStrategy, MemoryType
 from syrin.memory import (
     Decay,
-    MemoryBudget,
     MemoryEntry,
 )
 from syrin.memory.store import MemoryStore
@@ -130,16 +128,20 @@ class TestDecayCurves:
 
 
 class TestMemoryBudget:
-    """Tests for memory budget awareness."""
+    """Tests for memory budget awareness (flat fields on Memory/MemoryStore)."""
 
     def test_memory_store_respects_budget_warn(self) -> None:
-        """Memory store should warn when budget exceeded but still store."""
-        budget = MemoryBudget(
-            extraction_budget=0.001,  # Very low
-            on_exceeded=warn_on_exceeded,
-        )
+        """MemoryStore warns when budget exceeded but still stores (warn-only handler)."""
+        warnings: list[object] = []
 
-        store = MemoryStore(budget=budget)
+        def warn_handler(ctx: object) -> None:
+            warnings.append(ctx)
+            # return without raising → warn-only
+
+        store = MemoryStore(
+            budget_extraction=0.001,
+            budget_on_exceeded=warn_handler,
+        )
 
         entry = MemoryEntry(
             id="test-1",
@@ -149,20 +151,13 @@ class TestMemoryBudget:
         )
 
         result = store.add(entry)
-        # With WARN, it should still add but might warn
-        assert result is True  # WARN allows operation
+        assert result is True  # warn-only allows operation
 
     def test_memory_store_allows_under_budget(self) -> None:
-        """Memory store should allow operations under budget."""
-        budget = MemoryBudget(
-            extraction_budget=1.00,
-            on_exceeded=warn_on_exceeded,
-        )
-
-        store = MemoryStore(budget=budget)
-
+        """MemoryStore allows operations under budget."""
         with patch("syrin.cost.calculate_cost") as mock_cost:
             mock_cost.return_value = 0.001
+            store = MemoryStore(budget_extraction=1.00)
             result = store.add(
                 MemoryEntry(
                     id="test-2",
@@ -171,8 +166,7 @@ class TestMemoryBudget:
                     importance=0.5,
                 )
             )
-
-            assert result is True  # Should succeed under budget
+            assert result is True
 
 
 class TestMemoryStore:

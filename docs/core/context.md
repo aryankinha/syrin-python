@@ -444,11 +444,11 @@ context = Context(
 
 ## What's Next?
 
-- [Context Compaction](/core/context-compaction) - Deep dive into compaction strategies
-- [Memory](/core/memory) - How memory integrates with context
-- [Budget](/core/budget) - Cost control (separate from tokens)
+- [Context Compaction](/agent-kit/core/context-compaction) - Deep dive into compaction strategies
+- [Memory](/agent-kit/core/memory) - How memory integrates with context
+- [Budget](/agent-kit/core/budget) - Cost control (separate from tokens)
 
 ## See Also
 
-- [Agents](/agent/overview) - Building agents with context
-- [Prompts](/core/prompts) - Writing effective prompts
+- [Agents](/agent-kit/agent/overview) - Building agents with context
+- [Prompts](/agent-kit/core/prompts) - Writing effective prompts

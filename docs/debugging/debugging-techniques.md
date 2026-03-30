@@ -478,12 +478,12 @@ def test_agent_traces_llm_calls():
 
 ## What's Next?
 
-- [Hooks Reference](/debugging/hooks-reference) — Complete hooks reference
-- [Tracing Exporters](/debugging/tracing-exporters) — Route traces to observability platforms
-- [Logging](/debugging/logging) — Configure structured logging
+- [Hooks Reference](/agent-kit/debugging/hooks-reference) — Complete hooks reference
+- [Tracing Exporters](/agent-kit/debugging/tracing-exporters) — Route traces to observability platforms
+- [Logging](/agent-kit/debugging/logging) — Configure structured logging
 
 ## See Also
 
-- [Debugging Overview](/debugging/overview) — Debugging tools summary
-- [Hooks System](/debugging/hooks) — Lifecycle callbacks
+- [Debugging Overview](/agent-kit/debugging/overview) — Debugging tools summary
+- [Hooks System](/agent-kit/debugging/hooks) — Lifecycle callbacks
 - [Testing Strategies](https://github.com/anomalyco/syrin-python/tree/main/examples/10_observability) — Testing patterns

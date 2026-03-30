@@ -232,7 +232,7 @@ class CostTrackingExporter(SpanExporter):
         self.db.commit()
 ```
 
-> **Keep `export()` fast.** It's called synchronously on the hot path. For slow backends (HTTP, DB writes), use a background queue or `BatchingExporter` (see [Tracing Exporters](/debugging/tracing-exporters)).
+> **Keep `export()` fast.** It's called synchronously on the hot path. For slow backends (HTTP, DB writes), use a background queue or `BatchingExporter` (see [Tracing Exporters](/agent-kit/debugging/tracing-exporters)).
 
 ---
 
@@ -356,7 +356,7 @@ result = agent.run(user_message)
 
 ## What's Next?
 
-- [Custom Model](/advanced/custom-model) — Implement your own LLM provider
-- [Custom Context](/advanced/custom-context) — Control what gets sent to the model
-- [Tracing Exporters](/debugging/tracing-exporters) — Built-in exporters + batching patterns
-- [Hooks Reference](/debugging/hooks-reference) — All 72+ hook events with context fields
+- [Custom Model](/agent-kit/advanced/custom-model) — Implement your own LLM provider
+- [Custom Context](/agent-kit/advanced/custom-context) — Control what gets sent to the model
+- [Tracing Exporters](/agent-kit/debugging/tracing-exporters) — Built-in exporters + batching patterns
+- [Hooks Reference](/agent-kit/debugging/hooks-reference) — All 72+ hook events with context fields

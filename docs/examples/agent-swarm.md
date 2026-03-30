@@ -465,13 +465,13 @@ PYTHONPATH=. python -m examples.10_observability.comprehensive_tracing
 
 ## What's Next?
 
-- Learn about [multi-agent patterns](/examples/multi-agent-patterns)
-- Explore [observability basics](/examples/observability)
-- Understand [production serving](/production/serving)
+- Learn about [multi-agent patterns](/agent-kit/examples/multi-agent-patterns)
+- Explore [observability basics](/agent-kit/examples/observability)
+- Understand [production serving](/agent-kit/production/serving)
 
 ## See Also
 
-- [Multi-agent documentation](/multi-agent/overview)
-- [Dynamic pipeline](/multi-agent/dynamic-pipeline)
-- [Debugging overview](/debugging/overview)
-- [Hooks reference](/debugging/hooks-reference)
+- [Multi-agent documentation](/agent-kit/multi-agent/overview)
+- [Dynamic pipeline](/agent-kit/multi-agent/dynamic-pipeline)
+- [Debugging overview](/agent-kit/debugging/overview)
+- [Hooks reference](/agent-kit/debugging/hooks-reference)

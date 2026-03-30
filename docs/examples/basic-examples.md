@@ -159,12 +159,12 @@ PYTHONPATH=. python examples/01_minimal/hello_memory.py
 
 ## What's Next?
 
-- Learn about [tasks and structured output](/examples/tools-patterns)
-- Explore [memory systems](/core/memory) in depth
-- Understand [budget management](/core/budget)
+- Learn about [tasks and structured output](/agent-kit/examples/tools-patterns)
+- Explore [memory systems](/agent-kit/core/memory) in depth
+- Understand [budget management](/agent-kit/core/budget)
 
 ## See Also
 
-- [Agents documentation](/agent/overview)
-- [Memory documentation](/core/memory)
-- [Response object reference](/agent/response-object)
+- [Agents documentation](/agent-kit/agent/overview)
+- [Memory documentation](/agent-kit/core/memory)
+- [Response object reference](/agent-kit/agent/response-object)

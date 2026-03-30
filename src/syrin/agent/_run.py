@@ -7,8 +7,11 @@ response()/arun() so that agent/__init__.py stays focused on config and identity
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
+
+_log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from syrin.agent import Agent
@@ -97,6 +100,29 @@ async def run_agent_loop_async(
             user_input,
         )
 
+        # Raise OutputValidationError when all retries exhausted and output still invalid
+        if structured is not None and structured.final_error is not None:
+            from syrin.exceptions import OutputValidationError
+
+            try:
+                from syrin.enums import Hook
+                from syrin.events import EventContext
+
+                agent._emit_event(
+                    Hook.OUTPUT_VALIDATION_ERROR,
+                    EventContext(
+                        content=result_content,
+                        error=str(structured.final_error),
+                    ),
+                )
+            except Exception:
+                pass
+            raise OutputValidationError(
+                f"Structured output validation failed after "
+                f"{getattr(agent, '_validation_retries', 0)} retries. "
+                f"Raw: {result_content[:200]!r}. Error: {structured.final_error}"
+            )
+
         # Apply template if output_config has template and we have structured data
         content_for_response: str = result_content or ""
         template_data: dict[str, object] | None = None
@@ -115,8 +141,8 @@ async def run_agent_loop_async(
             except ValueError:
                 pass  # Slot validation failed; use raw content
 
-        # Apply citation parsing/styling when output_config.citation is set
-        if output_config is not None and output_config.citation is not None:
+        # Apply citation parsing/styling when output_config.citation_style is set
+        if output_config is not None and output_config.citation_style is not None:
             from syrin.output_format import apply_citation_to_content
 
             content_for_response, citations_list = apply_citation_to_content(
@@ -210,7 +236,8 @@ async def _build_structured_with_llm_retry(  # type: ignore[explicit-any]
     max_retries = getattr(agent, "_validation_retries", 3)
     structured = None
 
-    for attempt in range(max_retries):
+    # Always do at least one build attempt regardless of retry count
+    for attempt in range(max(max_retries, 1)):
         structured = build_output(
             agent,
             content,
@@ -220,8 +247,23 @@ async def _build_structured_with_llm_retry(  # type: ignore[explicit-any]
         )
         if structured is None or structured.final_error is None:
             return (structured, content)
-        if attempt >= max_retries - 1:
+        if max_retries == 0 or attempt >= max_retries - 1:
             return (structured, content)
+        # Emit OUTPUT_VALIDATION_RETRY for each LLM retry attempt
+        try:
+            from syrin.enums import Hook
+            from syrin.events import EventContext
+
+            agent._emit_event(
+                Hook.OUTPUT_VALIDATION_RETRY,
+                EventContext(
+                    attempt=attempt + 1,
+                    error=str(structured.final_error),
+                    raw=content,
+                ),
+            )
+        except Exception:
+            pass
         retry_prompt = get_retry_prompt(pydantic_model, str(structured.final_error))
         base_messages = agent._build_messages(user_input)
         messages = base_messages + [
@@ -248,7 +290,7 @@ def _get_structured_output_model(agent: Agent) -> type | None:
 
         if isinstance(output_type, type) and issubclass(output_type, BaseModel):
             return cast("type", output_type)
-    except Exception:
+    except ImportError:
         pass
     return None
 
@@ -278,8 +320,8 @@ def _auto_store_turn(
                 memory_type=MemoryType.EPISODIC,
                 importance=0.6,
             )
-    except Exception:
-        pass  # Don't fail the turn if auto_store fails
+    except Exception as exc:
+        _log.warning("auto_store failed: %s", exc, exc_info=True)
 
 
 def _tokens_from_result(result: LoopResult) -> TokenUsage:

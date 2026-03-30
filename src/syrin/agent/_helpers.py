@@ -592,17 +592,35 @@ def _bind_tool_to_instance(spec: ToolSpec, instance: object) -> ToolSpec:
     return spec
 
 
+_MAX_INPUT_LENGTH = 1_000_000  # 1MB default; protects against accidental huge payloads (SEC5)
+
+
 def _validate_user_input(
     user_input: str | list[dict[str, object]] | None,
     method: str = "response",
+    max_input_length: int = _MAX_INPUT_LENGTH,
 ) -> None:
-    """Raise TypeError if user_input is not str or list[dict] (MultimodalInput)."""
+    """Raise TypeError/InputTooLargeError if user_input is invalid or too large.
+
+    Enforces max_input_length (default 1MB) to prevent sending huge payloads
+    to the LLM API.
+    """
+    from syrin.exceptions import InputTooLargeError
+
     if user_input is None:
         raise TypeError(
             f"user_input must be str or list[dict] (MultimodalInput), got None. "
             f'Example: agent.{method}("Hello")'
         )
     if isinstance(user_input, str):
+        if len(user_input) > max_input_length:
+            raise InputTooLargeError(
+                f"Input too large: {len(user_input):,} characters exceeds "
+                f"max_input_length={max_input_length:,}. "
+                "Reduce input size or increase max_input_length on Agent.",
+                input_length=len(user_input),
+                max_length=max_input_length,
+            )
         return
     if isinstance(user_input, list) and all(isinstance(x, dict) for x in user_input):
         return
@@ -673,7 +691,7 @@ def _resolve_memory(
         return (None, None)
     if default:
         return (
-            Memory(types=[MemoryType.CORE, MemoryType.EPISODIC], top_k=10),
+            Memory(restrict_to=[MemoryType.CORE, MemoryType.EPISODIC], top_k=10),
             get_backend(MemoryBackend.MEMORY),
         )
     assert isinstance(memory, Memory)

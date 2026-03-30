@@ -685,12 +685,12 @@ trace.add_exporter(FilterExporter(
 
 ## What's Next?
 
-- [Logging](/debugging/logging) — Configure structured logging alongside tracing
-- [Debugging Techniques](/debugging/debugging-techniques) — Real-world debugging patterns
-- [Hooks Reference](/debugging/hooks-reference) — Complete hooks reference
+- [Logging](/agent-kit/debugging/logging) — Configure structured logging alongside tracing
+- [Debugging Techniques](/agent-kit/debugging/debugging-techniques) — Real-world debugging patterns
+- [Hooks Reference](/agent-kit/debugging/hooks-reference) — Complete hooks reference
 
 ## See Also
 
-- [Tracing Overview](/debugging/tracing) — Understanding spans and sessions
-- [Hooks System](/debugging/hooks) — Reacting to agent lifecycle events
+- [Tracing Overview](/agent-kit/debugging/tracing) — Understanding spans and sessions
+- [Hooks System](/agent-kit/debugging/hooks) — Reacting to agent lifecycle events
 - [Observability Examples](https://github.com/anomalyco/syrin-python/tree/main/examples/10_observability) — Working code examples

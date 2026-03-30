@@ -409,14 +409,14 @@ print(response.content)
 
 ## What's Next?
 
-- [Builder Pattern](/agent/builder-pattern) - Fluent agent construction in depth
-- [Running Agents](/agent/running-agents) - Execute your agent
-- [Tools](/agent/tools) - Create powerful tools
-- [Memory](/core/memory) - Persistent memory
+- [Builder Pattern](/agent-kit/agent/builder-pattern) - Fluent agent construction in depth
+- [Running Agents](/agent-kit/agent/running-agents) - Execute your agent
+- [Tools](/agent-kit/agent/tools) - Create powerful tools
+- [Memory](/agent-kit/core/memory) - Persistent memory
 
 ## See Also
 
-- [Agent Anatomy](/agent/anatomy) - Understanding each component
-- [Response Object](/agent/response-object) - What you get back
-- [Budget](/core/budget) - Cost control
-- [Loop Strategies](/agent/running-agents) - Control thinking behavior
+- [Agent Anatomy](/agent-kit/agent/anatomy) - Understanding each component
+- [Response Object](/agent-kit/agent/response-object) - What you get back
+- [Budget](/agent-kit/core/budget) - Cost control
+- [Loop Strategies](/agent-kit/agent/running-agents) - Control thinking behavior

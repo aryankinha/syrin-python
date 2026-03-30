@@ -28,10 +28,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from syrin.enums import Hook, KnowledgeBackend
-from syrin.knowledge._agentic import AgenticRAGConfig
-from syrin.knowledge._chunker import Chunk, ChunkConfig, Chunker, ChunkMetadata, ChunkStrategy
+from syrin.knowledge._agentic import AgenticRAGConfig as _AgenticRAGConfig
+from syrin.knowledge._chunker import Chunk, Chunker, ChunkMetadata, ChunkStrategy
+from syrin.knowledge._chunker import ChunkConfig as _ChunkConfig
 from syrin.knowledge._document import Document, DocumentMetadata
-from syrin.knowledge._grounding import GroundedFact, GroundingConfig
+from syrin.knowledge._grounding import GroundedFact
+from syrin.knowledge._grounding import GroundingConfig as _GroundingConfig
+from syrin.knowledge._hybrid import CancellableIngestTask, CodeChunk, HybridSearchConfig
 from syrin.knowledge._loader import DocumentLoader
 from syrin.knowledge._store import MetadataFilter, SearchResult
 from syrin.knowledge.chunkers import get_chunker
@@ -63,25 +66,25 @@ if TYPE_CHECKING:
 _log = logging.getLogger(__name__)
 
 __all__ = [
-    "AgenticRAGConfig",
     "GroundedFact",
-    "GroundingConfig",
     "Chunk",
-    "ChunkConfig",
     "ChunkMetadata",
     "ChunkStrategy",
     "Chunker",
+    "CodeChunk",
     "Document",
     "DocumentMetadata",
     "DocumentLoader",
     "DirectoryLoader",
     "DoclingLoader",
     "CSVLoader",
+    "CancellableIngestTask",
     "DOCXLoader",
     "ExcelLoader",
     "get_chunker",
     "GitHubLoader",
     "GoogleDriveLoader",
+    "HybridSearchConfig",
     "JSONLoader",
     "Knowledge",
     "MarkdownLoader",
@@ -146,16 +149,33 @@ class Knowledge:
         connection_url: str | None = None,
         path: str | None = None,
         collection: str = "default",
-        chunk_config: ChunkConfig | None = None,
-        chunk_strategy: ChunkStrategy | None = None,
+        chunk_strategy: ChunkStrategy = ChunkStrategy.AUTO,
         chunk_size: int = 512,
+        chunk_overlap: int = 0,
+        chunk_min_size: int = 50,
+        chunk_preserve_tables: bool = True,
+        chunk_preserve_code_blocks: bool = True,
+        chunk_preserve_headers: bool = True,
+        chunk_similarity_threshold: float = 0.5,
+        chunk_language: str | None = None,
         top_k: int = 5,
         score_threshold: float = 0.3,
         auto_sync: bool = False,
         sync_interval: int = 0,
         agentic: bool = False,
-        agentic_config: AgenticRAGConfig | None = None,
-        grounding: GroundingConfig | None = None,
+        agentic_max_iterations: int = 3,
+        agentic_decompose: bool = True,
+        agentic_grade_results: bool = True,
+        agentic_relevance_threshold: float = 0.5,
+        agentic_web_fallback: bool = False,
+        grounding_enabled: bool = False,
+        grounding_confidence: float = 0.7,
+        grounding_extract_facts: bool = True,
+        grounding_cite_sources: bool = True,
+        grounding_flag_missing: bool = True,
+        grounding_verify: bool = True,
+        grounding_max_facts: int | None = 15,
+        grounding_max_chunk_preview: int = 800,
         inject_system_prompt: bool = True,
         emit: Callable[[str, EventContext], None] | None = None,
         get_budget_tracker: Callable[[], object | None] | None = None,
@@ -170,20 +190,37 @@ class Knowledge:
             connection_url: Postgres connection URL (required for POSTGRES).
             path: File path for SQLite or Chroma. Default ~/.syrin/knowledge.db for SQLite.
             collection: Collection/table name for vector stores.
-            chunk_config: Full chunk config. Overrides chunk_strategy/chunk_size.
-            chunk_strategy: Shorthand for ChunkConfig strategy.
-            chunk_size: Target tokens per chunk.
-            top_k: Max results per search.
-            score_threshold: Minimum similarity score for search results.
-            auto_sync: Enable file watching (Step 5: not yet implemented).
+            chunk_strategy: Chunking strategy (AUTO, RECURSIVE, MARKDOWN, CODE, etc.).
+            chunk_size: Target tokens per chunk. Default 512.
+            chunk_overlap: Token overlap between consecutive chunks. Default 0.
+            chunk_min_size: Minimum chunk size in tokens; smaller chunks are dropped. Default 50.
+            chunk_preserve_tables: Prevent splitting markdown/HTML tables. Default True.
+            chunk_preserve_code_blocks: Prevent splitting fenced code blocks. Default True.
+            chunk_preserve_headers: Keep heading hierarchy in chunk metadata. Default True.
+            chunk_similarity_threshold: Similarity threshold for SEMANTIC strategy. Default 0.5.
+            chunk_language: Source language for CODE strategy (e.g. "python"). Default None.
+            top_k: Max results per search. Default 5.
+            score_threshold: Minimum similarity score for search results. Default 0.3.
+            auto_sync: Enable file watching (not yet implemented).
             sync_interval: Seconds between sync checks (0 = file watcher).
             agentic: Enable agentic retrieval (decompose, grade, refine, verify tools).
-            agentic_config: Config for agentic RAG. Defaults used when None and agentic=True.
-            grounding: Config for grounding layer (extract facts, verify, cite). None = disabled.
+            agentic_max_iterations: Max refinement loops in agentic retrieval. Default 3.
+            agentic_decompose: Auto-decompose complex queries into sub-queries. Default True.
+            agentic_grade_results: Use LLM to grade result relevance. Default True.
+            agentic_relevance_threshold: Min score to accept results without refinement. Default 0.5.
+            agentic_web_fallback: Suggest web search if KB fails. Default False.
+            grounding_enabled: Enable grounding layer (fact extraction/verification). Default False.
+            grounding_confidence: Min confidence to include a fact (0–1). Default 0.7.
+            grounding_extract_facts: Extract structured facts from chunks. Default True.
+            grounding_cite_sources: Attach source doc + page to each fact. Default True.
+            grounding_flag_missing: Flag when expected data is missing. Default True.
+            grounding_verify: Verify each fact before including. Default True.
+            grounding_max_facts: Max facts per search (None = no limit). Default 15.
+            grounding_max_chunk_preview: Max chars per chunk for fact extraction. Default 800.
             inject_system_prompt: Inject knowledge context into agent system prompt.
-            emit: Hook emitter (agent._emit_event when attached to agent).
+            emit: Hook emitter (set automatically when attached to agent).
             get_budget_tracker: Callable to get BudgetTracker for embedding cost tracking.
-            get_model: Callable to get Model for decomposition/grading. Set when attached to agent.
+            get_model: Callable to get Model for decomposition/grading.
         """
         if embedding is None:
             raise ValueError(
@@ -195,18 +232,44 @@ class Knowledge:
 
         self._agentic = agentic
         self._agentic_config = (
-            agentic_config
-            if agentic_config is not None
-            else (AgenticRAGConfig() if agentic else None)
+            _AgenticRAGConfig(
+                max_search_iterations=agentic_max_iterations,
+                decompose_complex=agentic_decompose,
+                grade_results=agentic_grade_results,
+                relevance_threshold=agentic_relevance_threshold,
+                web_fallback=agentic_web_fallback,
+            )
+            if agentic
+            else None
         )
-        self._grounding_config = grounding
+        self._grounding_config = (
+            _GroundingConfig(
+                enabled=True,
+                extract_facts=grounding_extract_facts,
+                cite_sources=grounding_cite_sources,
+                flag_missing=grounding_flag_missing,
+                verify_before_use=grounding_verify,
+                confidence_threshold=grounding_confidence,
+                max_facts=grounding_max_facts,
+                max_chunk_preview=grounding_max_chunk_preview,
+            )
+            if grounding_enabled
+            else None
+        )
         self._get_model = get_model
 
         self._embedding = embedding
         self._sources = list(sources)
-        self._chunk_config = chunk_config or ChunkConfig(
-            strategy=chunk_strategy or ChunkStrategy.AUTO,
+        self._chunk_config = _ChunkConfig(
+            strategy=chunk_strategy,
             chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            min_chunk_size=chunk_min_size,
+            preserve_tables=chunk_preserve_tables,
+            preserve_code_blocks=chunk_preserve_code_blocks,
+            preserve_headers=chunk_preserve_headers,
+            similarity_threshold=chunk_similarity_threshold,
+            language=chunk_language,
         )
         self._top_k = top_k
         self._score_threshold = score_threshold
@@ -376,10 +439,10 @@ class Knowledge:
             return (ConfigSchema(section="knowledge", class_name="Knowledge", fields=[]), {})
         prefix = "knowledge"
         # Top-level scalars + nested configs
-        grounding_children = extract_dataclass_schema(GroundingConfig, f"{prefix}.grounding")
-        agentic_children = extract_dataclass_schema(AgenticRAGConfig, f"{prefix}.agentic_config")
+        grounding_children = extract_dataclass_schema(_GroundingConfig, f"{prefix}.grounding")
+        agentic_children = extract_dataclass_schema(_AgenticRAGConfig, f"{prefix}.agentic_config")
         agentic_children = [f for f in agentic_children if not f.remote_excluded]
-        chunk_children = extract_dataclass_schema(ChunkConfig, f"{prefix}.chunk_config")
+        chunk_children = extract_dataclass_schema(_ChunkConfig, f"{prefix}.chunk_config")
         chunk_children = [f for f in chunk_children if not f.remote_excluded]
         fields: list[FieldSchema] = [
             FieldSchema(name="top_k", path=f"{prefix}.top_k", type="int", default=5),
@@ -469,19 +532,19 @@ class Knowledge:
         # Merge grounding
         if "grounding" in update and isinstance(update["grounding"], dict):
             g_update = update["grounding"]
-            base = self._grounding_config or GroundingConfig()
+            base = self._grounding_config or _GroundingConfig()
             g_dict = dataclasses.asdict(base)
             g_dict.update({k: v for k, v in g_update.items() if v is not None})
-            object.__setattr__(self, "_grounding_config", GroundingConfig(**g_dict))
+            object.__setattr__(self, "_grounding_config", _GroundingConfig(**g_dict))
         # Merge agentic_config
         if "agentic_config" in update and isinstance(update["agentic_config"], dict):
             a_update = update["agentic_config"]
-            agentic_base: AgenticRAGConfig = (
-                AgenticRAGConfig() if self._agentic_config is None else self._agentic_config
+            agentic_base: _AgenticRAGConfig = (
+                _AgenticRAGConfig() if self._agentic_config is None else self._agentic_config
             )
             a_dict = dataclasses.asdict(agentic_base)
             a_dict.update({k: v for k, v in a_update.items() if v is not None})
-            object.__setattr__(self, "_agentic_config", AgenticRAGConfig(**a_dict))
+            object.__setattr__(self, "_agentic_config", _AgenticRAGConfig(**a_dict))
         # Merge chunk_config
         if "chunk_config" in update and isinstance(update["chunk_config"], dict):
             c_update = update["chunk_config"]
@@ -489,7 +552,7 @@ class Knowledge:
             for k, v in c_update.items():
                 if v is not None:
                     c_dict[k] = ChunkStrategy(v) if k == "strategy" and isinstance(v, str) else v
-            object.__setattr__(self, "_chunk_config", ChunkConfig(**c_dict))
+            object.__setattr__(self, "_chunk_config", _ChunkConfig(**c_dict))
 
     def _emit_hook(self, hook: Hook, ctx: dict[str, object]) -> None:
         """Emit hook if emitter configured. Pass Hook enum (not .value) so agent event system captures it."""

@@ -304,13 +304,13 @@ The agent automatically searches the knowledge base and incorporates results int
 
 ## What's Next?
 
-- [Document Loaders](/integrations/knowledge-loaders) — Load from any source
-- [Chunking Strategies](/integrations/knowledge-chunking) — Split documents optimally
-- [RAG Configuration](/integrations/knowledge-rag) — Configure retrieval and generation
-- [Grounding](/integrations/grounding) — Verify facts and cite sources
+- [Document Loaders](/agent-kit/integrations/knowledge-loaders) — Load from any source
+- [Chunking Strategies](/agent-kit/integrations/knowledge-chunking) — Split documents optimally
+- [RAG Configuration](/agent-kit/integrations/knowledge-rag) — Configure retrieval and generation
+- [Grounding](/agent-kit/integrations/grounding) — Verify facts and cite sources
 
 ## See Also
 
-- [Agentic RAG](/integrations/knowledge-rag) — Multi-step retrieval
-- [Grounding](/integrations/grounding) — Anti-hallucination layer
-- [Embedding Providers](/core/models) — Vector embeddings
+- [Agentic RAG](/agent-kit/integrations/knowledge-rag) — Multi-step retrieval
+- [Grounding](/agent-kit/integrations/grounding) — Anti-hallucination layer
+- [Embedding Providers](/agent-kit/core/models) — Vector embeddings

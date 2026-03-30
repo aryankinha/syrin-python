@@ -315,12 +315,12 @@ PYTHONPATH=. python examples/10_observability/audit_logging.py
 
 ## What's Next?
 
-- Learn about [context management](/core/context)
-- Explore [guardrails](/agent/guardrails) for safety
-- Understand [streaming](/agent/streaming) for real-time output
+- Learn about [context management](/agent-kit/core/context)
+- Explore [guardrails](/agent-kit/agent/guardrails) for safety
+- Understand [streaming](/agent-kit/agent/streaming) for real-time output
 
 ## See Also
 
-- [Debugging overview](/debugging/overview)
-- [Hooks reference](/debugging/hooks-reference)
-- [Tracing documentation](/debugging/tracing)
+- [Debugging overview](/agent-kit/debugging/overview)
+- [Hooks reference](/agent-kit/debugging/hooks-reference)
+- [Tracing documentation](/agent-kit/debugging/tracing)

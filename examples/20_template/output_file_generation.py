@@ -1,16 +1,15 @@
 """Output file generation — response.file, response.file_bytes, and citations.
 
 - output_config=OutputFormat.TEXT | MARKDOWN | HTML | PDF | DOCX
-- output_config.citation=CitationConfig(...) for citation parsing and styling
+- output_config=OutputConfig(citation_style=CitationStyle.FOOTNOTE, citation_include_page=True)
 - response.file = Path to generated file
 - response.file_bytes = raw bytes
-- response.citations = parsed citations when citation config is set
+- response.citations = parsed citations when citation_style is set
 - save_as_pdf(), save_as_docx(), save_as() for manual saves
 """
 
 from syrin import (
     Agent,
-    CitationConfig,
     CitationStyle,
     Model,
     OutputConfig,
@@ -52,7 +51,8 @@ def main() -> None:
         system_prompt="Return a report with citations.",
         output_config=OutputConfig(
             format=OutputFormat.TEXT,
-            citation=CitationConfig(style=CitationStyle.FOOTNOTE, include_page=True),
+            citation_style=CitationStyle.FOOTNOTE,
+            citation_include_page=True,
         ),
     )
     r = agent_cited.run("Summarize capital.")

@@ -350,10 +350,10 @@ agent.forget(memory_type=MemoryType.EPISODIC)
 
 ## What's Next?
 
-- [Memory Backends](/core/memory-backends) - Choose where memories are stored
-- [Memory Overview](/core/memory) - Back to memory basics
+- [Memory Backends](/agent-kit/core/memory-backends) - Choose where memories are stored
+- [Memory Overview](/agent-kit/core/memory) - Back to memory basics
 
 ## See Also
 
-- [Agents](/agent/overview) - Building agents with memory
-- [Budget](/core/budget) - Control memory costs
+- [Agents](/agent-kit/agent/overview) - Building agents with memory
+- [Budget](/agent-kit/core/budget) - Control memory costs

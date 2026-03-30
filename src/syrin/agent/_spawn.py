@@ -6,6 +6,7 @@ Agent delegates to functions here. Public API stays on Agent.
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING, cast
 
 from syrin.budget import Budget
@@ -106,6 +107,32 @@ def spawn(
         agent_kwargs["budget"] = borrowed_budget
 
     child_agent = agent_class(**agent_kwargs)  # type: ignore[arg-type]
+    child_agent._conversation_id = agent._conversation_id  # B6: propagate session_id
+
+    # Track spawned children on parent for observability tools (Pry, tracers).
+    spawned_list: list[object] = getattr(agent, "_spawned_children", [])
+    spawned_list.append(child_agent)
+    object.__setattr__(agent, "_spawned_children", spawned_list)
+
+    # Propagate parent's event bus to child's context manager so hooks like
+    # context.snapshot bubble up to any debugger/tracer attached to the parent.
+    if hasattr(child_agent, "_context") and hasattr(child_agent._context, "set_emit_fn"):
+        _parent_emit = agent._emit_event
+        _child_ctx_emit = getattr(child_agent._context, "_emit_fn", None)
+
+        def _make_bubble(
+            child_fn: Callable[[str, dict[str, object]], None] | None,
+            parent_fn: Callable[[str, dict[str, object]], None],
+        ) -> Callable[[str, dict[str, object]], None]:
+            def _bubble(event_str: str, ctx: dict[str, object]) -> None:
+                if child_fn:
+                    child_fn(event_str, ctx)
+                parent_fn(event_str, ctx)
+
+            return _bubble
+
+        if _child_ctx_emit is not None:
+            child_agent._context.set_emit_fn(_make_bubble(_child_ctx_emit, _parent_emit))
 
     borrowed = agent_kwargs.get("budget")
     if borrowed is not None and getattr(borrowed, "_parent_budget", None) is not None:

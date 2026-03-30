@@ -21,11 +21,35 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
+import inspect
+import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from syrin.enums import Hook
+
+_log = logging.getLogger(__name__)
+
+# SEC1/B4: Fields that must never appear in hook payloads.
+# Scrubbed before dispatching to any handler, trace, or log.
+_REDACTED_FIELDS = frozenset(
+    {
+        "api_key",
+        "token",
+        "Authorization",
+        "authorization",
+        "secret",
+        "password",
+        "passwd",
+        "access_token",
+        "refresh_token",
+        "private_key",
+        "client_secret",
+    }
+)
+_REDACTED = "[REDACTED]"
 
 
 class EventContext(dict[str, object]):
@@ -55,6 +79,16 @@ class EventContext(dict[str, object]):
 
     def __repr__(self) -> str:
         return f"EventContext({dict.__repr__(self)})"
+
+    def scrub(self) -> None:
+        """Redact secret-named fields in-place. Called before dispatching to handlers.
+
+        SEC1/B4: Prevents API keys, tokens, passwords from leaking into hook
+        payloads, logs, traces, or custom handler code.
+        """
+        for key in list(self.keys()):
+            if key in _REDACTED_FIELDS:
+                self[key] = _REDACTED
 
 
 class Events:
@@ -215,20 +249,46 @@ class Events:
 
         self.on(Hook.BUDGET_CHECK, handler)
 
+    def _dispatch(self, handler: Callable[[EventContext], None], ctx: EventContext) -> None:
+        """Dispatch a single handler, handling async handlers safely.
+
+        P5: If the handler is a coroutine function, schedule it via
+        asyncio.create_task() when a loop is running, or run it in a new
+        event loop in a thread when no loop is active. Sync handlers are
+        called directly.
+        """
+        if inspect.iscoroutinefunction(handler):
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(handler(ctx))
+            except RuntimeError:
+                # No running loop — run fire-and-forget in a thread
+                import threading
+
+                def _run() -> None:
+                    try:
+                        asyncio.run(handler(ctx))
+                    except Exception as exc:
+                        _log.warning("async hook handler raised: %s", exc)
+
+                threading.Thread(target=_run, daemon=True).start()
+        else:
+            handler(ctx)
+
     def _trigger_before(self, hook: Hook, ctx: EventContext) -> None:
         """Trigger before handlers. Internal use only."""
         for handler in self._before_handlers[hook]:
-            handler(ctx)
+            self._dispatch(handler, ctx)
 
     def _trigger_after(self, hook: Hook, ctx: EventContext) -> None:
         """Trigger after handlers. Internal use only."""
         for handler in self._after_handlers[hook]:
-            handler(ctx)
+            self._dispatch(handler, ctx)
 
     def _trigger(self, hook: Hook, ctx: EventContext) -> None:
         """Trigger event handlers. Internal use only."""
         for handler in self._handlers[hook]:
-            handler(ctx)
+            self._dispatch(handler, ctx)
 
 
 __all__ = ["Events", "EventContext"]

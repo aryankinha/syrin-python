@@ -7,18 +7,18 @@ Features demonstrated:
 - Document model (content, source, source_type, metadata)
 - Loaders: Knowledge.Text, Knowledge.Texts (also: .Markdown, .PDF, .Docling, .DOCX,
   .CSV, .Excel, .Python, .YAML, .JSON, .Directory, .URL, .GitHub, .TextFile)
-- Chunking: ChunkConfig, ChunkStrategy (RECURSIVE, AUTO, PAGE, MARKDOWN, CODE,
-  SENTENCE, TOKEN, SEMANTIC)
+- Chunking: ChunkStrategy (RECURSIVE, AUTO, PAGE, MARKDOWN, CODE,
+  SENTENCE, TOKEN, SEMANTIC), chunk_size, chunk_overlap
 - Knowledge: sources, embedding, backend (MEMORY|SQLITE|POSTGRES|QDRANT|CHROMA),
-  chunk_config, top_k, score_threshold, inject_system_prompt
+  chunk_strategy, top_k, score_threshold, inject_system_prompt
 - Pipeline: ingest(), search(), add_source(), stats(), clear()
 - Search: top_k, filter, score_threshold
 - Agent: knowledge= adds search_knowledge tool
 - Agentic: agentic=True adds search_knowledge_deep, verify_knowledge
-- AgenticRAGConfig: max_search_iterations, decompose_complex, grade_results,
-  relevance_threshold, web_fallback
-- GroundingConfig: grounding layer for anti-hallucination (extract facts,
-  verify, cite sources)
+- Agentic: agentic_max_iterations, agentic_decompose, agentic_grade_results,
+  agentic_relevance_threshold, agentic_web_fallback
+- Grounding: grounding_enabled, grounding_confidence, grounding_extract_facts,
+  grounding_verify, grounding_cite_sources
 
 Run:
     uv run python examples/19_knowledge/full_rag_lifecycle.py
@@ -40,14 +40,12 @@ from syrin import Agent
 from syrin.embedding import Embedding
 from syrin.enums import KnowledgeBackend
 from syrin.knowledge import (
-    AgenticRAGConfig,
-    ChunkConfig,
     ChunkStrategy,
     Document,
-    GroundingConfig,
     Knowledge,
     get_chunker,
 )
+from syrin.knowledge._chunker import ChunkConfig
 from syrin.model import Model
 
 
@@ -76,7 +74,7 @@ async def main() -> None:
     print(f"  Knowledge.Text -> 1 doc, Knowledge.Texts -> {len(raw_multi.load())} docs")
 
     print("\n" + "=" * 60)
-    print("2. CHUNKING (ChunkConfig, ChunkStrategy, get_chunker)")
+    print("2. CHUNKING (ChunkStrategy, get_chunker)")
     print("=" * 60)
 
     docs_for_chunking = raw.load() + raw_multi.load()
@@ -123,8 +121,9 @@ async def main() -> None:
         ],
         embedding=embedding,
         backend=KnowledgeBackend.MEMORY,
-        chunk_config=ChunkConfig(strategy=ChunkStrategy.RECURSIVE, chunk_size=64, min_chunk_size=0),
-        chunk_strategy=None,  # chunk_config takes precedence
+        chunk_strategy=ChunkStrategy.RECURSIVE,
+        chunk_size=64,
+        chunk_min_size=0,
         top_k=5,
         score_threshold=0.2,
         inject_system_prompt=True,
@@ -193,13 +192,11 @@ async def main() -> None:
         embedding=embedding,
         backend=KnowledgeBackend.MEMORY,
         agentic=True,
-        agentic_config=AgenticRAGConfig(
-            max_search_iterations=3,
-            decompose_complex=True,
-            grade_results=True,
-            relevance_threshold=0.4,
-            web_fallback=False,
-        ),
+        agentic_max_iterations=3,
+        agentic_decompose=True,
+        agentic_grade_results=True,
+        agentic_relevance_threshold=0.4,
+        agentic_web_fallback=False,
     )
 
     agent_agentic = Agent(
@@ -239,13 +236,11 @@ async def main() -> None:
         embedding=embedding,
         backend=KnowledgeBackend.MEMORY,
         agentic=True,
-        grounding=GroundingConfig(
-            enabled=True,
-            extract_facts=True,
-            cite_sources=True,
-            verify_before_use=True,
-            confidence_threshold=0.7,
-        ),
+        grounding_enabled=True,
+        grounding_extract_facts=True,
+        grounding_cite_sources=True,
+        grounding_verify=True,
+        grounding_confidence=0.7,
     )
     agent_grounding = Agent(
         model=Model.OpenAI("gpt-4o-mini", api_key=api_key),

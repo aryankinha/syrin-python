@@ -407,14 +407,14 @@ response = agent.run("Task", timeout=30)
 
 ## What's Next?
 
-- [Response Object](/agent/response-object) - Everything you get back
-- [Loop Strategies](/agent/running-agents) - How the agent thinks
-- [Structured Output](/agent/structured-output) - Get typed responses
-- [Streaming](/agent/streaming) - Deep dive into streaming
+- [Response Object](/agent-kit/agent/response-object) - Everything you get back
+- [Loop Strategies](/agent-kit/agent/running-agents) - How the agent thinks
+- [Structured Output](/agent-kit/agent/structured-output) - Get typed responses
+- [Streaming](/agent-kit/agent/streaming) - Deep dive into streaming
 
 ## See Also
 
-- [Agent Anatomy](/agent/anatomy) - Components overview
-- [Creating Agents](/agent/creating-agents) - Build your agent
-- [Budget](/core/budget) - Cost control
-- [Serving](/production/serving) - Serve over HTTP
+- [Agent Anatomy](/agent-kit/agent/anatomy) - Components overview
+- [Creating Agents](/agent-kit/agent/creating-agents) - Build your agent
+- [Budget](/agent-kit/core/budget) - Cost control
+- [Serving](/agent-kit/production/serving) - Serve over HTTP

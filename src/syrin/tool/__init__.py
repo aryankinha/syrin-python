@@ -6,7 +6,7 @@ import inspect
 from collections.abc import Callable
 from typing import Union, get_type_hints
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 from syrin.enums import DocFormat
 from syrin.tool._schema import schema_to_toon as _schema_to_toon
@@ -62,18 +62,26 @@ class ToolSpec(BaseModel):  # type: ignore[explicit-any]
 
     model_config = {"arbitrary_types_allowed": True}
 
+    _format_cache: dict[DocFormat, dict[str, object]] = PrivateAttr(default_factory=dict)
+
     def schema_to_toon(self, indent: int = 0) -> str:
         """Return this tool's parameters schema as TOON (token-efficient) string."""
         return _schema_to_toon(self.parameters_schema or {}, indent)
 
     def to_format(self, format: DocFormat = DocFormat.TOON) -> dict[str, object]:
-        """Return this tool as a provider-ready schema dict (TOON, JSON, or YAML)."""
-        return tool_schema_to_format_dict(
-            self.name,
-            self.description or "",
-            self.parameters_schema or {},
-            format,
-        )
+        """Return this tool as a provider-ready schema dict (TOON, JSON, or YAML).
+
+        P6: Result is cached per DocFormat so repeated LLM context builds don't
+        re-serialize the same static schema on every call.
+        """
+        if format not in self._format_cache:
+            self._format_cache[format] = tool_schema_to_format_dict(
+                self.name,
+                self.description or "",
+                self.parameters_schema or {},
+                format,
+            )
+        return self._format_cache[format]
 
 
 def _annotation_to_json_schema(annotation: type[object] | object) -> dict[str, object]:

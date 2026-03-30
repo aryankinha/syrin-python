@@ -355,7 +355,7 @@ Always monitor:
 
 ## See Also
 
-- [Rate Limiting](/production/rate-limiting) — Manage API quotas
-- [Error Handling](/agent/error-handling) — Handle failures gracefully
-- [Serving: HTTP API](/production/serving-http) — HTTP deployment
-- [Debugging: Hooks](/debugging/hooks) — Lifecycle hooks reference
+- [Rate Limiting](/agent-kit/production/rate-limiting) — Manage API quotas
+- [Error Handling](/agent-kit/agent/error-handling) — Handle failures gracefully
+- [Serving: HTTP API](/agent-kit/production/serving-http) — HTTP deployment
+- [Debugging: Hooks](/agent-kit/debugging/hooks) — Lifecycle hooks reference

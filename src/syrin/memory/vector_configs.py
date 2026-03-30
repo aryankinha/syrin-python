@@ -25,6 +25,25 @@ class QdrantConfig:
     port: int = 6333
     embedding_config: EmbeddingConfig | None = None
 
+    def to_kwargs(self) -> dict[str, object]:
+        """E2: Return kwargs for get_backend(). Replaces if/elif chain in Memory._backend_kwargs."""
+        kwargs: dict[str, object] = {"collection": self.collection, "vector_size": self.vector_size}
+        if self.url is not None:
+            kwargs["url"] = self.url
+            if self.api_key is not None:
+                kwargs["api_key"] = self.api_key
+        elif self.path is not None:
+            kwargs["path"] = self.path
+        else:
+            kwargs["host"] = self.host
+            kwargs["port"] = self.port
+        if self.namespace is not None:
+            kwargs["namespace"] = self.namespace
+        if self.embedding_config is not None:
+            kwargs["embedding_config"] = self.embedding_config
+            kwargs["vector_size"] = self.embedding_config.dimensions
+        return kwargs
+
 
 @dataclass(frozen=True)
 class ChromaConfig:
@@ -37,6 +56,17 @@ class ChromaConfig:
     collection: str = "syrin_memory"
     namespace: str | None = None
     embedding_config: EmbeddingConfig | None = None
+
+    def to_kwargs(self) -> dict[str, object]:
+        """E2: Return kwargs for get_backend()."""
+        kwargs: dict[str, object] = {"collection_name": self.collection}
+        if self.path is not None:
+            kwargs["path"] = self.path
+        if self.namespace is not None:
+            kwargs["namespace"] = self.namespace
+        if self.embedding_config is not None:
+            kwargs["embedding_config"] = self.embedding_config
+        return kwargs
 
 
 @dataclass(frozen=True)
@@ -70,6 +100,20 @@ class RedisConfig:
     password: str | None = None
     prefix: str = "syrin:memory:"
     ttl: int | None = None
+
+    def to_kwargs(self) -> dict[str, object]:
+        """E2: Return kwargs for get_backend()."""
+        kwargs: dict[str, object] = {
+            "host": self.host,
+            "port": self.port,
+            "db": self.db,
+            "prefix": self.prefix,
+        }
+        if self.password is not None:
+            kwargs["password"] = self.password
+        if self.ttl is not None:
+            kwargs["ttl"] = self.ttl
+        return kwargs
 
 
 @dataclass(frozen=True)
@@ -105,3 +149,15 @@ class PostgresConfig:
     password: str = ""
     table: str = "memories"
     vector_size: int = 0
+
+    def to_kwargs(self) -> dict[str, object]:
+        """E2: Return kwargs for get_backend()."""
+        return {
+            "host": self.host,
+            "port": self.port,
+            "database": self.database,
+            "user": self.user,
+            "password": self.password,
+            "table": self.table,
+            "vector_size": self.vector_size,
+        }

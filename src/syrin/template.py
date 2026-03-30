@@ -130,6 +130,23 @@ class SlotConfig:
         return mapping.get(self.slot_type, "string")
 
 
+def _max_section_depth(content: str) -> int:
+    """Compute the maximum Mustache section nesting depth in a template string.
+
+    Counts {{#section}} as depth+1 and {{/section}} as depth-1.
+    Returns the maximum depth reached.
+    """
+    depth = 0
+    max_depth = 0
+    for token in re.findall(r"\{\{([#^/!>]?)[\w\s.]*\}\}", content):
+        if token in ("#", "^"):
+            depth += 1
+            max_depth = max(max_depth, depth)
+        elif token == "/":
+            depth = max(0, depth - 1)
+    return max_depth
+
+
 def _coerce_value(value: object, slot_type: str) -> object:
     """Coerce value to slot type for template rendering."""
     if value is None:
@@ -255,10 +272,11 @@ class Template:
         """Slot configuration by name."""
         return dict(self._slots)
 
-    def render(self, **kwargs: object) -> str:
+    def render(self, max_depth: int = 10, **kwargs: object) -> str:
         """Render template with provided slot values.
 
         Args:
+            max_depth: Maximum Mustache section nesting depth (SEC4). Default 10.
             **kwargs: Slot values by name. Extras are ignored.
 
         Returns:
@@ -266,7 +284,14 @@ class Template:
 
         Raises:
             ValueError: If strict=True and a required slot is missing.
+            ValueError: If template nesting depth exceeds max_depth.
         """
+        depth = _max_section_depth(self._content)
+        if depth > max_depth:
+            raise ValueError(
+                f"Template {self._name!r}: Mustache section nesting depth {depth} "
+                f"exceeds max_depth={max_depth}. Reduce nesting to prevent runaway rendering."
+            )
         ctx = _prepare_context(self._slots, kwargs, self._strict)
         return cast(str, chevron.render(self._content, ctx))
 
@@ -313,6 +338,10 @@ class Template:
         Returns:
             Template instance. Name defaults to stem of path.
         """
+        import yaml  # type: ignore[import-untyped]
+
+        from syrin.exceptions import TemplateParseError
+
         p = Path(path)
         if not p.exists():
             raise FileNotFoundError(f"Template file not found: {path}")
@@ -325,9 +354,26 @@ class Template:
         if match:
             yaml_content = match.group(1)
             content = match.group(2)
-            parsed = _parse_simple_yaml(yaml_content)
-            if parsed:
-                frontmatter_slots = parsed  # type: ignore[assignment]
+            try:
+                parsed_yaml = yaml.safe_load(yaml_content)
+            except yaml.YAMLError as exc:
+                line: int | None = None
+                if hasattr(exc, "problem_mark") and exc.problem_mark is not None:
+                    line = exc.problem_mark.line + 1
+                raise TemplateParseError(
+                    f"Invalid YAML frontmatter in template file {p.name!r}: {exc}",
+                    path=str(p),
+                    line=line,
+                ) from exc
+            if isinstance(parsed_yaml, dict):
+                slots_raw = parsed_yaml.get("slots")
+                if isinstance(slots_raw, dict):
+                    frontmatter_slots = slots_raw
+                elif parsed_yaml:
+                    # Flat format (no 'slots' key) — treat top-level keys as slots
+                    flat = _parse_simple_yaml(yaml_content)
+                    if flat:
+                        frontmatter_slots = cast("dict[str, SlotConfig | dict[str, object]]", flat)
 
         explicit_slots = kwargs.pop("slots", None)
         if explicit_slots and frontmatter_slots:

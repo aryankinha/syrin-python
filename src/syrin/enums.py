@@ -152,6 +152,22 @@ class GuardrailStage(StrEnum):
     OUTPUT = "output"
 
 
+class GuardrailMode(StrEnum):
+    """How a guardrail is applied during agent execution.
+
+    Attributes:
+        EVALUATE: Default — run ``evaluate()`` as a separate check. Deterministic
+            and testable; may add a small latency cost per guardrail.
+        SYSTEM_PROMPT: Append the guardrail's ``system_prompt_instruction()`` to the
+            agent system prompt instead of calling ``evaluate()``. Saves one LLM call;
+            less reliable for content filtering but ideal for behavioral instructions
+            (tone, format, persona).
+    """
+
+    EVALUATE = "evaluate"
+    SYSTEM_PROMPT = "system_prompt"
+
+
 class DecisionAction(StrEnum):
     """Action to take after guardrail evaluation."""
 
@@ -260,6 +276,7 @@ class AuditEventType(StrEnum):
         GUARDRAIL_INPUT: Input guardrail chain evaluated.
         GUARDRAIL_OUTPUT: Output guardrail chain evaluated.
         GUARDRAIL_BLOCKED: Guardrail blocked the request/response.
+        GUARDRAIL_ERROR: A guardrail raised an unexpected exception.
         MEMORY_STORE: Memory entry stored.
         MEMORY_RECALL: Memory entries recalled.
         MEMORY_FORGET: Memory entries deleted.
@@ -309,6 +326,7 @@ class AuditEventType(StrEnum):
     GUARDRAIL_INPUT = "guardrail_input"
     GUARDRAIL_OUTPUT = "guardrail_output"
     GUARDRAIL_BLOCKED = "guardrail_blocked"
+    GUARDRAIL_ERROR = "guardrail_error"
 
     # Memory
     MEMORY_STORE = "memory_store"
@@ -417,6 +435,7 @@ class Hook(StrEnum):
         GUARDRAIL_INPUT: Input guardrail chain evaluated.
         GUARDRAIL_OUTPUT: Output guardrail chain evaluated.
         GUARDRAIL_BLOCKED: Guardrail blocked the request or response.
+        GUARDRAIL_ERROR: A guardrail raised an unexpected exception.
         MEMORY_RECALL: Memory entries recalled by query.
         MEMORY_STORE: Memory entry persisted.
         MEMORY_FORGET: Memory entries deleted.
@@ -433,6 +452,8 @@ class Hook(StrEnum):
         KNOWLEDGE_AGENTIC_GRADE: Agentic RAG graded retrieved chunks for relevance.
         KNOWLEDGE_AGENTIC_REFINE: Agentic RAG refined query for better retrieval.
         KNOWLEDGE_AGENTIC_VERIFY: Agentic RAG verified final answer.
+        KNOWLEDGE_CHUNK_PROGRESS: Chunking progress event (N of M chunks processed).
+        KNOWLEDGE_EMBED_PROGRESS: Embedding progress event (N of M chunks embedded).
         GROUNDING_EXTRACT_START: Grounding fact extraction starting.
         GROUNDING_EXTRACT_END: Grounding fact extraction completed.
         GROUNDING_VERIFY: Single fact verified (verdict, confidence).
@@ -541,6 +562,7 @@ class Hook(StrEnum):
     GUARDRAIL_INPUT = "guardrail.input"
     GUARDRAIL_OUTPUT = "guardrail.output"
     GUARDRAIL_BLOCKED = "guardrail.blocked"
+    GUARDRAIL_ERROR = "guardrail.error"
 
     # — Memory —
     MEMORY_RECALL = "memory.recall"
@@ -563,6 +585,8 @@ class Hook(StrEnum):
     KNOWLEDGE_AGENTIC_GRADE = "knowledge.agentic.grade"
     KNOWLEDGE_AGENTIC_REFINE = "knowledge.agentic.refine"
     KNOWLEDGE_AGENTIC_VERIFY = "knowledge.agentic.verify"
+    KNOWLEDGE_CHUNK_PROGRESS = "knowledge.chunk.progress"
+    KNOWLEDGE_EMBED_PROGRESS = "knowledge.embed.progress"
 
     # — Grounding Layer —
     GROUNDING_EXTRACT_START = "grounding.extract.start"
@@ -597,6 +621,7 @@ class Hook(StrEnum):
     OUTPUT_VALIDATION_SUCCESS = "output.validation.success"
     OUTPUT_VALIDATION_FAILED = "output.validation.failed"
     OUTPUT_VALIDATION_RETRY = "output.validation.retry"
+    OUTPUT_VALIDATION_ERROR = "output.validation.error"
 
     # — Evaluation harness —
     HARNESS_SESSION_START = "harness.session.start"
@@ -633,6 +658,19 @@ class Hook(StrEnum):
     PIPELINE_END = "pipeline.end"
     PIPELINE_AGENT_START = "pipeline.agent.start"
     PIPELINE_AGENT_COMPLETE = "pipeline.agent.complete"
+
+    # — Prompt injection —
+    INJECTION_DETECTED = "injection.detected"
+    CANARY_TRIGGERED = "injection.canary.triggered"
+    MEMORY_QUARANTINED = "injection.memory.quarantined"
+    INJECTION_RATE_LIMITED = "injection.rate_limited"
+
+    # — Model switching —
+    MODEL_SWITCHED = "model.switched"
+
+    # — Watch / event-driven triggers —
+    WATCH_TRIGGER = "watch.trigger"
+    WATCH_ERROR = "watch.error"
 
 
 class AspectRatio(StrEnum):

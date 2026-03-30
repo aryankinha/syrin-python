@@ -292,12 +292,12 @@ PYTHONPATH=. python -m examples.18_multimodal.vision_routing_multimodal
 
 ## What's Next?
 
-- Learn about [MCP integration](/integrations/mcp) for tool servers
-- Explore [production serving](/production/serving)
-- Understand [context management](/core/context)
+- Learn about [MCP integration](/agent-kit/integrations/mcp) for tool servers
+- Explore [production serving](/agent-kit/production/serving)
+- Understand [context management](/agent-kit/core/context)
 
 ## See Also
 
-- [Multimodal documentation](/advanced/multimodality)
-- [Image generation reference](/advanced/multimodality#image-generation)
-- [Video generation reference](/advanced/multimodality#video-generation)
+- [Multimodal documentation](/agent-kit/advanced/multimodality)
+- [Image generation reference](/agent-kit/advanced/multimodality#image-generation)
+- [Video generation reference](/agent-kit/advanced/multimodality#video-generation)

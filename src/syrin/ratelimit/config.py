@@ -4,7 +4,7 @@ import dataclasses
 from dataclasses import dataclass, field
 from typing import Any
 
-from syrin.enums import ThresholdMetric
+from syrin.enums import RetryBackoff, ThresholdMetric
 from syrin.threshold import RateLimitThreshold, ThresholdContext
 
 
@@ -41,6 +41,12 @@ class APIRateLimit:
         thresholds: List of RateLimitThreshold
         wait_backoff: Seconds to wait when WAIT action triggers (default 1.0)
         auto_switch: Auto-switch model on exceeded (default True)
+        retry_max: Maximum retry attempts on rate limit errors (default 3)
+        retry_base_delay: Initial delay in seconds for backoff (default 1.0)
+        retry_max_delay: Maximum delay cap in seconds (default 60.0)
+        retry_backoff: Backoff strategy — EXPONENTIAL, LINEAR, or CONSTANT
+        retry_jitter: Add random jitter to prevent thundering herd (default True)
+        retry_on_status: HTTP status codes that trigger retry (default [429])
 
     Attributes:
         rpm, tpm, rpd: Limits (requests/min, tokens/min, requests/day).
@@ -48,8 +54,12 @@ class APIRateLimit:
         wait_backoff: Seconds to wait when WAIT action triggers.
         auto_switch: Auto-switch model on exceeded.
         auto_detect: Auto-detect limits from model_id.
-        retry_on_429: Retry on 429 with backoff.
-        max_retries: Max retries on 429.
+        retry_max: Maximum retry attempts.
+        retry_base_delay: Initial delay in seconds.
+        retry_max_delay: Maximum delay cap in seconds.
+        retry_backoff: Backoff strategy (EXPONENTIAL, LINEAR, CONSTANT).
+        retry_jitter: Whether to add jitter to delays.
+        retry_on_status: HTTP status codes to retry on.
 
     Example:
         >>> from syrin import Agent, Model
@@ -75,8 +85,12 @@ class APIRateLimit:
     wait_backoff: float = 1.0
     auto_switch: bool = True
     auto_detect: bool = False
-    retry_on_429: bool = True
-    max_retries: int = 3
+    retry_max: int = 3
+    retry_base_delay: float = 1.0
+    retry_max_delay: float = 60.0
+    retry_backoff: RetryBackoff = RetryBackoff.EXPONENTIAL
+    retry_jitter: bool = True
+    retry_on_status: list[int] = field(default_factory=lambda: [429])
     _model_id: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:

@@ -82,7 +82,7 @@ def with_memory(
         system_prompt=system_prompt,
         memory=memory
         if memory is not None
-        else Memory(types=[MemoryType.CORE, MemoryType.EPISODIC], top_k=10),
+        else Memory(restrict_to=[MemoryType.CORE, MemoryType.EPISODIC], top_k=10),
         loop_strategy=LoopStrategy.REACT,
     )
 
@@ -141,7 +141,7 @@ def research() -> Agent:
         model=_default_model(),
         system_prompt="You are a research assistant. Use tools to search and cite sources. Be thorough and accurate.",
         budget=Budget(max_cost=0.50),
-        memory=Memory(types=[MemoryType.CORE, MemoryType.EPISODIC], top_k=15),
+        memory=Memory(restrict_to=[MemoryType.CORE, MemoryType.EPISODIC], top_k=15),
         loop_strategy=LoopStrategy.REACT,
         max_tool_iterations=15,
     )
@@ -167,7 +167,7 @@ def assistant() -> Agent:
         model=_default_model(),
         system_prompt="You are a helpful assistant. Be concise and friendly.",
         budget=Budget(max_cost=0.25),
-        memory=Memory(types=[MemoryType.CORE, MemoryType.EPISODIC], top_k=10),
+        memory=Memory(restrict_to=[MemoryType.CORE, MemoryType.EPISODIC], top_k=10),
         loop_strategy=LoopStrategy.REACT,
     )
 
@@ -192,7 +192,7 @@ def code_helper() -> Agent:
         model=_default_model(),
         system_prompt="You are a code assistant. Provide clear, idiomatic code. Prefer standard library and minimal dependencies.",
         budget=Budget(max_cost=0.50),
-        memory=Memory(types=[MemoryType.CORE, MemoryType.EPISODIC], top_k=10),
+        memory=Memory(restrict_to=[MemoryType.CORE, MemoryType.EPISODIC], top_k=10),
         loop_strategy=LoopStrategy.REACT,
     )
 

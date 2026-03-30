@@ -312,13 +312,13 @@ results = await pipeline.run_parallel_async([A1, A2, A3])
 
 ## What's Next?
 
-- [Pipeline: Parallel](/multi-agent/pipeline-parallel) — Run agents simultaneously
-- [Dynamic Pipeline](/multi-agent/dynamic-pipeline) — Let the LLM decide which agents to spawn
-- [Handoff](/multi-agent/handoff) — Transfer control between agents mid-conversation
+- [Pipeline: Parallel](/agent-kit/multi-agent/pipeline-parallel) — Run agents simultaneously
+- [Dynamic Pipeline](/agent-kit/multi-agent/dynamic-pipeline) — Let the LLM decide which agents to spawn
+- [Handoff](/agent-kit/multi-agent/handoff) — Transfer control between agents mid-conversation
 
 ## See Also
 
-- [Multi-Agent: Overview](/multi-agent/overview) — Introduction to multi-agent patterns
-- [Multi-Agent: When to Use](/multi-agent/when-to-use) — Decision guide
-- [Core Concepts: Budget](/core/budget) — Shared budget across agents
-- [Agents: Handoff](/multi-agent/handoff) — Agent-to-agent transfer
+- [Multi-Agent: Overview](/agent-kit/multi-agent/overview) — Introduction to multi-agent patterns
+- [Multi-Agent: When to Use](/agent-kit/multi-agent/when-to-use) — Decision guide
+- [Core Concepts: Budget](/agent-kit/core/budget) — Shared budget across agents
+- [Agents: Handoff](/agent-kit/multi-agent/handoff) — Agent-to-agent transfer

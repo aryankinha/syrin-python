@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -73,6 +74,7 @@ class CircuitBreaker:
         self._last_failure_time: float | None = None
         self._last_success_time: float | None = None
         self._half_open_attempts = 0
+        self._lock = threading.Lock()  # B7: guards state transitions against TOCTOU
 
     @property
     def fallback(self) -> str | Model | None:
@@ -95,73 +97,77 @@ class CircuitBreaker:
 
     def is_open(self) -> bool:
         """Return True if circuit is open (blocking requests)."""
-        now = time.monotonic()
+        with self._lock:
+            now = time.monotonic()
 
-        if self._state == CircuitState.CLOSED:
-            return False
-
-        if self._state == CircuitState.OPEN:
-            elapsed = now - (self._last_failure_time or 0)
-            if elapsed >= self.recovery_timeout:
-                self._state = CircuitState.HALF_OPEN
-                self._half_open_attempts = 0
+            if self._state == CircuitState.CLOSED:
                 return False
-            return True
 
-        if self._state == CircuitState.HALF_OPEN:
+            if self._state == CircuitState.OPEN:
+                elapsed = now - (self._last_failure_time or 0)
+                if elapsed >= self.recovery_timeout:
+                    self._state = CircuitState.HALF_OPEN
+                    self._half_open_attempts = 0
+                    return False
+                return True
+
+            if self._state == CircuitState.HALF_OPEN:
+                return False
+
             return False
-
-        return False
 
     def record_success(self) -> None:
         """Record a successful LLM call. Resets failures when closed."""
-        now = time.monotonic()
-        self._last_success_time = now
+        with self._lock:
+            now = time.monotonic()
+            self._last_success_time = now
 
-        if self._state == CircuitState.HALF_OPEN:
-            self._state = CircuitState.CLOSED
-            self._failures = 0
-            self._half_open_attempts = 0
-        elif self._state == CircuitState.CLOSED:
-            self._failures = 0
+            if self._state == CircuitState.HALF_OPEN:
+                self._state = CircuitState.CLOSED
+                self._failures = 0
+                self._half_open_attempts = 0
+            elif self._state == CircuitState.CLOSED:
+                self._failures = 0
 
     def record_failure(self, error: Exception | None = None) -> None:
         """Record a failed LLM call. Trips when threshold reached."""
-        now = time.monotonic()
-        self._last_failure_time = now
+        with self._lock:
+            now = time.monotonic()
+            self._last_failure_time = now
 
-        if self._state == CircuitState.HALF_OPEN:
-            self._state = CircuitState.OPEN
-            self._half_open_attempts = 0
-            self._emit_trip()
-        elif self._state == CircuitState.CLOSED:
-            self._failures += 1
-            if self._failures >= self.failure_threshold:
+            if self._state == CircuitState.HALF_OPEN:
                 self._state = CircuitState.OPEN
+                self._half_open_attempts = 0
                 self._emit_trip()
+            elif self._state == CircuitState.CLOSED:
+                self._failures += 1
+                if self._failures >= self.failure_threshold:
+                    self._state = CircuitState.OPEN
+                    self._emit_trip()
 
     def allow_request(self) -> bool:
         """Return True if a request is allowed (circuit closed or half-open with capacity)."""
-        now = time.monotonic()
+        with self._lock:
+            now = time.monotonic()
 
-        if self._state == CircuitState.CLOSED:
-            return True
-
-        if self._state == CircuitState.OPEN:
-            elapsed = now - (self._last_failure_time or 0)
-            if elapsed >= self.recovery_timeout:
-                self._state = CircuitState.HALF_OPEN
-                self._half_open_attempts = 1
+            if self._state == CircuitState.CLOSED:
                 return True
-            return False
 
-        if self._state == CircuitState.HALF_OPEN:
-            if self._half_open_attempts < self.half_open_max:
-                self._half_open_attempts += 1
-                return True
-            return False
+            if self._state == CircuitState.OPEN:
+                elapsed = now - (self._last_failure_time or 0)
+                if elapsed >= self.recovery_timeout:
+                    self._state = CircuitState.HALF_OPEN
+                    self._half_open_attempts = 1
+                    return True
+                return False
 
-        return False
+            if self._state == CircuitState.HALF_OPEN:
+                if self._half_open_attempts < self.half_open_max:
+                    self._half_open_attempts += 1
+                    return True
+                return False
+
+            return False
 
     def _emit_trip(self) -> None:
         if self._on_trip is not None:

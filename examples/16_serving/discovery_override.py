@@ -22,8 +22,9 @@ if str(_root) not in sys.path:
 from dotenv import load_dotenv
 
 from examples.models.models import almock
-from syrin import Agent, AgentCard, AgentCardAuth, AgentCardProvider
+from syrin import Agent
 from syrin.enums import Hook
+from syrin.serve.discovery import AgentCard, AgentCardAuth, AgentCardProvider
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 

@@ -1,4 +1,21 @@
-"""Budget persistence: store and load budget tracker state."""
+"""Budget persistence: store and load budget tracker state.
+
+``BudgetStore`` is a concrete class that wraps a swappable backend. Use it
+for per-user or per-session budget persistence across agent restarts.
+
+Example::
+
+    # In-memory (default, ephemeral)
+    store = BudgetStore(key="user:123")
+
+    # File-based persistence
+    store = BudgetStore(key="user:123", backend="file", path="/var/budgets.json")
+
+    # Custom backend (implements BudgetBackend Protocol)
+    store = BudgetStore(key="org:acme", backend=MyDatabaseBackend())
+
+    agent = Agent(model=..., budget=Budget(max_cost=1.0), budget_store=store)
+"""
 
 from __future__ import annotations
 
@@ -8,8 +25,8 @@ import json
 import os
 import re
 import sys
-from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Protocol, runtime_checkable
 
 from syrin.budget import BudgetTracker
 
@@ -52,27 +69,35 @@ def _unlock_file(f: io.BufferedIOBase | io.TextIOBase) -> None:
             fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
-class BudgetStore(ABC):
-    """Abstract interface for persisting budget tracker state across restarts.
+def _validate_key(key: str) -> None:
+    """Reject keys with path traversal characters or empty keys."""
+    if not key or not re.match(r"^[a-zA-Z0-9_.:@-]+$", key):
+        raise ValueError(f"Invalid budget store key (illegal characters): {key!r}")
 
-    Use with Agent(budget_store=FileBudgetStore(...), budget_store_key="user_123")
-    for per-user or per-session budget persistence. Implement load/save for
-    custom backends.
+
+@runtime_checkable
+class BudgetBackend(Protocol):
+    """Protocol for custom budget persistence backends.
+
+    Implement this to plug in any storage system (Redis, DynamoDB, Postgres, etc.)
+    and pass as ``BudgetStore(key=..., backend=MyBackend())``.
+
+    Methods:
+        load: Return BudgetTracker for key, or None if not found.
+        save: Persist tracker under key.
     """
 
-    @abstractmethod
     def load(self, key: str) -> BudgetTracker | None:
-        """Load tracker state for key. Returns None if not found."""
+        """Load budget tracker for the given key."""
         ...
 
-    @abstractmethod
     def save(self, key: str, tracker: BudgetTracker) -> None:
-        """Save tracker state for key."""
+        """Persist budget tracker under the given key."""
         ...
 
 
-class InMemoryBudgetStore(BudgetStore):
-    """In-memory store. State is lost when process exits. Use for testing."""
+class _MemoryBudgetBackend:
+    """In-memory backend. State is lost when process exits. Default backend."""
 
     def __init__(self) -> None:
         self._store: dict[str, dict[str, object]] = {}
@@ -89,75 +114,132 @@ class InMemoryBudgetStore(BudgetStore):
         self._store[key] = tracker.get_state()
 
 
-class FileBudgetStore(BudgetStore):
-    """JSON file store for budget persistence across restarts.
+class _FileBudgetBackend:
+    """JSON file backend. Persists budget across restarts. Uses file locking."""
 
-    Use with Agent(budget_store=FileBudgetStore("/path/to/budgets.json")).
-    single_file=True (default): one file, keys as JSON object keys.
-    single_file=False: one file per key (path/key.json).
-    Uses file locking for concurrent access.
-    """
-
-    def __init__(self, path: str | Path, *, single_file: bool = True) -> None:
-        self._path = Path(path)
-        self._single_file = single_file
-
-    def _validate_key(self, key: str) -> None:
-        """Reject keys that could cause path traversal."""
-        if not re.match(r"^[a-zA-Z0-9_.-]+$", key):
-            raise ValueError(f"Invalid budget store key (path traversal): {key!r}")
-
-    def _file_for(self, key: str) -> Path:
-        self._validate_key(key)
-        if self._single_file:
-            return self._path
-        return self._path / f"{key}.json"
+    def __init__(self, path: Path) -> None:
+        self._path = path
 
     def load(self, key: str) -> BudgetTracker | None:
-        path = self._file_for(key)
-        if not path.exists():
+        if not self._path.exists():
             return None
         try:
-            data = json.loads(path.read_text())
-            if self._single_file:
-                data = data.get(key) if isinstance(data, dict) else None
-            if data is None:
+            data = json.loads(self._path.read_text())
+            entry = data.get(key) if isinstance(data, dict) else None
+            if entry is None:
                 return None
             tracker = BudgetTracker()
-            tracker.load_state(data)
+            tracker.load_state(entry)
             return tracker
         except (json.JSONDecodeError, OSError):
             return None
 
     def save(self, key: str, tracker: BudgetTracker) -> None:
-        path = self._file_for(key)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if self._single_file:
-            all_data: dict[str, object] = {}
-            with path.open("a") as _:
-                pass
-            with path.open("r+") as f:
-                _lock_file(f)
-                try:
-                    raw = f.read()
-                    if raw:
-                        try:
-                            all_data = json.loads(raw)
-                            if not isinstance(all_data, dict):
-                                all_data = {}
-                        except json.JSONDecodeError:
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        all_data: dict[str, object] = {}
+        with self._path.open("a"):
+            pass
+        with self._path.open("r+") as f:
+            _lock_file(f)
+            try:
+                raw = f.read()
+                if raw:
+                    try:
+                        all_data = json.loads(raw)
+                        if not isinstance(all_data, dict):
                             all_data = {}
-                    all_data[key] = tracker.get_state()
-                    f.seek(0)
-                    f.truncate()
-                    f.write(json.dumps(all_data, indent=2))
-                    f.flush()
-                    with contextlib.suppress(OSError):
-                        os.fsync(f.fileno())
-                finally:
-                    _unlock_file(f)
+                    except json.JSONDecodeError:
+                        all_data = {}
+                all_data[key] = tracker.get_state()
+                f.seek(0)
+                f.truncate()
+                f.write(json.dumps(all_data, indent=2))
+                f.flush()
+                with contextlib.suppress(OSError):
+                    os.fsync(f.fileno())
+            finally:
+                _unlock_file(f)
+
+
+# Shared in-memory store — one dict per process, keyed by BudgetStore.key.
+# Separate BudgetStore instances with the same key share state (like FileBudgetStore
+# instances pointing to the same file share state).
+_SHARED_MEMORY_STORE: dict[str, dict[str, object]] = {}
+
+
+class BudgetStore:
+    """Concrete budget persistence class with swappable backend.
+
+    Replaces the old ``FileBudgetStore`` / ``InMemoryBudgetStore`` split.
+    One class, ``backend=`` selects the storage.
+
+    Args:
+        key: Persistence key — identifies the budget (e.g. "user:123", "session:abc").
+            Isolates budgets per user, session, or any dimension you choose.
+        backend: Storage backend. One of:
+            - ``"memory"`` (default) — in-memory, ephemeral.
+            - ``"file"`` — JSON file. Requires ``path=``.
+            - A custom object implementing the ``BudgetBackend`` Protocol.
+        path: File path (required when ``backend="file"``).
+
+    Example::
+
+        # In-memory (ephemeral, default)
+        store = BudgetStore(key="user:123")
+
+        # File persistence
+        store = BudgetStore(key="user:123", backend="file", path="/var/budgets.json")
+
+        # Custom backend
+        store = BudgetStore(key="org:acme", backend=MyRedisBackend())
+
+        agent = Agent(model=..., budget=Budget(max_cost=1.0), budget_store=store)
+    """
+
+    def __init__(
+        self,
+        key: str,
+        *,
+        backend: str | BudgetBackend = "memory",
+        path: str | Path | None = None,
+    ) -> None:
+        self._key = key
+        if isinstance(backend, str):
+            if backend == "memory":
+                self._backend: BudgetBackend = _MemoryBudgetBackend()
+            elif backend == "file":
+                if path is None:
+                    raise ValueError("BudgetStore(backend='file') requires path= to be set.")
+                self._backend = _FileBudgetBackend(Path(path))
+            else:
+                raise ValueError(
+                    f"Unknown backend string: {backend!r}. "
+                    "Use 'memory', 'file', or pass a custom BudgetBackend object."
+                )
         else:
-            path.write_text(json.dumps(tracker.get_state(), indent=2))
+            self._backend = backend
+
+    @property
+    def key(self) -> str:
+        """The persistence key for this store."""
+        return self._key
+
+    def load(self) -> BudgetTracker | None:
+        """Load budget tracker for this store's key.
+
+        Returns:
+            BudgetTracker if found, None otherwise.
+        """
+        return self._backend.load(self._key)
+
+    def save(self, tracker: BudgetTracker) -> None:
+        """Persist tracker under this store's key.
+
+        Args:
+            tracker: The BudgetTracker to persist.
+        """
+        _validate_key(self._key)
+        self._backend.save(self._key, tracker)
 
 
-__all__ = ["BudgetStore", "InMemoryBudgetStore", "FileBudgetStore"]
+__all__ = ["BudgetStore", "BudgetBackend"]

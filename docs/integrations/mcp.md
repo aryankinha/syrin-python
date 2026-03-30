@@ -170,12 +170,12 @@ agent.events.on(Hook.MCP_TOOL_CALL_END, on_tool_result)
 
 ## What's Next?
 
-- [Create an MCP Server](/integrations/mcp-server) — Build your first MCP server
-- [Connect to Remote MCP Servers](/integrations/mcp-client) — Use tools from other sources
-- [Tools Reference](/agent/tools) — Learn about the @tool decorator
+- [Create an MCP Server](/agent-kit/integrations/mcp-server) — Build your first MCP server
+- [Connect to Remote MCP Servers](/agent-kit/integrations/mcp-client) — Use tools from other sources
+- [Tools Reference](/agent-kit/agent/tools) — Learn about the @tool decorator
 
 ## See Also
 
-- [Agent Tools](/agent/tools) — Defining tools for agents
-- [Hooks System](/debugging/hooks) — Reacting to lifecycle events
-- [Audit Logging](/debugging/logging) — Tracking tool calls
+- [Agent Tools](/agent-kit/agent/tools) — Defining tools for agents
+- [Hooks System](/agent-kit/debugging/hooks) — Reacting to lifecycle events
+- [Audit Logging](/agent-kit/debugging/logging) — Tracking tool calls

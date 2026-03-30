@@ -1,5 +1,6 @@
 """Rate limit manager implementation."""
 
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -136,6 +137,7 @@ class DefaultRateLimitManager:
     _stats: RateLimitStats = field(default_factory=RateLimitStats)
     _backend: RateLimitBackend | None = field(default=None, repr=False)
     _key: str = "default"
+    _lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
 
     def _emit(self, event: str, ctx: dict[str, object]) -> None:
         """Emit an event if emit_fn is configured."""
@@ -192,34 +194,41 @@ class DefaultRateLimitManager:
         return False
 
     def _prune_old_entries(self) -> None:
-        """Remove entries older than 1 day."""
-        now = time.time()
-        cutoff = now - _SEC_PER_DAY
-        self._entries = [e for e in self._entries if e.timestamp >= cutoff]
+        """Remove entries older than 1 day. Uses RLock so callers may hold the lock."""
+        with self._lock:
+            now = time.time()
+            cutoff = now - _SEC_PER_DAY
+            self._entries = [e for e in self._entries if e.timestamp >= cutoff]
 
     def _current_rpm(self) -> int:
         """Get current requests per minute."""
         self._prune_old_entries()
-        now = time.time()
-        cutoff = now - _SEC_PER_MINUTE
-        return sum(e.requests for e in self._entries if e.timestamp >= cutoff)
+        with self._lock:
+            now = time.time()
+            cutoff = now - _SEC_PER_MINUTE
+            return sum(e.requests for e in self._entries if e.timestamp >= cutoff)
 
     def _current_tpm(self) -> int:
         """Get current tokens per minute."""
         self._prune_old_entries()
-        now = time.time()
-        cutoff = now - _SEC_PER_MINUTE
-        return sum(e.tokens for e in self._entries if e.timestamp >= cutoff)
+        with self._lock:
+            now = time.time()
+            cutoff = now - _SEC_PER_MINUTE
+            return sum(e.tokens for e in self._entries if e.timestamp >= cutoff)
 
     def _current_rpd(self) -> int:
         """Get current requests per day."""
         self._prune_old_entries()
-        return sum(e.requests for e in self._entries)
+        with self._lock:
+            return sum(e.requests for e in self._entries)
 
     def record(self, tokens_used: int = 0) -> None:
         """Record a request for rate tracking."""
-        self._entries.append(RateLimitEntry(requests=1, tokens=tokens_used, timestamp=time.time()))
-        self._update_stats()
+        with self._lock:
+            self._entries.append(
+                RateLimitEntry(requests=1, tokens=tokens_used, timestamp=time.time())
+            )
+            self._update_stats()
         if self._backend is not None:
             self.save()
 

@@ -237,12 +237,12 @@ When the tool's first parameter is named `ctx` with type `RunContext`, Syrin aut
 
 ## What's Next?
 
-- [TOON Format](/agent/tools-toon) — Learn about Syrin's token-efficient tool schemas
-- [Built-in Tools](/agent/tools-builtin) — Tools that come with Syrin out of the box
-- [Guardrails](/agent/guardrails) — Add safety checks around tool execution
+- [TOON Format](/agent-kit/agent/tools-toon) — Learn about Syrin's token-efficient tool schemas
+- [Built-in Tools](/agent-kit/agent/tools-builtin) — Tools that come with Syrin out of the box
+- [Guardrails](/agent-kit/agent/guardrails) — Add safety checks around tool execution
 
 ## See Also
 
-- [Tasks](/agent/tasks) — Structured agent methods (similar to tools but for agent-level operations)
-- [Loop Strategies](/agent/running-agents) — How tools are executed in the reasoning loop
-- [Hooks Reference](/debugging/hooks-reference) — All hooks for tool observability
+- [Tasks](/agent-kit/agent/tasks) — Structured agent methods (similar to tools but for agent-level operations)
+- [Loop Strategies](/agent-kit/agent/running-agents) — How tools are executed in the reasoning loop
+- [Hooks Reference](/agent-kit/debugging/hooks-reference) — All hooks for tool observability

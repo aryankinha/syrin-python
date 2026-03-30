@@ -368,12 +368,12 @@ await knowledge.ingest()  # Load at startup
 
 ## What's Next?
 
-- [Grounding](/integrations/grounding) — Verify facts and prevent hallucinations
-- [Grounding Confidence](/integrations/grounding-confidence) — Trust levels and thresholds
-- [Agentic RAG](/integrations/knowledge-pool) — Deep dive into agentic features
+- [Grounding](/agent-kit/integrations/grounding) — Verify facts and prevent hallucinations
+- [Grounding Confidence](/agent-kit/integrations/grounding-confidence) — Trust levels and thresholds
+- [Agentic RAG](/agent-kit/integrations/knowledge-pool) — Deep dive into agentic features
 
 ## See Also
 
-- [Knowledge Pool](/integrations/knowledge-pool) — Complete overview
-- [Document Loaders](/integrations/knowledge-loaders) — Source formats
-- [Chunking](/integrations/knowledge-chunking) — Document splitting
+- [Knowledge Pool](/agent-kit/integrations/knowledge-pool) — Complete overview
+- [Document Loaders](/agent-kit/integrations/knowledge-loaders) — Source formats
+- [Chunking](/agent-kit/integrations/knowledge-chunking) — Document splitting

@@ -23,7 +23,7 @@ from syrin.guardrails.chain import GuardrailChain
 from syrin.guardrails.context import GuardrailContext
 from syrin.guardrails.decision import GuardrailDecision
 from syrin.guardrails.engine import EvaluationResult, ParallelEvaluationEngine
-from syrin.guardrails.enums import DecisionAction, GuardrailStage
+from syrin.guardrails.enums import DecisionAction, GuardrailMode, GuardrailStage
 
 # Import intelligence layer
 from syrin.guardrails.intelligence import (
@@ -48,6 +48,7 @@ __all__ = [
     "ParallelEvaluationEngine",
     "EvaluationResult",
     # Enums
+    "GuardrailMode",
     "GuardrailStage",
     "DecisionAction",
     # Built-in guardrails

@@ -238,12 +238,12 @@ agent._guardrails_disabled.discard("content_filter")
 
 ## What's Next?
 
-- [Checkpoints](/agent/checkpoints) — Save and restore agent state
-- [Error Handling](/agent/error-handling) — Handle failures gracefully
-- [Tools](/agent/tools) — Give your agent abilities
+- [Checkpoints](/agent-kit/agent/checkpoints) — Save and restore agent state
+- [Error Handling](/agent-kit/agent/error-handling) — Handle failures gracefully
+- [Tools](/agent-kit/agent/tools) — Give your agent abilities
 
 ## See Also
 
-- [Core Concepts: Budget](/core/budget) — Cost control fundamentals
-- [Debugging: Hooks Reference](/debugging/hooks-reference) — Complete hook documentation
-- [Production: Serving](/production/serving) — Deploy agents with guardrails
+- [Core Concepts: Budget](/agent-kit/core/budget) — Cost control fundamentals
+- [Debugging: Hooks Reference](/agent-kit/debugging/hooks-reference) — Complete hook documentation
+- [Production: Serving](/agent-kit/production/serving) — Deploy agents with guardrails

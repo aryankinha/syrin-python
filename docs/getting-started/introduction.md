@@ -94,12 +94,12 @@ agent.serve(port=8000, enable_playground=True)
 
 ## What's Next?
 
-- [Installation](/getting-started/installation) — Set up in 60 seconds
-- [Quick Start](/getting-started/quick-start) — Build your first agent in 5 minutes
-- [Agent Overview](/agent/overview) — How agents work
+- [Installation](/agent-kit/getting-started/installation) — Set up in 60 seconds
+- [Quick Start](/agent-kit/getting-started/quick-start) — Build your first agent in 5 minutes
+- [Agent Overview](/agent-kit/agent/overview) — How agents work
 
 ## See Also
 
-- [Budget](/core/budget) — Cost control that works
-- [Memory](/core/memory) — Four memory types
-- [Hooks](/debugging/hooks) — Full observability
+- [Budget](/agent-kit/core/budget) — Cost control that works
+- [Memory](/agent-kit/core/memory) — Four memory types
+- [Hooks](/agent-kit/debugging/hooks) — Full observability

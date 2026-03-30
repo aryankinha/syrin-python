@@ -14,7 +14,6 @@ def resolve_budget_tracker(
     budget: object | None,
     token_limits: TokenLimits | None,
     budget_store: BudgetStore | None,
-    budget_store_key: str,
 ) -> BudgetTracker:
     """Create or load BudgetTracker. Single place for budget persistence resolution.
 
@@ -22,7 +21,7 @@ def resolve_budget_tracker(
     loads from store; otherwise returns a fresh BudgetTracker.
     """
     if (budget is not None or token_limits is not None) and budget_store and budget:
-        loaded = budget_store.load(budget_store_key)
+        loaded = budget_store.load()
         return loaded if loaded is not None else BudgetTracker()
     return BudgetTracker()
 
@@ -30,19 +29,17 @@ def resolve_budget_tracker(
 class AgentBudgetComponent:
     """Budget state and persistence. Agent delegates budget/tracker/store to this."""
 
-    __slots__ = ("_budget", "_store", "_key", "_tracker")
+    __slots__ = ("_budget", "_store", "_tracker")
 
     def __init__(
         self,
         budget: Budget | None,
         budget_store: BudgetStore | None,
-        budget_store_key: str,
         token_limits: TokenLimits | None,
     ) -> None:
         self._budget = budget
         self._store = budget_store
-        self._key = budget_store_key
-        self._tracker = resolve_budget_tracker(budget, token_limits, budget_store, budget_store_key)
+        self._tracker = resolve_budget_tracker(budget, token_limits, budget_store)
 
     @property
     def budget(self) -> Budget | None:
@@ -53,17 +50,13 @@ class AgentBudgetComponent:
         return self._store
 
     @property
-    def key(self) -> str:
-        return self._key
-
-    @property
     def tracker(self) -> BudgetTracker:
         return self._tracker
 
     def save(self) -> None:
         """Persist tracker to store if store is configured."""
         if self._store is not None:
-            self._store.save(self._key, self._tracker)
+            self._store.save(self._tracker)
 
     def set_tracker(self, tracker: BudgetTracker) -> None:
         """Replace tracker (e.g. for handoff or spawn with shared budget)."""

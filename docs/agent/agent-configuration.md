@@ -563,14 +563,14 @@ agent.events.on(Hook.AGENT_RUN_END, lambda ctx:
 
 ## What's Next?
 
-- [Loop Strategies](/agent/running-agents) - How the agent thinks
-- [Budget Deep Dive](/core/budget) - Complete budget configuration
-- [Memory](/core/memory) - Persistent memory
-- [Hooks Reference](/debugging/hooks-reference) - All hooks documented
+- [Loop Strategies](/agent-kit/agent/running-agents) - How the agent thinks
+- [Budget Deep Dive](/agent-kit/core/budget) - Complete budget configuration
+- [Memory](/agent-kit/core/memory) - Persistent memory
+- [Hooks Reference](/agent-kit/debugging/hooks-reference) - All hooks documented
 
 ## See Also
 
-- [Creating Agents](/agent/creating-agents) - How to build agents
-- [Running Agents](/agent/running-agents) - How to execute them
-- [Response Object](/agent/response-object) - What you get back
-- [Guardrails](/agent/guardrails) - Safety configuration
+- [Creating Agents](/agent-kit/agent/creating-agents) - How to build agents
+- [Running Agents](/agent-kit/agent/running-agents) - How to execute them
+- [Response Object](/agent-kit/agent/response-object) - What you get back
+- [Guardrails](/agent-kit/agent/guardrails) - Safety configuration

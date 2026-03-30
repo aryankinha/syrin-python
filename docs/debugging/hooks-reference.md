@@ -583,7 +583,7 @@ agent.events.on(Hook.BUDGET_THRESHOLD, dashboard_update)
 
 ## See Also
 
-- [Debugging Overview](/debugging/overview) — Introduction to observability
-- [Hooks](/debugging/hooks) — Hooks usage patterns
-- [Audit Logging](/debugging/logging) — Persist events to files
-- [Playground](/production/playground) — Visual observability panel
+- [Debugging Overview](/agent-kit/debugging/overview) — Introduction to observability
+- [Hooks](/agent-kit/debugging/hooks) — Hooks usage patterns
+- [Audit Logging](/agent-kit/debugging/logging) — Persist events to files
+- [Playground](/agent-kit/production/playground) — Visual observability panel

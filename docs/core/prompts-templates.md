@@ -796,12 +796,12 @@ agent.events.on("system_prompt.after_resolve", lambda e:
 
 ## What's Next?
 
-- **[Memory Integration](/core/memory)** — How memory works with dynamic prompts
-- **[Agent Teams](/multi-agent/overview)** — Using templates with multiple agents
-- **[Production Patterns](/production/serving)** — Template patterns for production systems
+- **[Memory Integration](/agent-kit/core/memory)** — How memory works with dynamic prompts
+- **[Agent Teams](/agent-kit/multi-agent/overview)** — Using templates with multiple agents
+- **[Production Patterns](/agent-kit/production/serving)** — Template patterns for production systems
 
 ## See Also
 
-- [System Prompts](/core/prompts) — Writing effective base prompts
-- [Creating Agents](/agent/creating-agents) — Putting templates into practice
-- [Memory System](/core/memory) — Dynamic content from memory
+- [System Prompts](/agent-kit/core/prompts) — Writing effective base prompts
+- [Creating Agents](/agent-kit/agent/creating-agents) — Putting templates into practice
+- [Memory System](/agent-kit/core/memory) — Dynamic content from memory

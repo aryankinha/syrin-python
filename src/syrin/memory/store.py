@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import itertools
 import logging
+import threading
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import datetime, timezone
 
 from syrin.budget import BudgetExceededContext
 from syrin.enums import BudgetLimitType, DecayStrategy, MemoryScope, MemoryType
-from syrin.memory.config import Decay, MemoryBudget, MemoryEntry
+from syrin.memory.config import Decay, MemoryEntry
 from syrin.memory.types import create_memory
 
 logger = logging.getLogger(__name__)
@@ -26,7 +28,9 @@ class MemoryStore:
     def __init__(
         self,
         decay: Decay | None = None,
-        budget: MemoryBudget | None = None,
+        budget_extraction: float | None = None,
+        budget_consolidation: float | None = None,
+        budget_on_exceeded: Callable[[BudgetExceededContext], None] | None = None,
         events: object = None,
         backend: dict[str, MemoryEntry] | None = None,
     ) -> None:
@@ -36,15 +40,17 @@ class MemoryStore:
             min_importance=0.1,
             half_life_hours=None,
         )
-        self._budget = budget
+        self._budget_extraction = budget_extraction
+        self._budget_consolidation = budget_consolidation
+        self._budget_on_exceeded = budget_on_exceeded
         self._events = events
         self._backend: dict[str, MemoryEntry] = backend or {}
-        self._memory_counter = 0
+        self._memory_counter: itertools.count[int] = itertools.count(1)
+        self._decay_lock = threading.Lock()
 
     def _generate_id(self) -> str:
         """Generate a unique memory ID."""
-        self._memory_counter += 1
-        return f"mem-{uuid.uuid4().hex[:8]}-{self._memory_counter}"
+        return f"mem-{uuid.uuid4().hex[:8]}-{next(self._memory_counter)}"
 
     def _emit_event(self, event_name: str, data: dict[str, object]) -> None:
         """Emit an event if events system is available."""
@@ -122,9 +128,9 @@ class MemoryStore:
         elif not (entry.id or "").strip():
             entry = entry.model_copy(update={"id": self._generate_id()})
 
-        if self._budget and self._budget.extraction_budget is not None:
+        if self._budget_extraction is not None:
             estimated_cost = self._estimate_cost(entry)
-            if estimated_cost > self._budget.extraction_budget:
+            if estimated_cost > self._budget_extraction:
                 self._emit_event(
                     "memory.store.rejected",
                     {
@@ -133,16 +139,18 @@ class MemoryStore:
                         "estimated_cost": estimated_cost,
                     },
                 )
-                if self._budget.on_exceeded is not None:
-                    limit = self._budget.extraction_budget or 0.0
+                if self._budget_on_exceeded is not None:
                     ctx = BudgetExceededContext(
                         current_cost=estimated_cost,
-                        limit=limit,
+                        limit=self._budget_extraction,
                         budget_type=BudgetLimitType.MEMORY,
-                        message=f"Memory budget exceeded: estimated cost {estimated_cost} > {limit}",
+                        message=(
+                            f"Memory budget exceeded: estimated cost {estimated_cost} "
+                            f"> {self._budget_extraction}"
+                        ),
                     )
                     try:
-                        self._budget.on_exceeded(ctx)
+                        self._budget_on_exceeded(ctx)
                     except Exception:
                         self._end_span(span_data, success=False, reason="budget_exceeded")
                         return False
@@ -226,9 +234,10 @@ class MemoryStore:
                 results.append(entry)
 
         if apply_decay and self._decay:
-            for entry in results:
-                self._decay.apply(entry)
-                self._decay.on_access(entry)
+            with self._decay_lock:
+                for entry in results:
+                    self._decay.apply(entry)
+                    self._decay.on_access(entry)
 
         results.sort(key=lambda e: e.importance, reverse=True)
         results = results[:limit]
@@ -322,8 +331,8 @@ class MemoryStore:
             self._end_span(span_data, consolidated=0)
             return 0
 
-        if consolidation_budget is None and self._budget is not None:
-            consolidation_budget = getattr(self._budget, "consolidation_budget", None)
+        if consolidation_budget is None and self._budget_consolidation is not None:
+            consolidation_budget = self._budget_consolidation
 
         # Simple dedupe: group by content, keep one (max importance), delete rest
         by_content: dict[str, list[tuple[str, MemoryEntry]]] = {}

@@ -10,6 +10,32 @@ from syrin.guardrails.context import GuardrailContext
 from syrin.guardrails.decision import GuardrailDecision
 
 
+def _luhn_valid(number: str) -> bool:
+    """Return True if number passes the Luhn check (credit card validation)."""
+    digits = [int(c) for c in number if c.isdigit()]
+    if len(digits) < 13 or len(digits) > 19:
+        return False
+    total = 0
+    for i, d in enumerate(reversed(digits)):
+        if i % 2 == 1:
+            d *= 2
+            if d > 9:
+                d -= 9
+        total += d
+    return total % 10 == 0
+
+
+def _valid_ip(match: str) -> bool:
+    """Return True if all four octets are in 0-255 (IP address validation)."""
+    parts = match.split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        return all(0 <= int(p) <= 255 for p in parts)
+    except ValueError:
+        return False
+
+
 class PIIScanner(Guardrail):
     """Guardrail that detects and optionally redacts PII.
 
@@ -91,6 +117,13 @@ class PIIScanner(Guardrail):
             matches = pattern.findall(text)
 
             for match in matches:
+                # validate credit cards via Luhn; skip regex-only false positives
+                if pii_type == "credit_card" and not _luhn_valid(match):
+                    continue
+                # validate IPs have all octets in 0-255
+                if pii_type == "ip_address" and not _valid_ip(match):
+                    continue
+
                 finding = {
                     "type": pii_type,
                     "description": description,

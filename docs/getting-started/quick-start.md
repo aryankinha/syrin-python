@@ -24,7 +24,7 @@ class MyAgent(Agent):
     # The brain: which AI model to use
     model = Model.OpenAI("gpt-4o", api_key="your-api-key-here")
     # No API key? Use: model = Model.Almock()  # Returns lorem ipsum
-    
+
     # The instruction: how your agent should behave
     system_prompt = "You are a helpful assistant. Be concise."
 ```
@@ -119,7 +119,7 @@ class MyAgent(Agent):
     model = Model.OpenAI("gpt-4o", api_key="your-api-key-here")
     # No API key? Use: model = Model.Almock()
     system_prompt = "You are a helpful assistant. Be concise."
-    
+
     @task
     def summarize(self, text: str) -> str:
         """Summarize the given text in one sentence."""
@@ -175,19 +175,158 @@ Here's the flow:
 3. **Send Message** — `response = agent.run("Hello!")`
 4. **Get Response** — Access `response.content`
 
+## Structured Output
+
+Use `Output(MyModel)` to receive typed, validated responses instead of raw strings. Pass a Pydantic model and syrin enforces the schema automatically.
+
+```python
+from pydantic import BaseModel
+from syrin import Agent, Model, Output
+
+class Summary(BaseModel):
+    headline: str
+    body: str
+    word_count: int
+
+class MyAgent(Agent):
+    model = Model.OpenAI("gpt-4o", api_key="your-api-key-here")
+    system_prompt = "You are a helpful assistant."
+
+agent = MyAgent()
+
+# Output(MyModel) ensures the response matches your schema
+response = agent.run(
+    "Summarize the history of Python.",
+    output=Output(Summary),
+)
+
+result: Summary = response.output
+print(result.headline)
+print(result.word_count)
+```
+
+`Output(MyModel)` works the same way across all five common patterns:
+
+```python
+# 1. Simple Q&A
+response = agent.run("What is the capital of France?", output=Output(Answer))
+
+# 2. Extraction
+response = agent.run("Extract entities from: ...", output=Output(Entities))
+
+# 3. Classification
+response = agent.run("Classify the sentiment of: ...", output=Output(Sentiment))
+
+# 4. Planning
+response = agent.run("Create a weekly plan for: ...", output=Output(Plan))
+
+# 5. Summarization
+response = agent.run("Summarize this document: ...", output=Output(Summary))
+```
+
+> **Note:** `response.output` holds the parsed model instance. `response.content` still holds the raw text.
+
+## Budget Management
+
+syrin enforces cost limits at the agent level. Set a `budget` to cap spending, then optionally switch the model when the budget runs low.
+
+```python
+from syrin import Agent, Model
+from syrin.budget import Budget
+from syrin.enums import OnExceeded
+
+class MyAgent(Agent):
+    model = Model.OpenAI("gpt-4o", api_key="your-api-key-here")
+    system_prompt = "You are a helpful assistant."
+    budget = Budget(limit=0.10, on_exceeded=OnExceeded.ERROR)  # $0.10 cap
+
+agent = MyAgent()
+
+# Switch to a cheaper model if budget is running low
+if agent.budget_remaining < 0.02:
+    agent.switch_model(Model.OpenAI("gpt-4o-mini", api_key="your-api-key-here"))
+
+response = agent.run("Hello!")
+print(f"Remaining budget: ${agent.budget_remaining:.4f}")
+```
+
+`switch_model()` takes effect immediately on the next `run()` call without recreating the agent. All context, memory, and hooks remain intact.
+
+### Wrapping Non-Agent Callables with syrin.budget_wrap()
+
+If you have existing functions that call LLMs directly, `syrin.budget_wrap()` enforces a budget without requiring you to refactor them into an `Agent` subclass.
+
+```python
+import syrin
+from syrin.budget import Budget
+from syrin.enums import OnExceeded
+
+async def fetch_summary(text: str) -> str:
+    # An existing function that calls an LLM internally
+    ...
+
+# Wrap with a $0.05 budget; raises BudgetExceededError when limit is hit
+guarded = syrin.budget_wrap(
+    fetch_summary,
+    budget=Budget(limit=0.05, on_exceeded=OnExceeded.ERROR),
+)
+
+result = await guarded("Summarize this article...")
+```
+
+`budget_wrap()` tracks cumulative cost across repeated calls to the same wrapped function instance, so the $0.05 cap applies to the total spend over the lifetime of `guarded`, not per call.
+
+## Memory
+
+`syrin.Memory()` gives your agent persistent, typed memory across runs. There are four memory types: `Core`, `Episodic`, `Semantic`, and `Procedural`. All memory operations are budget-aware.
+
+```python
+from syrin import Agent, Model
+from syrin.memory import Memory, MemoryType
+
+class MyAgent(Agent):
+    model = Model.OpenAI("gpt-4o", api_key="your-api-key-here")
+    system_prompt = "You are a helpful assistant."
+    memory = Memory()
+
+agent = MyAgent()
+
+# Store a fact
+agent.memory.remember("User prefers concise answers.", kind=MemoryType.CORE)
+
+# Recall relevant memories before running
+recalled = agent.memory.recall("user preferences")
+print(recalled)
+
+# Forget a specific memory by ID
+agent.memory.forget(memory_id="mem-001")
+```
+
+> **Note:** Always pass `kind=` as a keyword argument. Positional argument order for `MemoryType` is not guaranteed across versions.
+
 ## Complete Example
 
 Here's everything together:
 
 ```python
-from syrin import Agent, Model
+from pydantic import BaseModel
+from syrin import Agent, Model, Output
+from syrin.budget import Budget
+from syrin.enums import OnExceeded
+from syrin.memory import Memory, MemoryType
 from syrin.task import task
+
+class Summary(BaseModel):
+    headline: str
+    body: str
 
 class MyAgent(Agent):
     model = Model.OpenAI("gpt-4o", api_key="your-api-key-here")
     # No API key? Use: model = Model.Almock()
     system_prompt = "You are a helpful assistant. Be concise."
-    
+    budget = Budget(limit=0.10, on_exceeded=OnExceeded.ERROR)
+    memory = Memory()
+
     @task
     def summarize(self, text: str) -> str:
         """Summarize text in one sentence."""
@@ -195,8 +334,15 @@ class MyAgent(Agent):
 
 # Create and use
 agent = MyAgent()
+agent.memory.remember("User prefers bullet points.", kind=MemoryType.CORE)
+
+# Plain text response
 response = agent.run("Hello!")
 print(response.content)
+
+# Structured output
+structured = agent.run("Summarize Python's history.", output=Output(Summary))
+print(structured.output.headline)
 
 # Or call a task
 summary = agent.summarize("Python is a great programming language.")
@@ -213,17 +359,20 @@ agent.serve(port=8000, enable_playground=True, debug=True)
 | `Agent is not defined` | Forgot to import | Add `from syrin import Agent` |
 | `No module named 'syrin'` | Not installed | Run `pip install syrin` |
 | `Model.Almock not found` | Wrong import | Use `Model.Almock()` not `Model.Almock` |
+| `BudgetExceededError` | Agent hit its cost cap | Raise the `Budget.limit` or use `OnExceeded.WARN` |
 
 ## What's Next?
 
-- [Agents Overview](/agent/overview) - Understand how agents work
-- [Models](/core/models) - Use real AI models (OpenAI, Claude)
-- [Tools](/agent/tools) - Give your agent special abilities
-- [Memory](/core/memory) - Make your agent remember things
+- [Agents Overview](/agent-kit/agent/overview) - Understand how agents work
+- [Models](/agent-kit/core/models) - Use real AI models (OpenAI, Claude)
+- [Tools](/agent-kit/agent/tools) - Give your agent special abilities
+- [Memory](/agent-kit/core/memory) - Make your agent remember things
 
 ## See Also
 
-- [Tasks](/agent/tasks) - More about @task decorator
-- [Response Object](/agent/response-object) - Full Response breakdown
-- [Serving](/production/serving) - More serving options
-- [Hooks & Events](/debugging/hooks) - Full observability with hooks
+- [Tasks](/agent-kit/agent/tasks) - More about @task decorator
+- [Response Object](/agent-kit/agent/response-object) - Full Response breakdown
+- [Serving](/agent-kit/production/serving) - More serving options
+- [Hooks & Events](/agent-kit/debugging/hooks) - Full observability with hooks
+- [Budget Management](/agent-kit/core/budget) - Full budget reference
+- [Structured Output](/agent-kit/agent/structured-output) - Output schemas in depth

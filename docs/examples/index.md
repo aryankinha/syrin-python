@@ -182,16 +182,16 @@ PYTHONPATH=. python examples/01_minimal/hello_agent.py
 ## What's Next?
 
 - Start with the [getting started notebook](https://github.com/syrin-labs/syrin-python-python/blob/main/examples/getting_started.ipynb)
-- Explore [minimal examples](/examples/basic-examples) for core concepts
-- Learn [production chatbot](/examples/chatbot) for full-featured patterns
-- Build an [agent swarm](/examples/agent-swarm) with observability
+- Explore [minimal examples](/agent-kit/examples/basic-examples) for core concepts
+- Learn [production chatbot](/agent-kit/examples/chatbot) for full-featured patterns
+- Build an [agent swarm](/agent-kit/examples/agent-swarm) with observability
 
 ## See Also
 
-- [Agents documentation](/agent/overview) for agent concepts
-- [Multi-agent documentation](/multi-agent/overview) for collaboration patterns
-- [Debugging documentation](/debugging/overview) for observability
-- [Production documentation](/production/serving) for deployment
-- [Voice AI Agent](/examples/voice-agent) for telephony integration
-- [IPO Drafting Agent](/examples/ipo-drafting-agent) for enterprise RAG
-- [Agent Swarm](/examples/agent-swarm) for dynamic multi-agent systems
+- [Agents documentation](/agent-kit/agent/overview) for agent concepts
+- [Multi-agent documentation](/agent-kit/multi-agent/overview) for collaboration patterns
+- [Debugging documentation](/agent-kit/debugging/overview) for observability
+- [Production documentation](/agent-kit/production/serving) for deployment
+- [Voice AI Agent](/agent-kit/examples/voice-agent) for telephony integration
+- [IPO Drafting Agent](/agent-kit/examples/ipo-drafting-agent) for enterprise RAG
+- [Agent Swarm](/agent-kit/examples/agent-swarm) for dynamic multi-agent systems

@@ -215,8 +215,8 @@ The HTTP server logs a warning when serving without authentication. For producti
 
 ## See Also
 
-- [Serving: HTTP](/production/serving-http) — Complete HTTP API reference
-- [Serving: CLI](/production/serving-cli) — Interactive terminal usage
-- [Serving: Advanced](/production/serving-advanced) — Mounting, middleware, load balancing
-- [Playground](/production/playground) — Web testing interface
-- [Remote Config](/production/remote-config) — Runtime configuration updates
+- [Serving: HTTP](/agent-kit/production/serving-http) — Complete HTTP API reference
+- [Serving: CLI](/agent-kit/production/serving-cli) — Interactive terminal usage
+- [Serving: Advanced](/agent-kit/production/serving-advanced) — Mounting, middleware, load balancing
+- [Playground](/agent-kit/production/playground) — Web testing interface
+- [Remote Config](/agent-kit/production/remote-config) — Runtime configuration updates

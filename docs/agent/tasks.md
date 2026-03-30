@@ -174,12 +174,12 @@ agent.events.on(Hook.AGENT_RUN_END, on_agent_run_end)
 
 ## What's Next?
 
-- [Tools](/agent/tools) — Dynamic tool calling
-- [Structured Output](/agent/structured-output) — Typed task responses
-- [Loop Strategies](/agent/running-agents) — How tasks execute
+- [Tools](/agent-kit/agent/tools) — Dynamic tool calling
+- [Structured Output](/agent-kit/agent/structured-output) — Typed task responses
+- [Loop Strategies](/agent-kit/agent/running-agents) — How tasks execute
 
 ## See Also
 
-- [Running Agents](/agent/running-agents) — How to execute agents
-- [Agent Anatomy](/agent/anatomy) — Components overview
-- [Guardrails](/agent/guardrails) — Safety for tasks
+- [Running Agents](/agent-kit/agent/running-agents) — How to execute agents
+- [Agent Anatomy](/agent-kit/agent/anatomy) — Components overview
+- [Guardrails](/agent-kit/agent/guardrails) — Safety for tasks

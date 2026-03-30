@@ -499,6 +499,21 @@ class Response(Generic[T]):
             return self.structured.parsed
         return None
 
+    @property
+    def output(self) -> object | None:
+        """Typed structured output instance, or None if not configured or not yet parsed.
+
+        When ``Output(MyModel)`` is configured: always the typed ``MyModel`` instance
+        once validation succeeds. Returns ``None`` when no output type is configured
+        or when parsing failed. Access ``response.structured`` for per-attempt details.
+
+        Equivalent to ``response.structured.parsed`` — use ``response.output`` for
+        clean, readable code.
+        """
+        if self.structured is not None:
+            return self.structured.parsed
+        return None
+
     def __str__(self) -> str:
         return str(self.content)
 

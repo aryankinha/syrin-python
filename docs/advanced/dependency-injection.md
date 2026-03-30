@@ -461,13 +461,13 @@ def test_with_fixture(test_agent):
 
 ## What's Next?
 
-- [Testing](/advanced/testing) — Complete testing patterns
-- [Event Bus](/advanced/event-bus) — Domain events
-- [Custom Context](/advanced/custom-context) — Custom context management
-- [Custom Model](/advanced/custom-model) — Custom LLM providers
+- [Testing](/agent-kit/advanced/testing) — Complete testing patterns
+- [Event Bus](/agent-kit/advanced/event-bus) — Domain events
+- [Custom Context](/agent-kit/advanced/custom-context) — Custom context management
+- [Custom Model](/agent-kit/advanced/custom-model) — Custom LLM providers
 
 ## See Also
 
-- [Tools Reference](/agent/tools) — Tool decorator
-- [Testing](/advanced/testing) — Mock models and tools
-- [Multi-Tenant Patterns](/core/models) — Multi-tenant architectures
+- [Tools Reference](/agent-kit/agent/tools) — Tool decorator
+- [Testing](/agent-kit/advanced/testing) — Mock models and tools
+- [Multi-Tenant Patterns](/agent-kit/core/models) — Multi-tenant architectures

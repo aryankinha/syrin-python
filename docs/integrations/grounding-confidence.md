@@ -424,12 +424,12 @@ GroundingConfig(confidence_threshold=0.7)  # Adjust based on testing
 
 ## What's Next?
 
-- [Grounding](/integrations/grounding) — Enable fact verification
-- [Agentic RAG](/integrations/knowledge-rag) — Multi-step retrieval
-- [Best Practices](/integrations/knowledge-pool) — Production RAG
+- [Grounding](/agent-kit/integrations/grounding) — Enable fact verification
+- [Agentic RAG](/agent-kit/integrations/knowledge-rag) — Multi-step retrieval
+- [Best Practices](/agent-kit/integrations/knowledge-pool) — Production RAG
 
 ## See Also
 
-- [Knowledge Pool](/integrations/knowledge-pool) — Complete overview
-- [RAG Configuration](/integrations/knowledge-rag) — Retrieval setup
-- [Error Handling](/agent/error-handling) — Graceful failure
+- [Knowledge Pool](/agent-kit/integrations/knowledge-pool) — Complete overview
+- [RAG Configuration](/agent-kit/integrations/knowledge-rag) — Retrieval setup
+- [Error Handling](/agent-kit/agent/error-handling) — Graceful failure

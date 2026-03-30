@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from pydantic import BaseModel
 
 from syrin import Agent
+from syrin.exceptions import OutputValidationError
 from syrin.model import Model
 from syrin.output import Output
 from syrin.types import ProviderResponse, TokenUsage
@@ -64,17 +66,22 @@ class TestStructuredOutputValidation:
         assert r.data.get("name") == "Bob"
         assert r.data.get("value") == 10
 
-    def test_invalid_json_structured_has_parsed_none_or_is_valid_false(self) -> None:
-        """When LLM returns invalid JSON/schema, structured.parsed may be None or is_valid False."""
+    def test_invalid_json_raises_output_validation_error(self) -> None:
+        """When LLM returns invalid JSON/schema and retries exhausted, OutputValidationError is raised."""
         model = Model("anthropic/claude-3-5-sonnet")
-        agent = Agent(model=model, system_prompt="Return JSON.", output=Output(SimpleOut))
+        agent = Agent(
+            model=model,
+            system_prompt="Return JSON.",
+            output=Output(SimpleOut, validation_retries=0),
+        )
         mock_resp = _mock_provider_response(content="Not JSON at all")
-        with patch.object(
-            agent._provider,
-            "complete",
-            new_callable=AsyncMock,
-            return_value=mock_resp,
+        with (
+            patch.object(
+                agent._provider,
+                "complete",
+                new_callable=AsyncMock,
+                return_value=mock_resp,
+            ),
+            pytest.raises(OutputValidationError),
         ):
-            r = agent.run("Return JSON.")
-        assert r.structured is not None
-        assert not r.structured.is_valid or r.structured.parsed is None
+            agent.run("Return JSON.")

@@ -295,13 +295,13 @@ The built-in playground provides:
 
 ## What's Next?
 
-- Learn about [MCP integration](/integrations/mcp) for tool servers
-- Explore [knowledge management](/integrations/knowledge-pool) for RAG
-- Understand [serving patterns](/production/serving)
+- Learn about [MCP integration](/agent-kit/integrations/mcp) for tool servers
+- Explore [knowledge management](/agent-kit/integrations/knowledge-pool) for RAG
+- Understand [serving patterns](/agent-kit/production/serving)
 
 ## See Also
 
-- [Memory documentation](/core/memory)
-- [Context management](/core/context)
-- [Guardrails documentation](/agent/guardrails)
-- [Serving documentation](/production/serving)
+- [Memory documentation](/agent-kit/core/memory)
+- [Context management](/agent-kit/core/context)
+- [Guardrails documentation](/agent-kit/agent/guardrails)
+- [Serving documentation](/agent-kit/production/serving)

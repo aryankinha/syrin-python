@@ -158,14 +158,28 @@ class InMemoryContextStore:
     get_relevant uses the scorer to rank by relevance to the query.
     """
 
-    def __init__(self, scorer: RelevanceScorer | None = None) -> None:
-        """Create store. Uses SimpleTextScorer if scorer not provided."""
+    def __init__(
+        self,
+        scorer: RelevanceScorer | None = None,
+        max_segments: int | None = None,
+    ) -> None:
+        """Create store. Uses SimpleTextScorer if scorer not provided.
+
+        Args:
+            scorer: Relevance scorer for get_relevant(). Defaults to SimpleTextScorer.
+            max_segments: Sliding window size. When set (> 0), oldest segments are
+                dropped when the limit is reached. None or 0 = no limit.
+        """
         self._segments: list[ContextSegment] = []
         self._scorer = scorer if scorer is not None else SimpleTextScorer()
+        self._max_segments: int | None = max_segments if max_segments and max_segments > 0 else None
 
     def add_segment(self, segment: ContextSegment) -> None:
-        """Add a segment to the store."""
+        """Add a segment to the store. Enforces sliding window if max_segments is set."""
         self._segments.append(segment)
+        if self._max_segments is not None and len(self._segments) > self._max_segments:
+            # drop oldest segments to enforce sliding window
+            del self._segments[: len(self._segments) - self._max_segments]
 
     def get_relevant(
         self,

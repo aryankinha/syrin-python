@@ -531,12 +531,12 @@ else:
 
 ## What's Next?
 
-- [Structured Output](/agent/structured-output) — Pydantic-based output
-- [Custom Model](/advanced/custom-model) — Custom LLM integration
-- [Testing](/advanced/testing) — Test templates
+- [Structured Output](/agent-kit/agent/structured-output) — Pydantic-based output
+- [Custom Model](/agent-kit/advanced/custom-model) — Custom LLM integration
+- [Testing](/agent-kit/advanced/testing) — Test templates
 
 ## See Also
 
-- [Prompts Overview](/core/prompts) — Prompt writing
-- [Structured Output](/agent/structured-output) — JSON/Pydantic responses
-- [Template Engine](/core/prompts-templates) — Basic templates
+- [Prompts Overview](/agent-kit/core/prompts) — Prompt writing
+- [Structured Output](/agent-kit/agent/structured-output) — JSON/Pydantic responses
+- [Template Engine](/agent-kit/core/prompts-templates) — Basic templates

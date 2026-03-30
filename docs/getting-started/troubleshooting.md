@@ -316,12 +316,12 @@ Include:
 
 ## What's Next?
 
-- [Quick Start](/getting-started/quick-start) - Back to building
-- [Agents Overview](/agent/overview) - Understand agents better
-- [Debugging](/debugging/overview) - Advanced debugging tools
+- [Quick Start](/agent-kit/getting-started/quick-start) - Back to building
+- [Agents Overview](/agent-kit/agent/overview) - Understand agents better
+- [Debugging](/agent-kit/debugging/overview) - Advanced debugging tools
 
 ## See Also
 
-- [Budget](/core/budget) - Control your spending
-- [Memory](/core/memory) - Memory troubleshooting
-- [Serving](/production/serving) - Serving issues
+- [Budget](/agent-kit/core/budget) - Control your spending
+- [Memory](/agent-kit/core/memory) - Memory troubleshooting
+- [Serving](/agent-kit/production/serving) - Serving issues

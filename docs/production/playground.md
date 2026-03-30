@@ -306,7 +306,7 @@ The build output at `playground/out/` is served automatically.
 
 ## See Also
 
-- [Serving: HTTP API](/production/serving-http) — REST API reference
-- [Serving: Advanced](/production/serving-advanced) — Mounting on existing apps
-- [Debugging: Hooks](/debugging/hooks) — Lifecycle hooks reference
-- [Debugging: Tracing](/debugging/tracing) — Execution traces
+- [Serving: HTTP API](/agent-kit/production/serving-http) — REST API reference
+- [Serving: Advanced](/agent-kit/production/serving-advanced) — Mounting on existing apps
+- [Debugging: Hooks](/agent-kit/debugging/hooks) — Lifecycle hooks reference
+- [Debugging: Tracing](/agent-kit/debugging/tracing) — Execution traces

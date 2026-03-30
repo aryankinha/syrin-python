@@ -38,16 +38,25 @@ class LiteLLMEmbedding:
         self,
         model: str,
         api_key: str | None = None,
+        batch_size: int = 100,
     ) -> None:
         """Initialize LiteLLM embedding provider.
 
         Args:
             model: LiteLLM model string (e.g., 'cohere/embed-english-v3.0').
             api_key: Optional API key. Defaults to LITELLM_API_KEY env var.
+            batch_size: Max texts per API call. P8: defaults to 100 to avoid
+                       payload-size and rate-limit issues with large corpora.
         """
         self._model = model
         self._api_key = api_key or os.getenv("LITELLM_API_KEY")
         self._dimensions = _MODEL_DIMENSIONS.get(model, 1024)
+        self._batch_size = batch_size
+
+    @property
+    def batch_size(self) -> int:
+        """Max texts per API call."""
+        return self._batch_size
 
     @property
     def dimensions(self) -> int:
@@ -81,34 +90,39 @@ class LiteLLMEmbedding:
         if not texts:
             return []
 
-        kwargs: dict[str, object] = {
-            "model": self._model,
-            "input": texts,
-        }
+        all_embeddings: list[list[float]] = []
 
-        if self._api_key:
-            kwargs["api_key"] = self._api_key
+        # P8: split into batches to avoid payload-size and rate-limit issues
+        for i in range(0, len(texts), self._batch_size):
+            batch = texts[i : i + self._batch_size]
 
-        response = await litellm.aembedding(**kwargs)
+            kwargs: dict[str, object] = {
+                "model": self._model,
+                "input": batch,
+            }
 
-        # Extract embeddings (LiteLLM returns data list)
-        embeddings = [item["embedding"] for item in response["data"]]
+            if self._api_key:
+                kwargs["api_key"] = self._api_key
 
-        # Track cost if budget_tracker provided
-        if budget_tracker is not None:
-            usage = response.get("usage", {})
-            token_count = usage.get("prompt_tokens", 0)
-            if token_count > 0:
-                from syrin.cost import calculate_embedding_cost
+            response = await litellm.aembedding(**kwargs)
 
-                cost = calculate_embedding_cost(self._model, token_count)
-                budget_tracker.record_external(  # type: ignore[attr-defined]
-                    service="litellm_embedding",
-                    cost_usd=cost,
-                    metadata={
-                        "model": self._model,
-                        "token_count": token_count,
-                    },
-                )
+            all_embeddings.extend(item["embedding"] for item in response["data"])
 
-        return embeddings
+            # Track cost if budget_tracker provided
+            if budget_tracker is not None:
+                usage = response.get("usage", {})
+                token_count = usage.get("prompt_tokens", 0)
+                if token_count > 0:
+                    from syrin.cost import calculate_embedding_cost
+
+                    cost = calculate_embedding_cost(self._model, token_count)
+                    budget_tracker.record_external(  # type: ignore[attr-defined]
+                        service="litellm_embedding",
+                        cost_usd=cost,
+                        metadata={
+                            "model": self._model,
+                            "token_count": token_count,
+                        },
+                    )
+
+        return all_embeddings

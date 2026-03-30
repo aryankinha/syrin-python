@@ -640,12 +640,12 @@ def test_concurrent_requests():
 
 ## What's Next?
 
-- [Custom Model](/advanced/custom-model) — Test custom providers
-- [Dependency Injection](/advanced/dependency-injection) — Testable architectures
-- [Event Bus](/advanced/event-bus) — Test event handling
+- [Custom Model](/agent-kit/advanced/custom-model) — Test custom providers
+- [Dependency Injection](/agent-kit/advanced/dependency-injection) — Testable architectures
+- [Event Bus](/agent-kit/advanced/event-bus) — Test event handling
 
 ## See Also
 
-- [Error Handling](/agent/error-handling) — Graceful failure
-- [Guardrails](/agent/guardrails) — Safety testing
-- [Checkpointing](/production/checkpointing) — State testing
+- [Error Handling](/agent-kit/agent/error-handling) — Graceful failure
+- [Guardrails](/agent-kit/agent/guardrails) — Safety testing
+- [Checkpointing](/agent-kit/production/checkpointing) — State testing

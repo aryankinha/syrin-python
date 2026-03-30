@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
+import contextvars
 import logging
 import time
 from collections.abc import AsyncIterator, Callable, Iterator
@@ -9,6 +12,7 @@ from typing import TYPE_CHECKING, ClassVar, cast
 
 if TYPE_CHECKING:
     from syrin.serve.config import ServeConfig  # noqa: F401
+    from syrin.watch._trigger import TriggerEvent, WatchProtocol
 
 from syrin._sentinel import NOT_PROVIDED
 from syrin.agent._budget_ops import (
@@ -162,8 +166,8 @@ from syrin.budget import (
 from syrin.budget_store import BudgetStore
 from syrin.checkpoint import CheckpointConfig, Checkpointer
 from syrin.circuit import CircuitBreaker
-from syrin.context import Context, ContextConfig, DefaultContextManager
-from syrin.context.config import ContextStats
+from syrin.context import Context, DefaultContextManager
+from syrin.context.config import ContextStats, _ContextConfig
 from syrin.cost import calculate_cost, estimate_cost_for_call
 from syrin.domain_events import EventBus
 from syrin.enums import (
@@ -214,9 +218,16 @@ from syrin.router.agent_integration import build_router_from_models
 from syrin.serve.servable import Servable
 from syrin.tool import ToolSpec
 from syrin.types import CostInfo, Message, ModelConfig, ProviderResponse, TokenUsage
+from syrin.watch import Watchable
 
 DEFAULT_MAX_TOOL_ITERATIONS = 10
 _log = logging.getLogger(__name__)
+
+# Shared thread pool for sync→async bridge in _run_loop_response.
+# Avoids creating a new loop per call and never pollutes the caller's event loop state.
+_AGENT_THREAD_POOL = concurrent.futures.ThreadPoolExecutor(
+    max_workers=8, thread_name_prefix="syrin-agent"
+)
 
 
 class _AgentMeta(type):
@@ -259,7 +270,7 @@ class _AgentMeta(type):
         return super().__new__(mcs, name, bases, namespace, **kwargs)
 
 
-class Agent(Servable, metaclass=_AgentMeta):
+class Agent(Watchable, Servable, metaclass=_AgentMeta):
     """AI agent that runs completions, tools, memory, and budget control.
 
     An Agent is the main interface for talking to an LLM, executing tools, remembering
@@ -330,6 +341,7 @@ class Agent(Servable, metaclass=_AgentMeta):
     _syrin_default_tools: list[ToolSpec] = []
     _syrin_default_budget: Budget | None = None
     _syrin_default_guardrails: list[Guardrail] = []
+    _syrin_default_output: object = None  # Output | None
     _syrin_default_name: str | None = None
     _syrin_default_description: str = ""
     _agent_name: ClassVar[str | None] = None
@@ -405,6 +417,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         default_budget = _merge_class_attrs(mro, "budget", merge=False)
         default_guardrails = _merge_class_attrs(mro, "guardrails", merge=True)
         default_memory = _merge_class_attrs(mro, "memory", merge=False)
+        default_output = _merge_class_attrs(mro, "output", merge=False)
         default_name = _merge_class_attrs(mro, "_agent_name", merge=False)
         if default_name is NOT_PROVIDED:
             default_name = _merge_class_attrs(mro, "name", merge=False)
@@ -454,6 +467,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         cls._syrin_default_guardrails = (
             list(default_guardrails) if default_guardrails is not NOT_PROVIDED else []  # type: ignore[call-overload]
         )
+        cls._syrin_default_output = default_output if default_output is not NOT_PROVIDED else None
         if default_name is not NOT_PROVIDED and isinstance(default_name, str):
             cls._syrin_default_name = default_name
         elif default_name is NOT_PROVIDED and "_syrin_default_name" not in cls.__dict__:
@@ -475,7 +489,6 @@ class Agent(Servable, metaclass=_AgentMeta):
         output: Output | None = None,
         max_tool_iterations: int = DEFAULT_MAX_TOOL_ITERATIONS,
         budget_store: BudgetStore | None = None,
-        budget_store_key: str = "default",
         memory: Memory | MemoryPreset | None = NOT_PROVIDED,  # type: ignore[assignment]
         loop_strategy: LoopStrategy = LoopStrategy.REACT,
         custom_loop: Loop | type[Loop] | None = None,
@@ -485,6 +498,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         retry_on_transient: bool = True,
         max_retries: int = 3,
         retry_backoff_base: float = 1.0,
+        max_input_length: int = 1_000_000,
         debug: bool = False,
         name: str | None = NOT_PROVIDED,  # type: ignore[assignment]
         description: str | None = NOT_PROVIDED,  # type: ignore[assignment]
@@ -516,8 +530,9 @@ class Agent(Servable, metaclass=_AgentMeta):
 
         **Cost control:**
             budget: Cost limits (per run, per period) and threshold actions. Use Budget(max_cost=1.0) for $1/run.
-            budget_store: Persist budget across runs (e.g. FileBudgetStore).
-            budget_store_key: Key for budget persistence (default "default"). Isolate per user/session.
+            budget_store: Persist budget across runs. Use BudgetStore(key="user:123") or
+                BudgetStore(key="user:123", backend="file", path="/var/budgets.json") for file persistence.
+                The key is set on the BudgetStore, not on Agent.
 
         **Memory:**
             memory: Memory for conversation and optional persistent recall.
@@ -582,6 +597,29 @@ class Agent(Servable, metaclass=_AgentMeta):
             ...     memory=Memory(top_k=5),
             ... )
         """
+        # Initialize Watchable mixin state (cannot use super().__init__ due to metaclass)
+        self._watch_protocols: list[WatchProtocol] = []
+        self._watch_concurrency: int = 1
+        self._watch_timeout: float | None = None
+        self._watch_on_trigger: Callable[[TriggerEvent], None] | None = None
+        self._watch_on_result: Callable[[TriggerEvent, object], None] | None = None
+        self._watch_on_error: Callable[[TriggerEvent, Exception], None] | None = None
+        self._watch_semaphore: asyncio.Semaphore | None = None
+
+        # Defer --trace / --debug / --log-level checks to first Agent() instantiation,
+        # not module import time. Avoids sys.argv side-effects at import.
+        try:
+            import syrin as _syrin_pkg
+
+            _syrin_pkg._auto_trace_check()
+            _syrin_pkg._auto_debug_check()
+            _syrin_pkg._auto_log_level_check()
+            # Auto-attach Pry when --debug flag was used
+            if _syrin_pkg._debug_pry is not None:
+                _syrin_pkg._debug_pry.attach(self)  # type: ignore[attr-defined]
+        except AttributeError:
+            pass  # already deleted or not present
+
         cls = self.__class__
         if model is NOT_PROVIDED:
             model = getattr(cls, "_syrin_default_model", None)
@@ -814,7 +852,12 @@ class Agent(Servable, metaclass=_AgentMeta):
             self._model = None
             self._model_config = model
 
-        # Handle output configuration
+        # Handle output configuration — class-level `output = Output(...)` is used when
+        # no output= is passed to __init__
+        if output is None:
+            class_output = getattr(cls, "_syrin_default_output", None)
+            if isinstance(class_output, Output):
+                output = class_output
         self._output: Output | None = output
         if output is not None and self._model_config is not None and output.type is not None:
             self._model_config.output = output.type
@@ -949,6 +992,9 @@ class Agent(Servable, metaclass=_AgentMeta):
         self._parent_agent: Agent | None = None
         self._provider: Provider
 
+        # Store AgentConfig for later attribute access (e.g. spotlight_tool_outputs)
+        self._config = config
+
         # Extract advanced options from config
         ctx = config.context if config else None
         rate_limit = config.rate_limit if config else None
@@ -963,7 +1009,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         # Context component: manager and token limits
         if ctx is None:
             context_manager = DefaultContextManager(Context())
-        elif isinstance(ctx, ContextConfig):
+        elif isinstance(ctx, _ContextConfig):
             context_manager = DefaultContextManager(ctx.to_context())
         elif isinstance(ctx, Context):
             context_manager = DefaultContextManager(ctx)
@@ -979,7 +1025,7 @@ class Agent(Servable, metaclass=_AgentMeta):
 
         # Budget component: state and persistence
         self._budget_component = AgentBudgetComponent(
-            budget, budget_store, budget_store_key, self._context_component.token_limits
+            budget, budget_store, self._context_component.token_limits
         )
         self._provider = _resolve_provider(self._model, self._model_config)
         object.__setattr__(self, "_agent_name", name)
@@ -1101,6 +1147,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         self._retry_on_transient = retry_on_transient
         self._max_retries = max_retries
         self._retry_backoff_base = retry_backoff_base
+        self._max_input_length = max_input_length
 
         # Circuit breaker
         self._circuit_breaker: CircuitBreaker | None = circuit_breaker
@@ -1255,21 +1302,20 @@ class Agent(Servable, metaclass=_AgentMeta):
             hook: Hook enum value or string (e.g. "context.compact")
             ctx: EventContext or dict with hook-specific data
         """
-        # Map string event names (from context/ratelimit managers) to Hook
-        # StrEnum members are also str, so check for Hook first
+        # Map string event names (from context/ratelimit managers) to Hook enum.
+        # StrEnum members are also str, so check for Hook first.
+        # Use a generic lookup so every Hook value routes through regardless of
+        # whether it was added to a manual whitelist — prevents silent drops.
         if isinstance(hook, str) and not isinstance(hook, Hook):
-            _EVENT_TO_HOOK: dict[str, Hook] = {
-                "context.compact": Hook.CONTEXT_COMPACT,
-                "context.threshold": Hook.CONTEXT_THRESHOLD,
-                "ratelimit.threshold": Hook.RATELIMIT_THRESHOLD,
-                "ratelimit.exceeded": Hook.RATELIMIT_EXCEEDED,
-            }
-            resolved = _EVENT_TO_HOOK.get(hook)
-            if resolved is None:
-                return
-            hook = resolved
+            try:
+                hook = Hook(hook)
+            except ValueError:
+                return  # truly unknown event string — drop silently
         if isinstance(ctx, dict):
             ctx = EventContext(ctx)
+
+        # SEC1/B4: scrub secret-named fields before any handler sees the context
+        ctx.scrub()
 
         # Print event to console when debug=True
         if self._debug:
@@ -1361,7 +1407,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         """Print event to console when debug=True."""
         _events_print(self, event, ctx)
 
-    def switch_model(self, model: Model | ModelConfig) -> None:
+    def switch_model(self, model: Model | ModelConfig, reason: str = "") -> None:
         """Change the LLM used by the agent at runtime.
 
         Why: Switch to a cheaper model when approaching budget, or to a fallback when
@@ -1374,11 +1420,118 @@ class Agent(Servable, metaclass=_AgentMeta):
 
         Args:
             model: New Model or ModelConfig. Must be same provider type.
+            reason: Optional human-readable reason for the switch (carried in the
+                ``Hook.MODEL_SWITCHED`` event). Default: "".
 
         Example:
-            >>> agent.switch_model(Model.OpenAI("gpt-4o-mini"))
+            >>> agent.switch_model(Model.OpenAI("gpt-4o-mini"), reason="budget exceeded")
         """
-        _model_switch(self, model)
+        _model_switch(self, model, reason)
+
+    @property
+    def debug_ui(self) -> object:
+        """Create and attach a Pry to this agent.
+
+        Convenience shortcut — equivalent to::
+
+            from syrin.debug import Pry
+            ui = Pry()
+            ui.attach(agent)
+
+        Returns:
+            Attached ``Pry`` instance.
+        """
+        from syrin.debug import Pry
+
+        ui = Pry()
+        ui.attach(self)
+        return ui
+
+    def lifecycle_diagram(self, export_path: str | None = None) -> str:
+        """Generate a Mermaid state diagram showing the agent's lifecycle.
+
+        Renders the full lifecycle: input validation → guardrails → LLM call →
+        tool execution → output guardrails → response. Valid Mermaid syntax,
+        renderable in the web playground or any Mermaid renderer.
+
+        Args:
+            export_path: If provided, write the diagram to this file path.
+
+        Returns:
+            Mermaid diagram as a string.
+        """
+        name = self.name or "Agent"
+        tools_note = ""
+        if self._tools:
+            tool_names = ", ".join(t.name for t in self._tools[:5])
+            if len(self._tools) > 5:
+                tool_names += f" (+{len(self._tools) - 5} more)"
+            tools_note = f"\n        note right of ToolExec : Tools: {tool_names}"
+
+        diagram = f"""stateDiagram-v2
+    [*] --> InputValidation : user input
+    InputValidation --> InputGuardrails : valid
+    InputValidation --> [*] : InputTooLargeError
+    InputGuardrails --> LLMCall : passed
+    InputGuardrails --> [*] : blocked
+    LLMCall --> ToolExec : tool_calls present
+    LLMCall --> OutputGuardrails : end_turn{tools_note}
+    ToolExec --> LLMCall : tool results
+    OutputGuardrails --> Response : passed
+    OutputGuardrails --> [*] : blocked
+    Response --> [*]
+    note right of LLMCall : model: {self._model_config.model_id}
+    note right of Response : {name}"""
+
+        if export_path:
+            import pathlib
+
+            pathlib.Path(export_path).write_text(diagram)
+
+        return diagram
+
+    def flow_diagram(self, export_path: str | None = None) -> str:
+        """Generate a Mermaid flowchart showing the agent's processing flow.
+
+        Includes tool nodes, memory nodes (if configured), budget tracking,
+        and guardrail checkpoints. Valid Mermaid syntax.
+
+        Args:
+            export_path: If provided, write the diagram to this file path.
+
+        Returns:
+            Mermaid diagram as a string.
+        """
+        name = self.name or "Agent"
+        nodes: list[str] = []
+        edges: list[str] = []
+
+        nodes.append(f'    UserInput([User Input]) --> {name}["{name}"]')
+        edges.append(f'    {name} --> LLM["LLM: {self._model_config.model_id}"]')
+        edges.append("    LLM --> Response([Response])")
+
+        if self._tools:
+            edges.append('    LLM -->|tool call| Tools["Tools"]')
+            edges.append("    Tools --> LLM")
+            for t in self._tools[:5]:
+                nodes.append(f'    Tools --> {t.name}["{t.name}"]')
+
+        if self._guardrails and getattr(self._guardrails, "_guardrails", None):
+            edges.append('    UserInput --> Guardrails["Guardrails"]')
+            edges.append(f"    Guardrails -->|pass| {name}")
+            edges.append("    Guardrails -->|block| Blocked([Blocked])")
+
+        if self._persistent_memory:
+            edges.append(f"    {name} <-->|recall/store| Memory[(Memory)]")
+
+        diagram = "flowchart TD\n" + "\n".join(nodes + edges)
+
+        if export_path:
+            import pathlib
+
+            pathlib.Path(export_path).write_text(diagram)
+
+        return diagram
 
     @property
     def budget_state(self) -> BudgetState | None:
@@ -1501,10 +1654,6 @@ class Agent(Servable, metaclass=_AgentMeta):
         return self._budget_component.store
 
     @property
-    def _budget_store_key(self) -> str:
-        return self._budget_component.key
-
-    @property
     def _context(self) -> object:
         return self._context_component.context_manager
 
@@ -1578,6 +1727,11 @@ class Agent(Servable, metaclass=_AgentMeta):
             for t in raw
             if t.name not in tools_disabled and (mcp_indices.get(t.name) not in mcp_disabled)
         ]
+
+    @property
+    def tools_map(self) -> dict[str, ToolSpec]:
+        """O(1) tool lookup. Built fresh from active tools on each access."""
+        return {spec.name: spec for spec in self.tools}
 
     @property
     def model_config(self) -> ModelConfig | None:
@@ -2245,14 +2399,37 @@ class Agent(Servable, metaclass=_AgentMeta):
         from syrin.agent._run import run_agent_loop_async
 
         result = await run_agent_loop_async(self, user_input)
-        self.record_conversation_turn(user_input, result.content or "")
+        # Do NOT record conversation turn when guardrail blocked the call.
+        # Agent state (messages, cost) must be identical before and after a blocked call.
+        from syrin.enums import StopReason as _StopReason
+
+        if result.stop_reason is not _StopReason.GUARDRAIL:
+            self.record_conversation_turn(user_input, result.content or "")
         return result
 
     def _run_loop_response(self, user_input: str | list[dict[str, object]]) -> Response[str]:
-        """Run using the configured loop strategy (sync wrapper)."""
-        from syrin._loop import get_loop
+        """Run using the configured loop strategy (sync wrapper).
 
-        return get_loop().run_until_complete(self._run_loop_response_async(user_input))
+        Uses a thread pool worker with a fresh event loop to avoid
+        calling run_until_complete() on an already-running loop and to
+        avoid mutating the calling thread's global event loop state.
+        The calling thread's contextvars (e.g. active tracing session) are
+        propagated into the worker thread via contextvars.copy_context().
+        """
+        coro = self._run_loop_response_async(user_input)
+        ctx = contextvars.copy_context()
+
+        def _run_in_fresh_loop() -> Response[str]:
+            new_loop = asyncio.new_event_loop()
+            try:
+                # ctx.run propagates session/span context vars into this thread
+                # and into any Tasks created inside run_until_complete.
+                result: Response[str] = ctx.run(new_loop.run_until_complete, coro)
+                return result
+            finally:
+                new_loop.close()
+
+        return _AGENT_THREAD_POOL.submit(_run_in_fresh_loop).result()
 
     def _stream_response(self, user_input: str | list[dict[str, object]]) -> Iterator[StreamChunk]:
         """Stream response chunks synchronously. Records cost per chunk and checks budget mid-stream."""
@@ -2348,7 +2525,16 @@ class Agent(Servable, metaclass=_AgentMeta):
             >>> r = agent.run("What is 2+2?")
             >>> r = agent.run("Long task...", context=Context(max_tokens=4000))
         """
-        _validate_user_input(user_input, "run")
+        _validate_user_input(user_input, "run", self._max_input_length)
+        # 6.1: Normalize user input if enabled
+        if (
+            isinstance(user_input, str)
+            and self._config is not None
+            and getattr(self._config, "normalize_inputs", False)
+        ):
+            from syrin.guardrails.injection._normalize import normalize_input
+
+            user_input = normalize_input(user_input)
         self._call_context = context
         self._call_template_vars = dict(template_variables) if template_variables else None
         self._call_inject = inject
@@ -2403,7 +2589,7 @@ class Agent(Servable, metaclass=_AgentMeta):
         Example:
             >>> r = await agent.arun("Summarize this")
         """
-        _validate_user_input(user_input, "arun")
+        _validate_user_input(user_input, "arun", self._max_input_length)
         self._call_context = context
         self._call_template_vars = dict(template_variables) if template_variables else None
         self._call_inject = inject
@@ -2460,7 +2646,7 @@ class Agent(Servable, metaclass=_AgentMeta):
             >>> for chunk in agent.stream("Write a poem"):
             ...     print(chunk.text, end="")
         """
-        _validate_user_input(user_input, "stream")
+        _validate_user_input(user_input, "stream", self._max_input_length)
         self._call_context = context
         self._call_template_vars = dict(template_variables) if template_variables else None
         self._call_inject = inject
@@ -2503,7 +2689,7 @@ class Agent(Servable, metaclass=_AgentMeta):
             >>> async for chunk in agent.astream("Write a poem"):
             ...     print(chunk.text, end="")
         """
-        _validate_user_input(user_input, "astream")
+        _validate_user_input(user_input, "astream", self._max_input_length)
         self._call_context = context
         self._call_template_vars = dict(template_variables) if template_variables else None
         self._call_inject = inject
@@ -2642,6 +2828,18 @@ class Agent(Servable, metaclass=_AgentMeta):
         return build_router(self, cfg)
 
     # serve() inherited from Servable — HTTP, CLI, STDIO protocols
+
+    async def __aenter__(self) -> Agent:
+        """D12: Async context manager entry. Returns self."""
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
+        """D12: Async context manager exit. Does not suppress exceptions."""
 
 
 # Presets and builder

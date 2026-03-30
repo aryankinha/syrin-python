@@ -1,7 +1,7 @@
 """Knowledge (RAG) examples.
 
 - loaders_and_document: Document model and loaders
-- chunking: ChunkConfig, ChunkStrategy, get_chunker
+- chunking: ChunkStrategy, get_chunker (ChunkConfig internal)
 - vector_store: InMemoryKnowledgeStore, upsert, search, delete
 - knowledge_agent: RAG + Agent with search_knowledge tool
 - agentic_rag: Agentic RAG with search_knowledge_deep, verify_knowledge

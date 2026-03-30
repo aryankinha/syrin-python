@@ -422,10 +422,10 @@ with Memory(backend=MemoryBackend.SQLITE, path="./memory.db") as memory:
 
 ## What's Next?
 
-- [Memory Overview](/core/memory) - Back to memory basics
-- [Memory Types](/core/memory-types) - Core, Episodic, Semantic, Procedural
+- [Memory Overview](/agent-kit/core/memory) - Back to memory basics
+- [Memory Types](/agent-kit/core/memory-types) - Core, Episodic, Semantic, Procedural
 
 ## See Also
 
-- [Agents](/agent/overview) - Building agents with memory
-- [Budget](/core/budget) - Control memory costs
+- [Agents](/agent-kit/agent/overview) - Building agents with memory
+- [Budget](/agent-kit/core/budget) - Control memory costs

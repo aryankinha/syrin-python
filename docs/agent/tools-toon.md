@@ -248,12 +248,12 @@ send_alert:
 
 ## What's Next?
 
-- [Built-in Tools](/agent/tools-builtin) — Tools that come with Syrin
-- [Structured Output](/agent/structured-output) — Get typed responses from agents
-- [Guardrails](/agent/guardrails) — Validate tool inputs and outputs
+- [Built-in Tools](/agent-kit/agent/tools-builtin) — Tools that come with Syrin
+- [Structured Output](/agent-kit/agent/structured-output) — Get typed responses from agents
+- [Guardrails](/agent-kit/agent/guardrails) — Validate tool inputs and outputs
 
 ## See Also
 
-- [Tools Overview](/agent/tools) — Complete guide to using tools
-- [Token Optimization](/core/context) — More ways to save tokens
-- [Hooks Reference](/debugging/hooks-reference) — Tool observability hooks
+- [Tools Overview](/agent-kit/agent/tools) — Complete guide to using tools
+- [Token Optimization](/agent-kit/core/context) — More ways to save tokens
+- [Hooks Reference](/agent-kit/debugging/hooks-reference) — Tool observability hooks

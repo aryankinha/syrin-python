@@ -17,6 +17,7 @@ from syrin.response import Response
 from syrin.serve.config import ServeConfig, ServeConfigKwargs
 from syrin.serve.servable import Servable
 from syrin.types import TokenUsage
+from syrin.watch import Watchable
 
 _log = logging.getLogger(__name__)
 
@@ -410,7 +411,7 @@ class PipelineRun:
         return results
 
 
-class Pipeline(Servable):
+class Pipeline(Watchable, Servable):
     """Pipeline for running multiple agents sequentially or in parallel.
 
     Static pipeline: fixed list of agents. Each agent receives output of the previous
@@ -462,6 +463,8 @@ class Pipeline(Servable):
                 raise TypeError(f"audit must be AuditLog or None, got {type(audit).__name__}.")
             audit_handler = AuditHookHandler(source="Pipeline", config=audit)
             self._events.on_all(audit_handler)
+        # Initialize Watchable mixin state
+        Watchable.__init__(self)
 
     def _emit_pipeline_hook(self, hook: Hook, ctx: EventContext) -> None:
         """Emit pipeline hook for observability and audit."""
@@ -554,6 +557,23 @@ class Pipeline(Servable):
 
         cfg = config if isinstance(config, ServeConfig) else ServeConfig(**config_kwargs)
         return build_router(self, cfg)
+
+    async def _arun_for_trigger(self, input: str) -> object:  # noqa: A002
+        """Run the pipeline with a trigger input string.
+
+        Uses pre-configured agents (set via ``agents=`` constructor arg) in
+        sequential mode. When no agents are pre-configured, falls back to
+        running a single ResearchAgent-like pass.
+        """
+        agents = self._agents or []
+        if not agents:
+            raise RuntimeError(
+                "pipeline.watch() requires agents to be pre-configured. "
+                "Pass agents=[MyAgent, ...] to Pipeline() constructor."
+            )
+        return await self.run_sequential_async(
+            [(cls, input) if isinstance(cls, type) else cls for cls in agents]
+        )
 
     # serve() inherited from Servable — HTTP, CLI, STDIO protocols
 
@@ -708,7 +728,7 @@ def sequential(
 # =============================================================================
 
 
-class DynamicPipeline(Servable):
+class DynamicPipeline(Watchable, Servable):
     """Pipeline where LLM decides how many and what agents to spawn.
 
     This is a truly agentic feature - the LLM analyzes the task and decides:
@@ -785,6 +805,9 @@ class DynamicPipeline(Servable):
                 raise TypeError(f"audit must be AuditLog or None, got {type(audit).__name__}.")
             audit_handler = AuditHookHandler(source="DynamicPipeline", config=audit)
             self._events.on_all(audit_handler)
+
+        # Initialize Watchable mixin state
+        Watchable.__init__(self)
 
     @property
     def events(self) -> Events:
@@ -1311,6 +1334,11 @@ IMPORTANT: Return ONLY valid JSON, no other text."""
 
         cfg = config if isinstance(config, ServeConfig) else ServeConfig(**config_kwargs)
         return build_router(self, cfg)
+
+    async def _arun_for_trigger(self, input: str) -> object:  # noqa: A002
+        """Run the dynamic pipeline with a trigger input string."""
+        loop = __import__("asyncio").get_event_loop()
+        return await loop.run_in_executor(None, self.run, input)
 
     # serve() inherited from Servable — HTTP, CLI, STDIO protocols
 

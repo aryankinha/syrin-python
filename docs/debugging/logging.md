@@ -323,12 +323,12 @@ logging.getLogger("syrin").addHandler(handler)
 
 ## What's Next?
 
-- [Debugging Techniques](/debugging/debugging-techniques) — Real-world debugging patterns
-- [Tracing Exporters](/debugging/tracing-exporters) — Route traces to observability platforms
-- [Hooks Reference](/debugging/hooks-reference) — Complete hooks reference
+- [Debugging Techniques](/agent-kit/debugging/debugging-techniques) — Real-world debugging patterns
+- [Tracing Exporters](/agent-kit/debugging/tracing-exporters) — Route traces to observability platforms
+- [Hooks Reference](/agent-kit/debugging/hooks-reference) — Complete hooks reference
 
 ## See Also
 
-- [Tracing Overview](/debugging/tracing) — Understanding spans and sessions
-- [Hooks System](/debugging/hooks) — Reacting to agent lifecycle events
+- [Tracing Overview](/agent-kit/debugging/tracing) — Understanding spans and sessions
+- [Hooks System](/agent-kit/debugging/hooks) — Reacting to agent lifecycle events
 - [Audit Logging Examples](https://github.com/anomalyco/syrin-python/tree/main/examples/10_observability) — Working code examples

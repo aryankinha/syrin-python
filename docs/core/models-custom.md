@@ -425,12 +425,12 @@ When setting up cost tracking, here's a quick reference:
 
 ## What's Next?
 
-- [Providers Overview](/core/models-providers) - All built-in providers
-- [Model Routing](/core/models-routing) - Automatically switch between models
-- [Budget](/core/budget) - Control spending across models
+- [Providers Overview](/agent-kit/core/models-providers) - All built-in providers
+- [Model Routing](/agent-kit/core/models-routing) - Automatically switch between models
+- [Budget](/agent-kit/core/budget) - Control spending across models
 
 ## See Also
 
-- [Tools](/agent/tools) - Give your custom model abilities
-- [Prompts](/core/prompts) - Get the best from your model
-- [Structured Output](/agent/structured-output) - Get typed responses
+- [Tools](/agent-kit/agent/tools) - Give your custom model abilities
+- [Prompts](/agent-kit/core/prompts) - Get the best from your model
+- [Structured Output](/agent-kit/agent/structured-output) - Get typed responses

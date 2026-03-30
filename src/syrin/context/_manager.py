@@ -499,7 +499,10 @@ class DefaultContextManager:
                 self._last_snapshot = snap
                 self._emit(
                     Hook.CONTEXT_SNAPSHOT.value,
-                    {"snapshot": snap.to_dict(), "utilization_pct": snap.utilization_pct},
+                    {
+                        "snapshot": snap.to_dict(include_raw_messages=True),
+                        "utilization_pct": snap.utilization_pct,
+                    },
                 )
 
                 if span:
@@ -677,7 +680,7 @@ class DefaultContextManager:
             compact_method=self._last_compaction_method if self._did_compact else None,
             messages_count=len(final_msgs),
             message_preview=previews,
-            raw_messages=None,
+            raw_messages=list(final_msgs),
             provenance=provenances,
             why_included=why_included,
             context_rot_risk=_context_rot_risk_from_utilization(utilization_pct),

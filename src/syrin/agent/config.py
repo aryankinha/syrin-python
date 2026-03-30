@@ -14,7 +14,7 @@ from syrin.checkpoint import CheckpointConfig, Checkpointer
 if TYPE_CHECKING:
     from syrin.audit import AuditLog
     from syrin.circuit import CircuitBreaker
-    from syrin.context import Context, ContextConfig, DefaultContextManager
+    from syrin.context import Context, DefaultContextManager
     from syrin.domain_events import EventBus
     from syrin.hitl import ApprovalGate
     from syrin.observability import Tracer
@@ -47,12 +47,14 @@ class AgentConfig:
         "event_bus",
         "audit",
         "dependencies",
+        "spotlight_tool_outputs",
+        "normalize_inputs",
     )
 
     def __init__(  # type: ignore[explicit-any]
         self,
         *,
-        context: Context | ContextConfig | DefaultContextManager | None = None,
+        context: Context | DefaultContextManager | None = None,
         rate_limit: APIRateLimit | RateLimitManager | None = None,
         checkpoint: CheckpointConfig | Checkpointer | None = None,
         circuit_breaker: CircuitBreaker | None = None,
@@ -61,6 +63,8 @@ class AgentConfig:
         event_bus: EventBus[Any] | None = None,
         audit: AuditLog | None = None,
         dependencies: object | None = None,
+        spotlight_tool_outputs: bool = False,
+        normalize_inputs: bool = False,
     ) -> None:
         """Create AgentConfig with optional advanced options.
 
@@ -75,6 +79,11 @@ class AgentConfig:
             audit: AuditLog for compliance logging (LLM calls, tool calls, handoffs).
             dependencies: Injected deps for tools (RunContext.deps). Enables testing
                 and multi-tenant (different deps per user).
+            spotlight_tool_outputs: 6.2: Wrap tool output in trust-label delimiters
+                (spotlighting) before inserting into context. Reduces prompt injection
+                risk from tool outputs. Default: False.
+            normalize_inputs: 6.1: Apply NFKC normalization + control-char stripping
+                to user input before processing. Default: False.
         """
         self.context = context
         self.rate_limit = rate_limit
@@ -85,3 +94,5 @@ class AgentConfig:
         self.event_bus = event_bus
         self.audit = audit
         self.dependencies = dependencies
+        self.spotlight_tool_outputs = spotlight_tool_outputs
+        self.normalize_inputs = normalize_inputs

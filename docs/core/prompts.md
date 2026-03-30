@@ -691,12 +691,12 @@ Before deploying your system prompt:
 
 ## What's Next?
 
-- **[Prompt Templates](/core/prompts-templates)** — Learn to create dynamic, parameterized prompts that adapt to different users and contexts
-- **[@system_prompt Decorator](/core/prompts-templates#system-prompt-decorator)** — Encapsulate prompts inside your agent class
-- **[Dynamic Prompts](/core/prompts-templates#dynamic-prompts)** — Generate prompts at runtime based on agent state
+- **[Prompt Templates](/agent-kit/core/prompts-templates)** — Learn to create dynamic, parameterized prompts that adapt to different users and contexts
+- **[@system_prompt Decorator](/agent-kit/core/prompts-templates#system-prompt-decorator)** — Encapsulate prompts inside your agent class
+- **[Dynamic Prompts](/agent-kit/core/prompts-templates#dynamic-prompts)** — Generate prompts at runtime based on agent state
 
 ## See Also
 
-- [Prompt Templates](/core/prompts-templates) — Parameterized and dynamic prompts
-- [Creating Agents](/agent/creating-agents) — Put prompts into practice
-- [Memory & Prompts](/core/memory) — How memory integrates with prompts
+- [Prompt Templates](/agent-kit/core/prompts-templates) — Parameterized and dynamic prompts
+- [Creating Agents](/agent-kit/agent/creating-agents) — Put prompts into practice
+- [Memory & Prompts](/agent-kit/core/memory) — How memory integrates with prompts

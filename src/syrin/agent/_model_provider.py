@@ -16,15 +16,40 @@ if TYPE_CHECKING:
     from syrin.types import ModelConfig
 
 
-def switch_model(agent: Agent, model: Model | Any) -> None:  # type: ignore[explicit-any]
+def switch_model(agent: Agent, model: Model | Any, reason: str = "") -> None:  # type: ignore[explicit-any]
     """Change the LLM used by the agent at runtime."""
+    from_model = agent._model_config.model_id if agent._model_config is not None else None
+
     if isinstance(model, Model):
         agent._model = model
         agent._model_config = model.to_config()
     else:
         agent._model = None
         agent._model_config = model
+
+    to_model = agent._model_config.model_id if agent._model_config is not None else None
     agent._provider = _resolve_provider(agent._model, agent._model_config)
+
+    _emit_model_switched(agent, from_model, to_model, reason)
+
+
+def _emit_model_switched(
+    agent: Agent,
+    from_model: str | None,
+    to_model: str | None,
+    reason: str,
+) -> None:
+    """Emit Hook.MODEL_SWITCHED if the agent has an events system."""
+    if not hasattr(agent, "_emit_event"):
+        return
+    try:
+        from syrin.enums import Hook
+        from syrin.events import EventContext
+
+        ctx = EventContext(from_model=from_model, to_model=to_model, reason=reason)
+        agent._emit_event(Hook.MODEL_SWITCHED, ctx)
+    except Exception:
+        pass
 
 
 def resolve_fallback_provider(agent: Agent) -> tuple[Provider, ModelConfig]:

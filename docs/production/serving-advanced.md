@@ -387,8 +387,8 @@ Before going to production:
 
 ## See Also
 
-- [Serving: HTTP API](/production/serving-http) — REST API reference
-- [Serving: CLI](/production/serving-cli) — Interactive terminal
-- [Playground](/production/playground) — Web testing interface
-- [Remote Config](/production/remote-config) — Runtime configuration updates
-- [Checkpointing](/production/checkpointing) — State persistence
+- [Serving: HTTP API](/agent-kit/production/serving-http) — REST API reference
+- [Serving: CLI](/agent-kit/production/serving-cli) — Interactive terminal
+- [Playground](/agent-kit/production/playground) — Web testing interface
+- [Remote Config](/agent-kit/production/remote-config) — Runtime configuration updates
+- [Checkpointing](/agent-kit/production/checkpointing) — State persistence

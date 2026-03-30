@@ -292,7 +292,7 @@ for attempt in range(3):
 
 ## See Also
 
-- [Dynamic Pipeline](/multi-agent/dynamic-pipeline) — LLM decides which agents to spawn
-- [Pipeline](/multi-agent/pipeline) — Sequential and parallel agent execution
-- [Spawn](/multi-agent/handoff) — Create child agents with shared budget
-- [Hooks Reference](/debugging/hooks) — Complete hook lifecycle documentation
+- [Dynamic Pipeline](/agent-kit/multi-agent/dynamic-pipeline) — LLM decides which agents to spawn
+- [Pipeline](/agent-kit/multi-agent/pipeline) — Sequential and parallel agent execution
+- [Spawn](/agent-kit/multi-agent/handoff) — Create child agents with shared budget
+- [Hooks Reference](/agent-kit/debugging/hooks) — Complete hook lifecycle documentation

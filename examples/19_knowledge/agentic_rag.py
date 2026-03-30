@@ -24,7 +24,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 from syrin import Agent
 from syrin.embedding import Embedding
 from syrin.enums import KnowledgeBackend
-from syrin.knowledge import AgenticRAGConfig, Knowledge
+from syrin.knowledge import Knowledge
 from syrin.model import Model
 
 
@@ -41,12 +41,10 @@ async def main() -> None:
         embedding=Embedding.OpenAI("text-embedding-3-small", api_key=os.getenv("OPENAI_API_KEY")),
         backend=KnowledgeBackend.MEMORY,
         agentic=True,
-        agentic_config=AgenticRAGConfig(
-            max_search_iterations=3,
-            decompose_complex=True,
-            grade_results=True,
-            relevance_threshold=0.5,
-        ),
+        agentic_max_iterations=3,
+        agentic_decompose=True,
+        agentic_grade_results=True,
+        agentic_relevance_threshold=0.5,
     )
 
     # 2. Attach to Agent — gets search_knowledge, search_knowledge_deep, verify_knowledge

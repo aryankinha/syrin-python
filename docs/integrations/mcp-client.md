@@ -285,12 +285,12 @@ tools = mcp.tools()  # See debug logs
 
 ## What's Next?
 
-- [Knowledge Pool](/integrations/knowledge-pool) — Add RAG to your agents
-- [Grounding](/integrations/grounding) — Verify facts and cite sources
-- [Agent Tools](/agent/tools) — Define your own tools
+- [Knowledge Pool](/agent-kit/integrations/knowledge-pool) — Add RAG to your agents
+- [Grounding](/agent-kit/integrations/grounding) — Verify facts and cite sources
+- [Agent Tools](/agent-kit/agent/tools) — Define your own tools
 
 ## See Also
 
-- [MCP Overview](/integrations/mcp) — Protocol concepts
-- [MCP Server](/integrations/mcp-server) — Create MCP servers
-- [Tools Reference](/agent/tools) — Tool definitions
+- [MCP Overview](/agent-kit/integrations/mcp) — Protocol concepts
+- [MCP Server](/agent-kit/integrations/mcp-server) — Create MCP servers
+- [Tools Reference](/agent-kit/agent/tools) — Tool definitions

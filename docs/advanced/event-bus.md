@@ -419,12 +419,12 @@ assert Hook.AGENT_RUN_END in events_fired
 
 ## What's Next?
 
-- [Tracing](/debugging/tracing) — Full observability
-- [Hooks Reference](/debugging/hooks-reference) — Complete hooks list
-- [Testing](/advanced/testing) — Test event handlers
+- [Tracing](/agent-kit/debugging/tracing) — Full observability
+- [Hooks Reference](/agent-kit/debugging/hooks-reference) — Complete hooks list
+- [Testing](/agent-kit/advanced/testing) — Test event handlers
 
 ## See Also
 
-- [Observability Overview](/debugging/overview) — Debugging tools
-- [Tracing Exporters](/debugging/tracing-exporters) — Export traces
-- [Logging](/debugging/logging) — Structured logging
+- [Observability Overview](/agent-kit/debugging/overview) — Debugging tools
+- [Tracing Exporters](/agent-kit/debugging/tracing-exporters) — Export traces
+- [Logging](/agent-kit/debugging/logging) — Structured logging

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
@@ -405,7 +406,7 @@ class ValidationPipeline:
         """
         return f"""Previous output failed validation:
 
-Error: {hint}
+Error: {_sanitize_for_retry(hint)}
 
 Please fix and return valid JSON matching the required schema.
 
@@ -436,6 +437,19 @@ Required schema:
             time.sleep(wait_time)
 
 
+_CONTROL_CHAR_RE = re.compile(
+    r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f"  # C0 controls except \t, \n, \r
+    r"\x80-\x9f"  # C1 controls
+    r"\u202a-\u202e\u2066-\u2069"  # Unicode direction overrides
+    r"]"
+)
+
+
+def _sanitize_for_retry(text: str) -> str:
+    """Strip control characters and direction overrides from LLM output before embedding in retry prompt."""
+    return _CONTROL_CHAR_RE.sub("", text)
+
+
 def get_retry_prompt(output_type: type, error_message: str) -> str:
     """Build the prompt to send to the LLM when structured output validation fails.
 
@@ -449,10 +463,11 @@ def get_retry_prompt(output_type: type, error_message: str) -> str:
     Returns:
         A prompt string to send as the next user message.
     """
+    safe_error = _sanitize_for_retry(error_message)
     schema_str = _schema_str_for_type(output_type)
     return f"""Previous output failed validation:
 
-Error: {error_message}
+Error: {safe_error}
 
 Please fix and return valid JSON matching the required schema.
 

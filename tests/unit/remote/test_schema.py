@@ -309,7 +309,7 @@ class TestExtractAgentSchema:
 
         agent = Agent(
             model=Model.Almock(),
-            memory=Memory(types=[MemoryType.CORE], top_k=5),
+            memory=Memory(restrict_to=[MemoryType.CORE], top_k=5),
         )
         schema = extract_agent_schema(agent)
         assert "memory" in schema.sections

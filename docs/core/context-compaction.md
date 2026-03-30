@@ -416,11 +416,11 @@ context = Context(
 
 ## What's Next?
 
-- [Context Overview](/core/context) - Back to context basics
-- [Memory](/core/memory) - How memory integrates
-- [Budget](/core/budget) - Cost control
+- [Context Overview](/agent-kit/core/context) - Back to context basics
+- [Memory](/agent-kit/core/memory) - How memory integrates
+- [Budget](/agent-kit/core/budget) - Cost control
 
 ## See Also
 
-- [Agents](/agent/overview) - Building agents
-- [Prompts](/core/prompts) - Writing effective prompts
+- [Agents](/agent-kit/agent/overview) - Building agents
+- [Prompts](/agent-kit/core/prompts) - Writing effective prompts

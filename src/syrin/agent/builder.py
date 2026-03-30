@@ -40,7 +40,6 @@ class AgentBuilder:
         self._output: object = None
         self._max_tool_iterations: int = 10
         self._budget_store: object = None
-        self._budget_store_key: str = "default"
         self._memory: Memory | None = None
         self._loop_strategy: object = None
         self._custom_loop: object = None
@@ -82,10 +81,9 @@ class AgentBuilder:
         self._max_tool_iterations = n
         return self
 
-    def with_budget_store(self, store: object, key: str = "default") -> AgentBuilder:
-        """Set budget store for persistence."""
+    def with_budget_store(self, store: object) -> AgentBuilder:
+        """Set budget store for persistence. Key is set on BudgetStore(key=...)."""
         self._budget_store = store
-        self._budget_store_key = key
         return self
 
     def with_memory(self, memory: Memory) -> AgentBuilder:
@@ -171,7 +169,6 @@ class AgentBuilder:
             output=self._output,  # type: ignore[arg-type]
             max_tool_iterations=self._max_tool_iterations,
             budget_store=self._budget_store,  # type: ignore[arg-type]
-            budget_store_key=self._budget_store_key,
             memory=self._memory,
             loop_strategy=self._loop_strategy,  # type: ignore[arg-type]
             custom_loop=self._custom_loop,  # type: ignore[arg-type]

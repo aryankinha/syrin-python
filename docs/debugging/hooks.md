@@ -53,7 +53,7 @@ def my_handler(ctx):
     print(ctx["input"])
 ```
 
-The context fields vary by hook. See the [Hooks Reference](/debugging/hooks-reference) for each hook's context.
+The context fields vary by hook. See the [Hooks Reference](/agent-kit/debugging/hooks-reference) for each hook's context.
 
 ## Hook Types
 
@@ -304,7 +304,7 @@ agent.events.on(Hook.AGENT_RUN_END, safe_handler)
 
 ## See Also
 
-- [Debugging Overview](/debugging/overview) — Introduction to observability
-- [Hooks Reference](/debugging/hooks-reference) — Complete hook reference
-- [Audit Logging](/debugging/logging) — Persist events to files
-- [Playground](/production/playground) — Visual observability panel
+- [Debugging Overview](/agent-kit/debugging/overview) — Introduction to observability
+- [Hooks Reference](/agent-kit/debugging/hooks-reference) — Complete hook reference
+- [Audit Logging](/agent-kit/debugging/logging) — Persist events to files
+- [Playground](/agent-kit/production/playground) — Visual observability panel

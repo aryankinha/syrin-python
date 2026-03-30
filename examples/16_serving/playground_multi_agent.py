@@ -20,7 +20,8 @@ if str(_root) not in sys.path:
 from dotenv import load_dotenv
 
 from examples.models.models import almock, gpt4_mini
-from syrin import Agent, Budget, ServeProtocol
+from syrin import Agent, Budget
+from syrin.enums import ServeProtocol
 from syrin.serve import AgentRouter, ServeConfig
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")

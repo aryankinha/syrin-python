@@ -33,7 +33,8 @@ class TestWriteModeAsync:
         t0 = time.perf_counter()
         ok = mem.remember("Async write", memory_type=MemoryType.EPISODIC)
         elapsed = time.perf_counter() - t0
-        assert ok is True
+        # A13: async mode returns a Future; truthy check still works
+        assert ok
         assert elapsed < 0.1  # Should return quickly
 
     def test_forget_async_returns_immediately(self, temp_db: str) -> None:

@@ -350,14 +350,14 @@ Pass the correct type. e.g., `with_budget(Budget(...))` not `with_budget(...)`.
 
 ## What's Next?
 
-- [Running Agents](/agent/running-agents) - Execute your built agent
-- [Tools](/agent/tools) - Add abilities to your agent
-- [Memory](/core/memory) - Persistent memory
-- [Budget](/core/budget) - Cost control
+- [Running Agents](/agent-kit/agent/running-agents) - Execute your built agent
+- [Tools](/agent-kit/agent/tools) - Add abilities to your agent
+- [Memory](/agent-kit/core/memory) - Persistent memory
+- [Budget](/agent-kit/core/budget) - Cost control
 
 ## See Also
 
-- [Creating Agents](/agent/creating-agents) - Class-based approach
-- [Agent Anatomy](/agent/anatomy) - Component reference
-- [Response Object](/agent/response-object) - What you get back
-- [Loop Strategies](/agent/running-agents) - Thinking behavior
+- [Creating Agents](/agent-kit/agent/creating-agents) - Class-based approach
+- [Agent Anatomy](/agent-kit/agent/anatomy) - Component reference
+- [Response Object](/agent-kit/agent/response-object) - What you get back
+- [Loop Strategies](/agent-kit/agent/running-agents) - Thinking behavior

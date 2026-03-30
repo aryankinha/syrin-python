@@ -39,6 +39,7 @@ class OpenAIEmbedding:
         model: str = "text-embedding-3-small",
         api_key: str | None = None,
         dimensions: int | None = None,
+        batch_size: int = 100,
     ) -> None:
         """Initialize OpenAI embedding provider.
 
@@ -47,9 +48,12 @@ class OpenAIEmbedding:
             api_key: OpenAI API key. Defaults to OPENAI_API_KEY env var.
             dimensions: Optional dimension reduction (256, 512, 768, 1024, 1536, 2048, 3072).
                        Only supported for text-embedding-3 models.
+            batch_size: Max texts per API call. P8: defaults to 100 to avoid rate-limit
+                       and payload-size issues with large corpora.
         """
         self._model = model
         self._api_key = api_key or os.getenv("OPENAI_API_KEY")
+        self._batch_size = batch_size
 
         if not self._api_key:
             raise ValueError(
@@ -73,6 +77,11 @@ class OpenAIEmbedding:
             self._dimensions = _MODEL_DIMENSIONS.get(model, 1536)
 
         self._client: AsyncOpenAI | None = None
+
+    @property
+    def batch_size(self) -> int:
+        """Max texts per API call."""
+        return self._batch_size
 
     @property
     def dimensions(self) -> int:
@@ -115,35 +124,38 @@ class OpenAIEmbedding:
             return []
 
         client = self._get_client()
+        all_embeddings: list[list[float]] = []
 
-        # Build request kwargs
-        kwargs: dict[str, object] = {
-            "model": self._model,
-            "input": texts,
-        }
+        # P8: split into batches to avoid payload-size and rate-limit issues
+        for i in range(0, len(texts), self._batch_size):
+            batch = texts[i : i + self._batch_size]
 
-        # Add dimensions if reduced
-        if self._dimensions != _MODEL_DIMENSIONS.get(self._model, 1536):
-            kwargs["dimensions"] = self._dimensions
+            kwargs: dict[str, object] = {
+                "model": self._model,
+                "input": batch,
+            }
 
-        response = await client.embeddings.create(**kwargs)  # type: ignore[arg-type]
+            # Add dimensions if reduced
+            if self._dimensions != _MODEL_DIMENSIONS.get(self._model, 1536):
+                kwargs["dimensions"] = self._dimensions
 
-        # Extract embeddings
-        embeddings = [item.embedding for item in response.data]
+            response = await client.embeddings.create(**kwargs)  # type: ignore[arg-type]
 
-        # Track cost if budget_tracker provided
-        if budget_tracker is not None and response.usage is not None:
-            from syrin.cost import calculate_embedding_cost
+            all_embeddings.extend(item.embedding for item in response.data)
 
-            token_count = response.usage.prompt_tokens
-            cost = calculate_embedding_cost(self._model, token_count)
-            budget_tracker.record_external(  # type: ignore[attr-defined]
-                service="openai_embedding",
-                cost_usd=cost,
-                metadata={
-                    "model": self._model,
-                    "token_count": token_count,
-                },
-            )
+            # Track cost if budget_tracker provided
+            if budget_tracker is not None and response.usage is not None:
+                from syrin.cost import calculate_embedding_cost
 
-        return embeddings
+                token_count = response.usage.prompt_tokens
+                cost = calculate_embedding_cost(self._model, token_count)
+                budget_tracker.record_external(  # type: ignore[attr-defined]
+                    service="openai_embedding",
+                    cost_usd=cost,
+                    metadata={
+                        "model": self._model,
+                        "token_count": token_count,
+                    },
+                )
+
+        return all_embeddings

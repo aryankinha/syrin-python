@@ -323,7 +323,7 @@ result2 = agent.run("Different approach to same query")
 
 ## See Also
 
-- [Error Handling](/agent/error-handling) — Handling errors gracefully
-- [Budget](/core/budget) — Budget configuration
-- [Memory](/core/memory) — Memory configuration
-- [Serving: Advanced](/production/serving-advanced) — Deploying checkpointed agents
+- [Error Handling](/agent-kit/agent/error-handling) — Handling errors gracefully
+- [Budget](/agent-kit/core/budget) — Budget configuration
+- [Memory](/agent-kit/core/memory) — Memory configuration
+- [Serving: Advanced](/agent-kit/production/serving-advanced) — Deploying checkpointed agents

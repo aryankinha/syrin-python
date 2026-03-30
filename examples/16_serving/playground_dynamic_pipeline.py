@@ -22,8 +22,9 @@ if str(_root) not in sys.path:
 from dotenv import load_dotenv
 
 from examples.models.models import gpt4_mini
-from syrin import Agent, Budget, ServeProtocol
+from syrin import Agent, Budget
 from syrin.agent.multi_agent import DynamicPipeline
+from syrin.enums import ServeProtocol
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 

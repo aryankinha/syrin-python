@@ -156,7 +156,7 @@ class ModelVariable:
         self.required = required
 
 
-class ModelSettings:
+class _ModelSettings:
     """Model-level settings: temperature, tokens, context window, etc.
 
     Accessed via ``model.settings``. Use these to inspect or validate
@@ -874,7 +874,7 @@ class Model:
             profile_name.strip() if isinstance(profile_name, str) and profile_name else None
         )
 
-        self._settings = ModelSettings(
+        self._settings = _ModelSettings(
             context_window=context_window,
             max_output_tokens=max_output_tokens or max_tokens,
             default_reserve_tokens=default_reserve_tokens,
@@ -1017,7 +1017,7 @@ class Model:
         return self._output_type
 
     @property
-    def settings(self) -> ModelSettings:
+    def settings(self) -> _ModelSettings:
         """Model-level settings: temperature, max_output_tokens, context_window, etc.
 
         Inspect or validate parameters sent to the LLM. Modify via ``with_params()``.
@@ -1905,7 +1905,6 @@ __all__ = [
     "Model",
     "ModelVersion",
     "ModelVariable",
-    "ModelSettings",
     "ModelRegistry",
     "Middleware",
 ]

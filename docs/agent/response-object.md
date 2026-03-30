@@ -550,14 +550,14 @@ Here's how the Response fits into the full execution flow:
 
 ## What's Next?
 
-- [Structured Output](/agent/structured-output) - Get typed data back
-- [Streaming](/agent/streaming) - Real-time responses
-- [Tools](/agent/tools) - What tools do
-- [Budget](/core/budget) - Cost control
+- [Structured Output](/agent-kit/agent/structured-output) - Get typed data back
+- [Streaming](/agent-kit/agent/streaming) - Real-time responses
+- [Tools](/agent-kit/agent/tools) - What tools do
+- [Budget](/agent-kit/core/budget) - Cost control
 
 ## See Also
 
-- [Running Agents](/agent/running-agents) - How to call response()
-- [Loop Strategies](/agent/running-agents) - How the agent thinks
-- [Agent Anatomy](/agent/anatomy) - Components overview
-- [Memory](/core/memory) - What was remembered
+- [Running Agents](/agent-kit/agent/running-agents) - How to call response()
+- [Loop Strategies](/agent-kit/agent/running-agents) - How the agent thinks
+- [Agent Anatomy](/agent-kit/agent/anatomy) - Components overview
+- [Memory](/agent-kit/core/memory) - What was remembered

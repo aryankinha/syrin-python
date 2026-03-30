@@ -354,14 +354,14 @@ print(f"Spent: ${agent.budget_state.spent:.4f}")
 
 ## What's Next?
 
-- [Creating Agents](/agent/creating-agents) - Build your first agent
-- [Builder Pattern](/agent/builder-pattern) - Fluent agent construction
-- [Tools](/agent/tools) - Deep dive into tool creation
-- [Memory](/core/memory) - Persistent memory details
+- [Creating Agents](/agent-kit/agent/creating-agents) - Build your first agent
+- [Builder Pattern](/agent-kit/agent/builder-pattern) - Fluent agent construction
+- [Tools](/agent-kit/agent/tools) - Deep dive into tool creation
+- [Memory](/agent-kit/core/memory) - Persistent memory details
 
 ## See Also
 
-- [Models](/core/models) - Model configuration
-- [Budget](/core/budget) - Cost control
-- [Context](/core/context) - Token management
-- [Prompts](/core/prompts) - Effective system prompts
+- [Models](/agent-kit/core/models) - Model configuration
+- [Budget](/agent-kit/core/budget) - Cost control
+- [Context](/agent-kit/core/context) - Token management
+- [Prompts](/agent-kit/core/prompts) - Effective system prompts

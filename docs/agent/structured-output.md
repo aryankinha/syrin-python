@@ -467,12 +467,12 @@ items: list[str]  # List of strings
 
 ## What's Next?
 
-- [Streaming](/agent/streaming) — Real-time responses for chat UIs
-- [Tools](/agent/tools) — Extend agent capabilities
-- [Guardrails](/agent/guardrails) — Validate input/output content
+- [Streaming](/agent-kit/agent/streaming) — Real-time responses for chat UIs
+- [Tools](/agent-kit/agent/tools) — Extend agent capabilities
+- [Guardrails](/agent-kit/agent/guardrails) — Validate input/output content
 
 ## See Also
 
-- [Response Object](/agent/response-object) — Full Response breakdown
-- [Agent Configuration](/agent/agent-configuration) — All configuration options
-- [Hooks Reference](/debugging/hooks-reference) — Validation hooks
+- [Response Object](/agent-kit/agent/response-object) — Full Response breakdown
+- [Agent Configuration](/agent-kit/agent/agent-configuration) — All configuration options
+- [Hooks Reference](/agent-kit/debugging/hooks-reference) — Validation hooks

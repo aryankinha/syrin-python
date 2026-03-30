@@ -302,12 +302,12 @@ PYTHONPATH=. python examples/05_tools/structured_output.py
 
 ## What's Next?
 
-- Explore [multi-agent patterns](/examples/multi-agent-patterns) for collaboration
-- Learn about [guardrails](/agent/guardrails) for safety
-- Understand [loop strategies](/agent/running-agents) for control
+- Explore [multi-agent patterns](/agent-kit/examples/multi-agent-patterns) for collaboration
+- Learn about [guardrails](/agent-kit/agent/guardrails) for safety
+- Understand [loop strategies](/agent-kit/agent/running-agents) for control
 
 ## See Also
 
-- [Tools documentation](/agent/tools)
-- [Structured output](/agent/structured-output)
-- [Guardrails documentation](/agent/guardrails)
+- [Tools documentation](/agent-kit/agent/tools)
+- [Structured output](/agent-kit/agent/structured-output)
+- [Guardrails documentation](/agent-kit/agent/guardrails)

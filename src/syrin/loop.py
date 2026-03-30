@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+import traceback
 from collections.abc import Awaitable, Callable
 from contextlib import nullcontext
 from dataclasses import dataclass, field
@@ -313,6 +314,8 @@ class SingleShotLoop(Loop):
                 iterations=1,
                 cost=cost_usd,
                 tokens=total_tokens,
+                input_tokens=u.input_tokens,
+                output_tokens=u.output_tokens,
                 duration=latency_ms / 1000.0,
                 stop_reason=stop_reason,
             ),
@@ -365,11 +368,16 @@ class ReactLoop(Loop):
 
         messages = ctx.build_messages(user_input)
         tools = ctx.tools
+        # build O(1) lookup dict once per run to avoid O(n) scan per tool call
+        tools_by_name = {t.name: t for t in tools} if tools else {}
         iteration = 0
         tools_used = []
         tool_calls_all = []
         generated_media: list[dict[str, object]] = []
         run_start = time.perf_counter()
+        # accumulate token usage across all iterations; only response.token_usage is authoritative
+        total_input = 0
+        total_output = 0
 
         ctx.emit_event(
             Hook.AGENT_RUN_START,
@@ -402,6 +410,9 @@ class ReactLoop(Loop):
                 ctx.record_rate_limit_usage(response.token_usage)
             if ctx.has_budget:
                 ctx.record_cost(response.token_usage, ctx.model_id)
+            # accumulate per-iteration so multi-tool-call runs count all tokens
+            total_input += response.token_usage.input_tokens
+            total_output += response.token_usage.output_tokens
 
             stop_reason = getattr(response, "stop_reason", None) or StopReason.END_TURN
 
@@ -427,7 +438,7 @@ class ReactLoop(Loop):
             for tc in response.tool_calls:
                 tool_name = tc.name
                 tool_args = tc.arguments or {}
-                tool_spec = next((t for t in (tools or []) if t.name == tool_name), None)
+                tool_spec = tools_by_name.get(tool_name)  # O(1)
                 needs_approval = tool_spec is not None and getattr(
                     tool_spec, "requires_approval", False
                 )
@@ -517,10 +528,12 @@ class ReactLoop(Loop):
                         )
                     )
                 except Exception as e:
+                    # include full traceback in hook for debugging
                     ctx.emit_event(
                         Hook.TOOL_ERROR,
                         EventContext(
                             error=str(e),
+                            traceback=traceback.format_exc(),
                             tool=tool_name,
                             iteration=iteration,
                         ),
@@ -535,18 +548,7 @@ class ReactLoop(Loop):
 
         latency_ms = (time.perf_counter() - run_start) * 1000
 
-        total_input = 0
-        total_output = 0
-
-        for msg in messages:
-            if hasattr(msg, "tokens"):
-                total_input += msg.tokens.get("input", 0)
-                total_output += msg.tokens.get("output", 0)
-
-        u = response.token_usage
-        total_input += u.input_tokens
-        total_output += u.output_tokens
-
+        # total_input/total_output accumulated per-iteration above; no dead message-loop
         total_cost = calculate_cost(
             ctx.model_id,
             TokenUsage(
@@ -565,6 +567,8 @@ class ReactLoop(Loop):
                 iterations=iteration,
                 cost=total_cost,
                 tokens=total_tokens,
+                input_tokens=total_input,
+                output_tokens=total_output,
                 duration=latency_ms / 1000.0,
                 stop_reason=getattr(stop_reason, "value", str(stop_reason)),
             ),
@@ -755,6 +759,16 @@ class HumanInTheLoop(Loop):
                         )
                     )
                 except Exception as e:
+                    # include full traceback in hook for debugging
+                    ctx.emit_event(
+                        Hook.TOOL_ERROR,
+                        EventContext(
+                            error=str(e),
+                            traceback=traceback.format_exc(),
+                            tool=tool_name,
+                            iteration=iteration,
+                        ),
+                    )
                     messages.append(
                         Message(
                             role=MessageRole.TOOL,
@@ -1010,6 +1024,8 @@ class PlanExecuteLoop(Loop):
                 iterations=plan_iteration + exec_iteration,
                 cost=total_cost,
                 tokens=total_tokens,
+                input_tokens=total_input,
+                output_tokens=total_output,
                 duration=latency_ms / 1000.0,
                 stop_reason=getattr(final_response, "stop_reason", "end_turn") or "end_turn",
             ),
@@ -1179,6 +1195,8 @@ class CodeActionLoop(Loop):
                 iterations=iteration,
                 cost=total_cost,
                 tokens=total_tokens,
+                input_tokens=total_input,
+                output_tokens=total_output,
                 duration=latency_ms / 1000.0,
                 stop_reason=getattr(response, "stop_reason", "end_turn") or "end_turn",
             ),

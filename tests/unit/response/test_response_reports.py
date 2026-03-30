@@ -53,17 +53,20 @@ class TestOutputReport:
         assert result.report.output.is_valid is True
         assert result.report.output.final_error is None
 
-    def test_output_validation_failure_tracked(self):
-        """Test that output validation failure is tracked."""
+    def test_output_validation_failure_raises(self):
+        """Test that output validation failure raises OutputValidationError when retries exhausted."""
         from pydantic import BaseModel
 
+        from syrin.exceptions import OutputValidationError
+        from syrin.output import Output
         from syrin.types import ProviderResponse, TokenUsage
 
         class OutputModel(BaseModel):
             result: str
 
         class TestAgent(Agent):
-            model = Model("openai/gpt-4o-mini", output=OutputModel)
+            model = Model("openai/gpt-4o-mini")
+            output = Output(OutputModel, validation_retries=0)
 
         agent = TestAgent()
 
@@ -76,14 +79,11 @@ class TestOutputReport:
             metadata={},
         )
 
-        with patch.object(agent._provider, "complete", return_value=mock_response):
-            result = agent.run("Test")
-
-        # Output report should show failure
-        assert result.report.output.validated is True
-        assert result.report.output.attempts > 0
-        assert result.report.output.is_valid is False
-        assert result.report.output.final_error is not None
+        with (
+            patch.object(agent._provider, "complete", return_value=mock_response),
+            pytest.raises(OutputValidationError),
+        ):
+            agent.run("Test")
 
     def test_no_output_validation_without_output_type(self):
         """Test that output report is not populated when no output type."""
@@ -130,16 +130,19 @@ class TestOutputReportEdgeCases:
         assert report.final_error is None
 
     def test_output_report_max_retries_exceeded(self):
-        """Test OutputReport when max retries are exceeded."""
+        """Test that OutputValidationError is raised when max retries are exceeded."""
         from pydantic import BaseModel
 
+        from syrin.exceptions import OutputValidationError
+        from syrin.output import Output
         from syrin.types import ProviderResponse, TokenUsage
 
         class OutputModel(BaseModel):
             result: str
 
         class TestAgent(Agent):
-            model = Model("openai/gpt-4o-mini", output=OutputModel)
+            model = Model("openai/gpt-4o-mini")
+            output = Output(OutputModel, validation_retries=0)
 
         agent = TestAgent()
 
@@ -152,14 +155,11 @@ class TestOutputReportEdgeCases:
             metadata={},
         )
 
-        with patch.object(agent._provider, "complete", return_value=mock_response):
-            result = agent.run("Test")
-
-        # Should show validation attempts were made
-        assert result.report.output.validated is True
-        assert result.report.output.attempts > 0
-        assert result.report.output.is_valid is False
-        assert result.report.output.final_error is not None
+        with (
+            patch.object(agent._provider, "complete", return_value=mock_response),
+            pytest.raises(OutputValidationError),
+        ):
+            agent.run("Test")
 
     def test_output_report_nested_model(self):
         """Test OutputReport with nested Pydantic models."""

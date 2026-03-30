@@ -90,7 +90,7 @@ class ContextWindowCapacity:
 
 
 @dataclass
-class ContextConfig:
+class _ContextConfig:
     """Reduced context config for 90% of cases. Tweak 3–5 knobs; rest use defaults.
 
     Converts to full Context via to_context(). Use when you only need window size,
@@ -259,11 +259,11 @@ class Context:
 
         if max_tokens is None and model is not None:
             from syrin.model import Model as ModelClass
-            from syrin.model.core import ModelSettings
+            from syrin.model.core import _ModelSettings
 
             if isinstance(model, ModelClass):
                 settings = model.settings
-                if isinstance(settings, ModelSettings) and settings.context_window:
+                if isinstance(settings, _ModelSettings) and settings.context_window:
                     max_tokens = settings.context_window
 
         if max_tokens is None:
@@ -274,10 +274,10 @@ class Context:
 
         reserve_val = self.reserve
         if model is not None:
-            from syrin.model.core import ModelSettings
+            from syrin.model.core import _ModelSettings
 
             model_settings = getattr(model, "settings", None)
-            if isinstance(model_settings, ModelSettings):
+            if isinstance(model_settings, _ModelSettings):
                 default_reserve = getattr(model_settings, "default_reserve_tokens", None)
                 if default_reserve is not None:
                     reserve_val = default_reserve
@@ -365,7 +365,6 @@ class Context:
 
 __all__ = [
     "Context",
-    "ContextConfig",
     "ContextStats",
     "ContextWindowCapacity",
 ]

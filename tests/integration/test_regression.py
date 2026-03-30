@@ -1,8 +1,5 @@
-"""Regression tests for fixes from FAILED_TESTS_REPORT and Manual_test_report.
-
-Covers: model fallback when primary fails, response transformer at agent level,
-Response.raw_response, and related API additions.
-"""
+"""Regression tests covering model fallback when primary fails, response transformer
+at agent level, and Response.raw_response pass-through."""
 
 from __future__ import annotations
 

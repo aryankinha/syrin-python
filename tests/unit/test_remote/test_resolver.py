@@ -25,7 +25,8 @@ def _make_agent(
         model=Model.Almock(),
         name=name,
         budget=budget,
-        memory=memory or Memory(types=[], top_k=5, decay=Decay(strategy=DecayStrategy.EXPONENTIAL)),
+        memory=memory
+        or Memory(restrict_to=[], top_k=5, decay=Decay(strategy=DecayStrategy.EXPONENTIAL)),
     )
 
 

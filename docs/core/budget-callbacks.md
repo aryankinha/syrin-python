@@ -814,13 +814,13 @@ test_callback(BudgetExceededContext(
 
 ## What's Next?
 
-- **[Model Routing](/core/models-routing)** — Automatically select models based on budget and task complexity
-- **[Production Patterns](/production/serving)** — Deploy budget-controlled agents in production
-- **[Memory & Budget](/core/memory)** — Understand memory cost implications
+- **[Model Routing](/agent-kit/core/models-routing)** — Automatically select models based on budget and task complexity
+- **[Production Patterns](/agent-kit/production/serving)** — Deploy budget-controlled agents in production
+- **[Memory & Budget](/agent-kit/core/memory)** — Understand memory cost implications
 
 ## See Also
 
-- [Budget Overview](/core/budget) — Budget basics and configuration
-- [Model Routing](/core/models-routing) — Budget-aware model selection
-- [Rate Limiting](/production/rate-limiting) — Production rate limiting
-- [Guardrails](/agent/guardrails) — Policy enforcement including budget guards
+- [Budget Overview](/agent-kit/core/budget) — Budget basics and configuration
+- [Model Routing](/agent-kit/core/models-routing) — Budget-aware model selection
+- [Rate Limiting](/agent-kit/production/rate-limiting) — Production rate limiting
+- [Guardrails](/agent-kit/agent/guardrails) — Policy enforcement including budget guards

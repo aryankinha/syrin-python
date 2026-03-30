@@ -27,7 +27,8 @@ def _make_agent(
         model=Model.Almock(),
         name=name,
         budget=budget,
-        memory=memory or Memory(types=[], top_k=5, decay=Decay(strategy=DecayStrategy.EXPONENTIAL)),
+        memory=memory
+        or Memory(restrict_to=[], top_k=5, decay=Decay(strategy=DecayStrategy.EXPONENTIAL)),
     )
 
 
@@ -52,14 +53,13 @@ def _make_agent_with_knowledge(
     """Agent with Knowledge for resolver tests."""
     from syrin.enums import KnowledgeBackend
     from syrin.knowledge import Knowledge
-    from syrin.knowledge._grounding import GroundingConfig
 
     knowledge = Knowledge(
         sources=[Knowledge.Text("test content")],
         embedding=_make_fake_embedding(),
         backend=KnowledgeBackend.MEMORY,
         top_k=top_k,
-        grounding=GroundingConfig() if grounding else None,
+        grounding_enabled=grounding,
     )
     return Agent(
         model=Model.Almock(),

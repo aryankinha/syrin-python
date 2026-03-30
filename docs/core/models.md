@@ -206,7 +206,7 @@ Different models have different costs. Here's a quick reference:
 | Gemini 1.5 Pro | $1.25 | $5.00 |
 | Gemini 1.5 Flash | $0.075 | $0.30 |
 
-**Tip:** Syrin automatically tracks these costs. Set a [Budget](/core/budget) to control spending.
+**Tip:** Syrin automatically tracks these costs. Set a [Budget](/agent-kit/core/budget) to control spending.
 
 ## Which Model Should You Use?
 
@@ -223,13 +223,13 @@ Here's a quick decision guide:
 
 ## What's Next?
 
-- [Providers](/core/models-providers) - Detailed guide for each provider
-- [Custom Models](/core/models-custom) - Create your own model
-- [Model Routing](/core/models-routing) - Automatically switch models based on task
-- [Budget](/core/budget) - Control your AI spending
+- [Providers](/agent-kit/core/models-providers) - Detailed guide for each provider
+- [Custom Models](/agent-kit/core/models-custom) - Create your own model
+- [Model Routing](/agent-kit/core/models-routing) - Automatically switch models based on task
+- [Budget](/agent-kit/core/budget) - Control your AI spending
 
 ## See Also
 
-- [Tools](/agent/tools) - Give your agent abilities
-- [Prompts](/core/prompts) - Instruct your agent effectively
-- [Memory](/core/memory) - Make your agent remember
+- [Tools](/agent-kit/agent/tools) - Give your agent abilities
+- [Prompts](/agent-kit/core/prompts) - Instruct your agent effectively
+- [Memory](/agent-kit/core/memory) - Make your agent remember

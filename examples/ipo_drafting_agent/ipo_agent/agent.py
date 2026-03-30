@@ -15,10 +15,7 @@ from syrin import Agent, Budget, FactVerificationGuardrail, Output
 from syrin.embedding import Embedding
 from syrin.enums import KnowledgeBackend
 from syrin.knowledge import (
-    AgenticRAGConfig,
-    ChunkConfig,
     ChunkStrategy,
-    GroundingConfig,
     Knowledge,
 )
 from syrin.model import Model
@@ -69,28 +66,22 @@ def create_knowledge(data_dir: Path | None = None, api_key: str | None = None) -
         sources=sources,
         embedding=embedding,
         backend=KnowledgeBackend.MEMORY,
-        chunk_config=ChunkConfig(
-            strategy=ChunkStrategy.RECURSIVE,
-            chunk_size=512,
-            min_chunk_size=64,
-        ),
+        chunk_strategy=ChunkStrategy.RECURSIVE,
+        chunk_size=512,
+        chunk_min_size=64,
         top_k=12,
         score_threshold=0.2,
         agentic=True,
-        agentic_config=AgenticRAGConfig(
-            max_search_iterations=3,
-            decompose_complex=True,
-            grade_results=True,
-            relevance_threshold=0.35,
-            web_fallback=False,
-        ),
-        # extract_facts=False: fast path, no LLM per search; raw chunks with grounding metadata.
-        grounding=GroundingConfig(
-            extract_facts=True,
-            verify_before_use=True,
-            cite_sources=True,
-            confidence_threshold=0.7,
-        ),
+        agentic_max_iterations=3,
+        agentic_decompose=True,
+        agentic_grade_results=True,
+        agentic_relevance_threshold=0.35,
+        agentic_web_fallback=False,
+        grounding_enabled=True,
+        grounding_extract_facts=True,
+        grounding_verify=True,
+        grounding_cite_sources=True,
+        grounding_confidence=0.7,
         inject_system_prompt=True,
     )
 

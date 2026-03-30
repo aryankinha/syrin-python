@@ -16,10 +16,8 @@ from .backends import (
     get_backend,
 )
 from .config import (
-    Consolidation,
     Decay,
     Memory,
-    MemoryBudget,
     MemoryEntry,
 )
 from .embedding import EmbeddingConfig
@@ -41,8 +39,6 @@ __all__ = [
     "MemorySnapshotEntry",
     "Memory",
     "Decay",
-    "MemoryBudget",
-    "Consolidation",
     "MemoryEntry",
     # Backends
     "InMemoryBackend",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -14,6 +15,22 @@ except ImportError:
 
 import contextlib
 from dataclasses import dataclass
+
+
+@functools.lru_cache(maxsize=2048)
+def _encode_cached(encoding_name: str, text: str) -> int:
+    """P4: Cache tiktoken encoding results to avoid repeated encoding of identical text.
+
+    Cache key: (encoding_name, text). LRU with 2048 entries covers most use-cases
+    (system prompts, tool descriptions, and recent messages).
+    """
+    if tiktoken is None:
+        return len(text) // 4
+    with contextlib.suppress(Exception):
+        enc = tiktoken.get_encoding(encoding_name)
+        return len(enc.encode(text, disallowed_special=()))
+    return len(text) // 4
+
 
 from syrin.context.snapshot import ContextBreakdown
 
@@ -59,10 +76,10 @@ class TokenCounter:
                 self._encoder = tiktoken.get_encoding(encoding)
 
     def count(self, text: str) -> int:
-        """Count tokens in text."""
-        if self._encoder is not None:
-            return len(self._encoder.encode(text, disallowed_special=()))
-        return self._estimate(text)
+        """Count tokens in text. P4: Results cached via lru_cache to avoid repeated encoding."""
+        if not text:
+            return 0
+        return _encode_cached(self._encoding, text)
 
     def count_messages(
         self,

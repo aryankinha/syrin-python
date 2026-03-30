@@ -288,13 +288,13 @@ PYTHONPATH=. python -m examples.19_knowledge.serve_agentic_postgres
 
 ## What's Next?
 
-- Learn about [grounding and confidence](/integrations/grounding)
-- Explore [MCP integration](/integrations/mcp) for external tools
-- Understand [structured output](/agent/structured-output)
+- Learn about [grounding and confidence](/agent-kit/integrations/grounding)
+- Explore [MCP integration](/agent-kit/integrations/mcp) for external tools
+- Understand [structured output](/agent-kit/agent/structured-output)
 
 ## See Also
 
-- [Knowledge pool documentation](/integrations/knowledge-pool)
-- [Loaders documentation](/integrations/knowledge-loaders)
-- [Chunking documentation](/integrations/knowledge-chunking)
-- [RAG documentation](/integrations/knowledge-rag)
+- [Knowledge pool documentation](/agent-kit/integrations/knowledge-pool)
+- [Loaders documentation](/agent-kit/integrations/knowledge-loaders)
+- [Chunking documentation](/agent-kit/integrations/knowledge-chunking)
+- [RAG documentation](/agent-kit/integrations/knowledge-rag)

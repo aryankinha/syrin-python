@@ -416,8 +416,8 @@ for agent in team.agents:
 
 ## See Also
 
-- [Pipeline](/multi-agent/pipeline) — Sequential and parallel execution
-- [Dynamic Pipeline](/multi-agent/dynamic-pipeline) — LLM-driven routing
-- [Handoff](/multi-agent/handoff) — Transfer control between agents
-- [Spawn](/multi-agent/handoff) — Create child agents
-- [Hooks Reference](/debugging/hooks) — Monitor agent interactions
+- [Pipeline](/agent-kit/multi-agent/pipeline) — Sequential and parallel execution
+- [Dynamic Pipeline](/agent-kit/multi-agent/dynamic-pipeline) — LLM-driven routing
+- [Handoff](/agent-kit/multi-agent/handoff) — Transfer control between agents
+- [Spawn](/agent-kit/multi-agent/handoff) — Create child agents
+- [Hooks Reference](/agent-kit/debugging/hooks) — Monitor agent interactions

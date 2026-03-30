@@ -22,6 +22,7 @@ import sys
 from typing import cast
 
 _trace_enabled = False
+_debug_pry: object = None  # Pry instance when --debug active
 
 
 def _trace_summary_on_exit() -> None:
@@ -89,9 +90,58 @@ def _auto_trace_check() -> None:
         pass
 
 
-_auto_trace_check()
+def _auto_debug_check() -> None:
+    """Check for --debug flag and auto-start Pry for all agents."""
+    global _debug_pry
+    if _debug_pry is not None or "--debug" not in sys.argv:
+        return
 
-del _auto_trace_check
+    sys.argv.remove("--debug")
+
+    try:
+        from syrin.debug import Pry
+
+        _debug_pry = Pry()
+        _debug_pry.start()
+    except Exception:
+        pass
+
+
+def _auto_log_level_check() -> None:
+    """Check for --log-level <LEVEL> flag and configure SyrinHandler."""
+    import logging as _logging
+
+    level_flag = "--log-level"
+    if level_flag not in sys.argv:
+        return
+
+    idx = sys.argv.index(level_flag)
+    if idx + 1 >= len(sys.argv):
+        return
+
+    level_str = sys.argv[idx + 1].upper()
+    sys.argv.pop(idx)  # remove --log-level
+    sys.argv.pop(idx)  # remove the level value
+
+    try:
+        from syrin.logging import LogFormat, SyrinHandler
+
+        level = getattr(_logging, level_str, _logging.INFO)
+        handler = SyrinHandler(format=LogFormat.JSON)
+        handler.setLevel(level)
+        root_logger = _logging.getLogger("syrin")
+        root_logger.setLevel(level)
+        root_logger.addHandler(handler)
+    except Exception:
+        pass
+
+
+# _auto_*_check functions are deferred to first Agent() instantiation.
+# Calling them at module load causes side effects (sys.argv parsing, stdout output)
+# that break test frameworks and tools that import syrin without running agents.
+
+from syrin._budget_wrap import budget_wrap
+from syrin._replay import replay_trace
 
 # =============================================================================
 # Core
@@ -127,7 +177,7 @@ from syrin.budget import (
     stop_on_exceeded,
     warn_on_exceeded,
 )
-from syrin.budget_store import BudgetStore, FileBudgetStore, InMemoryBudgetStore
+from syrin.budget_store import BudgetBackend, BudgetStore
 
 # =============================================================================
 # Checkpoint
@@ -159,6 +209,7 @@ from syrin.enums import (
     ContextMode,
     DecayStrategy,
     ExceedPolicy,
+    GuardrailMode,
     GuardrailStage,
     Hook,
     KnowledgeBackend,
@@ -181,8 +232,11 @@ from syrin.exceptions import (
     CircuitBreakerOpenError,
     HandoffBlockedError,
     HandoffRetryRequested,
+    InputTooLargeError,
     ModalityNotSupportedError,
     NoMatchingProfileError,
+    OutputValidationError,
+    ToolArgumentError,
     ValidationError,
 )
 
@@ -212,6 +266,11 @@ from syrin.guardrails import (
     GuardrailResult,
     LengthGuardrail,
 )
+from syrin.guardrails.injection import (
+    PromptInjectionGuardrail,
+    normalize_input,
+    spotlight_wrap,
+)
 
 # =============================================================================
 # HITL
@@ -222,12 +281,10 @@ from syrin.hitl import ApprovalGate, ApprovalGateProtocol
 # Knowledge
 # =============================================================================
 from syrin.knowledge import (
-    AgenticRAGConfig,
     Chunk,
     Document,
     DocumentLoader,
     GroundedFact,
-    GroundingConfig,
     Knowledge,
 )
 
@@ -259,7 +316,6 @@ from syrin.mcp import MCP, MCPClient
 from syrin.memory import (
     Decay,
     Memory,
-    MemoryBudget,
     MemoryEntry,
 )
 
@@ -273,7 +329,6 @@ from syrin.model import (
     Middleware,
     Model,
     ModelRegistry,
-    ModelSettings,
     ModelVariable,
     ModelVersion,
     Ollama,
@@ -315,7 +370,6 @@ from syrin.observability import (
 from syrin.output import Output
 from syrin.output_format import (
     Citation,
-    CitationConfig,
     CitationStyle,
     OutputConfig,
     OutputFormat,
@@ -355,6 +409,19 @@ from syrin.task import task
 from syrin.template import SlotConfig, Template
 from syrin.threshold import ContextThreshold, RateLimitThreshold, ThresholdContext
 from syrin.tool import ToolSpec, tool
+
+# =============================================================================
+# Watch / Event-Driven Triggers
+# =============================================================================
+from syrin.watch import (
+    CronProtocol,
+    QueueBackend,
+    QueueProtocol,
+    TriggerEvent,
+    Watchable,
+    WatchProtocol,
+    WebhookProtocol,
+)
 
 
 def _get_version() -> str:
@@ -447,6 +514,8 @@ __all__ = [
     # Core
     # =============================================================================
     "__version__",
+    "budget_wrap",
+    "replay_trace",
     "Agent",
     "AgentConfig",
     "AuditLog",
@@ -458,7 +527,6 @@ __all__ = [
     # =============================================================================
     "Model",
     "ModelRegistry",
-    "ModelSettings",
     "ModelVariable",
     "ModelVersion",
     "Middleware",
@@ -476,7 +544,6 @@ __all__ = [
     "output",
     "Output",
     "Citation",
-    "CitationConfig",
     "CitationStyle",
     "OutputConfig",
     "OutputFormat",
@@ -501,8 +568,7 @@ __all__ = [
     "stop_on_exceeded",
     "warn_on_exceeded",
     "BudgetStore",
-    "InMemoryBudgetStore",
-    "FileBudgetStore",
+    "BudgetBackend",
     "ContextThreshold",
     "RateLimitThreshold",
     "ThresholdContext",
@@ -512,15 +578,12 @@ __all__ = [
     # =============================================================================
     "Memory",
     "MemoryEntry",
-    "MemoryBudget",
     "Decay",
     # =============================================================================
     # Knowledge
     # =============================================================================
     "Knowledge",
-    "AgenticRAGConfig",
     "GroundedFact",
-    "GroundingConfig",
     "Chunk",
     "Document",
     "DocumentLoader",
@@ -550,6 +613,19 @@ __all__ = [
     "ContentFilter",
     "FactVerificationGuardrail",
     "LengthGuardrail",
+    "PromptInjectionGuardrail",
+    "normalize_input",
+    "spotlight_wrap",
+    # =============================================================================
+    # Watch / Event-Driven Triggers
+    # =============================================================================
+    "TriggerEvent",
+    "WatchProtocol",
+    "Watchable",
+    "WebhookProtocol",
+    "CronProtocol",
+    "QueueProtocol",
+    "QueueBackend",
     # =============================================================================
     # Tools & Task
     # =============================================================================
@@ -659,6 +735,7 @@ __all__ = [
     "KnowledgeBackend",
     "DecayStrategy",
     "ExceedPolicy",
+    "GuardrailMode",
     "GuardrailStage",
     "MessageRole",
     "AlmockPricing",
@@ -667,10 +744,13 @@ __all__ = [
     # =============================================================================
     # Exceptions
     # =============================================================================
+    "OutputValidationError",
     "ValidationError",
+    "ToolArgumentError",
     "CircuitBreakerOpenError",
     "HandoffBlockedError",
     "HandoffRetryRequested",
+    "InputTooLargeError",
     "ModalityNotSupportedError",
     "NoMatchingProfileError",
 ]

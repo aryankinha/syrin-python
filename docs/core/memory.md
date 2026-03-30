@@ -396,12 +396,12 @@ memory = Memory(
 
 ## What's Next?
 
-- [Memory Types](/core/memory-types) - Deep dive into each memory type
-- [Memory Backends](/core/memory-backends) - SQLite, Redis, PostgreSQL, and more
-- [Context](/core/context) - How memory fits into context window
+- [Memory Types](/agent-kit/core/memory-types) - Deep dive into each memory type
+- [Memory Backends](/agent-kit/core/memory-backends) - SQLite, Redis, PostgreSQL, and more
+- [Context](/agent-kit/core/context) - How memory fits into context window
 
 ## See Also
 
-- [Prompts](/core/prompts) - Instruct your agent effectively
-- [Budget](/core/budget) - Control memory costs
-- [Agents](/agent/overview) - Building agents with memory
+- [Prompts](/agent-kit/core/prompts) - Instruct your agent effectively
+- [Budget](/agent-kit/core/budget) - Control memory costs
+- [Agents](/agent-kit/agent/overview) - Building agents with memory

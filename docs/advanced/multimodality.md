@@ -526,12 +526,12 @@ result = agent.run([
 
 ## What's Next?
 
-- [Testing](/advanced/testing) — Test multimodal agents
-- [Custom Model](/advanced/custom-model) — Custom providers
-- [Event Bus](/advanced/event-bus) — Track generation events
+- [Testing](/agent-kit/advanced/testing) — Test multimodal agents
+- [Custom Model](/agent-kit/advanced/custom-model) — Custom providers
+- [Event Bus](/agent-kit/advanced/event-bus) — Track generation events
 
 ## See Also
 
-- [Input/Output Media](/agent/input-output-media) — Media handling in agents
-- [Vision Routing](/core/models-routing) — Model selection by input
-- [Guardrails](/agent/guardrails) — Safety for generated content
+- [Input/Output Media](/agent-kit/agent/input-output-media) — Media handling in agents
+- [Vision Routing](/agent-kit/core/models-routing) — Model selection by input
+- [Guardrails](/agent-kit/agent/guardrails) — Safety for generated content

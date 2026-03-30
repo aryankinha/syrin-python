@@ -33,7 +33,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 from syrin import Agent
 from syrin.embedding import Embedding
 from syrin.enums import KnowledgeBackend
-from syrin.knowledge import AgenticRAGConfig, Knowledge
+from syrin.knowledge import Knowledge
 from syrin.model import Model
 
 
@@ -65,12 +65,10 @@ def main() -> None:
         backend=KnowledgeBackend.POSTGRES,
         connection_url=connection_url,
         agentic=True,
-        agentic_config=AgenticRAGConfig(
-            max_search_iterations=3,
-            decompose_complex=True,
-            grade_results=True,
-            relevance_threshold=0.4,
-        ),
+        agentic_max_iterations=3,
+        agentic_decompose=True,
+        agentic_grade_results=True,
+        agentic_relevance_threshold=0.4,
     )
 
     agent = Agent(

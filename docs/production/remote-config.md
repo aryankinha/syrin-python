@@ -427,7 +427,7 @@ SSE stream for real-time change notifications.
 
 ## See Also
 
-- [Serving: HTTP API](/production/serving-http) — REST API reference
-- [Serving: Advanced](/production/serving-advanced) — Production patterns
-- [Budget](/core/budget) — Budget configuration
-- [Memory](/core/memory) — Memory configuration
+- [Serving: HTTP API](/agent-kit/production/serving-http) — REST API reference
+- [Serving: Advanced](/agent-kit/production/serving-advanced) — Production patterns
+- [Budget](/agent-kit/core/budget) — Budget configuration
+- [Memory](/agent-kit/core/memory) — Memory configuration

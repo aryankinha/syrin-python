@@ -15,9 +15,11 @@ from typing import TYPE_CHECKING, overload
 
 from syrin.output_format._citation import (
     Citation,
-    CitationConfig,
     CitationStyle,
     apply_citation_style,
+)
+from syrin.output_format._citation import (
+    CitationConfig as _CitationConfig,
 )
 from syrin.output_format._protocol import OutputFormatter
 
@@ -26,7 +28,6 @@ if TYPE_CHECKING:
 
 __all__ = [
     "Citation",
-    "CitationConfig",
     "CitationStyle",
     "OutputFormat",
     "OutputConfig",
@@ -59,29 +60,38 @@ class OutputFormat(StrEnum):
 
 @dataclass
 class OutputConfig:
-    """Output configuration: format, template, title, citation, and file generation.
+    """Output configuration: format, template, title, citation styling, and file generation.
 
-    Use with Agent: output_config=OutputConfig(
-        format=OutputFormat.MARKDOWN,
-        template=my_template,
-        title="Report",
-        citation=CitationConfig(style=CitationStyle.FOOTNOTE),
-    )
+    Use with Agent: ``output_config=OutputConfig(format=OutputFormat.MARKDOWN, title="Report")``.
+    Citation markers in content are parsed and styled automatically when ``citation_style`` is set.
 
     Attributes:
         format: Output format (TEXT, MARKDOWN, HTML, PDF, DOCX).
         template: Optional template for slot-based generation. When set,
             agent output is rendered through the template. Requires
-            output=Output(SomeModel) to provide structured data for slots.
+            ``output=Output(SomeModel)`` to provide structured data for slots.
         title: Document title (for PDF/DOCX/MD headers).
-        citation: Optional citation configuration. When set, citations are parsed
-            from content and styled (inline, footnote, appendix) per config.
+        citation_style: How citations appear — INLINE, FOOTNOTE, APPENDIX, NONE.
+            ``None`` (default) disables citation processing entirely.
+        citation_include_page: Include page number when rendering citations. Default True.
+        citation_include_confidence: Include confidence score when available. Default False.
+
+    Example::
+
+        OutputConfig(
+            format=OutputFormat.PDF,
+            title="Research Report",
+            citation_style=CitationStyle.FOOTNOTE,
+            citation_include_page=True,
+        )
     """
 
     format: OutputFormat
     template: Template | None = None
     title: str | None = None
-    citation: CitationConfig | None = None
+    citation_style: CitationStyle | None = None
+    citation_include_page: bool = True
+    citation_include_confidence: bool = False
 
     def __post_init__(self) -> None:
         if isinstance(self.format, str) and not isinstance(self.format, OutputFormat):
@@ -92,19 +102,25 @@ def apply_citation_to_content(
     content: str,
     config: OutputConfig,
 ) -> tuple[str, list[Citation]]:
-    """Apply citation parsing and styling when config.citation is set.
+    """Apply citation parsing and styling when config.citation_style is set.
 
     Args:
         content: Raw content that may contain citation markers.
-        config: Output configuration (citation may be None).
+        config: Output configuration. Citation processing is active only when
+            ``config.citation_style`` is not None.
 
     Returns:
-        (transformed_content, list of Citation objects).
-        If config.citation is None, returns (content, []).
+        ``(transformed_content, list of Citation objects)``.
+        If ``config.citation_style`` is None, returns ``(content, [])``.
     """
-    if config.citation is None:
+    if config.citation_style is None:
         return content, []
-    return apply_citation_style(content, config.citation)
+    internal_cfg = _CitationConfig(
+        style=config.citation_style,
+        include_page=config.citation_include_page,
+        include_confidence=config.citation_include_confidence,
+    )
+    return apply_citation_style(content, internal_cfg)
 
 
 def get_formatter(fmt: OutputFormat) -> OutputFormatter:

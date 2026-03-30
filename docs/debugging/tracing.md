@@ -231,7 +231,7 @@ The playground shows trace events in real-time.
 
 ## See Also
 
-- [Debugging Overview](/debugging/overview) — Introduction to observability
-- [Hooks](/debugging/hooks) — Event subscriptions
-- [Tracing Exporters](/debugging/tracing-exporters) — Export to OTLP, Langfuse, Phoenix
-- [Debugging Techniques](/debugging/debugging-techniques) — Real-world debugging patterns
+- [Debugging Overview](/agent-kit/debugging/overview) — Introduction to observability
+- [Hooks](/agent-kit/debugging/hooks) — Event subscriptions
+- [Tracing Exporters](/agent-kit/debugging/tracing-exporters) — Export to OTLP, Langfuse, Phoenix
+- [Debugging Techniques](/agent-kit/debugging/debugging-techniques) — Real-world debugging patterns

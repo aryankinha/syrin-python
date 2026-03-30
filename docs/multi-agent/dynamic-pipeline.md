@@ -511,12 +511,12 @@ print(result.content)
 
 ## What's Next?
 
-- [Handoff](/multi-agent/handoff) — Transfer control between agents mid-conversation
-- [Pipeline](/multi-agent/pipeline) — Static sequential execution
-- [Pipeline: Parallel](/multi-agent/pipeline-parallel) — Static parallel execution
+- [Handoff](/agent-kit/multi-agent/handoff) — Transfer control between agents mid-conversation
+- [Pipeline](/agent-kit/multi-agent/pipeline) — Static sequential execution
+- [Pipeline: Parallel](/agent-kit/multi-agent/pipeline-parallel) — Static parallel execution
 
 ## See Also
 
-- [Multi-Agent: Overview](/multi-agent/overview) — Introduction to multi-agent patterns
-- [Multi-Agent: When to Use](/multi-agent/when-to-use) — Decision guide
-- [Core Concepts: Budget](/core/budget) — Shared budget across agents
+- [Multi-Agent: Overview](/agent-kit/multi-agent/overview) — Introduction to multi-agent patterns
+- [Multi-Agent: When to Use](/agent-kit/multi-agent/when-to-use) — Decision guide
+- [Core Concepts: Budget](/agent-kit/core/budget) — Shared budget across agents

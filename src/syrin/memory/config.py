@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import contextlib
 import logging
 import math
 import threading
 import uuid
+import warnings
 from collections.abc import Callable
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol, cast
@@ -111,43 +113,6 @@ class Decay(BaseModel):  # type: ignore[explicit-any]
             entry.importance = min(1.0, entry.importance + boost)
 
 
-class MemoryBudget(BaseModel):  # type: ignore[explicit-any]
-    """Budget constraints for memory operations (cost in USD).
-
-    When budget is low, memory ops degrade gracefully.
-    extraction_budget: Max cost for auto_extract. consolidation_budget: Max cost for consolidation.
-    on_exceeded: If set, called when budget would be exceeded. Raise to reject; return to allow.
-    """
-
-    model_config = {"arbitrary_types_allowed": True}
-
-    extraction_budget: float | None = Field(
-        None, gt=0, description="Max cost (USD) for extraction ops."
-    )
-    consolidation_budget: float | None = Field(
-        None, gt=0, description="Max cost (USD) for consolidation ops."
-    )
-    on_exceeded: Callable[[BudgetExceededContext], None] | None = Field(
-        default=None,
-        description="Called when memory budget exceeded. Raise to reject store; return to allow.",
-    )
-
-
-class Consolidation(BaseModel):  # type: ignore[explicit-any]
-    """Background memory consolidation — analogous to human memory during sleep.
-
-    Runs periodically (when implemented) to deduplicate similar memories,
-    compress older entries, and resolve contradictions. interval: how often
-    (e.g. '1h'); compress_older_than: age threshold for compression (e.g. '7d').
-    """
-
-    interval: str = "1h"
-    deduplicate: bool = True
-    compress_older_than: str | None = "7d"
-    resolve_contradictions: bool = True
-    model: str | None = None
-
-
 class MemoryEntry(BaseModel):  # type: ignore[explicit-any]
     """A single memory stored by the agent. Carries full provenance metadata."""
 
@@ -213,8 +178,8 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
         redis: Redis-specific config when backend=REDIS. Host, port, prefix, ttl.
         postgres: Postgres-specific config when backend=POSTGRES. Host, database,
             user, password, table.
-        types: Memory types to enable. Default: all four (CORE, EPISODIC,
-            SEMANTIC, PROCEDURAL).
+        restrict_to: Memory types to enable. Default: all four (CORE, EPISODIC,
+            SEMANTIC, PROCEDURAL). Pass a subset to restrict which types the agent uses.
         auto_extract: When implemented, extract facts from turns into semantic memory. Currently a placeholder.
         extraction_model: Model for extraction when auto_extract is used. None = use agent's model.
         top_k: Max memories to recall per query. Higher = more context, higher cost.
@@ -222,12 +187,20 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
         injection_strategy: Order of recalled memories in context: CHRONOLOGICAL, RELEVANCE, or ATTENTION_OPTIMIZED (default).
         auto_store: Auto-store user+assistant turns as episodic. No remember tool needed.
         decay: Forgetting curve. Memories lose importance over time unless reinforced.
-        memory_budget: Cost limits for memory ops. None = no limit.
-        consolidation: Background deduplication/compression. None = disabled.
+        budget_extraction: Max cost in USD for extraction ops. None = no limit.
+        budget_consolidation: Max cost in USD for consolidation ops. None = no limit.
+        budget_on_exceeded: Called when a memory budget is exceeded. Raise to reject the op; return to allow (warn-only).
+        consolidation_interval: How often background consolidation runs (e.g. '1h', '30m'). None = disabled.
+        consolidation_deduplicate: Remove duplicate memories during consolidation. Default: True.
+        consolidation_compress_after: Age threshold for compression (e.g. '7d'). None = no compression.
+        consolidation_resolve_contradictions: Detect and resolve contradictory memories. Default: True.
+        consolidation_model: Model used during consolidation. None = use agent's model.
         scope: MemoryScope for isolation: USER (default), SESSION (per conversation), AGENT, or GLOBAL.
         redact_pii: Redact PII before storage.
         retention_days: Max age in days. Older memories pruned. None = no limit.
         write_mode: SYNC blocks until complete; ASYNC fire-and-forget for remember/forget.
+        max_conversation_turns: Sliding window for conversation history. When set, only the
+            last N turns (user+assistant pairs) are kept. None = no limit (default).
 
     Example:
         >>> from syrin.memory import Memory, RedisConfig, PostgresConfig
@@ -246,6 +219,14 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
         >>> mem = Memory(
         ...     backend=MemoryBackend.POSTGRES,
         ...     postgres=PostgresConfig(database="syrin", table="memories"),
+        ... )
+        >>>
+        >>> # With budget constraints and consolidation
+        >>> mem = Memory(
+        ...     budget_extraction=0.01,
+        ...     budget_consolidation=0.05,
+        ...     consolidation_interval="1h",
+        ...     consolidation_deduplicate=True,
         ... )
     """
 
@@ -279,14 +260,14 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
         description="Postgres-specific config when backend=POSTGRES.",
     )
 
-    types: list[MemoryType] = Field(
+    restrict_to: list[MemoryType] = Field(
         default=[
             MemoryType.CORE,
             MemoryType.EPISODIC,
             MemoryType.SEMANTIC,
             MemoryType.PROCEDURAL,
         ],
-        description="Memory types to enable. Default: all four.",
+        description="Memory types to enable. Default: all four (CORE, EPISODIC, SEMANTIC, PROCEDURAL).",
     )
 
     auto_extract: bool = Field(
@@ -333,14 +314,45 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
         description="Forgetting curve. Memories lose importance over time.",
     )
 
-    memory_budget: MemoryBudget | None = Field(
+    # Budget flat fields (replaces removed MemoryBudget class)
+    budget_extraction: float | None = Field(
         default=None,
-        description="Cost limits for memory ops. None = no limit.",
+        gt=0,
+        description="Max cost in USD for extraction ops. None = no limit.",
+    )
+    budget_consolidation: float | None = Field(
+        default=None,
+        gt=0,
+        description="Max cost in USD for consolidation ops. None = no limit.",
+    )
+    budget_on_exceeded: Callable[[BudgetExceededContext], None] | None = Field(
+        default=None,
+        description=(
+            "Called when a memory budget is exceeded. "
+            "Raise to reject the op; return (without raising) to warn-only and allow."
+        ),
     )
 
-    consolidation: Consolidation | None = Field(
+    # Consolidation flat fields (replaces removed Consolidation class)
+    consolidation_interval: str | None = Field(
         default=None,
-        description="Background deduplication/compression. None = disabled.",
+        description="How often consolidation runs (e.g. '1h', '30m'). None = disabled.",
+    )
+    consolidation_deduplicate: bool = Field(
+        default=True,
+        description="Remove duplicate memories during consolidation.",
+    )
+    consolidation_compress_after: str | None = Field(
+        default=None,
+        description="Age threshold for compression (e.g. '7d'). None = no compression.",
+    )
+    consolidation_resolve_contradictions: bool = Field(
+        default=True,
+        description="Detect and resolve contradictory memories during consolidation.",
+    )
+    consolidation_model: str | None = Field(
+        default=None,
+        description="Model used during consolidation. None = use agent's model.",
     )
 
     scope: MemoryScope = Field(
@@ -362,6 +374,33 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
         description="SYNC blocks until complete; ASYNC fire-and-forget for remember/forget.",
     )
 
+    max_conversation_turns: int | None = Field(
+        default=None,
+        gt=0,
+        description=(
+            "Sliding window for conversation history. When set, the segment store "
+            "keeps only the last N turns (user+assistant pairs). None = no limit."
+        ),
+    )
+
+    # 6.3: Injection defense for memory writes
+    validate_writes: bool = Field(
+        default=False,
+        description=(
+            "6.3: Scan memory content for prompt injection before storing. "
+            "Content that matches injection patterns is quarantined (if quarantine_suspicious=True) "
+            "or rejected. Default: False."
+        ),
+    )
+    quarantine_suspicious: bool = Field(
+        default=False,
+        description=(
+            "6.3: When validate_writes=True, quarantine suspicious content instead of rejecting. "
+            "Quarantined entries are stored with metadata.quarantined=True and not recalled by default. "
+            "Default: False."
+        ),
+    )
+
     def __init__(
         self,
         *,
@@ -371,20 +410,29 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
         chroma: ChromaConfig | None = None,
         redis: RedisConfig | None = None,
         postgres: PostgresConfig | None = None,
-        types: list[MemoryType] | None = None,
-        auto_extract: bool = True,
+        restrict_to: list[MemoryType] | None = None,
+        auto_extract: bool = False,
         extraction_model: str | None = None,
         top_k: int = 10,
         relevance_threshold: float = 0.7,
         injection_strategy: InjectionStrategy = InjectionStrategy.ATTENTION_OPTIMIZED,
         auto_store: bool = False,
         decay: Decay | None = None,
-        memory_budget: MemoryBudget | None = None,
-        consolidation: Consolidation | None = None,
+        budget_extraction: float | None = None,
+        budget_consolidation: float | None = None,
+        budget_on_exceeded: Callable[[BudgetExceededContext], None] | None = None,
+        consolidation_interval: str | None = None,
+        consolidation_deduplicate: bool = True,
+        consolidation_compress_after: str | None = None,
+        consolidation_resolve_contradictions: bool = True,
+        consolidation_model: str | None = None,
         scope: MemoryScope = MemoryScope.USER,
         redact_pii: bool = False,
         retention_days: int | None = None,
         write_mode: WriteMode = WriteMode.ASYNC,
+        max_conversation_turns: int | None = None,
+        validate_writes: bool = False,
+        quarantine_suspicious: bool = False,
     ) -> None:
         """Initialize Memory. All parameters have defaults; pass only what you need."""
         super().__init__(
@@ -394,8 +442,8 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
             chroma=chroma,
             redis=redis,
             postgres=postgres,
-            types=types
-            if types is not None
+            restrict_to=restrict_to
+            if restrict_to is not None
             else [MemoryType.CORE, MemoryType.EPISODIC, MemoryType.SEMANTIC, MemoryType.PROCEDURAL],
             auto_extract=auto_extract,
             extraction_model=extraction_model,
@@ -404,12 +452,21 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
             injection_strategy=injection_strategy,
             auto_store=auto_store,
             decay=decay,
-            memory_budget=memory_budget,
-            consolidation=consolidation,
+            budget_extraction=budget_extraction,
+            budget_consolidation=budget_consolidation,
+            budget_on_exceeded=budget_on_exceeded,
+            consolidation_interval=consolidation_interval,
+            consolidation_deduplicate=consolidation_deduplicate,
+            consolidation_compress_after=consolidation_compress_after,
+            consolidation_resolve_contradictions=consolidation_resolve_contradictions,
+            consolidation_model=consolidation_model,
             scope=scope,
             redact_pii=redact_pii,
             retention_days=retention_days,
             write_mode=write_mode,
+            max_conversation_turns=max_conversation_turns,
+            validate_writes=validate_writes,
+            quarantine_suspicious=quarantine_suspicious,
         )
         self._init_store()
 
@@ -425,68 +482,32 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
             try:
                 self._store = MemoryStore(
                     decay=self.decay,
-                    budget=self.memory_budget,
+                    budget_extraction=self.budget_extraction,
+                    budget_consolidation=self.budget_consolidation,
+                    budget_on_exceeded=self.budget_on_exceeded,
                 )
             except Exception as e:
-                import logging
-
-                logger = logging.getLogger(__name__)
-                logger.warning(f"Failed to initialize memory store: {e}")
+                _logger.warning("Failed to initialize memory store: %s", e)
                 self._store = None
 
     def _backend_kwargs(self) -> dict[str, object]:
-        """Build kwargs for get_backend from Memory config."""
-        kwargs: dict[str, object] = {}
+        """Build kwargs for get_backend from Memory config.
+
+        E2: Delegates to each backend config's to_kwargs() method instead of
+        maintaining a monolithic if/elif chain here.
+        """
         if self.backend == MemoryBackend.QDRANT and self.qdrant is not None:
-            qdrant_cfg = self.qdrant
-            if qdrant_cfg.url is not None:
-                kwargs["url"] = qdrant_cfg.url
-                if qdrant_cfg.api_key is not None:
-                    kwargs["api_key"] = qdrant_cfg.api_key
-            elif qdrant_cfg.path is not None:
-                kwargs["path"] = qdrant_cfg.path
-            else:
-                kwargs["host"] = qdrant_cfg.host
-                kwargs["port"] = qdrant_cfg.port
-            kwargs["collection"] = qdrant_cfg.collection
-            kwargs["vector_size"] = qdrant_cfg.vector_size
-            if qdrant_cfg.namespace is not None:
-                kwargs["namespace"] = qdrant_cfg.namespace
-            if qdrant_cfg.embedding_config is not None:
-                kwargs["embedding_config"] = qdrant_cfg.embedding_config
-                kwargs["vector_size"] = qdrant_cfg.embedding_config.dimensions
-        elif self.backend == MemoryBackend.CHROMA and self.chroma is not None:
-            chroma_cfg = self.chroma
-            if chroma_cfg.path is not None:
-                kwargs["path"] = chroma_cfg.path
-            kwargs["collection_name"] = chroma_cfg.collection
-            if chroma_cfg.namespace is not None:
-                kwargs["namespace"] = chroma_cfg.namespace
-            if chroma_cfg.embedding_config is not None:
-                kwargs["embedding_config"] = chroma_cfg.embedding_config
-        elif self.backend == MemoryBackend.REDIS and self.redis is not None:
-            r = self.redis
-            kwargs["host"] = r.host
-            kwargs["port"] = r.port
-            kwargs["db"] = r.db
-            if r.password is not None:
-                kwargs["password"] = r.password
-            kwargs["prefix"] = r.prefix
-            if r.ttl is not None:
-                kwargs["ttl"] = r.ttl
-        elif self.backend == MemoryBackend.POSTGRES and self.postgres is not None:
-            p = self.postgres
-            kwargs["host"] = p.host
-            kwargs["port"] = p.port
-            kwargs["database"] = p.database
-            kwargs["user"] = p.user
-            kwargs["password"] = p.password
-            kwargs["table"] = p.table
-            kwargs["vector_size"] = p.vector_size
-        else:
-            if self.path is not None:
-                kwargs["path"] = self.path
-        return kwargs
+            return self.qdrant.to_kwargs()
+        if self.backend == MemoryBackend.CHROMA and self.chroma is not None:
+            return self.chroma.to_kwargs()
+        if self.backend == MemoryBackend.REDIS and self.redis is not None:
+            return self.redis.to_kwargs()
+        if self.backend == MemoryBackend.POSTGRES and self.postgres is not None:
+            return self.postgres.to_kwargs()
+        # SQLite / MEMORY fallback
+        if self.path is not None:
+            return {"path": self.path}
+        return {}
 
     def _get_backend(self) -> MemoryBackendProtocol | None:
         """Lazy-init and return backend when backend != MEMORY."""
@@ -510,14 +531,19 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
         self,
         query: str = "",
         memory_type: MemoryType | None = None,
-        count: int = 10,
+        limit: int | None = None,
+        *,
+        count: int | None = None,
+        top_k: int | None = None,
     ) -> list[MemoryEntry]:
         """Recall memories matching query or type.
 
         Args:
-            query: Search query. Empty string lists all (up to count).
+            query: Search query. Empty string lists all (up to limit).
             memory_type: Filter by memory type. None = all types.
-            count: Maximum results to return. Default: 10.
+            limit: Maximum results to return. Default: 10.
+            count: Deprecated alias for limit. Use limit instead.
+            top_k: Deprecated alias for limit. Use limit instead.
 
         Returns:
             List of matching MemoryEntries, sorted by importance.
@@ -525,20 +551,45 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
         Example:
             >>> mem = Memory()
             >>> mem.remember("User prefers Python", memory_type=MemoryType.CORE)
-            >>> entries = mem.recall(query="Python", count=5)
+            >>> entries = mem.recall(query="Python", limit=5)
             >>> [e.content for e in entries]
             ['User prefers Python']
         """
+        # D3: standardize on limit; deprecation warnings for old aliases
+        if count is not None:
+            warnings.warn(
+                "Memory.recall(count=) is deprecated; use limit= instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if limit is None:
+                limit = count
+        if top_k is not None:
+            warnings.warn(
+                "Memory.recall(top_k=) is deprecated; use limit= instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if limit is None:
+                limit = top_k
+        effective_limit = limit if limit is not None else 10
+
         if self.backend == MemoryBackend.MEMORY:
             if self._store is None:
                 return []
-            return self._store.recall(query=query, memory_type=memory_type, limit=count)
+            return self._store.recall(query=query, memory_type=memory_type, limit=effective_limit)
         backend = self._get_backend()
         if backend is None:
             return []
         if query:
-            return backend.search(query, memory_type, top_k=count)
-        return backend.list(memory_type=memory_type, scope=None, limit=count)
+            return backend.search(query, memory_type, top_k=effective_limit)
+        return backend.list(memory_type=memory_type, scope=None, limit=effective_limit)
+
+    def _scan_for_injection(self, content: str) -> bool:
+        """6.3: Return True if content looks like a prompt injection attempt."""
+        from syrin.guardrails.injection._guardrail import _INJECTION_PATTERNS
+
+        return any(p.search(content) for p in _INJECTION_PATTERNS)
 
     def _remember_sync(
         self,
@@ -548,6 +599,19 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
         metadata: dict[str, object] | None,
     ) -> bool:
         """Synchronous remember implementation."""
+        # 6.3: Validate writes for injection
+        if self.validate_writes and self._scan_for_injection(content):
+            if self.quarantine_suspicious:
+                _logger.warning("Quarantining suspicious memory content (injection detected).")
+                meta = dict(metadata or {})
+                meta["quarantined"] = True
+                meta["quarantine_reason"] = "injection_pattern_detected"
+                metadata = meta
+                # Fall through to store with quarantine metadata
+            else:
+                _logger.warning("Rejecting suspicious memory content (injection detected).")
+                return False
+
         if self.backend == MemoryBackend.MEMORY:
             if self._store is None:
                 return False
@@ -583,7 +647,7 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
         memory_type: MemoryType = MemoryType.EPISODIC,
         importance: float = 1.0,
         metadata: dict[str, object] | None = None,
-    ) -> bool:
+    ) -> bool | concurrent.futures.Future[bool]:
         """Store a memory.
 
         Args:
@@ -594,7 +658,10 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
             metadata: Optional metadata dict. Default: None.
 
         Returns:
-            True if stored successfully (or accepted for async write), False otherwise.
+            - SYNC mode: True if stored successfully, False otherwise.
+            - ASYNC mode: concurrent.futures.Future[bool] that resolves when the
+              background write completes. Callers can .result() to propagate failure.
+              A13: previously returned True prematurely; now propagates the actual result.
 
         Example:
             >>> mem = Memory()
@@ -603,12 +670,19 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
         """
         importance_val = min(1.0, max(0.0, importance))
         if self.write_mode == WriteMode.ASYNC:
+            # A13: return a Future so callers can await the actual write result
+            future: concurrent.futures.Future[bool] = concurrent.futures.Future()
 
             def _do() -> None:
-                self._remember_sync(content, memory_type, importance_val, metadata)
+                try:
+                    result = self._remember_sync(content, memory_type, importance_val, metadata)
+                    future.set_result(result)
+                except Exception as exc:
+                    _logger.warning("async remember failed: %s", exc, exc_info=True)
+                    future.set_result(False)
 
             threading.Thread(target=_do, daemon=True).start()
-            return True
+            return future
         return self._remember_sync(content, memory_type, importance_val, metadata)
 
     def _forget_sync(
@@ -752,9 +826,13 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
     ) -> int:
         """Run memory consolidation (deduplicate by content). Optional, budget-aware.
 
-        When consolidation is configured, uses its deduplicate setting; otherwise
-        defaults to True. Respects memory_budget.consolidation_budget when set.
+        Uses ``consolidation_deduplicate`` setting by default; pass ``deduplicate``
+        to override for this call. Respects ``budget_consolidation`` when set.
         Only MEMORY backend supports consolidation; vector backends return 0.
+
+        Args:
+            deduplicate: Override ``consolidation_deduplicate`` for this call.
+            consolidation_budget: Override ``budget_consolidation`` for this call.
 
         Returns:
             Number of duplicate entries removed.
@@ -763,14 +841,10 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
             return 0
         if self._store is None:
             return 0
-        dedup = (
-            deduplicate
-            if deduplicate is not None
-            else getattr(self.consolidation, "deduplicate", True)
+        dedup = deduplicate if deduplicate is not None else self.consolidation_deduplicate
+        budget = (
+            consolidation_budget if consolidation_budget is not None else self.budget_consolidation
         )
-        budget = consolidation_budget
-        if budget is None and self.memory_budget is not None:
-            budget = self.memory_budget.consolidation_budget
         return self._store.consolidate(
             deduplicate=dedup,
             consolidation_budget=budget,
@@ -781,7 +855,11 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
         if self._segment_store is None:
             from syrin.context.store import InMemoryContextStore
 
-            object.__setattr__(self, "_segment_store", InMemoryContextStore())
+            # each turn adds 2 segments (user + assistant), so window = turns * 2
+            max_segs: int | None = (
+                self.max_conversation_turns * 2 if self.max_conversation_turns else None
+            )
+            object.__setattr__(self, "_segment_store", InMemoryContextStore(max_segments=max_segs))
         return self._segment_store
 
     def add_conversation_segment(self, content: str, role: str = "user") -> None:
@@ -969,13 +1047,23 @@ class Memory(BaseModel):  # type: ignore[explicit-any]
             agent, "_persistent_memory", merge_nested_update(current, update, Memory)
         )
 
+    async def __aenter__(self) -> Memory:
+        """D12: Async context manager entry. Returns self."""
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
+        """D12: Async context manager exit. Does not suppress exceptions."""
+
     model_config = {"arbitrary_types_allowed": True}
 
 
 __all__ = [
     "Memory",
     "Decay",
-    "MemoryBudget",
-    "Consolidation",
     "MemoryEntry",
 ]

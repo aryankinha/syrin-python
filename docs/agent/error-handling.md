@@ -287,12 +287,12 @@ class AgentHandler:
 
 ## What's Next?
 
-- [Debugging: Overview](/debugging/overview) — Tools for understanding failures
-- [Production: Circuit Breaker](/production/circuit-breaker) — Prevent cascade failures
-- [Production: Rate Limiting](/production/rate-limiting) — Handle provider limits
+- [Debugging: Overview](/agent-kit/debugging/overview) — Tools for understanding failures
+- [Production: Circuit Breaker](/agent-kit/production/circuit-breaker) — Prevent cascade failures
+- [Production: Rate Limiting](/agent-kit/production/rate-limiting) — Handle provider limits
 
 ## See Also
 
-- [Core Concepts: Budget](/core/budget) — Budget error handling
-- [Agents: Guardrails](/agent/guardrails) — Content validation errors
-- [Debugging: Hooks Reference](/debugging/hooks-reference) — Error-related hooks
+- [Core Concepts: Budget](/agent-kit/core/budget) — Budget error handling
+- [Agents: Guardrails](/agent-kit/agent/guardrails) — Content validation errors
+- [Debugging: Hooks Reference](/agent-kit/debugging/hooks-reference) — Error-related hooks

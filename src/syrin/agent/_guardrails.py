@@ -57,14 +57,27 @@ def run_guardrails(agent: Agent, text: str, stage: GuardrailStage) -> GuardrailR
             )
             guardrail_span.set_status(SpanStatus.ERROR, result.reason)
 
-            agent._emit_event(
-                Hook.GUARDRAIL_BLOCKED,
-                EventContext(
-                    stage=stage.value,
-                    reason=result.reason,
-                    guardrail_names=[g.name for g in effective],
-                ),
-            )
+            # emit GUARDRAIL_ERROR when exception metadata is present
+            if result.metadata and "traceback" in result.metadata:
+                agent._emit_event(
+                    Hook.GUARDRAIL_ERROR,
+                    EventContext(
+                        stage=stage.value,
+                        reason=result.reason,
+                        traceback=result.metadata.get("traceback"),
+                        guardrail=result.metadata.get("guardrail"),
+                        exception=result.metadata.get("exception"),
+                    ),
+                )
+            else:
+                agent._emit_event(
+                    Hook.GUARDRAIL_BLOCKED,
+                    EventContext(
+                        stage=stage.value,
+                        reason=result.reason,
+                        guardrail_names=[g.name for g in effective],
+                    ),
+                )
 
             guardrail_names = [g.name for g in effective]
             if stage == GuardrailStage.INPUT:

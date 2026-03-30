@@ -32,7 +32,6 @@ from syrin.model.core import (
     Middleware,
     Model,
     ModelRegistry,
-    ModelSettings,
     ModelVariable,
     ModelVersion,
 )
@@ -65,7 +64,6 @@ __all__ = [
     "Model",
     "OpenRouterBuilder",
     "ModelRegistry",
-    "ModelSettings",
     "ModelVariable",
     "ModelVersion",
     "Middleware",

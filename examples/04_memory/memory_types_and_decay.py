@@ -6,7 +6,7 @@ Demonstrates:
 - Factory function create_memory()
 - MemoryStore: add, recall, forget
 - Decay strategies (exponential, linear)
-- MemoryBudget for cost-aware memory operations
+- Budget-aware memory operations (budget_extraction flat field)
 - Storage backends (in-memory)
 - Agent with persistent memory (all 4 types)
 
@@ -18,8 +18,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from syrin import Agent, Decay, Memory, MemoryBudget, MemoryEntry, Model
-from syrin.budget import warn_on_exceeded
+from syrin import Agent, Decay, Memory, MemoryEntry, Model
 from syrin.enums import DecayStrategy, MemoryBackend, MemoryType
 from syrin.memory import (
     CoreMemory,
@@ -104,13 +103,19 @@ def main() -> None:
     decay.on_access(old_memory)
     print(f"  After reinforcement on access: importance={old_memory.importance:.4f}")
 
-    # ── 4. MemoryBudget ───────────────────────────────────────────────
+    # ── 4. Budget-aware memory (flat fields) ──────────────────────────
     print("\n" + "=" * 60)
-    print("4. MemoryBudget")
+    print("4. Budget-Aware Memory")
     print("=" * 60)
 
-    budget = MemoryBudget(extraction_budget=0.001, on_exceeded=warn_on_exceeded)
-    budgeted_store = MemoryStore(budget=budget)
+    # budget_extraction and budget_on_exceeded are now flat fields on Memory/MemoryStore
+    warnings_caught: list[object] = []
+
+    def warn_handler(ctx: object) -> None:
+        warnings_caught.append(ctx)
+        # return without raising → warn-only; store still proceeds
+
+    budgeted_store = MemoryStore(budget_extraction=0.001, budget_on_exceeded=warn_handler)
     added = budgeted_store.add(content="Short fact", memory_type=MemoryType.SEMANTIC)
     print(f"  Added with budget constraint: {added}")
 
@@ -122,12 +127,7 @@ def main() -> None:
     agent = Agent(
         model=Model.Almock(),
         memory=Memory(
-            types=[
-                MemoryType.CORE,
-                MemoryType.EPISODIC,
-                MemoryType.SEMANTIC,
-                MemoryType.PROCEDURAL,
-            ],
+            # restrict_to replaces the old types= parameter; omit for all 4 types (default)
             top_k=5,
         ),
     )

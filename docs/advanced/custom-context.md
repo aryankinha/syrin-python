@@ -532,13 +532,13 @@ for reason in snap.why_included:
 
 ## What's Next?
 
-- [Dependency Injection](/advanced/dependency-injection) — Inject dependencies into tools
-- [Event Bus](/advanced/event-bus) — Domain events and handlers
-- [Template Engine](/advanced/template-engine) — Structured generation
-- [Testing](/advanced/testing) — Test custom context managers
+- [Dependency Injection](/agent-kit/advanced/dependency-injection) — Inject dependencies into tools
+- [Event Bus](/agent-kit/advanced/event-bus) — Domain events and handlers
+- [Template Engine](/agent-kit/advanced/template-engine) — Structured generation
+- [Testing](/agent-kit/advanced/testing) — Test custom context managers
 
 ## See Also
 
-- [Context Overview](/core/context) — Default context management
-- [Context Compaction](/core/context-compaction) — Compaction strategies
-- [Token Counting](/core/context) — Token counting internals
+- [Context Overview](/agent-kit/core/context) — Default context management
+- [Context Compaction](/agent-kit/core/context-compaction) — Compaction strategies
+- [Token Counting](/agent-kit/core/context) — Token counting internals

@@ -228,12 +228,12 @@ python voice_server.py -t twilio -x YOUR.ngrok.io
 
 ## What's Next?
 
-- Learn about [multimodal generation](/examples/multimodal)
-- Explore [knowledge management](/examples/knowledge-agent)
-- Understand [production serving](/production/serving)
+- Learn about [multimodal generation](/agent-kit/examples/multimodal)
+- Explore [knowledge management](/agent-kit/examples/knowledge-agent)
+- Understand [production serving](/agent-kit/production/serving)
 
 ## See Also
 
-- [Multimodal documentation](/advanced/multimodality)
-- [Knowledge pool documentation](/integrations/knowledge-pool)
-- [Serving documentation](/production/serving)
+- [Multimodal documentation](/agent-kit/advanced/multimodality)
+- [Knowledge pool documentation](/agent-kit/integrations/knowledge-pool)
+- [Serving documentation](/agent-kit/production/serving)

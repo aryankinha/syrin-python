@@ -367,7 +367,7 @@ router.serve(port=8000)
 
 ## What's Next?
 
-- [Serving: CLI](/production/serving-cli) — Interactive terminal testing
-- [Serving: Advanced](/production/serving-advanced) — Mounting, middleware, multiple servers
-- [Playground](/production/playground) — Web testing interface
-- [Remote Config](/production/remote-config) — Runtime configuration updates
+- [Serving: CLI](/agent-kit/production/serving-cli) — Interactive terminal testing
+- [Serving: Advanced](/agent-kit/production/serving-advanced) — Mounting, middleware, multiple servers
+- [Playground](/agent-kit/production/playground) — Web testing interface
+- [Remote Config](/agent-kit/production/remote-config) — Runtime configuration updates

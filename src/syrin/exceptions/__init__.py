@@ -76,6 +76,37 @@ class ToolExecutionError(SyrinError):
     pass
 
 
+class ToolArgumentError(SyrinError):
+    """Raised when LLM-generated tool arguments fail type validation.
+
+    Validates arguments before execution so the tool function receives
+    correctly typed inputs. Provides a clear diagnostic message with the
+    tool name, parameter name, and expected type.
+
+    Attributes:
+        message: Human-readable error describing the mismatch.
+        tool_name: Name of the tool whose argument was invalid.
+        param_name: Name of the parameter that failed validation.
+        expected_type: String representation of the expected type.
+        received_type: String representation of the type actually received.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        tool_name: str = "",
+        param_name: str = "",
+        expected_type: str = "",
+        received_type: str = "",
+    ) -> None:
+        super().__init__(message)
+        self.tool_name = tool_name
+        self.param_name = param_name
+        self.expected_type = expected_type
+        self.received_type = received_type
+
+
 class TaskError(SyrinError):
     """Raised when a task execution fails.
 
@@ -239,3 +270,74 @@ class CircuitBreakerOpenError(SyrinError):
         self.circuit_state = circuit_state
         self.recovery_at = recovery_at
         self.fallback_model = fallback_model
+
+
+class TemplateParseError(SyrinError):
+    """Raised when Template.from_file() encounters invalid YAML frontmatter.
+
+    Attributes:
+        message: Human-readable description of the parse failure.
+        path: Path to the template file that failed to parse.
+        line: Line number where the parse error occurred (1-based), or None.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        path: str = "",
+        line: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.path = path
+        self.line = line
+
+
+class OutputValidationError(SyrinError):
+    """Raised when structured output validation fails after all retries.
+
+    Includes the raw LLM response and per-attempt error messages for debugging.
+
+    Attributes:
+        message: Human-readable summary.
+        raw: Raw LLM response string that failed to validate.
+        attempts: Number of validation attempts made.
+        errors: Per-attempt error messages (most-recent last).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        raw: str = "",
+        attempts: int = 0,
+        errors: list[str] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.raw = raw
+        self.attempts = attempts
+        self.errors: list[str] = errors or []
+
+
+class InputTooLargeError(SyrinError):
+    """Raised when agent.run() input exceeds max_input_length.
+
+    Enforces a size ceiling on raw user input to prevent accidental
+    serialization of huge payloads to the LLM API.
+
+    Attributes:
+        message: Human-readable error.
+        input_length: Byte/character length of the rejected input.
+        max_length: The configured limit.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        input_length: int = 0,
+        max_length: int = 0,
+    ) -> None:
+        super().__init__(message)
+        self.input_length = input_length
+        self.max_length = max_length

@@ -1,4 +1,4 @@
-"""Knowledge chunking: ChunkConfig, ChunkStrategy, get_chunker.
+"""Knowledge chunking: ChunkStrategy, get_chunker.
 
 Shows how to split documents into retrieval-optimized chunks.
 Requires: uv pip install syrin[knowledge] (chonkie).
@@ -10,11 +10,11 @@ Run:
 from __future__ import annotations
 
 from syrin.knowledge import (
-    ChunkConfig,
     ChunkStrategy,
     Document,
     get_chunker,
 )
+from syrin.knowledge._chunker import ChunkConfig
 
 
 def main() -> None:

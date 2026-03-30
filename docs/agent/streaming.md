@@ -420,12 +420,12 @@ async def safe_stream(message: str):
 
 ## What's Next?
 
-- [Structured Output](/agent/structured-output) — Get typed responses
-- [Tools](/agent/tools) — Extend agent capabilities
-- [Serving](/production/serving) — Serve agents over HTTP
+- [Structured Output](/agent-kit/agent/structured-output) — Get typed responses
+- [Tools](/agent-kit/agent/tools) — Extend agent capabilities
+- [Serving](/agent-kit/production/serving) — Serve agents over HTTP
 
 ## See Also
 
-- [Running Agents](/agent/running-agents) — All execution modes
-- [Response Object](/agent/response-object) — Full Response breakdown
-- [Agent Configuration](/agent/agent-configuration) — All options
+- [Running Agents](/agent-kit/agent/running-agents) — All execution modes
+- [Response Object](/agent-kit/agent/response-object) — Full Response breakdown
+- [Agent Configuration](/agent-kit/agent/agent-configuration) — All options

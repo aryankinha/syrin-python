@@ -348,13 +348,13 @@ Ask yourself:
 
 ## What's Next?
 
-- [Dynamic Pipeline](/multi-agent/dynamic-pipeline) — Let the LLM decide which agents to spawn
-- [Pipeline](/multi-agent/pipeline) — Sequential execution (the complement)
-- [Handoff](/multi-agent/handoff) — Transfer control between agents mid-conversation
+- [Dynamic Pipeline](/agent-kit/multi-agent/dynamic-pipeline) — Let the LLM decide which agents to spawn
+- [Pipeline](/agent-kit/multi-agent/pipeline) — Sequential execution (the complement)
+- [Handoff](/agent-kit/multi-agent/handoff) — Transfer control between agents mid-conversation
 
 ## See Also
 
-- [Multi-Agent: Overview](/multi-agent/overview) — Introduction to multi-agent patterns
-- [Multi-Agent: When to Use](/multi-agent/when-to-use) — Decision guide
-- [Core Concepts: Budget](/core/budget) — Shared budget across agents
-- [Agents: Spawn](/multi-agent/handoff) — Dynamically spawn child agents
+- [Multi-Agent: Overview](/agent-kit/multi-agent/overview) — Introduction to multi-agent patterns
+- [Multi-Agent: When to Use](/agent-kit/multi-agent/when-to-use) — Decision guide
+- [Core Concepts: Budget](/agent-kit/core/budget) — Shared budget across agents
+- [Agents: Spawn](/agent-kit/multi-agent/handoff) — Dynamically spawn child agents

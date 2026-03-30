@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 
 from syrin.output_format import (
-    CitationConfig,
     CitationStyle,
     OutputConfig,
     OutputFormat,
@@ -55,21 +54,17 @@ class TestOutputConfig:
         assert cfg.format == OutputFormat.MARKDOWN
 
     def test_with_citation(self) -> None:
-        citation_cfg = CitationConfig(
-            style=CitationStyle.FOOTNOTE,
-            include_page=True,
-        )
         cfg = OutputConfig(
             format=OutputFormat.PDF,
-            citation=citation_cfg,
+            citation_style=CitationStyle.FOOTNOTE,
+            citation_include_page=True,
         )
-        assert cfg.citation is not None
-        assert cfg.citation.style == CitationStyle.FOOTNOTE
-        assert cfg.citation.include_page is True
+        assert cfg.citation_style == CitationStyle.FOOTNOTE
+        assert cfg.citation_include_page is True
 
     def test_citation_none_by_default(self) -> None:
         cfg = OutputConfig(format=OutputFormat.TEXT)
-        assert cfg.citation is None
+        assert cfg.citation_style is None
 
 
 class TestApplyCitationToContent:
@@ -85,7 +80,7 @@ class TestApplyCitationToContent:
     def test_with_citation_config_parses_and_transforms(self) -> None:
         cfg = OutputConfig(
             format=OutputFormat.MARKDOWN,
-            citation=CitationConfig(style=CitationStyle.FOOTNOTE),
+            citation_style=CitationStyle.FOOTNOTE,
         )
         content = "Cap is ₹50L [Source: moa.pdf, Page 3]."
         result, citations = apply_citation_to_content(content, cfg)

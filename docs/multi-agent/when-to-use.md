@@ -157,12 +157,12 @@ Budget-conscious systems can use smaller models for grunt work, saving the expen
 
 ## What's Next?
 
-- [Pipeline](/multi-agent/pipeline) — Sequential execution
-- [Pipeline: Parallel](/multi-agent/pipeline-parallel) — Simultaneous execution
-- [Dynamic Pipeline](/multi-agent/dynamic-pipeline) — LLM decides
+- [Pipeline](/agent-kit/multi-agent/pipeline) — Sequential execution
+- [Pipeline: Parallel](/agent-kit/multi-agent/pipeline-parallel) — Simultaneous execution
+- [Dynamic Pipeline](/agent-kit/multi-agent/dynamic-pipeline) — LLM decides
 
 ## See Also
 
-- [Multi-Agent: Overview](/multi-agent/overview) — Introduction to multi-agent
-- [Core Concepts: Budget](/core/budget) — Cost control
-- [Agents: Handoff](/multi-agent/handoff) — Agent-to-agent transfer
+- [Multi-Agent: Overview](/agent-kit/multi-agent/overview) — Introduction to multi-agent
+- [Core Concepts: Budget](/agent-kit/core/budget) — Cost control
+- [Agents: Handoff](/agent-kit/multi-agent/handoff) — Agent-to-agent transfer

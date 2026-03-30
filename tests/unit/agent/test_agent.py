@@ -435,7 +435,9 @@ def test_agent_execute_tool_with_invalid_arguments() -> None:
     model = Model("openai/gpt-4")
     agent = Agent(model=model, tools=[add])
     # Passing string where int expected - should handle gracefully
-    with pytest.raises((ToolExecutionError, TypeError, ValueError)):
+    from syrin.exceptions import ToolArgumentError
+
+    with pytest.raises((ToolExecutionError, ToolArgumentError, TypeError, ValueError)):
         agent._execute_tool("add", {"a": "not_a_number", "b": 3})
 
 

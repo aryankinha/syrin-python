@@ -817,12 +817,12 @@ The built-in options are `InMemoryBudgetStore` (default, no persistence) and `Fi
 
 ## What's Next?
 
-- **[Budget Callbacks](/core/budget-callbacks)** — Learn how to react to budget events with custom callbacks, thresholds, and alerting
-- **[Model Routing](/core/models-routing)** — Automatically switch models based on budget and task requirements
-- **[Memory & Budget](/core/memory)** — Understand how memory operations interact with your budget
+- **[Budget Callbacks](/agent-kit/core/budget-callbacks)** — Learn how to react to budget events with custom callbacks, thresholds, and alerting
+- **[Model Routing](/agent-kit/core/models-routing)** — Automatically switch models based on budget and task requirements
+- **[Memory & Budget](/agent-kit/core/memory)** — Understand how memory operations interact with your budget
 
 ## See Also
 
-- [Budget Callbacks](/core/budget-callbacks) — Custom budget handling
-- [Model Routing](/core/models-routing) — Budget-aware model selection
-- [Rate Limiting](/production/rate-limiting) — Production rate limiting patterns
+- [Budget Callbacks](/agent-kit/core/budget-callbacks) — Custom budget handling
+- [Model Routing](/agent-kit/core/models-routing) — Budget-aware model selection
+- [Rate Limiting](/agent-kit/production/rate-limiting) — Production rate limiting patterns

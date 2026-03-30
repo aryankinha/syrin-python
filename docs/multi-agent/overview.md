@@ -115,12 +115,12 @@ Don't reach for multi-agent when:
 
 ## What's Next?
 
-- [When to Use Multi-Agent](/multi-agent/when-to-use) — Decision guide for your use case
-- [Pipeline](/multi-agent/pipeline) — Sequential agent execution
-- [Dynamic Pipeline](/multi-agent/dynamic-pipeline) — Let the LLM decide
+- [When to Use Multi-Agent](/agent-kit/multi-agent/when-to-use) — Decision guide for your use case
+- [Pipeline](/agent-kit/multi-agent/pipeline) — Sequential agent execution
+- [Dynamic Pipeline](/agent-kit/multi-agent/dynamic-pipeline) — Let the LLM decide
 
 ## See Also
 
-- [Agents: Overview](/agent/overview) — Single agent fundamentals
-- [Agents: Handoff](/multi-agent/handoff) — Transfer control between agents
-- [Core Concepts: Budget](/core/budget) — Cost control across agents
+- [Agents: Overview](/agent-kit/agent/overview) — Single agent fundamentals
+- [Agents: Handoff](/agent-kit/multi-agent/handoff) — Transfer control between agents
+- [Core Concepts: Budget](/agent-kit/core/budget) — Cost control across agents

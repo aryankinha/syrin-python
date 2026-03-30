@@ -318,13 +318,13 @@ PYTHONPATH=. python examples/07_multi_agent/dynamic_pipeline_basic.py
 
 ## What's Next?
 
-- Learn about [human-in-the-loop patterns](/multi-agent/human-in-loop)
-- Explore [agent swarm with observability](/examples/agent-swarm)
-- Understand [dynamic pipeline](/multi-agent/dynamic-pipeline)
+- Learn about [human-in-the-loop patterns](/agent-kit/multi-agent/human-in-loop)
+- Explore [agent swarm with observability](/agent-kit/examples/agent-swarm)
+- Understand [dynamic pipeline](/agent-kit/multi-agent/dynamic-pipeline)
 
 ## See Also
 
-- [Multi-agent overview](/multi-agent/overview)
-- [Pipeline patterns](/multi-agent/pipeline)
-- [Agent handoff](/multi-agent/handoff)
-- [Agent Swarm example](/examples/agent-swarm) for dynamic multi-agent with hooks
+- [Multi-agent overview](/agent-kit/multi-agent/overview)
+- [Pipeline patterns](/agent-kit/multi-agent/pipeline)
+- [Agent handoff](/agent-kit/multi-agent/handoff)
+- [Agent Swarm example](/agent-kit/examples/agent-swarm) for dynamic multi-agent with hooks

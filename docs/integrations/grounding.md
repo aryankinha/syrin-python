@@ -332,12 +332,12 @@ The cost is accuracy. For production systems where accuracy matters, the latency
 
 ## What's Next?
 
-- [Grounding Confidence](/integrations/grounding-confidence) — Trust levels and calibration
-- [Agentic RAG](/integrations/knowledge-rag) — Multi-step retrieval
-- [Knowledge Pool](/integrations/knowledge-pool) — Complete RAG overview
+- [Grounding Confidence](/agent-kit/integrations/grounding-confidence) — Trust levels and calibration
+- [Agentic RAG](/agent-kit/integrations/knowledge-rag) — Multi-step retrieval
+- [Knowledge Pool](/agent-kit/integrations/knowledge-pool) — Complete RAG overview
 
 ## See Also
 
-- [Knowledge RAG](/integrations/knowledge-rag) — Retrieval configuration
-- [Agentic RAG](/integrations/knowledge-pool) — Advanced retrieval
-- [Verification](/integrations/grounding-confidence) — Trust calibration
+- [Knowledge RAG](/agent-kit/integrations/knowledge-rag) — Retrieval configuration
+- [Agentic RAG](/agent-kit/integrations/knowledge-pool) — Advanced retrieval
+- [Verification](/agent-kit/integrations/grounding-confidence) — Trust calibration

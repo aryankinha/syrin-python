@@ -198,12 +198,12 @@ print(f"Loads: {report.checkpoints.loads}")
 
 ## What's Next?
 
-- [Error Handling](/agent/error-handling) — Handle failures and retries
-- [Production: Checkpointing](/production/checkpointing) — Advanced checkpoint strategies
-- [Core Concepts: Memory](/core/memory) — Memory integration with checkpoints
+- [Error Handling](/agent-kit/agent/error-handling) — Handle failures and retries
+- [Production: Checkpointing](/agent-kit/production/checkpointing) — Advanced checkpoint strategies
+- [Core Concepts: Memory](/agent-kit/core/memory) — Memory integration with checkpoints
 
 ## See Also
 
-- [Production: Serving](/production/serving) — Deploy agents with checkpoints
-- [Multi-Agent: Pipeline](/multi-agent/pipeline) — Sequential agent workflows
-- [Debugging: Hooks Reference](/debugging/hooks-reference) — Checkpoint hooks
+- [Production: Serving](/agent-kit/production/serving) — Deploy agents with checkpoints
+- [Multi-Agent: Pipeline](/agent-kit/multi-agent/pipeline) — Sequential agent workflows
+- [Debugging: Hooks Reference](/agent-kit/debugging/hooks-reference) — Checkpoint hooks

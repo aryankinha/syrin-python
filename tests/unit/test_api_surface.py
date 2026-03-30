@@ -1,7 +1,5 @@
-"""Unit tests for API additions from FAILED_TESTS_REPORT fixes.
-
-Covers: CircuitBreaker.state, EventBus.on, GlobalConfig.debug, TokenLimits.per_hour,
-RateLimit.window, GuardrailCheckResult.guardrail_name, Agent.checkpointer.
+"""Unit tests for public API additions: CircuitBreaker.state, EventBus.on, GlobalConfig.debug,
+TokenLimits.per_hour, RateLimit.window, GuardrailCheckResult.guardrail_name, Agent.checkpointer.
 """
 
 from __future__ import annotations

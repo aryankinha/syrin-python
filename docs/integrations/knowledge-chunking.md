@@ -342,12 +342,12 @@ for chunk in chunks:
 
 ## What's Next?
 
-- [RAG Configuration](/integrations/knowledge-rag) — Configure retrieval
-- [Knowledge Pool](/integrations/knowledge-pool) — Complete overview
-- [Embedding Providers](/integrations/knowledge-pool) — Vector generation
+- [RAG Configuration](/agent-kit/integrations/knowledge-rag) — Configure retrieval
+- [Knowledge Pool](/agent-kit/integrations/knowledge-pool) — Complete overview
+- [Embedding Providers](/agent-kit/integrations/knowledge-pool) — Vector generation
 
 ## See Also
 
-- [Document Loaders](/integrations/knowledge-loaders) — Source formats
-- [Vector Storage](/integrations/knowledge-pool) — Storage backends
-- [Retrieval Tuning](/integrations/knowledge-rag) — Optimize search
+- [Document Loaders](/agent-kit/integrations/knowledge-loaders) — Source formats
+- [Vector Storage](/agent-kit/integrations/knowledge-pool) — Storage backends
+- [Retrieval Tuning](/agent-kit/integrations/knowledge-rag) — Optimize search

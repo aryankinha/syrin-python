@@ -261,7 +261,7 @@ For streaming or web integration, use HTTP mode with `enable_playground=True`.
 
 ## See Also
 
-- [Serving: HTTP API](/production/serving-http) — REST API reference
-- [Serving: STDIO](/production/serving-stdio) — JSON lines for subprocesses
-- [Serving: Advanced](/production/serving-advanced) — Mounting on existing apps
-- [Playground](/production/playground) — Web UI for testing
+- [Serving: HTTP API](/agent-kit/production/serving-http) — REST API reference
+- [Serving: STDIO](/agent-kit/production/serving-stdio) — JSON lines for subprocesses
+- [Serving: Advanced](/agent-kit/production/serving-advanced) — Mounting on existing apps
+- [Playground](/agent-kit/production/playground) — Web UI for testing

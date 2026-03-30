@@ -39,15 +39,40 @@ class Writer(Agent):
 # --- Run it ---
 
 if __name__ == "__main__":
+    import sys
+
+    use_debug_ui = "--debug" in sys.argv
     writer = Writer()
 
-    # Call each task independently
-    print("--- Research Task ---")
-    research_result = writer.research("artificial intelligence")
-    print(research_result)
+    if use_debug_ui:
+        from syrin.debug import Pry
 
+        # Use ui.run() to execute tasks in a background thread so the TUI key
+        # loop (↑↓ navigate stream, Tab/Shift+Tab switch right panel, Enter detail,
+        # ESC back, p pause/resume, q quit) stays fully responsive during execution.
+        out: list[str] = ["", ""]
+
+        def _research() -> None:
+            out[0] = writer.research("artificial intelligence")
+
+        def _write() -> None:
+            out[1] = writer.write("artificial intelligence", style="casual")
+
+        with Pry() as ui:
+            ui.attach(writer)
+            ui.run(_research).join()  # run in bg thread; join before next task
+            ui.run(_write).join()
+            ui.wait()  # hold TUI open — press q to exit
+
+        research_result, write_result = out[0], out[1]
+    else:
+        research_result = writer.research("artificial intelligence")
+        write_result = writer.write("artificial intelligence", style="casual")
+
+    # Printed after TUI exits (normal terminal restored)
+    print("--- Research Task ---")
+    print(research_result)
     print("\n--- Write Task ---")
-    write_result = writer.write("artificial intelligence", style="casual")
     print(write_result)
 
     # Optional: serve with playground UI

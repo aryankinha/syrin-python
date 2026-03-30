@@ -292,13 +292,13 @@ PYTHONPATH=. pytest examples/ipo_drafting_agent/ipo_tests/ -v
 
 ## What's Next?
 
-- Learn about [knowledge management](/examples/knowledge-agent)
-- Explore [grounding and confidence](/integrations/grounding)
-- Understand [structured output](/agent/structured-output)
+- Learn about [knowledge management](/agent-kit/examples/knowledge-agent)
+- Explore [grounding and confidence](/agent-kit/integrations/grounding)
+- Understand [structured output](/agent-kit/agent/structured-output)
 
 ## See Also
 
-- [Knowledge pool documentation](/integrations/knowledge-pool)
-- [Grounding documentation](/integrations/grounding)
-- [Guardrails documentation](/agent/guardrails)
-- [Structured output](/agent/structured-output)
+- [Knowledge pool documentation](/agent-kit/integrations/knowledge-pool)
+- [Grounding documentation](/agent-kit/integrations/grounding)
+- [Guardrails documentation](/agent-kit/agent/guardrails)
+- [Structured output](/agent-kit/agent/structured-output)

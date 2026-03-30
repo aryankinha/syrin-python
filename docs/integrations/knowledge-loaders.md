@@ -388,12 +388,12 @@ loaders = [Knowledge.TextFile(str(f)) for f in recent]
 
 ## What's Next?
 
-- [Chunking Strategies](/integrations/knowledge-chunking) — Split documents into optimal chunks
-- [Knowledge Pool](/integrations/knowledge-pool) — Complete RAG overview
-- [RAG Configuration](/integrations/knowledge-rag) — Configure retrieval
+- [Chunking Strategies](/agent-kit/integrations/knowledge-chunking) — Split documents into optimal chunks
+- [Knowledge Pool](/agent-kit/integrations/knowledge-pool) — Complete RAG overview
+- [RAG Configuration](/agent-kit/integrations/knowledge-rag) — Configure retrieval
 
 ## See Also
 
-- [Document Model](/core/models) — Understanding documents
-- [Vector Storage](/integrations/knowledge-pool) — Storing embeddings
-- [Embedding Providers](/core/models) — Vector embeddings
+- [Document Model](/agent-kit/core/models) — Understanding documents
+- [Vector Storage](/agent-kit/integrations/knowledge-pool) — Storing embeddings
+- [Embedding Providers](/agent-kit/core/models) — Vector embeddings

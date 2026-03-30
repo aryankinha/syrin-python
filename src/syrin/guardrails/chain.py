@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import time
+import traceback
 from collections.abc import Iterator
 
 from syrin.guardrails.base import Guardrail
@@ -11,6 +13,12 @@ from syrin.guardrails.context import GuardrailContext
 from syrin.guardrails.decision import GuardrailDecision
 from syrin.guardrails.engine import EvaluationResult
 from syrin.guardrails.result import GuardrailCheckResult
+
+# Shared executor — avoids creating a new ThreadPoolExecutor per check() call.
+# Reusing one pool prevents thread exhaustion under concurrent guardrail checks.
+_THREAD_POOL = concurrent.futures.ThreadPoolExecutor(
+    max_workers=4, thread_name_prefix="syrin-grdrail"
+)
 
 
 class GuardrailChain:
@@ -105,12 +113,13 @@ class GuardrailChain:
                     total_budget_consumed=total_budget,
                 )
             except Exception as e:
-                # Exception stops the chain
+                # Exception stops the chain — include full traceback in metadata
+                tb = traceback.format_exc()
                 error_decision = GuardrailDecision(
                     passed=False,
                     rule="exception",
                     reason=f"Guardrail '{guardrail.name}' raised exception: {str(e)}",
-                    metadata={"exception": str(e), "guardrail": guardrail.name},
+                    metadata={"exception": str(e), "guardrail": guardrail.name, "traceback": tb},
                 )
                 decisions.append(error_decision)
                 elapsed = (time.time() - start_time) * 1000
@@ -172,9 +181,8 @@ class GuardrailChain:
         except RuntimeError:
             loop = None
         if loop is not None:
-            # We're inside a running loop - run in a separate thread
-            import concurrent.futures
-
+            # Shared pool — avoids per-call executor creation/teardown overhead
+            # and prevents thread exhaustion under concurrent guardrail checks.
             def run_in_thread() -> EvaluationResult:
                 new_loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(new_loop)
@@ -183,8 +191,7 @@ class GuardrailChain:
                 finally:
                     new_loop.close()
 
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                result = pool.submit(run_in_thread).result()
+            result = _THREAD_POOL.submit(run_in_thread).result()
         else:
             result = asyncio.run(self.evaluate(context))
 

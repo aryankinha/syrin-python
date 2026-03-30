@@ -20,6 +20,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from syrin.debug import Pry
+
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
@@ -46,7 +48,9 @@ def main() -> None:
 
     # Create agent
     print("Creating DRHP agent with Knowledge, Grounding, Budget, and Guardrails...")
+    pry = Pry()
     agent = create_agent()
+    pry.attach(agent)
     print(f"  - Agent: {agent.name}")
     if agent._budget:
         print(f"  - Budget: ${agent._budget.max_cost}")
