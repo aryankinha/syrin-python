@@ -9,6 +9,140 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.10.0] - 2026-03-30
+
+### Theme: Observability, Triggers, and Production Stability
+
+This is the stability release before v1.0.0. It brings the best debugging experience in the AI agent ecosystem, event-driven triggers, production-grade knowledge ingestion, and comprehensive bug fixes.
+
+---
+
+### Added
+
+#### Syrin Debug — Live Terminal Debugging
+- Rich-based live terminal UI activated via `debug=True`
+- Never scrolls — panel updates in-place with live stats
+- Budget progress bar always visible
+- Color-coded events: LLM (blue), tools (yellow), errors (red), memory (purple), guardrails (red)
+- Multi-agent aware — nested panels for spawned agents
+- Keyboard filtering: `e` errors, `t` tools, `m` memory, `f` full trace, `q` quit, `p` pause
+
+#### Event-Driven Triggers (`agent.watch()`)
+- `Watchable` mixin with swappable protocols
+- `CronProtocol` — cron-scheduled triggers using croniter
+- `WebhookProtocol` — HTTP webhook trigger with HMAC signature validation
+- `QueueProtocol` — message queue trigger with pluggable backend (Redis, in-memory)
+- Agents that react to the world, not just API calls
+
+#### Production Knowledge Pool
+- `GitHubSource` — ingest entire GitHub repos (public and private)
+- `DocsSource` — crawl documentation sites with depth limits and pattern matching
+- Multi-language code chunking (Python, Go, Rust, TypeScript, Java, etc.)
+- Progress events: `KNOWLEDGE_CHUNK_START`, `KNOWLEDGE_CHUNK_PROGRESS`, `KNOWLEDGE_EMBED_PROGRESS`, `KNOWLEDGE_CHUNK_END`
+- Semantic chunking strategy for better retrieval
+- Rate limiting for embedding APIs
+
+#### Prompt Injection Defense
+- `InputNormalization` — normalize inputs through defense pipeline
+- `SpotlightDefense` — clearly label untrusted content
+- `CanaryTokens` — hidden tokens that trigger alerts
+- Secure memory writes — scan before storing
+
+#### Structured Output Enforcement
+- `result.output` always returns the typed object (never dict/str)
+- Automatic retry on validation failure (configurable `validation_retries`)
+- Validation hooks: `Hook.OUTPUT_VALIDATION_RETRY`, `Hook.OUTPUT_VALIDATION_ERROR`
+- Clear error messages with raw response and validation details
+
+#### Runtime Model Switching
+- `agent.switch_model()` — switch model at runtime without recreating agent
+- Context, memory, and hooks remain intact
+
+---
+
+### Changed
+
+#### Simplified API Surface
+
+| Removed | Migration |
+|---------|-----------|
+| `FileBudgetStore`, `InMemoryBudgetStore` | `BudgetStore(key="user:123", backend="file")` |
+| `Agent(budget_store_key=...)` | `BudgetStore(key=..., ...)` passed to budget |
+| `Memory.types` | `Memory(restrict_to=[...]` |
+| `MemoryBudget` | `Memory(budget_extraction=..., budget_consolidation=...)` |
+| `Consolidation` | `Memory(consolidation_interval=..., consolidation_deduplicate=...)` |
+| `ModelSettings` | `Model.OpenAI("gpt-4o", temperature=0.7)` |
+| `CitationConfig` | `OutputConfig(citation_style=...)` |
+| `RetryConfig` | `APIRateLimit(retry_max=3, retry_base_delay=1.0)` |
+| `ContextConfig` | `Context(...)` |
+| `ChunkConfig` | `Knowledge(chunk_size=..., chunk_strategy=...)` |
+| `GroundingConfig` | `Knowledge(grounding_enabled=True)` |
+| `AgenticRAGConfig` | `Knowledge(agentic_max_iterations=3)` |
+
+---
+
+### Fixed
+
+#### Critical Race Conditions
+- Message list mutation synchronization in `ReactLoop`
+- Guardrail chain executor leak — proper cleanup on all exit paths
+- Shared budget tracker synchronization with threading.Lock
+- Memory entry ID counter now atomic
+- Rate limit entry pruning now holds lock during operation
+- Memory decay now atomic
+
+#### Security Issues
+- EventContext API key scrubbing — redact sensitive fields before hook dispatch
+- PII scanner improved — better regex patterns, Luhn validation for credit cards
+- Retry prompt sanitization — truncate and strip control characters
+- Template engine depth/expansion limit (default 10, 1MB cap)
+- Input max-length enforcement (default 1MB) with `InputTooLargeError`
+- SQLite thread safety — added locks for `check_same_thread=False`
+
+#### Performance
+- Migrated to `aiosqlite` for non-blocking async I/O
+- Token encoding caching — only recompute for changed messages
+- Hook handlers now run in parallel via `asyncio.gather`
+- Tool schema caching at class level
+
+---
+
+### Documentation
+
+- Comprehensive docs for all new features
+- Debugging guide with Pry examples
+- Watch/Triggers guide
+- Knowledge Pool ingestion guide
+- Prompt injection defense guide
+- All docs links now use `https://docs.syrin.dev/agent-kit/`
+
+---
+
+### Migration Guide
+
+```python
+# Before
+from syrin import Agent, ModelSettings
+agent = Agent(
+    model=Model.OpenAI("gpt-4o", settings=ModelSettings(temperature=0.7)),
+)
+
+# After
+agent = Agent(
+    model=Model.OpenAI("gpt-4o", temperature=0.7),
+)
+```
+
+```python
+# Memory types
+# Before
+agent = Agent(memory=Memory(types=["core", "episodic"]))
+# After
+agent = Agent(memory=Memory(restrict_to=["core", "episodic"]))
+```
+
+---
+
 ## [0.9.0] - 2026-03-25
 
 ### Breaking
