@@ -7,9 +7,9 @@ import tempfile
 
 import pytest
 
-from syrin.enums import MemoryType
+from syrin.enums import MemoryBackend, MemoryType
 from syrin.memory import MemoryEntry
-from syrin.memory.backends import InMemoryBackend, MemoryBackend, SQLiteBackend, get_backend
+from syrin.memory.backends import InMemoryBackend, SQLiteBackend, get_backend
 
 
 class TestInMemoryBackend:

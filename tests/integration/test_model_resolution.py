@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from syrin.agent import Agent
-from syrin.agent.__init__ import _resolve_provider
+from syrin.agent._helpers import _resolve_provider
 from syrin.model import Model
 from syrin.providers.base import Provider
 from syrin.providers.registry import get_provider

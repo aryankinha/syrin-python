@@ -13,10 +13,9 @@ if TYPE_CHECKING:
     from syrin.agent import Agent
 
 from syrin.agent._context_builder import build_messages as build_messages_for_llm
-from syrin.agent._helpers import _is_prompt
 from syrin.enums import Hook
 from syrin.events import EventContext
-from syrin.prompt import make_prompt_context
+from syrin.prompt import Prompt, make_prompt_context
 from syrin.response import StructuredOutput
 from syrin.types import Message
 
@@ -59,8 +58,9 @@ def resolve_system_prompt(agent: Agent, prompt_vars: dict[str, object], ctx: obj
         return ""
     if isinstance(source, str):
         return source
-    if _is_prompt(source):
-        var_names = [v.name for v in source.variables]
+    if isinstance(source, Prompt):
+        variables = source.variables
+        var_names = [getattr(v, "name", "") for v in variables]
         filtered = {k: v for k, v in prompt_vars.items() if k in var_names}
         try:
             return str(source(**filtered))

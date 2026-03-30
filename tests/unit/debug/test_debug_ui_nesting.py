@@ -246,7 +246,9 @@ class TestDetailNavigation:
         from syrin.events import EventContext
 
         ui = Pry(json_fallback=False)
-        ui._handle_event(str(Hook.TOOL_CALL_START), EventContext(name="search", arguments='{"q":"x"}'))
+        ui._handle_event(
+            str(Hook.TOOL_CALL_START), EventContext(name="search", arguments='{"q":"x"}')
+        )
         ui._right_view = "tools"
         ui._focus = "right"
         ui._handle_key("\r")

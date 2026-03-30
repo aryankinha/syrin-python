@@ -14,11 +14,24 @@ import time
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Literal, ParamSpec, TypeVar
+from typing import Any, Literal, ParamSpec, TypedDict, TypeVar, Unpack
 
 FilterMode = Literal["all", "errors", "tools", "memory"]
 _T = TypeVar("_T")
 _P = ParamSpec("_P")
+
+
+class _PryKwargs(TypedDict, total=False):
+    json_fallback: bool | None
+    show_budget: bool
+    show_memory: bool
+    show_tools: bool
+    show_llm: bool
+    max_rows: int
+    redact_prompts: bool
+    stream_override: list[str] | None
+    filter_mode: FilterMode
+
 
 _DEBUG_FLAG = "--debug"
 _ACTIVE_PRY_LOCK = threading.RLock()
@@ -515,7 +528,7 @@ class Pry:
     def from_debug_flag(
         cls,
         argv: list[str] | None = None,
-        **kwargs: object,
+        **kwargs: Unpack[_PryKwargs],
     ) -> Pry | None:
         """Create a Pry only when ``--debug`` is present, consuming the flag."""
         if not _consume_debug_flag(argv):

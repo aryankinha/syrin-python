@@ -4,7 +4,8 @@ from dataclasses import dataclass
 
 import pytest
 
-from syrin import Agent, AgentConfig, Model, RunContext, tool
+from syrin import Agent, AgentConfig, Model, RunContext
+from syrin.tool import tool
 
 # -----------------------------------------------------------------------------
 # Dependencies

@@ -31,7 +31,7 @@ def create_mock_provider():
 class TestHandoff:
     """Tests for Agent handoff functionality."""
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_handoff_basic(self, mock_get_provider):
         """Test basic handoff creates target agent and runs with context."""
         mock_get_provider.return_value = create_mock_provider()
@@ -50,7 +50,7 @@ class TestHandoff:
         assert isinstance(result, Response)
         assert result.content is not None
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_handoff_with_context_transfer(self, mock_get_provider):
         """Test handoff transfers context from source to target agent."""
         mock_get_provider.return_value = create_mock_provider()
@@ -68,7 +68,7 @@ class TestHandoff:
 
         assert isinstance(result, Response)
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_handoff_without_context_transfer(self, mock_get_provider):
         """Test handoff without context transfer."""
         mock_get_provider.return_value = create_mock_provider()
@@ -86,7 +86,7 @@ class TestHandoff:
 
         assert isinstance(result, Response)
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_handoff_with_budget_transfer(self, mock_get_provider):
         """Test handoff transfers budget from source to target agent."""
         from syrin import Budget
@@ -106,7 +106,7 @@ class TestHandoff:
 
         assert isinstance(result, Response)
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_handoff_chain(self, mock_get_provider):
         """Test multiple handoffs in sequence."""
         mock_get_provider.return_value = create_mock_provider()
@@ -133,7 +133,7 @@ class TestHandoff:
 class TestSpawn:
     """Tests for Agent spawning functionality."""
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_spawn_basic(self, mock_get_provider):
         """Test basic spawn creates sub-agent."""
         mock_get_provider.return_value = create_mock_provider()
@@ -150,7 +150,7 @@ class TestSpawn:
 
         assert isinstance(child, Child)
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_spawn_with_task(self, mock_get_provider):
         """Test spawn runs task on sub-agent."""
         mock_get_provider.return_value = create_mock_provider()
@@ -167,7 +167,7 @@ class TestSpawn:
 
         assert isinstance(result, Response)
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_spawn_with_budget(self, mock_get_provider):
         """Test spawn creates sub-agent with its own budget."""
         from syrin import Budget
@@ -186,7 +186,7 @@ class TestSpawn:
 
         assert child._budget is not None
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_spawn_shared_budget_child_uses_parent_tracker(self, mock_get_provider):
         """With shared budget, child uses parent's tracker (live view, no double count)."""
         from syrin import Budget
@@ -209,7 +209,7 @@ class TestSpawn:
         # Spent must match tracker: no double count from _update_parent_budget
         assert parent._budget._spent == parent._budget_tracker.current_run_cost
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_spawn_max_children_limit(self, mock_get_provider):
         """Test spawn respects max_children limit (concurrent). Decrements when child completes."""
         mock_get_provider.return_value = create_mock_provider()
@@ -237,7 +237,7 @@ class TestSpawn:
         with pytest.raises(RuntimeError, match="max child agents"):
             parent.spawn(Child)  # would be 3rd concurrent
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_spawn_parallel(self, mock_get_provider):
         """Test spawning multiple sub-agents in parallel."""
         mock_get_provider.return_value = create_mock_provider()
@@ -271,7 +271,7 @@ class TestSpawn:
 class TestHandoffHooks:
     """TDD tests for handoff hooks and edge cases."""
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_handoff_emits_start_and_end(self, mock_get_provider):
         """HANDOFF_START and HANDOFF_END emitted with correct context."""
         mock_get_provider.return_value = create_mock_provider()
@@ -314,7 +314,7 @@ class TestHandoffHooks:
         assert "response_preview" in captured_end[0]
         assert result.content is not None
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_handoff_before_handler_blocks_emits_blocked(self, mock_get_provider):
         """Before-handler raises HandoffBlockedError -> HANDOFF_BLOCKED emitted."""
         mock_get_provider.return_value = create_mock_provider()
@@ -343,7 +343,7 @@ class TestHandoffHooks:
         assert blocked_ctx[0]["task"] == "bad"
         assert blocked_ctx[0]["reason"] == "invalid task"
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_handoff_task_none_raises_validation_error(self, mock_get_provider):
         """handoff with task=None raises ValidationError."""
         mock_get_provider.return_value = create_mock_provider()
@@ -359,7 +359,7 @@ class TestHandoffHooks:
         with pytest.raises(ValidationError, match="handoff task must be non-empty"):
             source.handoff(TargetAgent, None)  # type: ignore[arg-type]
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_handoff_task_empty_raises_validation_error(self, mock_get_provider):
         """handoff with empty task raises ValidationError."""
         mock_get_provider.return_value = create_mock_provider()
@@ -378,7 +378,7 @@ class TestHandoffHooks:
         with pytest.raises(ValidationError, match="handoff task must be non-empty"):
             source.handoff(TargetAgent, "   ")
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_handoff_retry_requested_propagates(self, mock_get_provider):
         """HandoffRetryRequested from target propagates to caller."""
         mock_get_provider.return_value = create_mock_provider()
@@ -401,7 +401,7 @@ class TestHandoffHooks:
 
         assert "Use JSON with fields: x, y" in exc_info.value.format_hint
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_handoff_mem_count_in_start_context(self, mock_get_provider):
         """HANDOFF_START ctx has correct mem_count when memories transferred."""
         mock_get_provider.return_value = create_mock_provider()
@@ -424,7 +424,7 @@ class TestHandoffHooks:
         assert len(start_ctx) == 1
         assert start_ctx[0]["mem_count"] == 2
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_handoff_start_includes_handoff_context(self, mock_get_provider):
         """HANDOFF_START context includes handoff_context (ContextSnapshot)."""
         mock_get_provider.return_value = create_mock_provider()
@@ -449,7 +449,7 @@ class TestHandoffHooks:
         assert handoff_context.total_tokens >= 0
         assert handoff_context.context_rot_risk in ("low", "medium", "high")
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_handoff_start_handoff_context_empty_when_no_prepare(self, mock_get_provider):
         """When source never ran response(), handoff_context has zero total_tokens."""
         mock_get_provider.return_value = create_mock_provider()
@@ -472,7 +472,7 @@ class TestHandoffHooks:
         assert isinstance(snap, ContextSnapshot)
         assert snap.total_tokens == 0
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_handoff_blocked_includes_handoff_context(self, mock_get_provider):
         """HANDOFF_BLOCKED context includes handoff_context (same snapshot as START)."""
         mock_get_provider.return_value = create_mock_provider()
@@ -499,7 +499,7 @@ class TestHandoffHooks:
         assert "handoff_context" in blocked_ctx[0]
         assert isinstance(blocked_ctx[0]["handoff_context"], ContextSnapshot)
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_handoff_end_does_not_include_handoff_context(self, mock_get_provider):
         """HANDOFF_END context does not include handoff_context (only START/BLOCKED)."""
         mock_get_provider.return_value = create_mock_provider()
@@ -524,7 +524,7 @@ class TestHandoffHooks:
 class TestSpawnHooks:
     """TDD tests for spawn hooks."""
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_spawn_with_task_emits_start_and_end(self, mock_get_provider):
         """SPAWN_START and SPAWN_END emitted when task given."""
         mock_get_provider.return_value = create_mock_provider()
@@ -557,7 +557,7 @@ class TestSpawnHooks:
         assert "duration" in end_ctx[0]
         assert isinstance(result, Response)
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_spawn_start_includes_context_metadata(self, mock_get_provider):
         """SPAWN_START context includes context_inherited, initial_context_tokens, parent_context_tokens."""
         mock_get_provider.return_value = create_mock_provider()
@@ -584,7 +584,7 @@ class TestSpawnHooks:
         assert isinstance(start_ctx[0]["parent_context_tokens"], int)
         assert start_ctx[0]["parent_context_tokens"] >= 0
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_spawn_without_task_emits_start_only(self, mock_get_provider):
         """SPAWN_START emitted; SPAWN_END not emitted when task is None."""
         mock_get_provider.return_value = create_mock_provider()
@@ -608,7 +608,7 @@ class TestSpawnHooks:
         assert len(end_ctx) == 0
         assert child is not None
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_spawn_parallel_emits_spawn_hooks_per_child(self, mock_get_provider):
         """spawn_parallel emits SPAWN_START/END for each child via spawn()."""
         mock_get_provider.return_value = create_mock_provider()
@@ -643,7 +643,7 @@ class TestSpawnHooks:
         assert end_count == 2
         assert len(results) == 2
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_agent_max_children_constructor(self, mock_get_provider):
         """Agent(max_children=N) enforces limit; (N+1)-th spawn raises RuntimeError."""
         mock_get_provider.return_value = create_mock_provider()
@@ -662,7 +662,7 @@ class TestSpawnHooks:
 class TestPipeline:
     """Tests for Pipeline execution."""
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_pipeline_sequential(self, mock_get_provider):
         """Test sequential pipeline execution."""
         from syrin.agent.multi_agent import Pipeline
@@ -686,7 +686,7 @@ class TestPipeline:
 
         assert isinstance(result, Response)
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_pipeline_parallel(self, mock_get_provider):
         """Test parallel pipeline execution."""
         from syrin.agent.multi_agent import Pipeline
@@ -712,7 +712,7 @@ class TestPipeline:
         for result in results:
             assert isinstance(result, Response)
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_pipeline_with_shared_budget(self, mock_get_provider):
         """Test pipeline with shared budget across agents."""
         from syrin import Budget
@@ -813,7 +813,7 @@ class TestAgentTeam:
 class TestParallelSequential:
     """Tests for parallel and sequential helper functions."""
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_parallel_creates_responses(self, mock_get_provider):
         """Test parallel helper creates responses."""
         from syrin.agent.multi_agent import parallel
@@ -835,7 +835,7 @@ class TestParallelSequential:
         results = asyncio.run(run())
         assert len(results) == 2
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_sequential_creates_response(self, mock_get_provider):
         """Test sequential helper creates response."""
         from syrin.agent.multi_agent import sequential
@@ -874,7 +874,7 @@ class TestEdgeCases:
         with pytest.raises(ValidationError, match="target_agent"):
             agent.handoff(None, "task")  # type: ignore[arg-type]
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_spawn_with_invalid_budget(self, mock_get_provider):
         """Test spawn with invalid budget - negative budget should be rejected."""
         from pydantic import ValidationError
@@ -892,7 +892,7 @@ class TestEdgeCases:
         with pytest.raises(ValidationError):
             parent.spawn(Child, budget=Budget(max_cost=-1.0))
 
-    @patch("syrin.agent._resolve_provider")
+    @patch("syrin.agent._construction._resolve_provider")
     def test_spawn_memory_isolation(self, mock_get_provider):
         """Test spawned agents have isolated memory."""
         mock_get_provider.return_value = create_mock_provider()

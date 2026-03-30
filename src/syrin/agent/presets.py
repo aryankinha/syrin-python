@@ -39,7 +39,7 @@ def basic(model: Model, *, system_prompt: str = "You are helpful.") -> Agent:
         >>> agent = Agent.basic(Model.OpenAI("gpt-4o-mini"), system_prompt="You are concise.")
         >>> agent.run("What is 2+2?")
     """
-    from syrin import Agent
+    from syrin.agent import Agent
     from syrin.enums import LoopStrategy
 
     return Agent(
@@ -73,7 +73,7 @@ def with_memory(
         >>> agent.run("Remember my name is Alice.")
         >>> agent.run("What's my name?")  # "Alice"
     """
-    from syrin import Agent
+    from syrin.agent import Agent
     from syrin.enums import LoopStrategy, MemoryType
     from syrin.memory import Memory
 
@@ -110,7 +110,8 @@ def with_budget(
         >>> agent = Agent.with_budget(Model.OpenAI("gpt-4o-mini"), budget=Budget(max_cost=0.50))
         >>> agent.run("Summarize this long document")
     """
-    from syrin import Agent, Budget
+    from syrin.agent import Agent
+    from syrin.budget import Budget
     from syrin.enums import LoopStrategy
 
     return Agent(
@@ -133,7 +134,8 @@ def research() -> Agent:
         >>> agent = Agent.presets.research()
         >>> agent.run("Summarize the latest papers on RAG")
     """
-    from syrin import Agent, Budget
+    from syrin.agent import Agent
+    from syrin.budget import Budget
     from syrin.enums import LoopStrategy, MemoryType
     from syrin.memory import Memory
 
@@ -159,7 +161,8 @@ def assistant() -> Agent:
         >>> agent = Agent.presets.assistant()
         >>> agent.run("What can you help me with?")
     """
-    from syrin import Agent, Budget
+    from syrin.agent import Agent
+    from syrin.budget import Budget
     from syrin.enums import LoopStrategy, MemoryType
     from syrin.memory import Memory
 
@@ -184,7 +187,8 @@ def code_helper() -> Agent:
         >>> agent = Agent.presets.code_helper()
         >>> agent.run("Refactor this function to use async")
     """
-    from syrin import Agent, Budget
+    from syrin.agent import Agent
+    from syrin.budget import Budget
     from syrin.enums import LoopStrategy, MemoryType
     from syrin.memory import Memory
 

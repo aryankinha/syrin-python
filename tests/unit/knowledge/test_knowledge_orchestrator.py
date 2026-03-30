@@ -11,8 +11,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from syrin.enums import KnowledgeBackend
-from syrin.knowledge import Knowledge, _deduplicate_search_results
+from syrin.knowledge import Knowledge
 from syrin.knowledge._chunker import Chunk, ChunkStrategy
+from syrin.knowledge._core import _deduplicate_search_results
 from syrin.knowledge._store import SearchResult
 from syrin.knowledge.loaders import RawTextLoader
 

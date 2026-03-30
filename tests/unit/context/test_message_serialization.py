@@ -9,7 +9,8 @@ Tests that:
 from __future__ import annotations
 
 from syrin.agent._context_builder import _serialize_message
-from syrin.types import Message, MessageRole
+from syrin.enums import MessageRole
+from syrin.types import Message
 
 
 class TestMessageSerializationDelta:

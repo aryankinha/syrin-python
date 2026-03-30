@@ -1,28 +1,17 @@
-"""Embedding providers for Knowledge and Memory modules.
+"""Public embedding package facade.
 
-This module provides async embedding providers for text vectorization.
-Used by Knowledge (RAG) and Memory (semantic recall) backends.
-
-Example:
-    from syrin.embedding import Embedding, EmbeddingProvider
-
-    # Quick start
-    provider = Embedding.OpenAI()
-
-    # Or use directly
-    from syrin.embedding import OpenAIEmbedding, OllamaEmbedding, LiteLLMEmbedding
-
-    provider = OpenAIEmbedding(dimensions=256)
-    embeddings = await provider.embed(["hello world"])
+This package exposes embedding providers and the embedding namespace used by
+knowledge and memory features. Import from ``syrin.embedding`` for provider
+types and factory-style embedding constructors.
 """
 
-from __future__ import annotations
-
-from syrin.embedding._enum import EmbeddingBackend
-from syrin.embedding._namespace import Embedding
-from syrin.embedding._ollama import OllamaEmbedding
-from syrin.embedding._openai import OpenAIEmbedding
-from syrin.embedding._protocol import EmbeddingProvider
+from syrin.embedding._core import (
+    Embedding,
+    EmbeddingBackend,
+    EmbeddingProvider,
+    OllamaEmbedding,
+    OpenAIEmbedding,
+)
 
 __all__ = [
     "Embedding",
@@ -31,12 +20,3 @@ __all__ = [
     "OllamaEmbedding",
     "OpenAIEmbedding",
 ]
-
-
-def __getattr__(name: str) -> object:
-    """Lazy import for optional providers."""
-    if name == "LiteLLMEmbedding":
-        from syrin.embedding._litellm import LiteLLMEmbedding
-
-        return LiteLLMEmbedding
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

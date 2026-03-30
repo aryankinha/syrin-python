@@ -28,7 +28,7 @@ def _mock_agent_response(*args: object, **kwargs: object) -> Response:
 
 def test_run_returns_response_type() -> None:
     """run() must return Response (typed)."""
-    with patch("syrin.Agent") as MockAgent:
+    with patch("syrin.agent.Agent") as MockAgent:
         MockAgent.return_value.run.return_value = _mock_agent_response()
         result = syrin.run("Hello", model="openai/gpt-4o-mini")
     assert isinstance(result, Response)
@@ -37,7 +37,7 @@ def test_run_returns_response_type() -> None:
 
 def test_run_accepts_tools_none() -> None:
     """run() must accept tools=None (default)."""
-    with patch("syrin.Agent") as MockAgent:
+    with patch("syrin.agent.Agent") as MockAgent:
         MockAgent.return_value.run.return_value = _mock_agent_response()
         result = syrin.run("Hi", model="openai/gpt-4o-mini", tools=None)
     assert isinstance(result, Response)
@@ -45,7 +45,7 @@ def test_run_accepts_tools_none() -> None:
 
 def test_run_accepts_tools_empty_list() -> None:
     """run() must accept tools=[]."""
-    with patch("syrin.Agent") as MockAgent:
+    with patch("syrin.agent.Agent") as MockAgent:
         MockAgent.return_value.run.return_value = _mock_agent_response()
         result = syrin.run("Hi", model="openai/gpt-4o-mini", tools=[])
     assert isinstance(result, Response)
@@ -62,7 +62,7 @@ def test_run_accepts_list_of_tool_specs() -> None:
         parameters_schema={},
         func=lambda: "ok",
     )
-    with patch("syrin.Agent") as MockAgent:
+    with patch("syrin.agent.Agent") as MockAgent:
         MockAgent.return_value.run.return_value = _mock_agent_response()
         result = syrin.run("Hi", model="openai/gpt-4o-mini", tools=[spec])
     assert isinstance(result, Response)
@@ -71,7 +71,7 @@ def test_run_accepts_list_of_tool_specs() -> None:
 def test_run_accepts_budget_optional() -> None:
     """run() must accept budget=Budget(...) or None."""
     budget = Budget(per_run=1.0, on_exceeded=lambda _: None)
-    with patch("syrin.Agent") as MockAgent:
+    with patch("syrin.agent.Agent") as MockAgent:
         MockAgent.return_value.run.return_value = _mock_agent_response()
         result = syrin.run("Hi", model="openai/gpt-4o-mini", budget=budget)
     assert isinstance(result, Response)
@@ -84,7 +84,7 @@ def test_run_accepts_budget_optional() -> None:
 
 def test_run_with_system_prompt() -> None:
     """run() must accept system_prompt kwarg."""
-    with patch("syrin.Agent") as MockAgent:
+    with patch("syrin.agent.Agent") as MockAgent:
         MockAgent.return_value.run.return_value = _mock_agent_response()
         result = syrin.run(
             "Say OK",
@@ -97,7 +97,7 @@ def test_run_with_system_prompt() -> None:
 
 def test_run_response_has_contract_attributes() -> None:
     """Response from run() must have content, cost, tokens, stop_reason."""
-    with patch("syrin.Agent") as MockAgent:
+    with patch("syrin.agent.Agent") as MockAgent:
         MockAgent.return_value.run.return_value = _mock_agent_response()
         result = syrin.run("2+2", model="openai/gpt-4o-mini")
     assert hasattr(result, "content")

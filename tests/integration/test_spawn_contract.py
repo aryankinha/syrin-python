@@ -22,7 +22,7 @@ def _mock_provider():
     return mock
 
 
-@patch("syrin.agent._resolve_provider")
+@patch("syrin.agent._construction._resolve_provider")
 def test_spawn_with_task_returns_response(mock_resolve: MagicMock) -> None:
     """spawn(Child, task='...') returns Response, not Agent."""
     mock_resolve.return_value = _mock_provider()
@@ -41,7 +41,7 @@ def test_spawn_with_task_returns_response(mock_resolve: MagicMock) -> None:
     assert hasattr(result, "cost")
 
 
-@patch("syrin.agent._resolve_provider")
+@patch("syrin.agent._construction._resolve_provider")
 def test_spawn_without_task_returns_agent(mock_resolve: MagicMock) -> None:
     """spawn(Child) with no task returns the spawned Agent instance."""
     mock_resolve.return_value = _mock_provider()
@@ -59,7 +59,7 @@ def test_spawn_without_task_returns_agent(mock_resolve: MagicMock) -> None:
     assert not isinstance(child, Response)
 
 
-@patch("syrin.agent._resolve_provider")
+@patch("syrin.agent._construction._resolve_provider")
 def test_spawn_budget_inheritance_shared_parent_remaining_decreases(
     mock_resolve: MagicMock,
 ) -> None:
@@ -84,7 +84,7 @@ def test_spawn_budget_inheritance_shared_parent_remaining_decreases(
     assert parent._budget.remaining <= initial_remaining
 
 
-@patch("syrin.agent._resolve_provider")
+@patch("syrin.agent._construction._resolve_provider")
 def test_spawn_pocket_money_child_has_budget_cap(mock_resolve: MagicMock) -> None:
     """spawn(Child, budget=Budget(max_cost=0.50)) gives child that run cap."""
     mock_resolve.return_value = _mock_provider()
@@ -101,7 +101,7 @@ def test_spawn_pocket_money_child_has_budget_cap(mock_resolve: MagicMock) -> Non
     assert child._budget.max_cost == 0.50
 
 
-@patch("syrin.agent._resolve_provider")
+@patch("syrin.agent._construction._resolve_provider")
 def test_spawn_pocket_money_exceeds_parent_raises(mock_resolve: MagicMock) -> None:
     """spawn(Child, budget=Budget(max_cost=...)) with run > parent remaining raises ValueError."""
     mock_resolve.return_value = _mock_provider()
