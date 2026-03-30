@@ -17,6 +17,17 @@ Building a serving layer from scratch means writing FastAPI routes, handling str
 
 Syrin solves this with one line: `agent.serve()`. This page explains your deployment options.
 
+## Start Here
+
+If you are deciding how to expose an agent, use this progression:
+
+1. Start with `examples/16_serving/http_serve.py` if you want a plain HTTP API.
+2. Move to `examples/16_serving/playground_single.py` if you want a browser playground.
+3. Use `examples/16_serving/cli_serve.py` for terminal-only testing.
+4. Use `examples/16_serving/stdio_serve.py` when another process will own orchestration.
+5. Use `examples/16_serving/mount_on_existing_app.py` when you already have a FastAPI app.
+6. Use `examples/16_serving/multi_agent_router.py` when you need multiple agents behind one server.
+
 ## Serving Protocols
 
 Syrin supports three deployment modes:
@@ -50,6 +61,8 @@ agent.serve(port=8000, enable_playground=True, debug=True)
 
 **What just happened**: An HTTP server started on port 8000. Visit `http://localhost:8000/playground` for the web UI, or call `POST /chat` for programmatic access.
 
+This flow is demonstrated directly in `examples/16_serving/http_serve.py` and `examples/16_serving/playground_single.py`.
+
 ### Interactive CLI
 
 For testing in your terminal:
@@ -70,6 +83,8 @@ Cost: $0.0001 | Tokens: 12 | Budget remaining: $0.4999
 >
 ```
 
+Use `examples/16_serving/cli_serve.py` when you want this exact local testing loop.
+
 ### STDIO for Subprocesses
 
 For spawning from other processes or integrating with MCP:
@@ -82,6 +97,8 @@ echo '{"input": "Hello", "conversation_id": "session-1"}' | python -m my_agent
 ```json
 {"content": "Hello! How can I help you today?", "cost": 0.0001, "tokens": 12, "conversation_id": "session-1"}
 ```
+
+Use `examples/16_serving/stdio_serve.py` when your agent is being driven by another runtime and stdin/stdout is the contract boundary.
 
 ## Core Endpoints (HTTP)
 
@@ -100,6 +117,18 @@ Every agent exposes these endpoints:
 | `/.well-known/agent-card.json` | GET | A2A discovery |
 
 ## Common Patterns
+
+### One Example Per Serving Style
+
+| Goal | Example |
+|------|---------|
+| Plain HTTP | `examples/16_serving/http_serve.py` |
+| Browser playground | `examples/16_serving/playground_single.py` |
+| CLI REPL | `examples/16_serving/cli_serve.py` |
+| STDIO subprocess | `examples/16_serving/stdio_serve.py` |
+| Mount into existing app | `examples/16_serving/mount_on_existing_app.py` |
+| Multi-agent server | `examples/16_serving/multi_agent_router.py` |
+| Discovery override | `examples/16_serving/discovery_override.py` |
 
 ### Basic HTTP with Playground
 
@@ -156,6 +185,8 @@ app.include_router(agent.as_router(), prefix="/agent")
 - `GET /agent/health`
 - `GET /core/budget`
 
+If you want lower-level composition instead of `agent.as_router()`, use `create_http_app()` or `build_router()` from `syrin.serve` and mount them into your own application stack.
+
 ### Multiple Agents
 
 ```python
@@ -174,6 +205,8 @@ router.serve(port=8000)
 - `POST /agent/writer/chat`
 - `GET /agent/researcher/health`
 - etc.
+
+This is the right pattern when you want one deployment surface with several specialized agents behind it.
 
 ## Configuration Reference
 
@@ -209,9 +242,28 @@ A2A agent card discovery (`/.well-known/agent-card.json`) is auto-enabled when t
 agent.serve(config=ServeConfig(enable_discovery=False))
 ```
 
+If you need to customize the discovery payload itself, see `examples/16_serving/discovery_override.py`.
+
 ### Authentication Warning
 
 The HTTP server logs a warning when serving without authentication. For production, add auth middleware or mount behind an authenticated gateway.
+
+## Public Serving Helpers
+
+The serving package also exports:
+
+- `AGENT_CARD_PATH` for the well-known discovery path.
+- `Servable` for typing objects that can be served.
+- `create_http_app()` and `build_router()` for composing serving into your own application stack.
+- `build_agent_card_json()` when you need to generate agent-card payloads directly.
+
+## Practical Advice
+
+- Use HTTP plus playground during development.
+- Use CLI when the fastest feedback loop is a terminal.
+- Use STDIO when another supervisor process owns lifecycle and transport.
+- Use router-based serving when you need multiple named agents in one service.
+- Use mount/composition helpers when serving is only one part of a larger FastAPI application.
 
 ## See Also
 

@@ -378,6 +378,10 @@ agent.events.on(Hook.RATELIMIT_THRESHOLD, on_threshold)
 
 Use both together: rate limiting prevents provider throttling, budget prevents runaway costs.
 
+## Public Rate-Limit Manager API
+
+The rate-limit package also exports `RateLimitManager`, `DefaultRateLimitManager`, `create_rate_limit_manager()`, `get_rate_limit_backend()`, `MemoryRateLimitBackend`, `SQLiteRateLimitBackend`, and `RedisRateLimitBackend` for custom manager and backend wiring.
+
 ## See Also
 
 - [Budget](/agent-kit/core/budget) — Spending controls

@@ -524,6 +524,16 @@ result = agent.run([
 | Voice synthesis | <1 second | Fast, real-time possible |
 | Vision processing | Similar to text | Varies by model |
 
+## Public Generation API
+
+The generation package exposes both high-level generators and provider-level helpers:
+
+- `AspectRatio`, `OutputMimeType`, and `VoiceOutputFormat` for output configuration.
+- `DalleImageProvider`, `GeminiImageProvider`, and `GeminiVideoProvider` for provider-specific generation backends.
+- `get_default_image_generator()`, `get_default_video_generator()`, `get_image_provider()`, `get_video_provider()`, and `get_voice_provider()` for runtime lookup.
+- `register_image_provider()`, `register_video_provider()`, `register_voice_provider()`, and `is_voice_provider_registered()` for custom provider registration.
+- `pdf_extract_text()` from `syrin.multimodal` when you need to extract text before sending file content into a multimodal workflow.
+
 ## What's Next?
 
 - [Testing](/agent-kit/advanced/testing) — Test multimodal agents

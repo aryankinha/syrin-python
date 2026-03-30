@@ -166,6 +166,15 @@ result = agent.run("Use your tools to find today's weather")
 | **Correlation** | Manual | Built-in trace IDs |
 | **Production-ready** | Ad-hoc | Audit logging, OTLP export |
 
+## Additional Debugging Exports
+
+The public debugging and observability surface also includes:
+
+- `replay_trace()` for replaying previously captured traces.
+- `current_session()` and `set_debug()` for session-aware tracing control.
+- `llm_span()`, `tool_span()`, `memory_span()`, `budget_span()`, `guardrail_span()`, `handoff_span()`, and `agent_span()` for semantic tracing blocks.
+- `LogFormat` and `SyrinHandler` from `syrin.logging` when you want library-provided log formatting instead of building your own handler stack.
+
 ## See Also
 
 - [Hooks](/agent-kit/debugging/hooks) — Complete hooks reference with examples

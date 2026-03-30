@@ -815,6 +815,16 @@ The built-in options are `InMemoryBudgetStore` (default, no persistence) and `Fi
 
 ---
 
+## Low-Level Budget API
+
+The public budget package also exposes a few lower-level types used when you are building custom enforcement or storage layers:
+
+- `BudgetReservationToken` for reserving spend before work starts and reconciling it later.
+- `BudgetSummary` for serializable summaries of current budget usage.
+- `CheckBudgetResult` for explicit `ok` / `threshold` / `exceeded` checks in custom flows.
+- `CostEntry` for timestamped cost records used by rolling-window rate checks.
+- `BudgetBackend` and `BudgetStore` for custom persistence backends in multi-tenant deployments.
+
 ## What's Next?
 
 - **[Budget Callbacks](/agent-kit/core/budget-callbacks)** — Learn how to react to budget events with custom callbacks, thresholds, and alerting

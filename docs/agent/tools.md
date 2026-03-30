@@ -235,6 +235,10 @@ result = agent.run("How many users do we have?")
 
 When the tool's first parameter is named `ctx` with type `RunContext`, Syrin automatically injects it at runtime.
 
+## Tool Metadata
+
+The tool package also exports `ToolSpec`, and the shared types package exposes `ToolCall` and `ToolOutput` when you need to inspect tool schemas, executed calls, or tool-return payloads outside a normal agent run.
+
 ## What's Next?
 
 - [TOON Format](/agent-kit/agent/tools-toon) — Learn about Syrin's token-efficient tool schemas

@@ -386,6 +386,10 @@ recent = [f for f in Path("./docs").glob("**/*.md")
 loaders = [Knowledge.TextFile(str(f)) for f in recent]
 ```
 
+## Loader Surface
+
+The public loader API includes `DirectoryLoader`, `DoclingLoader`, `CSVLoader`, `DOCXLoader`, `ExcelLoader`, `GitHubLoader`, `GoogleDriveLoader`, `JSONLoader`, `MarkdownLoader`, `PDFLoader`, `PythonLoader`, `RawTextLoader`, `TextLoader`, `URLLoader`, and `YAMLLoader`. `DocumentMetadata` is also public when you need to annotate documents before ingestion.
+
 ## What's Next?
 
 - [Chunking Strategies](/agent-kit/integrations/knowledge-chunking) — Split documents into optimal chunks

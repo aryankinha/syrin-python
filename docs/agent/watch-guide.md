@@ -12,6 +12,23 @@ weight: 145
 
 Three built-in protocols ship with syrin: `WebhookProtocol` (HTTP), `CronProtocol` (scheduled), and `QueueProtocol` (message queue). For frameworks that already own the server layer—FastAPI, Starlette, Django Channels—`agent.watch_handler()` returns a plain callable that you wire in yourself.
 
+## Start Here
+
+Use the existing example set as the practical entry point:
+
+- `examples/22_watch/cron_trigger.py` for scheduled execution
+- `examples/22_watch/webhook_trigger.py` for inbound HTTP triggers
+- `examples/22_watch/queue_trigger.py` for queue consumers
+- `examples/22_watch/pipeline_watch.py` for event-driven pipelines
+- `examples/22_watch/multi_protocol.py` for combining trigger sources
+
+The mental model is simple:
+
+1. A protocol receives or creates an event.
+2. It turns that into a `TriggerEvent`.
+3. Syrin runs the agent using that trigger as input.
+4. You optionally observe `on_trigger`, `on_result`, `on_error`, and hook events around that lifecycle.
+
 ## Built-In Protocols
 
 ### WebhookProtocol
@@ -40,6 +57,8 @@ asyncio.run(main())
 
 The request body is passed verbatim as `TriggerEvent.input`. Any query parameters and headers are available in `TriggerEvent.metadata`.
 
+This exact flow is demonstrated in `examples/22_watch/webhook_trigger.py`.
+
 ### CronProtocol
 
 `CronProtocol` accepts a standard five-field cron expression and fires the agent on that schedule. A static `input` string is delivered to the agent each time; use it to encode the task prompt that should run on the schedule.
@@ -60,6 +79,8 @@ async def main() -> None:
 ```
 
 `CronProtocol` uses UTC by default. Pass `timezone="America/New_York"` to override.
+
+This flow is demonstrated in `examples/22_watch/cron_trigger.py`.
 
 ### QueueProtocol
 
@@ -82,6 +103,8 @@ async def main() -> None:
 ```
 
 Supported backends: Redis (via `redis://`), AMQP/RabbitMQ (via `amqp://`), and any backend that implements `syrin.watch.QueueBackend`.
+
+This flow is demonstrated in `examples/22_watch/queue_trigger.py`.
 
 ## TriggerEvent
 
@@ -123,6 +146,8 @@ print(response.content)
 
 `agent.trigger()` returns the same `AgentResponse` object as `agent.run()`, including `response.cost`, `response.total_tokens`, and any structured output.
 
+Use `agent.trigger()` when you want watch semantics in tests or from your own scheduler without starting a long-running listener.
+
 ## BYO-Framework Integration with agent.watch_handler()
 
 When your application already runs its own HTTP server, message loop, or task scheduler, use `agent.watch_handler()` to get a plain async callable. You control dispatch; syrin handles the agent lifecycle.
@@ -150,6 +175,8 @@ async def webhook(request: Request) -> dict:
 ```
 
 `watch_handler()` accepts an optional `on_trigger` callback, the same as `watch()`, and respects all agent-level settings: budget limits, guardrails, hooks, and memory.
+
+This is the preferred integration style when FastAPI, Starlette, or another framework already owns the HTTP server.
 
 ## Concurrency and Backpressure
 
@@ -184,6 +211,12 @@ watcher = asyncio.create_task(
 watcher.cancel()
 ```
 
+For graceful shutdown in real services:
+
+1. keep a reference to the task returned by `agent.watch()`
+2. stop the underlying protocol if it exposes shutdown hooks
+3. cancel the task during application shutdown
+
 ## Complete Example
 
 ```python
@@ -217,6 +250,21 @@ await agent.trigger(TriggerEvent(input="Hello", source="test"))
 handler = agent.watch_handler()
 # app.post("/webhook")(lambda req: handler(TriggerEvent(input=req.body, source="fastapi")))
 ```
+
+## Which Watch Pattern Should You Use?
+
+| Situation | Pattern |
+|---|---|
+| Run a report every hour | `CronProtocol` |
+| Receive external trigger calls | `WebhookProtocol` |
+| Consume jobs from a queue | `QueueProtocol` |
+| Reuse an existing web framework | `watch_handler()` |
+| Trigger the same logic from code/tests | `agent.trigger()` |
+| Coordinate multiple sources | `multi_protocol.py` |
+
+## Protocol Interfaces
+
+The watch package also exports `WatchProtocol` and `Watchable` for framework authors who want to plug custom trigger sources or reusable watch-capable components into the same event-driven runtime.
 
 ## See Also
 

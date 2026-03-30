@@ -221,6 +221,14 @@ Here's a quick decision guide:
 | Creative writing, brainstorming | Claude Sonnet or GPT-4o |
 | Local/private deployment | Ollama (local models) |
 
+## Public Cost Helpers
+
+The public cost package also exposes reusable pricing tables and calculators:
+
+- `EMBEDDING_PRICING`, `IMAGE_PRICING`, `VIDEO_PRICING`, and `VOICE_PRICING` for modality-specific pricing maps.
+- `calculate_cost()` and `estimate_cost_for_call()` for general model cost estimation.
+- `calculate_embedding_cost()`, `calculate_image_cost()`, `calculate_video_cost()`, and `calculate_voice_cost()` for modality-specific cost calculations.
+
 ## What's Next?
 
 - [Providers](/agent-kit/core/models-providers) - Detailed guide for each provider

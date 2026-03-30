@@ -340,6 +340,10 @@ for chunk in chunks:
     print(f"[{chunk.chunk_index}] {len(chunk.content)} chars, {chunk.token_count} tokens")
 ```
 
+## Chunker Surface
+
+The chunking package exports `AutoChunker`, `CodeChunker`, `MarkdownChunker`, `MarkdownHeaderChunker`, `PageChunker`, `PythonASTChunker`, `RecursiveChunker`, `SemanticChunker`, `SentenceChunker`, and `TokenChunker`, along with `CodeChunk` and `ChunkMetadata` for richer chunk inspection.
+
 ## What's Next?
 
 - [RAG Configuration](/agent-kit/integrations/knowledge-rag) — Configure retrieval

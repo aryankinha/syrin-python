@@ -321,6 +321,15 @@ agent.load_checkpoint(cp_id)
 result2 = agent.run("Different approach to same query")
 ```
 
+## Public Checkpoint Backend API
+
+If you need checkpoint persistence outside the default path, the checkpoint package also exports:
+
+- `Checkpointer` as the runtime object that performs save/load operations.
+- `CheckpointBackendProtocol` for implementing your own backend.
+- `FilesystemCheckpointBackend`, `MemoryCheckpointBackend`, and `SQLiteCheckpointBackend` as ready-made backends.
+- `get_checkpoint_backend()` and `BACKENDS` for backend lookup and registration-style wiring.
+
 ## See Also
 
 - [Error Handling](/agent-kit/agent/error-handling) — Handling errors gracefully

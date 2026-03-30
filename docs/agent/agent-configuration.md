@@ -440,7 +440,7 @@ from syrin.enums import MemoryType
 agent = Agent(
     model=Model.OpenAI("gpt-4o"),
     memory=Memory(
-        types=[MemoryType.CORE, MemoryType.EPISODIC],
+        restrict_to=[MemoryType.CORE, MemoryType.EPISODIC],
         top_k=10,
     ),
 )
@@ -530,7 +530,7 @@ agent = Agent(
     ],
     
     # Memory
-    memory=Memory(types=[MemoryType.CORE, MemoryType.EPISODIC]),
+    memory=Memory(restrict_to=[MemoryType.CORE, MemoryType.EPISODIC]),
     
     # Loop
     loop_strategy=LoopStrategy.REACT,

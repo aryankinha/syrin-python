@@ -159,6 +159,32 @@ print(f"Model: {response.model}")
 # "openai/gpt-4o-mini"
 ```
 
+## Practical Inspection Recipe
+
+If you only inspect five things after a run, inspect these:
+
+```python
+result = agent.run("Analyze this request")
+
+print(result.content)
+print(result.stop_reason)
+print(result.tokens.total_tokens)
+print(result.report.budget)
+print(result.report.guardrail.passed)
+
+for step in result.trace:
+    print(step.step_type, step.cost_usd, step.latency_ms)
+```
+
+That gives you:
+
+- user-visible output
+- termination reason
+- token burn
+- budget state
+- whether guardrails passed
+- the step-by-step trace needed for debugging
+
 ## The Full Report: agent.report
 
 The `report` object contains detailed metrics from every subsystem:
@@ -211,6 +237,17 @@ print(f"Loads: {report.checkpoints.loads}")
 | `report.ratelimits` | Rate limit checks |
 | `report.checkpoints` | Saves and loads |
 | `report.grounding` | Citation verification (when enabled) |
+
+### A real report inspection example
+
+`examples/10_observability/reports.py` is the concrete example for this part of the API. Use it when you want to see:
+
+- guardrail pass/block state
+- token and cost accounting
+- budget used and remaining
+- memory store/recall counters
+- rate-limit and checkpoint counters
+- report reset behavior across multiple calls
 
 ## The Execution Trace
 
@@ -279,6 +316,21 @@ for call in response.tool_calls:
 ```
 
 **Note:** This is what the model *requested*, not what happened. For execution results, check the trace.
+
+## Media and Attachments
+
+When a response contains generated or returned media, inspect `response.attachments` and related output fields:
+
+```python
+result = agent.run("Generate an image of a lighthouse at dusk")
+
+for attachment in result.attachments:
+    print(attachment.type, attachment.content_type, attachment.url)
+
+print(result.file)         # Generated file path when output formatting creates one
+print(result.file_bytes)   # Raw bytes when available
+print(result.citations)    # Parsed citations when citation formatting is enabled
+```
 
 ## Structured Output: Getting Typed Responses
 
@@ -547,6 +599,16 @@ Here's how the Response fits into the full execution flow:
 - `iterations` — How many tool loops
 - `report` — Detailed metrics from all subsystems
 - `trace` — Step-by-step execution record
+
+## Public Response Types
+
+The response package exports more than the top-level `Response` object:
+
+- `MediaAttachment` for image, video, and audio attachments.
+- `TraceStep` for individual execution-trace entries.
+- `StructuredOutput` for parsed and validated output details.
+- `GuardrailReport`, `GroundingReport`, `ContextReport`, `MemoryReport`, `TokenReport`, `OutputReport`, `RateLimitReport`, `CheckpointReport`, and `AgentReport` for subsystem-level reporting.
+- `ValidationAttempt`, `ToolCall`, `ToolOutput`, and `CostInfo` from `syrin.types` when you need lower-level validation, tool-call, and cost structures around a response.
 
 ## What's Next?
 

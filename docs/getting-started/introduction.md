@@ -41,21 +41,39 @@ Syrin addresses all three. Not with magic—but with control.
 ## See the Difference
 
 ```python
-from syrin import Agent, Model, Budget, Memory
+from syrin import Agent, Budget, Memory, Model, RateLimit
 from syrin.enums import MemoryType
 
 class SupportAgent(Agent):
     model = Model.OpenAI("gpt-4o", api_key="your-key")
     system_prompt = "You are a technical support specialist."
     budget = Budget(max_cost=0.50, rate_limits=RateLimit(day=5.00))
-    memory = Memory(types=[MemoryType.CORE, MemoryType.EPISODIC])
+    memory = Memory(restrict_to=[MemoryType.CORE, MemoryType.EPISODIC])
 
 agent = SupportAgent()
-agent.remember("User prefers email", MemoryType.CORE)
+agent.remember("User prefers email", memory_type=MemoryType.CORE)
 response = agent.run("How do I reset my password?")
 ```
 
 That's your agent. Your model. Your budget. Your memory.
+
+## The Public Import Surface
+
+Syrin is designed so the package root is the front door for most application code:
+
+```python
+from syrin import Agent, Budget, Memory, Model, Output, Response, task, tool
+```
+
+That import style is intentional. The package `__init__.py` files show the stable, user-facing API for each module, while the implementation stays in internal modules that can evolve without forcing import rewrites in your app.
+
+Use subpackages when you want a narrower import surface or lower-level APIs:
+
+- `syrin.agent` for the core `Agent` type
+- `syrin.prompt` for prompt decorators and prompt metadata
+- `syrin.response` for response/report models
+- `syrin.debug` for Pry and trace replay
+- `syrin.watch` for cron, webhook, and queue-driven triggers
 
 ## Quick Comparison
 

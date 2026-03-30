@@ -321,6 +321,10 @@ handler.setFormatter(JSONFormatter())
 logging.getLogger("syrin").addHandler(handler)
 ```
 
+## Built-In Logging Helpers
+
+If you prefer Syrin's built-in logging surface, use `LogFormat` to choose formatting mode and `SyrinHandler` as the library-provided handler implementation.
+
 ## What's Next?
 
 - [Debugging Techniques](/agent-kit/debugging/debugging-techniques) — Real-world debugging patterns

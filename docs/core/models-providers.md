@@ -356,6 +356,10 @@ agent = MyAgent()
 
 ---
 
+## Provider Lookup Helper
+
+The providers package also exports `get_provider()` when you need to resolve a provider implementation directly instead of going through the higher-level `Model` helpers.
+
 ## What's Next?
 
 - [Models Overview](/agent-kit/core/models) - Recap of models and settings

@@ -442,6 +442,17 @@ context = Context(
 
 ---
 
+## Lower-Level Context Exports
+
+Most users only need `Context`, but the public context package also exposes the building blocks used by custom context systems:
+
+- `InjectPlacement` and `PrepareInput` for controlling where derived context is inserted.
+- `ContextBreakdown`, `ContextSegment`, `ContextSegmentSource`, `ContextSegmentProvenance`, and `MessagePreview` for inspection and diagnostics.
+- `TokenCount`, `TokenCounter`, and `get_counter()` for explicit token accounting.
+- `ContextStore`, `InMemoryContextStore`, `ContextMapBackend`, `FileContextMapBackend`, and `ContextMap` for stateful context persistence.
+- `RelevanceScorer` and `SimpleTextScorer` for custom segment ranking.
+- `ContextManager`, `DefaultContextManager`, and `create_context_manager()` for replacing or extending the runtime manager.
+
 ## What's Next?
 
 - [Context Compaction](/agent-kit/core/context-compaction) - Deep dive into compaction strategies

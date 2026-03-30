@@ -51,6 +51,8 @@ init(api_key="your-syrin-api-key")
 init()  # Uses built-in /config routes
 ```
 
+The fastest end-to-end local walkthrough is `examples/12_remote_config/init_and_serve.py`.
+
 ### Configure the Agent
 
 ```python
@@ -155,6 +157,23 @@ curl http://localhost:8000/config
   }
 }
 ```
+
+## Full Local Workflow
+
+If you want to understand remote config in one pass, use this order:
+
+1. Run `PYTHONPATH=. python examples/12_remote_config/init_and_serve.py`
+2. Call `GET /config` to inspect the schema and current values
+3. Patch one safe field such as `budget.max_cost`
+4. Call `GET /config` again to confirm the override moved from baseline to current
+5. Send a normal `/chat` request and observe the agent running with the new value
+6. Revert with `value: null` to return to baseline
+
+That flow teaches the three key ideas:
+
+- baseline values come from code
+- overrides come from the remote config API
+- current values are the effective runtime configuration
 
 ## Key Concepts
 
@@ -277,6 +296,8 @@ event: heartbeat
 data: {"version": 0}
 ...
 ```
+
+In a real dashboard, `GET /config/stream` is the right way to keep a configuration UI or operator tool synchronized with live changes.
 
 **When a change is applied:**
 ```
@@ -424,6 +445,15 @@ Apply overrides.
 ### GET /config/stream
 
 SSE stream for real-time change notifications.
+
+## Public Remote Config Types
+
+The remote-config package also exports the schema and transport objects used under the hood:
+
+- `AgentSchema`, `ConfigSchema`, `FieldSchema`, and `extract_agent_schema()` / `extract_schema()` for schema introspection.
+- `ConfigOverride`, `OverridePayload`, `ResolveResult`, `SyncRequest`, and `SyncResponse` for override application and sync flows.
+- `ConfigRegistry`, `ConfigResolver`, and `get_registry()` for runtime registration and resolution.
+- `ConfigTransport`, `ServeTransport`, `SSETransport`, and `PollingTransport` for transport implementations.
 
 ## See Also
 

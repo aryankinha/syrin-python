@@ -529,6 +529,10 @@ else:
     output = my_template.render(...)
 ```
 
+## Output Formatting Helpers
+
+When you move from templates to file/output generation, the public output-format package also exposes `OutputConfig`, `OutputFormatter`, `CitationStyle`, `apply_citation_to_content()`, `get_formatter()`, `save_as()`, `save_as_pdf()`, and `save_as_docx()`.
+
 ## What's Next?
 
 - [Structured Output](/agent-kit/agent/structured-output) — Pydantic-based output

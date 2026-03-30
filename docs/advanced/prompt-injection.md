@@ -168,7 +168,7 @@ async def safe_remember(content: str, kind: MemoryType) -> None:
     """Write to memory only after passing the injection guardrail."""
     result = await injection_detector.evaluate(GuardrailContext(text=content))
     if result.passed:
-        agent.memory.remember(content, kind=kind)
+        agent.remember(content, memory_type=kind)
     else:
         logging.warning(
             "Blocked memory write: injection detected. reason=%s", result.reason
@@ -176,7 +176,7 @@ async def safe_remember(content: str, kind: MemoryType) -> None:
 
 # Use safe_remember instead of agent.memory.remember when the content
 # originates from user input or external tool results.
-await safe_remember("User prefers metric units.", kind=MemoryType.CORE)
+await safe_remember("User prefers metric units.", memory_type=MemoryType.CORE)
 ```
 
 ### Memory Namespace Isolation

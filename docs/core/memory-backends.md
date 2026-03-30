@@ -420,6 +420,10 @@ with Memory(backend=MemoryBackend.SQLITE, path="./memory.db") as memory:
 
 ---
 
+## Backend Registry API
+
+For custom backend wiring, the public memory backend package exports `BACKENDS` and `get_backend()`, along with the concrete backend classes `InMemoryBackend`, `SQLiteBackend`, `QdrantBackend`, `ChromaBackend`, `RedisBackend`, and `PostgresBackend`.
+
 ## What's Next?
 
 - [Memory Overview](/agent-kit/core/memory) - Back to memory basics

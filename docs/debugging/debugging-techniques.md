@@ -235,15 +235,15 @@ from syrin.enums import MemoryType
 
 agent = Agent(
     model=Model.OpenAI("gpt-4o", api_key="your-api-key"),
-    memory=Memory(types=[MemoryType.EPISODIC]),  # Did you include the right types?
+    memory=Memory(restrict_to=[MemoryType.EPISODIC]),  # Did you include the right types?
     debug=True,
 )
 
 # Store something
-agent.remember("user_prefers_short_answers", content="User likes brief responses")
+agent.remember("User likes brief responses", memory_type=MemoryType.EPISODIC)
 
 # Check if it was stored
-print(f"Memory items: {len(agent.memory)}")
+print(agent.recall("brief responses", memory_type=MemoryType.EPISODIC))
 ```
 
 2. Trace memory operations:

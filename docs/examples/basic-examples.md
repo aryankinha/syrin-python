@@ -57,17 +57,17 @@ result = agent.run("What causes headaches?")
 
 ## Multi-Turn Memory
 
-Add conversation history with `BufferMemory`.
+Add conversation history with `Memory`.
 
 ```python
-from syrin import Agent, Model, Memory
-from syrin.enums import MemoryType, WriteMode
+from syrin import Agent, Memory, Model
+from syrin.enums import MemoryBackend, MemoryType, WriteMode
 
 memory = Memory(
     backend=MemoryBackend.SQLITE,
     path="conversation.db",
     write_mode=WriteMode.SYNC,
-    types=[MemoryType.CORE, MemoryType.EPISODIC],
+    restrict_to=[MemoryType.CORE, MemoryType.EPISODIC],
 )
 
 agent = Agent(
@@ -107,11 +107,12 @@ result = agent.run("Explain photosynthesis.")
 # Access all response properties
 print(f"Content: {result.content}")
 print(f"Cost: ${result.cost:.6f}")
-print(f"Tokens: {result.usage.total_tokens}")
+print(f"Tokens: {result.tokens.total_tokens}")
 print(f"Model: {result.model}")
-print(f"Finish reason: {result.finish_reason}")
-print(f"Steps: {result.steps}")
-print(f"Tools used: {[t.name for t in result.tool_calls]}")
+print(f"Stop reason: {result.stop_reason}")
+print(f"Iterations: {result.iterations}")
+print(f"Trace steps: {len(result.trace)}")
+print(f"Tools used: {len(result.tool_calls)}")
 ```
 
 **What just happened:**
@@ -124,9 +125,7 @@ print(f"Tools used: {[t.name for t in result.tool_calls]}")
 Set limits and get notified when exceeded.
 
 ```python
-from syrin import Agent, Model, Budget
-from syrin.enums import ExceedPolicy
-from syrin.hooks import Hook
+from syrin import Agent, Budget, Hook, Model
 
 agent = Agent(
     model=Model.OpenAI("gpt-4o-mini", api_key="your-api-key"),
@@ -153,8 +152,9 @@ result = agent.run("Write a detailed essay about history.")
 
 ```bash
 # From project root
-PYTHONPATH=. python examples/01_minimal/hello_agent.py
-PYTHONPATH=. python examples/01_minimal/hello_memory.py
+PYTHONPATH=. python examples/01_minimal/basic_agent.py
+PYTHONPATH=. python examples/01_minimal/agent_with_budget.py
+PYTHONPATH=. python examples/01_minimal/response_object.py
 ```
 
 ## What's Next?

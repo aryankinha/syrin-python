@@ -229,6 +229,20 @@ agent.serve(port=8000, enable_playground=True)
 
 The playground shows trace events in real-time.
 
+## Trace Helper Context Managers
+
+In addition to `trace()`, `span()`, and `session()`, Syrin exports helper span constructors for common operations:
+
+- `llm_span()` for model calls
+- `tool_span()` for tool execution
+- `memory_span()` for memory work
+- `budget_span()` for budget accounting
+- `guardrail_span()` for safety checks
+- `handoff_span()` for agent-to-agent transfer
+- `agent_span()` for whole-agent execution blocks
+
+These helpers are useful when you want consistent span names and attributes in custom instrumentation.
+
 ## See Also
 
 - [Debugging Overview](/agent-kit/debugging/overview) — Introduction to observability

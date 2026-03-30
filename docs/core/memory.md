@@ -356,14 +356,14 @@ memory = Memory(
 # Fast, minimal memory
 memory = Memory(
     top_k=3,
-    types=[MemoryType.CORE],  # Only core memories
+    restrict_to=[MemoryType.CORE],  # Only core memories
 )
 
 # Research assistant
 memory = Memory(
     top_k=20,
     decay=Decay(half_life_hours=48),
-    types=[MemoryType.CORE, MemoryType.SEMANTIC, MemoryType.PROCEDURAL],
+    restrict_to=[MemoryType.CORE, MemoryType.SEMANTIC, MemoryType.PROCEDURAL],
 )
 ```
 
@@ -378,7 +378,7 @@ memory = Memory(
     path="./memory.db",
     
     # What to store
-    types=[MemoryType.CORE, MemoryType.EPISODIC, MemoryType.SEMANTIC, MemoryType.PROCEDURAL],
+    restrict_to=[MemoryType.CORE, MemoryType.EPISODIC, MemoryType.SEMANTIC, MemoryType.PROCEDURAL],
     
     # Retrieval
     top_k=10,  # Max memories to recall
@@ -393,6 +393,15 @@ memory = Memory(
 ```
 
 ---
+
+## Additional Memory Exports
+
+The memory package also exports:
+
+- `MemoryEntry` for explicit memory records.
+- `MemorySnapshot` and `MemorySnapshotEntry` for serialized snapshots and inspection.
+- `MemoryStore` for lower-level store access.
+- `InMemoryBackend`, `SQLiteBackend`, `QdrantBackend`, `ChromaBackend`, `RedisBackend`, `PostgresBackend`, and `BACKENDS` for backend selection and registration.
 
 ## What's Next?
 

@@ -224,6 +224,10 @@ result = agent.run([
 
 ---
 
+## Public Media Types
+
+The shared types used in media-heavy flows include `MultimodalInput` for mixed-content request payloads and `MediaAttachment` on the response side for generated or returned media artifacts.
+
 ## What's Next?
 
 - [Advanced: Multimodality](/agent-kit/advanced/multimodality) — Deep dive into media handling

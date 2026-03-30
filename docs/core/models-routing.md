@@ -455,6 +455,10 @@ Here's the routing flow:
 
 ---
 
+## Public Router Types
+
+The routing package also exposes `ClassifierProtocol`, `ClassificationResult`, `ComplexityTier`, `EmbeddingClassifier`, `EmbeddingProvider`, `get_default_profiles()`, and `register_model_capabilities()` for custom classification, capability registration, and profile selection.
+
 ## What's Next?
 
 - [Providers](/agent-kit/core/models-providers) - All supported models

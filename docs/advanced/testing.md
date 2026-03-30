@@ -638,6 +638,10 @@ def test_concurrent_requests():
     assert len(results) == 10
 ```
 
+## Public Testing-Friendly Types
+
+The shared public types that commonly show up in tests include `MultimodalInput`, `ValidationAttempt`, and `CostInfo`. They are useful when asserting on media payloads, output-validation retries, and pricing/cost calculations directly.
+
 ## What's Next?
 
 - [Custom Model](/agent-kit/advanced/custom-model) — Test custom providers

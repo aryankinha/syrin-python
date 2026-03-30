@@ -353,6 +353,10 @@ Always monitor:
 - Recovery success rate
 - Time spent in each state
 
+## Public Circuit State
+
+The circuit package also exports `CircuitBreakerState`, which is useful when you need to inspect or report whether the breaker is closed, open, or half-open.
+
 ## See Also
 
 - [Rate Limiting](/agent-kit/production/rate-limiting) — Manage API quotas

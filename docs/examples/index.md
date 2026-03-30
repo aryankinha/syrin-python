@@ -21,10 +21,10 @@ Or run examples directly:
 
 ```bash
 # From project root
-PYTHONPATH=. python examples/01_minimal/hello_agent.py
+PYTHONPATH=. python examples/01_minimal/basic_agent.py
 
 # Or as a module
-PYTHONPATH=. python -m examples.01_minimal.hello_agent
+PYTHONPATH=. python -m examples.01_minimal.basic_agent
 ```
 
 ## Example Categories
@@ -33,7 +33,7 @@ PYTHONPATH=. python -m examples.01_minimal.hello_agent
 
 | Category | Location | What You'll Learn |
 | --- | --- | --- |
-| Minimal | `01_minimal/` | Create agents, use memory, inspect responses |
+| Minimal | `01_minimal/` | Create agents, use builders, budgets, tools, and inspect responses |
 | Tasks | `02_tasks/` | Task-based execution, structured output |
 | Budget | `03_budget/` | Budget limits, cost tracking, thresholds |
 | Memory | `04_memory/` | Buffer, episodic, semantic, procedural memory |
@@ -45,6 +45,8 @@ PYTHONPATH=. python -m examples.01_minimal.hello_agent
 | Tools | `05_tools/` | Define tools, TOON format, structured output |
 | Loops | `06_loops/` | REACT, HITL, custom loop strategies |
 | Guardrails | `09_guardrails/` | Content filtering, validation, PII detection |
+| Prompts | `14_prompts/` | Prompt decorators, runtime variables, persona prompts |
+| Templates | `20_template/` | Slot-based templates, rendered outputs, generated files |
 
 ### Multi-Agent & Production
 
@@ -53,24 +55,22 @@ PYTHONPATH=. python -m examples.01_minimal.hello_agent
 | Multi-Agent | `07_multi_agent/` | Pipeline, handoff, spawning, team collaboration |
 | Streaming | `08_streaming/` | Token-by-token streaming responses |
 | Observability | `10_observability/` | Hooks, tracing, audit logging |
+| Debug Multi-Agent | `21_debug_multiagent/` | Pry across handoffs, spawns, and dynamic pipelines |
+| Watch | `22_watch/` | Cron, webhook, queue, and pipeline-triggered execution |
 
 ### Advanced Features
 
 | Category | Location | What You'll Learn |
 | --- | --- | --- |
 | Context | `11_context/` | Token limits, compaction, runtime injection |
+| MCP | `11_mcp/` | Model Context Protocol client and server flows |
 | Checkpoints | `12_checkpoints/` | State persistence, recovery |
+| Remote Config | `12_remote_config/` | Runtime config overrides and config-serving flows |
 | Models | `13_models/` | Provider configuration, model routing |
 | Routing | `17_routing/` | Cost-optimized model selection |
-
-### Integrations
-
-| Category | Location | What You'll Learn |
-| --- | --- | --- |
-| Knowledge | `19_knowledge/` | RAG, document loading, vector stores |
-| MCP | `11_mcp/` | Model Context Protocol integration |
+| Serving | `16_serving/` | HTTP, CLI, STDIO, playground, and router serving |
 | Multimodal | `18_multimodal/` | Image, video, voice generation |
-| Serving | `16_serving/` | HTTP serving, playground UI |
+| Knowledge | `19_knowledge/` | RAG, document loading, chunking, vector stores |
 
 ## Real-World Examples
 
@@ -176,7 +176,7 @@ source .venv/bin/activate
 uv pip install -e ".[dev,anthropic]"
 
 # Run an example
-PYTHONPATH=. python examples/01_minimal/hello_agent.py
+PYTHONPATH=. python examples/01_minimal/basic_agent.py
 ```
 
 ## What's Next?

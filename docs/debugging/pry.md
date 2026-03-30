@@ -42,6 +42,19 @@ with Pry() as pry:
     pry.wait()
 ```
 
+**CLI flag helper** — use one Pry instance for the whole process and let it consume `--debug` safely:
+
+```python
+from syrin.debug import Pry
+
+pry = Pry.from_debug_flag()
+
+if pry is not None:
+    pry.attach(agent)
+```
+
+This is the recommended pattern for scripts and examples because it avoids creating multiple TUI sessions for the same terminal.
+
 ---
 
 ## Debug Points
@@ -64,6 +77,23 @@ pry.debugpoint("handoff complete")
 
 This is the equivalent of `binding.pry` in Ruby — the program stops right there and you inspect live state.
 
+### A practical debugpoint workflow
+
+The most effective way to use `debugpoint()` is around boundaries where control or context changes:
+
+1. Run the first stage normally.
+2. Drop a debugpoint before a handoff, spawn, or expensive tool sequence.
+3. Inspect the `[d]`, `[a]`, `[m]`, and `[e]` tabs.
+4. Press `p` to continue or `n` to step event-by-event through the next phase.
+5. Drop another debugpoint after the boundary to compare state before and after.
+
+This is especially useful for:
+
+- debugging why a handoff target received the wrong context
+- checking whether spawned agents inherited the right tools or budget
+- comparing context snapshots before and after compaction
+- verifying that a pause/step sequence is emitting the events you expect
+
 ### What gets captured at a debug point
 
 When you call `pry.debugpoint()`, pry snapshots every attached agent:
@@ -78,6 +108,12 @@ When you call `pry.debugpoint()`, pry snapshots every attached agent:
 | rate limit | `agent.rate_limit` (rpm, tpm) |
 
 Press **↵** on the debugpoint event in the stream to see the full captured state.
+
+### What `p`, `n`, and `q` actually do
+
+- `p` toggles pause and resume for execution observed by Pry.
+- `n` advances one hook while paused, which is useful for watching a handoff or tool call unfold in order.
+- `q` closes Pry. If execution is paused, Pry resumes its internal pause state as part of shutdown so you can exit cleanly.
 
 ---
 
@@ -103,6 +139,16 @@ Every hook event in chronological order. Use `↑/↓` to scroll. Press `↵` on
 The **memory tab** is time-aware: it shows the memory/context/knowledge state as it was at the moment of the selected stream event, so you can answer "what did the agent know at this point?"
 
 Press `↵` on any right-panel item for a full detail view. Press `ESC` to go back.
+
+### How to read the screen
+
+Use the left panel to answer "what happened next?" and the right panel to answer "what did this specific event mean?".
+
+- Start on the left when you are tracing execution order.
+- Move right when you want details for the currently selected event.
+- Use the `event` tab for raw payload inspection.
+- Use the `debug` tab for breakpoint snapshots and current execution position.
+- Use the `memory` tab when you suspect context, memory, or knowledge state changed underneath the agent.
 
 ---
 
@@ -159,6 +205,8 @@ agent.run("Hello")
 # captured now contains JSON event lines
 ```
 
+`replay_trace()` is the companion tool for this mode: capture structured trace output from a previous run, then replay it later without needing live model calls.
+
 ---
 
 ## Multi-Agent Debugging
@@ -184,11 +232,27 @@ pry.debugpoint("all parallel agents done")
 
 In the **[a] agents tab** you see `HANDOFF_START` with `source_agent`, `target_agent`, and `user_input`. In the **[t] tools tab** you see tool calls from every spawned agent. The stream interleaves all events chronologically with the agent name tagged on each row.
 
+### Example scripts to run
+
+- `python examples/10_observability/debug_ui.py --debug` for a single-agent Pry walkthrough
+- `python examples/21_debug_multiagent/handoff_debug.py --debug` for handoff inspection
+- `python examples/21_debug_multiagent/parallel_spawn_debug.py --debug` for parallel spawn debugging
+- `python examples/21_debug_multiagent/dynamic_pipeline_debug.py --debug` for dynamic pipeline flows
+
+All of these scripts follow the single-session pattern using `Pry.from_debug_flag()`.
+
 ---
 
 ## Context Snapshots
 
 Whenever a `context.snapshot` event fires, Pry captures the full message list. Navigate to that event in the stream and press `↵` — the detail view shows every message in the context at that exact moment. This answers "what was the model actually seeing at step N?"
+
+The practical flow is:
+
+1. Move to the snapshot event in the left stream.
+2. Press `↵` to open the full snapshot.
+3. Press `ESC` to return to stream browsing.
+4. Compare it with the previous or next snapshot to see what changed.
 
 ---
 

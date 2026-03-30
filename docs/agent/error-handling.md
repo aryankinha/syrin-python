@@ -285,6 +285,17 @@ class AgentHandler:
 
 ---
 
+## Additional Public Exceptions
+
+The public exceptions package also includes:
+
+- `ToolArgumentError` when tool arguments fail validation before execution.
+- `OutputValidationError` when structured output cannot be validated successfully.
+- `InputTooLargeError` when input exceeds configured size constraints.
+- `ModalityNotSupportedError` when a model or provider cannot handle the requested media type.
+- `TemplateParseError` for template parsing/render setup failures.
+- `CodegenError` for code-generation-specific failures.
+
 ## What's Next?
 
 - [Debugging: Overview](/agent-kit/debugging/overview) — Tools for understanding failures

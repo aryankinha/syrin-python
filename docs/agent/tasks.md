@@ -172,6 +172,10 @@ def on_agent_run_end(ctx: dict) -> None:
 agent.events.on(Hook.AGENT_RUN_END, on_agent_run_end)
 ```
 
+## Task Metadata
+
+The public task/types surface also includes `TaskSpec`, which is the metadata object attached to task-decorated methods and useful when you need to inspect or generate task contracts programmatically.
+
 ## What's Next?
 
 - [Tools](/agent-kit/agent/tools) — Dynamic tool calling

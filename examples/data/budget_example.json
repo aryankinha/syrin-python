@@ -1,0 +1,62 @@
+{
+  "example_user": {
+    "version": 1,
+    "cost_history": [
+      {
+        "cost_usd": 0.00306,
+        "timestamp": 1774862486.752634,
+        "model_name": "almock/default",
+        "total_tokens": 212
+      },
+      {
+        "cost_usd": 0.00306,
+        "timestamp": 1774863271.669591,
+        "model_name": "almock/default",
+        "total_tokens": 212
+      }
+    ],
+    "run_start": 1774863270.280627,
+    "month_days": 30,
+    "use_calendar_month": false
+  },
+  "alice": {
+    "version": 1,
+    "cost_history": [
+      {
+        "cost_usd": 0.00304,
+        "timestamp": 1774862488.88922,
+        "model_name": "almock/default",
+        "total_tokens": 208
+      },
+      {
+        "cost_usd": 0.00304,
+        "timestamp": 1774863272.9138181,
+        "model_name": "almock/default",
+        "total_tokens": 208
+      }
+    ],
+    "run_start": 1774863271.671159,
+    "month_days": 30,
+    "use_calendar_month": false
+  },
+  "bob": {
+    "version": 1,
+    "cost_history": [
+      {
+        "cost_usd": 0.003035,
+        "timestamp": 1774862489.916932,
+        "model_name": "almock/default",
+        "total_tokens": 207
+      },
+      {
+        "cost_usd": 0.003035,
+        "timestamp": 1774863274.270797,
+        "model_name": "almock/default",
+        "total_tokens": 207
+      }
+    ],
+    "run_start": 1774863272.914784,
+    "month_days": 30,
+    "use_calendar_month": false
+  }
+}

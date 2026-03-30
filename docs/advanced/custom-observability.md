@@ -354,6 +354,13 @@ result = agent.run(user_message)
 
 ---
 
+## Additional Observability and Audit Exports
+
+The public observability and audit surface also includes:
+
+- `SpanStatus` when you need to set success/error state explicitly on spans.
+- `AuditEvent`, `AuditHookHandler`, and `JsonlAuditBackend` for lower-level audit pipelines.
+
 ## What's Next?
 
 - [Custom Model](/agent-kit/advanced/custom-model) — Implement your own LLM provider

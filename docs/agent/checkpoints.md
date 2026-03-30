@@ -163,7 +163,7 @@ class ResearchAgent(Agent):
     model = Model.OpenAI("gpt-4o", api_key="your-api-key")
     system_prompt = "You are a thorough research assistant."
     
-    memory = Memory(types=[MemoryType.CORE, MemoryType.EPISODIC])
+    memory = Memory(restrict_to=[MemoryType.CORE, MemoryType.EPISODIC])
     
     checkpoint = CheckpointConfig(
         trigger=CheckpointTrigger.TOOL,

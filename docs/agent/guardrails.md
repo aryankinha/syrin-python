@@ -236,6 +236,17 @@ agent._guardrails_disabled.discard("content_filter")
 
 ---
 
+## Additional Guardrail Exports
+
+The guardrails package exposes a broader public surface than the common quick-start examples:
+
+- `ParallelEvaluationEngine` and `EvaluationResult` for custom evaluation orchestration.
+- `DecisionAction`, `GuardrailCheckResult`, and `GuardrailMode` for explicit decision modeling.
+- `AuthorityCheck`, `ThresholdApproval`, `HumanApproval`, and `CapabilityGuardrail` for action-level governance.
+- `CapabilityToken` and `CapabilityIssuer` for capability-based authorization.
+- `ContextAwareGuardrail`, `EscalationDetector`, `AdaptiveThresholdGuardrail`, `AttackSimulator`, `RedTeamEvaluator`, and `FuzzingEngine` for adaptive and red-team-oriented defenses.
+- `normalize_input()` and `spotlight_wrap()` from `syrin.guardrails.injection` for prompt-injection preprocessing and wrapping.
+
 ## What's Next?
 
 - [Checkpoints](/agent-kit/agent/checkpoints) — Save and restore agent state

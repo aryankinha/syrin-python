@@ -302,6 +302,15 @@ result = agent.run("What programming languages does the user know?")
 
 The agent automatically searches the knowledge base and incorporates results into its answer.
 
+## Additional Knowledge Exports
+
+The public knowledge package also includes:
+
+- `HybridSearchConfig` for mixed lexical/vector retrieval tuning.
+- `CancellableIngestTask` for long-running ingestion workflows.
+- `InMemoryKnowledgeStore`, `get_knowledge_store()`, and `register_knowledge_store()` for store selection and custom store registration.
+- `BlogSource`, `ConfluenceSource`, `DocsSource`, `GitHubSource`, `GoogleDocsSource`, `GoogleSheetsSource`, `NotionSource`, and `RSSSource` for source-oriented ingestion pipelines.
+
 ## What's Next?
 
 - [Document Loaders](/agent-kit/integrations/knowledge-loaders) — Load from any source

@@ -81,7 +81,7 @@ response = agent.run("What is 2 + 2?")
 
 print(f"Answer: {response.content}")
 print(f"Cost: ${response.cost:.6f}")
-print(f"Tokens used: {response.total_tokens}")
+print(f"Tokens used: {response.tokens.total_tokens}")
 print(f"Stop reason: {response.stop_reason}")
 ```
 
@@ -105,15 +105,14 @@ Stop reason: end_turn
 > ```python
 > agent = MyAgent(debug=True)  # Prints all events to console
 > ```
-> Or subscribe to specific hooks: `agent.events.on(Hook.LLM_REQUEST_END, handler)`
+> Or subscribe to specific hooks: `from syrin import Hook`
 
 ### Step 4: Add a Task
 
 Tasks are structured methods your agent can perform. Let's add one:
 
 ```python
-from syrin import Agent, Model
-from syrin.task import task
+from syrin import Agent, Model, task
 
 class MyAgent(Agent):
     model = Model.OpenAI("gpt-4o", api_key="your-api-key-here")
@@ -231,23 +230,24 @@ response = agent.run("Summarize this document: ...", output=Output(Summary))
 syrin enforces cost limits at the agent level. Set a `budget` to cap spending, then optionally switch the model when the budget runs low.
 
 ```python
-from syrin import Agent, Model
-from syrin.budget import Budget
-from syrin.enums import OnExceeded
+from syrin import Agent, Budget, ExceedPolicy, Model
 
 class MyAgent(Agent):
     model = Model.OpenAI("gpt-4o", api_key="your-api-key-here")
     system_prompt = "You are a helpful assistant."
-    budget = Budget(limit=0.10, on_exceeded=OnExceeded.ERROR)  # $0.10 cap
+    budget = Budget(max_cost=0.10, exceed_policy=ExceedPolicy.STOP)  # $0.10 cap
 
 agent = MyAgent()
 
-# Switch to a cheaper model if budget is running low
-if agent.budget_remaining < 0.02:
-    agent.switch_model(Model.OpenAI("gpt-4o-mini", api_key="your-api-key-here"))
-
 response = agent.run("Hello!")
-print(f"Remaining budget: ${agent.budget_remaining:.4f}")
+print(f"Remaining budget: ${agent.budget_state.remaining:.4f}")
+
+# Switch to a cheaper model if budget is running low
+if agent.budget_state.remaining is not None and agent.budget_state.remaining < 0.02:
+    agent.switch_model(
+        Model.OpenAI("gpt-4o-mini", api_key="your-api-key-here"),
+        reason="budget running low",
+    )
 ```
 
 `switch_model()` takes effect immediately on the next `run()` call without recreating the agent. All context, memory, and hooks remain intact.
@@ -258,8 +258,7 @@ If you have existing functions that call LLMs directly, `syrin.budget_wrap()` en
 
 ```python
 import syrin
-from syrin.budget import Budget
-from syrin.enums import OnExceeded
+from syrin import Budget, ExceedPolicy
 
 async def fetch_summary(text: str) -> str:
     # An existing function that calls an LLM internally
@@ -268,7 +267,7 @@ async def fetch_summary(text: str) -> str:
 # Wrap with a $0.05 budget; raises BudgetExceededError when limit is hit
 guarded = syrin.budget_wrap(
     fetch_summary,
-    budget=Budget(limit=0.05, on_exceeded=OnExceeded.ERROR),
+    budget=Budget(max_cost=0.05, exceed_policy=ExceedPolicy.STOP),
 )
 
 result = await guarded("Summarize this article...")
@@ -281,8 +280,8 @@ result = await guarded("Summarize this article...")
 `syrin.Memory()` gives your agent persistent, typed memory across runs. There are four memory types: `Core`, `Episodic`, `Semantic`, and `Procedural`. All memory operations are budget-aware.
 
 ```python
-from syrin import Agent, Model
-from syrin.memory import Memory, MemoryType
+from syrin import Agent, Memory, Model
+from syrin.enums import MemoryType
 
 class MyAgent(Agent):
     model = Model.OpenAI("gpt-4o", api_key="your-api-key-here")
@@ -292,17 +291,17 @@ class MyAgent(Agent):
 agent = MyAgent()
 
 # Store a fact
-agent.memory.remember("User prefers concise answers.", kind=MemoryType.CORE)
+agent.remember("User prefers concise answers.", memory_type=MemoryType.CORE)
 
 # Recall relevant memories before running
-recalled = agent.memory.recall("user preferences")
+recalled = agent.recall("user preferences", memory_type=MemoryType.CORE)
 print(recalled)
 
 # Forget a specific memory by ID
-agent.memory.forget(memory_id="mem-001")
+agent.forget(query="User prefers concise answers.", memory_type=MemoryType.CORE)
 ```
 
-> **Note:** Always pass `kind=` as a keyword argument. Positional argument order for `MemoryType` is not guaranteed across versions.
+> **Note:** Pass `memory_type=` as a keyword argument. Positional argument order for `MemoryType` is not guaranteed across versions.
 
 ## Complete Example
 
@@ -310,11 +309,8 @@ Here's everything together:
 
 ```python
 from pydantic import BaseModel
-from syrin import Agent, Model, Output
-from syrin.budget import Budget
-from syrin.enums import OnExceeded
-from syrin.memory import Memory, MemoryType
-from syrin.task import task
+from syrin import Agent, Budget, ExceedPolicy, Memory, Model, Output, task
+from syrin.enums import MemoryType
 
 class Summary(BaseModel):
     headline: str
@@ -324,7 +320,7 @@ class MyAgent(Agent):
     model = Model.OpenAI("gpt-4o", api_key="your-api-key-here")
     # No API key? Use: model = Model.Almock()
     system_prompt = "You are a helpful assistant. Be concise."
-    budget = Budget(limit=0.10, on_exceeded=OnExceeded.ERROR)
+    budget = Budget(max_cost=0.10, exceed_policy=ExceedPolicy.STOP)
     memory = Memory()
 
     @task
@@ -334,7 +330,7 @@ class MyAgent(Agent):
 
 # Create and use
 agent = MyAgent()
-agent.memory.remember("User prefers bullet points.", kind=MemoryType.CORE)
+agent.remember("User prefers bullet points.", memory_type=MemoryType.CORE)
 
 # Plain text response
 response = agent.run("Hello!")
@@ -359,7 +355,7 @@ agent.serve(port=8000, enable_playground=True, debug=True)
 | `Agent is not defined` | Forgot to import | Add `from syrin import Agent` |
 | `No module named 'syrin'` | Not installed | Run `pip install syrin` |
 | `Model.Almock not found` | Wrong import | Use `Model.Almock()` not `Model.Almock` |
-| `BudgetExceededError` | Agent hit its cost cap | Raise the `Budget.limit` or use `OnExceeded.WARN` |
+| `BudgetExceededError` | Agent hit its cost cap | Raise `Budget.max_cost` or use `ExceedPolicy.WARN` |
 
 ## What's Next?
 

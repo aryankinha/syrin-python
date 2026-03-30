@@ -794,6 +794,10 @@ agent.events.on("system_prompt.after_resolve", lambda e:
 
 ---
 
+## Lower-Level Prompt Exports
+
+The prompt package also exposes `PromptVariable` for describing individual template variables and `make_prompt_context()` for constructing `PromptContext` objects programmatically when you need prompt resolution outside the normal agent flow.
+
 ## What's Next?
 
 - **[Memory Integration](/agent-kit/core/memory)** — How memory works with dynamic prompts

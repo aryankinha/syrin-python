@@ -493,6 +493,14 @@ agent.events.on(Hook.LLM_REQUEST_START, lambda ctx: print(f"Calling {ctx.model_i
 agent.events.on(Hook.LLM_REQUEST_END, lambda ctx: print(f"Tokens: {ctx.tokens}"))
 ```
 
+## Model Construction Helpers
+
+The public model and embedding surface also includes:
+
+- `ModelVariable` and `ModelVersion` for model metadata/versioning.
+- `OutputType`, `StructuredOutput`, `create_model()`, and `make_model()` for programmatic model construction and output typing.
+- `EmbeddingBackend`, `EmbeddingProvider`, `OpenAIEmbedding`, and `OllamaEmbedding` for embedding-specific integrations used by retrieval systems.
+
 ## What's Next?
 
 - [Custom Context](/agent-kit/advanced/custom-context) — Custom context management strategies
