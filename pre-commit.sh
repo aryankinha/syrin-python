@@ -50,6 +50,17 @@ run_pytest() {
     echo -e "${GREEN}✓ All tests passed${NC}"
 }
 
+# Run pip-audit (CVE / vulnerability scan of installed dependencies)
+run_pip_audit() {
+    echo -e "${YELLOW}Running pip-audit (CVE scan)...${NC}"
+    if ! uv run python -m pip_audit --version &> /dev/null 2>&1; then
+        echo -e "${YELLOW}pip-audit not installed — skipping CVE scan (run: uv add --dev pip-audit)${NC}"
+        return 0
+    fi
+    uv run python -m pip_audit --skip-editable --desc on 2>&1
+    echo -e "${GREEN}✓ pip-audit passed${NC}"
+}
+
 # Run playground ESLint + Prettier
 run_playground_checks() {
     if [ ! -d "playground" ]; then
@@ -81,6 +92,7 @@ run_ruff_check
 run_ruff_format
 run_mypy
 run_pytest
+run_pip_audit
 run_playground_checks
 
 echo ""
