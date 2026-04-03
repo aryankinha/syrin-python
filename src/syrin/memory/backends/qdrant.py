@@ -178,18 +178,27 @@ class QdrantBackend:
 
     def _payload_to_entry(self, payload: dict[str, object]) -> MemoryEntry:
         """Convert Qdrant payload to MemoryEntry."""
+        raw_id = payload["id"]
+        raw_content = payload["content"]
+        raw_type = payload["type"]
+        raw_importance = payload.get("importance", 1.0)
+        raw_scope = payload.get("scope", "user")
+        raw_source = payload.get("source")
+        raw_created_at = payload.get("created_at")
+        raw_keywords = payload.get("keywords", [])
+        raw_metadata = payload.get("metadata", {})
         return MemoryEntry(
-            id=payload["id"],  # type: ignore[arg-type]
-            content=payload["content"],  # type: ignore[arg-type]
-            type=MemoryType(payload["type"]),  # type: ignore[arg-type]
-            importance=payload.get("importance", 1.0),  # type: ignore[arg-type]
-            scope=MemoryScope(payload.get("scope", "user")),  # type: ignore[arg-type]
-            source=payload.get("source"),  # type: ignore[arg-type]
-            created_at=datetime.fromisoformat(payload["created_at"])  # type: ignore[arg-type]
-            if payload.get("created_at")
+            id=str(raw_id),
+            content=str(raw_content),
+            type=MemoryType(str(raw_type)),
+            importance=float(raw_importance) if isinstance(raw_importance, (int, float)) else 1.0,
+            scope=MemoryScope(str(raw_scope)),
+            source=str(raw_source) if raw_source is not None else None,
+            created_at=datetime.fromisoformat(str(raw_created_at))
+            if raw_created_at
             else datetime.now(),
-            keywords=payload.get("keywords", []),  # type: ignore[arg-type]
-            metadata=payload.get("metadata", {}),  # type: ignore[arg-type]
+            keywords=list(raw_keywords) if isinstance(raw_keywords, list) else [],
+            metadata=dict(raw_metadata) if isinstance(raw_metadata, dict) else {},
         )
 
     def _build_filter(

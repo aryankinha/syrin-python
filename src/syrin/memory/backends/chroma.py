@@ -25,7 +25,6 @@ except ImportError:
     chroma_available = False
     chromadb = None  # type: ignore[assignment]
     Settings = None  # type: ignore[assignment,misc]
-
 _chroma = chromadb
 _Settings = Settings
 
@@ -155,7 +154,7 @@ class ChromaBackend:
             id=str(raw_id),
             content=content,
             type=MemoryType(str(raw_type)),
-            importance=float(raw_importance) if raw_importance is not None else 1.0,  # type: ignore[arg-type]
+            importance=float(raw_importance) if isinstance(raw_importance, (int, float)) else 1.0,
             scope=MemoryScope(str(raw_scope)),
             source=str(raw_source) if raw_source is not None else None,
             created_at=datetime.fromisoformat(str(raw_created)) if raw_created else datetime.now(),

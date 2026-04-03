@@ -1,0 +1,189 @@
+"""MemoryBus — selective cross-agent memory sharing."""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Callable
+
+from syrin.enums import Hook, MemoryType
+from syrin.events import EventContext, Events
+from syrin.memory.config import MemoryEntry
+from syrin.swarm._agent_ref import AgentRef, _aid
+from syrin.swarm.backends._memory import InMemoryBusBackend
+from syrin.swarm.backends._protocol import MemoryBusBackend
+
+
+class MemoryBus:
+    """Selective, typed, audited cross-agent memory bus.
+
+    Agents publish typed :class:`~syrin.memory.config.MemoryEntry` objects to the
+    bus.  Consumers call :meth:`read` to retrieve matching entries.  Every
+    publish and read operation fires lifecycle :class:`~syrin.enums.Hook` events.
+
+    Filtering chain (applied in order):
+    1. ``allow_types`` — reject entries whose :attr:`~syrin.memory.config.MemoryEntry.type`
+       is not in the allow-list.
+    2. ``filter`` — reject entries for which the predicate returns ``False``.
+
+    Args:
+        allow_types: Restrict published entries to these
+            :class:`~syrin.enums.MemoryType` values.  ``None`` (default) allows
+            all types.
+        filter: Optional predicate ``(MemoryEntry) -> bool``.  Return ``True``
+            to allow the entry, ``False`` to block it.
+        ttl: Default time-to-live in seconds for all published entries.
+            ``None`` means entries never expire.
+        backend: Storage backend implementing
+            :class:`~syrin.swarm.backends.MemoryBusBackend`.  Defaults to
+            :class:`~syrin.swarm.backends.InMemoryBusBackend`.
+        swarm_events: Optional :class:`~syrin.events.Events` instance for
+            firing lifecycle hooks.
+
+    Example:
+        bus = MemoryBus(
+            allow_types=[MemoryType.SEMANTIC],
+            filter=lambda e: "private" not in e.keywords,
+            ttl=3600,
+        )
+        await bus.publish(entry, agent_id="researcher")
+        results = await bus.read(query="machine learning", agent_id="writer")
+    """
+
+    def __init__(
+        self,
+        allow_types: list[MemoryType] | None = None,
+        filter: Callable[[MemoryEntry], bool] | None = None,  # noqa: A002
+        ttl: float | None = None,
+        backend: MemoryBusBackend | None = None,
+        swarm_events: Events | None = None,
+    ) -> None:
+        """Initialise MemoryBus.
+
+        Args:
+            allow_types: Allowed :class:`~syrin.enums.MemoryType` values, or
+                ``None`` to allow all types.
+            filter: Optional predicate to further restrict entries.
+            ttl: Default TTL in seconds for all entries.
+            backend: Storage backend.  Defaults to
+                :class:`~syrin.swarm.backends.InMemoryBusBackend`.
+            swarm_events: Events bus for hook emission.
+        """
+        self._allow_types: list[MemoryType] | None = allow_types
+        self._filter: Callable[[MemoryEntry], bool] | None = filter
+        self._ttl: float | None = ttl
+        self._backend: MemoryBusBackend = backend or InMemoryBusBackend()
+        self._events: Events | None = swarm_events
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _fire(self, hook: Hook, data: dict[str, object]) -> None:
+        """Emit *hook* via the swarm events bus (if connected)."""
+        if self._events is not None:
+            ctx = EventContext(data)
+            ctx.scrub()
+            self._events._trigger(hook, ctx)
+
+    def _check_allowed(self, entry: MemoryEntry) -> str | None:
+        """Return a filter reason string if *entry* should be blocked, else ``None``."""
+        if self._allow_types is not None and entry.type not in self._allow_types:
+            return f"type '{entry.type}' not in allow_types"
+        if self._filter is not None and not self._filter(entry):
+            return "custom filter rejected entry"
+        return None
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    async def publish(self, entry: MemoryEntry, agent_id: AgentRef | str) -> bool:
+        """Publish *entry* from *agent_id* to the bus.
+
+        Applies the filtering chain (allow_types, then custom filter).
+        Fires :attr:`~syrin.enums.Hook.MEMORY_BUS_PUBLISHED` on success or
+        :attr:`~syrin.enums.Hook.MEMORY_BUS_FILTERED` on rejection.
+
+        Args:
+            entry: The :class:`~syrin.memory.config.MemoryEntry` to publish.
+            agent_id: Publishing agent instance or agent ID string.
+
+        Returns:
+            ``True`` if the entry was stored, ``False`` if filtered out.
+        """
+        aid = _aid(agent_id)
+        filter_reason = self._check_allowed(entry)
+        if filter_reason is not None:
+            self._fire(
+                Hook.MEMORY_BUS_FILTERED,
+                {
+                    "entry_id": entry.id,
+                    "agent_id": aid,
+                    "filter_reason": filter_reason,
+                },
+            )
+            return False
+
+        await self._backend.store(entry, agent_id=aid, ttl=self._ttl)
+        self._fire(
+            Hook.MEMORY_BUS_PUBLISHED,
+            {
+                "entry_id": entry.id,
+                "agent_id": aid,
+                "content": entry.content,
+                "type": str(entry.type),
+            },
+        )
+        return True
+
+    async def read(self, query: str, agent_id: AgentRef | str) -> list[MemoryEntry]:
+        """Return entries matching *query* from the bus.
+
+        Fires :attr:`~syrin.enums.Hook.MEMORY_BUS_READ`.
+
+        Args:
+            query: Substring to match against entry content.  Empty string
+                returns all non-expired entries.
+            agent_id: Reading agent instance or agent ID string.
+
+        Returns:
+            List of matching :class:`~syrin.memory.config.MemoryEntry` objects.
+        """
+        aid = _aid(agent_id)
+        results = await self._backend.query(query=query, agent_id=aid)
+        self._fire(
+            Hook.MEMORY_BUS_READ,
+            {
+                "query": query,
+                "agent_id": aid,
+                "result_count": len(results),
+            },
+        )
+        return results
+
+    async def expire_now(self) -> list[str]:
+        """Immediately remove expired entries and fire expiry hooks.
+
+        Returns:
+            IDs of entries that were removed.
+        """
+        expired_ids = await self._backend.clear_expired()
+        for entry_id in expired_ids:
+            self._fire(
+                Hook.MEMORY_BUS_EXPIRED,
+                {"entry_id": entry_id},
+            )
+        return expired_ids
+
+    async def _expire_loop(self, interval: float = 30.0) -> None:
+        """Background task: periodically clear expired entries.
+
+        Args:
+            interval: Seconds between expiry sweeps.  Defaults to 30.
+        """
+        while True:
+            await asyncio.sleep(interval)
+            await self.expire_now()
+
+
+__all__ = ["MemoryBus"]
