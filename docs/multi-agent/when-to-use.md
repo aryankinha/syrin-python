@@ -1,168 +1,170 @@
 ---
 title: When to Use Multi-Agent
-description: Should you use multiple agents? A decision guide
+description: A decision framework for when one agent is enough vs. when you need multiple
 weight: 91
 ---
 
-## The Question Everyone Asks
-
-"Should I use one agent or multiple?"
-
-The honest answer: it depends. But here's a framework to decide.
-
 ## Start with One Agent
 
-Most tasks don't need multiple agents. A single well-prompted agent with the right tools can handle surprising complexity.
+Before you add a second agent, make sure you actually need one. A single agent with the right tools and a well-written system prompt can handle surprising complexity. Multi-agent systems are more expensive, harder to debug, and harder to test.
 
-Before adding agents, ask:
+Ask yourself these questions first:
 
-1. Can one agent with better tools solve this?
-2. Can one agent with better prompting solve this?
-3. Can one agent with memory solve this?
+Could better tools solve this? If the agent needs to search the web, call an API, or run code, give it tools — not more agents.
 
-If yes to any, start there. Complexity has a cost.
+Could a better system prompt solve this? A clear, specific prompt with examples often eliminates the need for orchestration.
 
-## Signs You Need Multiple Agents
+Could memory solve this? If the agent forgets context across sessions, add `Memory()`. That's one agent, not two.
 
-### 1. Distinct Skill Sets Required
+If none of these work, then you probably need multiple agents.
 
-The task naturally divides into areas requiring different expertise:
+## When Multiple Agents Make Sense
 
-| Task | Agents |
-|------|--------|
-| Research report | Searcher + Writer |
-| Code review | Coder + Security expert |
-| Customer support | Triage + Billing + Tech support |
-| Data analysis | Collector + Analyzer + Visualizer |
+### Different tasks need different expertise
+
+Some work naturally divides into areas that benefit from specialized agents. Research requires different behavior than writing. Triage requires different behavior than billing support.
 
 ```python
-class Searcher(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key="your-key")
-    system_prompt = "You find relevant data online."
+from syrin import Agent, Model
+from syrin.multi_agent import Pipeline
+
+class Researcher(Agent):
+    model = Model.mock()
+    system_prompt = "You find and summarize information. Be factual, cite sources."
 
 class Writer(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-key")
-    system_prompt = "You write compelling content."
+    model = Model.mock()
+    system_prompt = "You write compelling content. Use the research as your foundation."
 
-class Visualizer(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-key")
-    system_prompt = "You create data visualizations."
-```
-
-### 2. Different Models Make Sense
-
-Some tasks are simple. Others need the best model available. Using one expensive model for everything wastes money.
-
-- **Simple extraction? Use gpt-4o-mini**
-- **Creative writing? Use gpt-4o**
-- **Complex reasoning? Use claude-3-5-sonnet**
-
-```python
-class CheapResearcher(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key="your-key")
-    # Fast, cheap for searching
-
-class ExpensiveWriter(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-key")
-    # Best quality for final output
-
-pipeline = Pipeline(budget=Budget(max_cost=0.50))
-pipeline.run([
-    (CheapResearcher, "Find information on X"),
-    (ExpensiveWriter, "Write the article"),
+# Sequential: writer receives researcher's output
+pipeline = Pipeline()
+result = pipeline.run([
+    (Researcher, "Find key facts about AI adoption in healthcare"),
+    (Writer, "Write a 500-word article based on the research"),
 ])
 ```
 
-### 3. Tasks Must Happen in Order
+The researcher and writer have genuinely different jobs. One is optimized for gathering; the other for crafting.
 
-Some workflows have dependencies. The output of step one feeds step two.
+### Different tasks justify different models
 
+Using GPT-4o for every step is expensive. Extraction and classification tasks work well on cheaper models. Use the expensive model only where quality matters most.
+
+```python
+from syrin import Agent, Model
+from syrin.multi_agent import Pipeline
+
+class ExtractorAgent(Agent):
+    model = Model.OpenAI("gpt-4o-mini", api_key="your-key")  # Cheap + fast
+    system_prompt = "Extract key data points from the text. Return JSON."
+
+class SynthesizerAgent(Agent):
+    model = Model.OpenAI("gpt-4o", api_key="your-key")  # Best quality
+    system_prompt = "Synthesize the extracted data into a strategic recommendation."
+
+pipeline = Pipeline()
+result = pipeline.run([
+    (ExtractorAgent, "Extract from this earnings call transcript: ..."),
+    (SynthesizerAgent, "Based on these data points, what should we do?"),
+])
 ```
-Analyze market → Research competitors → Write strategy → Create presentation
+
+This costs roughly half as much as running both steps with GPT-4o, with most of the quality.
+
+### Independent work can run in parallel
+
+If multiple tasks don't depend on each other, run them at the same time.
+
+```python
+from syrin.multi_agent import parallel
+
+class NewsAgent(Agent):
+    model = Model.mock()
+    system_prompt = "Summarize AI news."
+
+class StockAgent(Agent):
+    model = Model.mock()
+    system_prompt = "Report on AI stock performance."
+
+class ResearchAgent(Agent):
+    model = Model.mock()
+    system_prompt = "Find recent AI research papers."
+
+# All three run simultaneously — wall time is max of the three, not their sum
+result = parallel([NewsAgent(), StockAgent(), ResearchAgent()], goal="AI morning briefing")
 ```
 
-### 4. Parallelism Saves Time
+### You need verification or consensus
 
-Multiple independent tasks can run simultaneously:
+For high-stakes outputs — content moderation, fact-checking, financial recommendations — multiple independent agents looking at the same thing gives you corroboration. If two out of three agents disagree, you know to escalate.
 
-```
-Fetch news → Fetch stock prices → Fetch weather → Fetch sports
-```
+## When to Stick with One Agent
 
-## Signs You Should Stick with One
+**Chat-like interactions.** A conversation flows naturally. There's no "pipeline" — just messages and responses.
 
-### 1. Chat-like Interaction
+**Low latency requirements.** Every agent adds overhead. If you need responses in under 200ms, fewer agents is better.
 
-Users ask questions, get answers. The conversation flows naturally without structured steps.
+**Simple, contained tasks.** "Translate this" or "summarize this paragraph" doesn't improve with three agents. It just costs three times as much.
 
-### 2. Low Latency Required
+**Prototypes.** Start simple. Add complexity only when you've proven a single agent isn't enough.
 
-Every agent adds network hops and processing time. If responses need to be instant, fewer agents is better.
+## The Migration Path
 
-### 3. Simple Task Scope
+Most successful multi-agent systems start as single agents and evolve:
 
-"Translate this text" doesn't become better with three agents.
+**Stage 1: Single agent with tools.** This handles most use cases.
 
-### 4. Tight Budget
-
-Each agent costs money. Two agents doing one job is wasteful.
-
-## Decision Checklist
-
-Ask yourself:
-
-| Question | Multi-Agent | Single Agent |
-|----------|-------------|--------------|
-| Do tasks require different expertise? | Yes | No |
-| Do you need different model tiers? | Yes | No |
-| Are tasks independent? | Parallel | One agent |
-| Are tasks sequential? | Pipeline | One agent |
-| Is response time critical? | Reconsider | Go for it |
-| Is this a prototype? | Reconsider | Start simple |
-
-## Migration Path
-
-Start simple. Add complexity when needed:
-
-**Phase 1: Single agent with tools**
 ```python
 class Assistant(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-key")
-    tools = [search, calculate, lookup]
+    model = Model.mock()
+    system_prompt = "You are a technical support specialist."
+    tools = [search, lookup, calculate]
 ```
 
-**Phase 2: Single agent, better prompting**
+**Stage 2: Better prompting + memory.** Before adding agents, optimize the single-agent setup.
+
 ```python
 class Assistant(Agent):
-    system_prompt = "You are a technical support specialist..."
+    model = Model.mock()
+    memory = Memory()
+    system_prompt = """You are a senior technical support specialist with 10 years
+    of experience. You have access to search and lookup tools. Always check the
+    knowledge base before asking clarifying questions."""
 ```
 
-**Phase 3: Multiple agents if needed**
+**Stage 3: Multiple agents only when needed.** When you hit genuine limitations of the single-agent approach.
+
 ```python
-class TriageAgent(Agent): ...
-class BillingAgent(Agent): ...
-class TechAgent(Agent): ...
+class TriageAgent(Agent):
+    system_prompt = "Classify the issue and route to the right specialist."
+
+class BillingAgent(Agent):
+    system_prompt = "Handle billing and subscription questions."
+
+class TechAgent(Agent):
+    system_prompt = "Handle technical debugging and configuration."
 ```
 
-## Cost Comparison
+## Quick Decision Guide
 
-| Setup | Example Cost |
-|-------|-------------|
-| Single gpt-4o | $0.01 per query |
-| Single gpt-4o-mini | $0.0001 per query |
-| Pipeline (mini + 4o) | $0.005 per query |
-| Parallel (3x mini) | $0.0003 per query |
+If the task requires different expertise → use specialized agents.
 
-Budget-conscious systems can use smaller models for grunt work, saving the expensive model for final output.
+If the task can use cheaper models for parts → use a pipeline with mixed models.
 
-## What's Next?
+If subtasks are independent → use parallel execution.
 
-- [Pipeline](/agent-kit/multi-agent/pipeline) — Sequential execution
-- [Pipeline: Parallel](/agent-kit/multi-agent/pipeline-parallel) — Simultaneous execution
-- [Dynamic Pipeline](/agent-kit/multi-agent/dynamic-pipeline) — LLM decides
+If you need verification → use consensus topology.
 
-## See Also
+If you need iterative improvement → use reflection topology.
 
-- [Multi-Agent: Overview](/agent-kit/multi-agent/overview) — Introduction to multi-agent
-- [Core Concepts: Budget](/agent-kit/core/budget) — Cost control
-- [Agents: Handoff](/agent-kit/multi-agent/handoff) — Agent-to-agent transfer
+If the task is a conversation → use one agent.
+
+If you're prototyping → use one agent.
+
+If latency matters most → use one agent.
+
+## What's Next
+
+- [Pipeline](/agent-kit/multi-agent/pipeline) — Sequential multi-agent execution
+- [Swarm](/agent-kit/multi-agent/swarm) — Parallel, consensus, and reflection topologies
+- [AgentRouter](/agent-kit/multi-agent/agent-router) — LLM-driven dynamic orchestration

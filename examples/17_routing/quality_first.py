@@ -16,7 +16,7 @@ from syrin.router import (
 
 
 def main() -> None:
-    cheap = Model.Almock(
+    cheap = Model.mock(
         pricing_tier="low",
         latency_min=0,
         latency_max=0,
@@ -24,7 +24,7 @@ def main() -> None:
         strengths=[TaskType.GENERAL, TaskType.CODE],
         priority=80,
     )
-    premium = Model.Almock(
+    premium = Model.mock(
         pricing_tier="high",
         latency_min=0,
         latency_max=0,

@@ -20,11 +20,13 @@ from syrin.types import (
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
 
-    from syrin.enums import Media
+    from syrin.enums import Media, MockPricing, MockResponseMode
     from syrin.providers.base import Provider
     from syrin.router.enums import TaskType
 else:
     from collections.abc import Iterator  # Runtime for cast()
+
+    from syrin.enums import MockPricing, MockResponseMode  # needed for default values
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -716,9 +718,9 @@ class Model:
     @staticmethod
     def Almock(
         *,
-        pricing_tier: str | None = None,
+        pricing_tier: MockPricing | str | None = None,
         context_window: int | None = 8192,
-        response_mode: str = "lorem",
+        response_mode: MockResponseMode | str = MockResponseMode.LOREM,
         custom_response: str | None = None,
         lorem_length: int = 100,
         latency_min: float = 1.0,
@@ -738,11 +740,13 @@ class Model:
         tiers so you can test budgeting and run examples without an API key.
 
         Args:
-            pricing_tier: One of "low", "medium", "high", "ultra_high" for cost testing.
+            pricing_tier: ``MockPricing`` enum (LOW/MEDIUM/HIGH/ULTRA_HIGH) or equivalent
+                string for cost testing. None defaults to MEDIUM.
             context_window: Simulated context window size (default 8192).
-            response_mode: "lorem" = Lorem Ipsum of lorem_length; "custom" = custom_response.
-            custom_response: Used when response_mode == "custom".
-            lorem_length: Output length in characters when response_mode == "lorem".
+            response_mode: ``MockResponseMode.LOREM`` (default) for Lorem Ipsum text;
+                ``MockResponseMode.CUSTOM`` to return ``custom_response`` exactly.
+            custom_response: Fixed response text when response_mode is CUSTOM.
+            lorem_length: Output length in characters when response_mode is LOREM.
             latency_min: Min delay in seconds (default 1); ignored if latency_seconds set.
             latency_max: Max delay in seconds (default 3); ignored if latency_seconds set.
             latency_seconds: Fixed delay in seconds; must be > 0. Overrides min/max.
@@ -751,11 +755,17 @@ class Model:
             Model instance that uses AlmockProvider (no API key required).
 
         Example:
-            model = Model.Almock(pricing_tier="medium", lorem_length=50)
+            model = Model.Almock(pricing_tier=MockPricing.MEDIUM, lorem_length=50)
             agent = Agent(model=model)
             r = agent.run("Hello")
+
+            # Zero-latency deterministic response:
+            model = Model.Almock(
+                response_mode=MockResponseMode.CUSTOM,
+                custom_response="Paris",
+                latency_min=0, latency_max=0,
+            )
         """
-        from syrin.enums import MockPricing
         from syrin.providers.almock import ALMOCK_PRICING
 
         tier: MockPricing = MockPricing.MEDIUM
@@ -790,9 +800,9 @@ class Model:
     @staticmethod
     def mock(
         *,
-        pricing_tier: str | None = None,
+        pricing_tier: MockPricing | str | None = None,
         context_window: int | None = 8192,
-        response_mode: str = "lorem",
+        response_mode: MockResponseMode | str = MockResponseMode.LOREM,
         custom_response: str | None = None,
         lorem_length: int = 100,
         latency_min: float = 1.0,
@@ -806,10 +816,12 @@ class Model:
         Returns configurable Lorem Ipsum or custom text with optional simulated latency.
 
         Args:
-            pricing_tier: "low", "medium", "high", or "ultra_high" for cost testing.
+            pricing_tier: ``MockPricing`` enum or string ("low"/"medium"/"high"/"ultra_high")
+                for cost testing. None defaults to MEDIUM.
             context_window: Simulated context window size (default 8192).
-            response_mode: "lorem" for Lorem Ipsum; "custom" for custom_response.
-            custom_response: Fixed response text when response_mode == "custom".
+            response_mode: ``MockResponseMode.LOREM`` (default) for Lorem Ipsum;
+                ``MockResponseMode.CUSTOM`` to return ``custom_response`` exactly.
+            custom_response: Fixed response text when response_mode is CUSTOM.
             lorem_length: Output length in characters (default 100).
             latency_min: Min delay seconds (default 1.0). Ignored if latency_seconds set.
             latency_max: Max delay seconds (default 3.0). Ignored if latency_seconds set.
@@ -824,8 +836,11 @@ class Model:
             # Zero-latency for fast tests:
             model = Model.mock(latency_min=0, latency_max=0)
 
-            # Custom response for deterministic tests:
-            model = Model.mock(response_mode="custom", custom_response="Paris")
+            # Deterministic response — no Lorem Ipsum:
+            model = Model.mock(
+                response_mode=MockResponseMode.CUSTOM,
+                custom_response="Paris",
+            )
         """
         return Model.Almock(
             pricing_tier=pricing_tier,

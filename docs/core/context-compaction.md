@@ -128,15 +128,7 @@ agent.context.compact()
 
 ### CompactionMethod Enum
 
-Syrin uses these methods automatically:
-
-| Method | When | What It Does |
-|--------|------|--------------|
-| `none` | Context fits | No compaction needed |
-| `middle_out_truncate` | < 1.5x over budget | Keep start/end, drop middle |
-| `summarize` | ≥ 1.5x over budget | Summarize older messages |
-
-**Syrin automatically chooses the best method.**
+Syrin automatically selects the appropriate compaction method based on how far over the token budget the context is. When the context fits within the limit, `none` is used and no compaction occurs. When the context is less than 1.5× over budget, `middle_out_truncate` is used — the start and end of the conversation are preserved and the middle is dropped. When the context is 1.5× or more over budget, `summarize` is used, compressing older messages into a concise summary.
 
 ---
 
@@ -250,13 +242,7 @@ context = Context(
 
 ## Configuration Reference
 
-| Field | What It Does | Example |
-|-------|--------------|---------|
-| `compactor` | Custom compaction logic | `MyCompactor()` |
-| `compaction_model` | Model for summarization | `Model.OpenAI("gpt-4o-mini")` |
-| `compaction_prompt` | User template for summarization | `"Summarize: {messages}"` |
-| `compaction_system_prompt` | System prompt for summarizer | `"Be concise."` |
-| `auto_compact_at` | Proactive compaction threshold | `0.6` (60%) |
+Five fields control compaction behaviour on `Context`. `compactor` accepts a custom `Compactor` instance (for example `MyCompactor()`) when you want to replace the built-in compaction logic entirely. `compaction_model` accepts a `Model` instance (for example `Model.OpenAI("gpt-4o-mini")`) and specifies which model performs summarization. `compaction_prompt` is a string template used as the user message for the summarizer, such as `"Summarize: {messages}"`. `compaction_system_prompt` sets the system prompt for the summarizer model, for example `"Be concise."`. `auto_compact_at` is a float between 0 and 1 (for example `0.6` for 60%) that triggers proactive compaction before a threshold action would fire.
 
 ---
 

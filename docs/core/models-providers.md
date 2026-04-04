@@ -1,261 +1,131 @@
 ---
-title: Providers
-description: A complete guide to all AI model providers supported by Syrin
+title: Model Providers
+description: Configuration details for every AI provider Syrin supports
 weight: 11
 ---
 
-## Your AI Brains, One Place (No More Juggling Libraries)
+## Every Provider, One Interface
 
-Syrin speaks to all major AI providers out of the box. OpenAI, Anthropic, Google, Ollama—pick the one that fits your needs, and Syrin handles the rest.
-
-Let's meet each provider.
-
----
+Syrin speaks to all major AI providers through the same `Model` API. Swap providers by changing one line. Everything else — budget, memory, tools, hooks — stays the same.
 
 ## OpenAI
 
-**Best for:** General purpose, fast iteration, best ecosystem
-
-OpenAI's GPT models are the industry standard. They're reliable, well-documented, and have the best tooling support.
-
-### Quick Setup
+Strong ecosystem, reliable, well-documented. The default choice for most applications.
 
 ```python
+import os
 from syrin import Model
 
-model = Model.OpenAI(
-    "gpt-4o",
-    api_key="your-api-key"
-)
-```
-
-### Available Models
-
-| Model | Best For | Context | Notes |
-|-------|----------|---------|-------|
-| **GPT-4o** | Complex reasoning, best overall | 128k | Flagship, most capable |
-| **GPT-4o-mini** | Fast, cost-effective | 128k | Great value |
-| **GPT-4 Turbo** | Complex tasks | 128k | Strong reasoning |
-| **GPT-3.5 Turbo** | High volume, simple tasks | 16k | Cheapest option |
-
-### Pro Tips
-
-```python
-# Use environment variable for security
-import os
+# Basic setup
 model = Model.OpenAI("gpt-4o", api_key=os.getenv("OPENAI_API_KEY"))
 
-# Use a proxy or custom endpoint
+# With tuning parameters
+model = Model.OpenAI(
+    "gpt-4o-mini",
+    api_key=os.getenv("OPENAI_API_KEY"),
+    temperature=0.3,     # 0 = deterministic, 1 = varied
+    max_tokens=2000,     # Cap response length
+)
+
+# With a custom proxy or company endpoint
 model = Model.OpenAI(
     "gpt-4o",
-    api_base="https://your-proxy.com/v1",  # For company proxies
-    api_key=os.getenv("OPENAI_API_KEY")
+    api_key=os.getenv("OPENAI_API_KEY"),
+    api_base="https://your-company-proxy.com/v1",
 )
 ```
 
-### When to Use OpenAI
+Common OpenAI model IDs: `"gpt-4o"`, `"gpt-4o-mini"`, `"gpt-4-turbo"`, `"gpt-3.5-turbo"`.
 
-- Building production apps that need reliability
-- When you need the best tooling ecosystem
-- Fast iteration and prototyping
-- When cost is not the primary concern
+`gpt-4o-mini` is the best starting point for most applications — cheap, fast, capable, and 128k context.
 
----
+## Anthropic (Claude)
 
-## Anthropic
-
-**Best for:** Complex reasoning, safety-focused applications, long context
-
-Anthropic's Claude models excel at nuanced tasks and have a strong focus on safety and helpfulness.
-
-### Quick Setup
+Long context (200k tokens), strong reasoning, safety-focused. Good for complex analysis and long documents.
 
 ```python
+import os
 from syrin import Model
 
 model = Model.Anthropic(
-    "claude-sonnet-4-5",
-    api_key="your-api-key"
+    "claude-sonnet-4-6-20251001",
+    api_key=os.getenv("ANTHROPIC_API_KEY"),
+)
+
+# Anthropic benefits from explicit max_tokens
+model = Model.Anthropic(
+    "claude-haiku-4-5-20251001",
+    api_key=os.getenv("ANTHROPIC_API_KEY"),
+    max_tokens=4096,
 )
 ```
 
-### Available Models
-
-| Model | Best For | Context | Notes |
-|-------|----------|---------|-------|
-| **Claude Opus 4** | Complex reasoning, analysis | 200k | Most capable |
-| **Claude Sonnet 4** | Balanced, everyday tasks | 200k | Great value |
-| **Claude 3.5 Haiku** | Fast, simple tasks | 200k | Quick responses |
-
-### Pro Tips
-
-```python
-# Set max output tokens (required by Anthropic)
-model = Model.Anthropic(
-    "claude-sonnet-4-5",
-    api_key="your-api-key",
-    max_tokens=4096  # Anthropic requires this
-)
-
-# Environment variable
-import os
-model = Model.Anthropic(
-    "claude-sonnet-4-5",
-    api_key=os.getenv("ANTHROPIC_API_KEY")
-)
-```
-
-### When to Use Anthropic
-
-- When safety and helpfulness are priorities
-- Long documents (200k context!)
-- Complex reasoning and analysis
-- When OpenAI's output isn't cutting it
-
----
+Common Claude model IDs:
+- `"claude-opus-4-6"` — most capable, highest cost
+- `"claude-sonnet-4-6-20251001"` — balanced capability and cost
+- `"claude-haiku-4-5-20251001"` — fast and cheap
 
 ## Google (Gemini)
 
-**Best for:** Cost-effective, multimodal, Google's ecosystem
-
-Google's Gemini models offer great value and native multimodal capabilities.
-
-### Quick Setup
+Very large context windows (up to 1M tokens), competitive pricing, native multimodal.
 
 ```python
+import os
 from syrin import Model
 
-model = Model.Google(
-    "gemini-2.0-flash",
-    api_key="your-api-key"
-)
+model = Model.Google("gemini-2.0-flash", api_key=os.getenv("GOOGLE_API_KEY"))
+
+# Pro version for complex tasks
+model = Model.Google("gemini-1.5-pro", api_key=os.getenv("GOOGLE_API_KEY"))
 ```
 
-### Available Models
+Common Gemini model IDs: `"gemini-2.0-flash"`, `"gemini-1.5-pro"`, `"gemini-1.5-flash"`.
 
-| Model | Best For | Context | Notes |
-|-------|----------|---------|-------|
-| **Gemini 2.0 Flash** | Fast, cost-effective | 1M | Amazing value! |
-| **Gemini 1.5 Pro** | Complex reasoning | 1M | Long context, capable |
-| **Gemini 1.5 Flash** | Balance of speed/cost | 1M | Great everyday model |
-
-### Pro Tips
-
-```python
-# Gemini 2.0 Flash is incredibly cheap
-model = Model.Google(
-    "gemini-2.0-flash",
-    api_key=os.getenv("GOOGLE_API_KEY")
-)
-```
-
-### When to Use Google
-
-- Cost-sensitive applications
-- Need the cheapest option possible
-- Multimodal inputs (images, video)
-- Google's ecosystem integration
-
----
+`gemini-2.0-flash` is the fastest and cheapest option for high-volume, cost-sensitive applications. It has a free tier.
 
 ## Ollama (Local)
 
-**Best for:** Privacy, offline, no API costs
-
-Run AI models locally on your machine. Zero API costs, complete privacy, runs offline.
-
-### Quick Setup
-
-```bash
-# Install Ollama first: https://ollama.ai
-# Then pull a model:
-ollama pull llama3
-ollama pull mistral
-```
+Run models on your own machine. Zero API costs, complete privacy, works offline.
 
 ```python
 from syrin import Model
 
-# No API key needed - runs locally!
-model = Model.Ollama("llama3")
+# Runs locally — no API key
+model = Model.Ollama("llama3.2")
+model = Model.Ollama("mistral")
+model = Model.Ollama("codellama")
 
-# Or specify the server
-model = Model.Ollama(
-    "llama3",
-    api_base="http://localhost:11434"  # Default
-)
+# Custom Ollama server address
+model = Model.Ollama("llama3.2", api_base="http://your-server:11434")
 ```
 
-### Available Models
+Ollama must be running before you use these models. Install from ollama.ai, then pull a model with `ollama pull llama3.2`.
 
-| Model | Best For | Size | Notes |
-|-------|----------|------|-------|
-| **Llama 3** | General purpose | 8B-70B | Meta's open model |
-| **Mistral** | Fast, efficient | 7B | Great performance |
-| **CodeLlama** | Code generation | 7B-34B | Specialized for code |
-| **Phi** | Small, fast | 2.7B | Minimal resources |
+Models are downloaded automatically on first use. Sizes range from 2GB (Phi) to 70GB+ (Llama 3 70B). Make sure you have enough disk space.
 
-### Pro Tips
+## LiteLLM (100+ providers, one interface)
 
-```python
-# Start Ollama server (runs in background)
-# Then connect:
-
-model = Model.Ollama(
-    "llama3",
-    temperature=0.7,  # Adjust like any other model
-    max_tokens=2048
-)
-```
-
-### When to Use Ollama
-
-- Privacy-sensitive applications
-- No API costs (your electricity is the cost)
-- Development and testing
-- Offline deployments
-
----
-
-## LiteLLM
-
-**Best for:** Multiple providers, unified API, 100+ models
-
-LiteLLM provides a unified API across 100+ models from different providers. Switch providers without changing code.
-
-### Quick Setup
+LiteLLM proxies requests to hundreds of models from dozens of providers. Use it when you need provider flexibility or your company standardizes on LiteLLM.
 
 ```python
 from syrin import Model
 
 # OpenAI via LiteLLM
-model = Model.LiteLLM(
-    "openai/gpt-4o",
-    api_key="your-openai-key"
-)
+model = Model.LiteLLM("openai/gpt-4o-mini", api_key="your-openai-key")
 
 # Anthropic via LiteLLM
-model = Model.LiteLLM(
-    "anthropic/claude-3-5-sonnet",
-    api_key="your-anthropic-key"
-)
+model = Model.LiteLLM("anthropic/claude-3-haiku-20240307", api_key="your-anthropic-key")
+
+# Groq (fast inference)
+model = Model.LiteLLM("groq/llama-3-8b-8192", api_key="your-groq-key")
+
+# Cohere
+model = Model.LiteLLM("cohere/command-r", api_key="your-cohere-key")
 ```
 
-### When to Use LiteLLM
+## Custom / OpenAI-Compatible APIs
 
-- Need to switch between providers
-- Using multiple providers in one app
-- When your company standardizes on LiteLLM
-
----
-
-## Custom Providers (OpenAI-Compatible)
-
-**Best for:** DeepSeek, KIMI, Grok, and other OpenAI-compatible APIs
-
-Many AI providers use OpenAI-compatible APIs. Syrin supports them all.
-
-### Quick Setup
+Many providers (DeepSeek, Grok, Together AI, Moonshot, etc.) use OpenAI-compatible APIs. Use `Model.Custom()` with the provider's base URL:
 
 ```python
 from syrin import Model
@@ -264,110 +134,60 @@ from syrin import Model
 model = Model.Custom(
     "deepseek-chat",
     api_base="https://api.deepseek.com/v1",
-    api_key="your-deepseek-key"
+    api_key="your-deepseek-key",
 )
 
 # Grok (xAI)
 model = Model.Custom(
     "grok-3",
     api_base="https://api.x.ai/v1",
-    api_key="your-xai-key"
+    api_key="your-xai-key",
 )
 
-# KIMI (Moonshot)
+# Moonshot (KIMI)
 model = Model.Custom(
     "moonshot-v1-8k",
     api_base="https://api.moonshot.ai/v1",
-    api_key="your-moonshot-key"
+    api_key="your-moonshot-key",
 )
 ```
 
-### Common Custom Providers
-
-| Provider | API Base | Notes |
-|----------|---------|-------|
-| DeepSeek | `https://api.deepseek.com/v1` | Great value, strong reasoning |
-| Grok | `https://api.x.ai/v1` | xAI's offering |
-| KIMI | `https://api.moonshot.ai/v1` | China's Moonshot AI |
-| Together AI | `https://api.together.ai/v1` | Hosting many open models |
-
----
-
-## Provider Comparison
-
-| Provider | Best For | Cost | Context | Multimodal | Local? |
-|----------|---------|------|---------|------------|--------|
-| **OpenAI** | Reliability, ecosystem | $$ | 128k | Yes | No |
-| **Anthropic** | Safety, reasoning | $$$ | 200k | Yes | No |
-| **Google** | Cost, multimodal | $ | 1M | Yes | No |
-| **Ollama** | Privacy, no costs | Free | Varies | No | Yes |
-| **LiteLLM** | Multi-provider | $$ | Varies | Varies | No |
-
-**Cost scale:** $ = cheap, $$ = moderate, $$$ = expensive
-
----
-
-## Which Provider Should You Choose?
-
-### Choose OpenAI when:
-- Building production apps
-- Need best tooling support
-- Cost is not primary concern
-
-### Choose Anthropic when:
-- Safety is critical
-- Need long context (200k)
-- Complex reasoning tasks
-
-### Choose Google when:
-- Cost is the primary concern
-- Need native multimodal
-- High volume applications
-
-### Choose Ollama when:
-- Privacy matters
-- No API costs desired
-- Offline deployment needed
-
-### Choose LiteLLM when:
-- Using multiple providers
-- Need provider flexibility
-- Standardized API required
-
----
+Any API that follows the OpenAI `/v1/chat/completions` format works with `Model.Custom()`.
 
 ## Switching Providers
 
-The beauty of Syrin? Switch providers without rewriting your agent:
+The point of the `Model` abstraction is that your agent code doesn't change when you switch providers. Only the `model` line changes:
 
 ```python
-# Same agent code, different brain
-class MyAgent(Agent):
-    # Just change this one line
-    model = Model.OpenAI("gpt-4o", api_key="...")
-    # model = Model.Anthropic("claude-sonnet", api_key="...")
-    # model = Model.Google("gemini-2.0-flash", api_key="...")
-    # model = Model.Ollama("llama3")  # No API key needed!
-    
-    system_prompt = "You are a helpful assistant."
+from syrin import Agent, Model
+import os
 
-agent = MyAgent()
+class MyAgent(Agent):
+    # Change this one line to switch providers
+    model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+    # model = Model.Anthropic("claude-sonnet-4-6-20251001", api_key=os.getenv("ANTHROPIC_API_KEY"))
+    # model = Model.Google("gemini-2.0-flash", api_key=os.getenv("GOOGLE_API_KEY"))
+    # model = Model.Ollama("llama3.2")
+
+    system_prompt = "You are a helpful assistant."
 ```
 
----
+## Choosing a Provider
 
-## Provider Lookup Helper
+For **general-purpose chat and Q&A**: `gpt-4o-mini` or `gemini-2.0-flash`. Both are cheap, fast, and capable.
 
-The providers package also exports `get_provider()` when you need to resolve a provider implementation directly instead of going through the higher-level `Model` helpers.
+For **complex reasoning or long documents**: `gpt-4o` or `claude-sonnet-4-6-20251001`. Both handle nuanced tasks well.
 
-## What's Next?
+For **code generation**: `gpt-4o` or `claude-sonnet-4-6-20251001`. Both perform well on code. `codellama` via Ollama is free and runs locally.
 
-- [Models Overview](/agent-kit/core/models) - Recap of models and settings
-- [Custom Models](/agent-kit/core/models-custom) - Create your own provider
-- [Model Routing](/agent-kit/core/models-routing) - Automatically switch models
+For **high-volume, cost-sensitive**: `gemini-2.0-flash` is very fast and has a free tier.
 
-## See Also
+For **private or air-gapped deployments**: Ollama with a local model.
 
-- [Budget](/agent-kit/core/budget) - Control your spending per provider
-- [Context](/agent-kit/core/context) - Handle large contexts
-- [Memory](/agent-kit/core/memory) - Make agents remember
+For **testing and development**: `Model.mock()` — no API key, no cost, always.
+
+## What's Next
+
+- [Models Overview](/agent-kit/core/models) — Model parameters, switching, and fallback
+- [Custom Models](/agent-kit/core/models-custom) — Build a provider for any LLM
+- [Model Routing](/agent-kit/core/models-routing) — Automatically route to different models

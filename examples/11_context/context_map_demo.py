@@ -15,7 +15,7 @@ from pathlib import Path
 from syrin import Agent, AgentConfig, Context
 from syrin.model import Model
 
-_model = Model.Almock()
+_model = Model.mock()
 
 
 def _main() -> None:

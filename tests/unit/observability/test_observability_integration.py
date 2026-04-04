@@ -115,7 +115,7 @@ class TestSpanCoverageLLMSpan:
         agent = Agent(
             model=Model("openai/gpt-4o-mini"),
             system_prompt="Be brief.",
-            custom_loop=SingleShotLoop(),
+            loop=SingleShotLoop(),
             config=AgentConfig(tracer=tracer),
         )
         with patch.object(
@@ -149,7 +149,7 @@ class TestSpanCoverageLLMSpan:
         agent = Agent(
             model=Model("openai/gpt-4o-mini"),
             system_prompt="Be brief.",
-            custom_loop=ReactLoop(max_iterations=3),
+            loop=ReactLoop(max_iterations=3),
             config=AgentConfig(tracer=tracer),
         )
         # First call returns content (no tools), so one iteration
@@ -193,7 +193,7 @@ class TestSpanCoverageToolSpan:
             model=Model("openai/gpt-4o-mini"),
             system_prompt="Use tools.",
             tools=[echo],
-            custom_loop=ReactLoop(max_iterations=5),
+            loop=ReactLoop(max_iterations=5),
             config=AgentConfig(tracer=tracer),
         )
         call_count = 0

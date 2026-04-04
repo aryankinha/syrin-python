@@ -30,8 +30,8 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 class CustomDiscoveryAgent(Agent):
-    _agent_name = "custom-discovery-agent"
-    _agent_description = "Agent with custom Agent Card (provider, auth)"
+    name = "custom-discovery-agent"
+    description = "Agent with custom Agent Card (provider, auth)"
     model = almock
     system_prompt = "You are a helpful assistant."
 

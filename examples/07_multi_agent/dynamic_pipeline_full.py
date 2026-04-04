@@ -6,7 +6,7 @@ Demonstrates:
 - Full observability with hooks at every stage
 - DynamicPipeline.run() with parallel mode
 
-Uses Model.Almock() — no API key needed.
+Uses Model.mock() — no API key needed.
 
 Run:
     python examples/07_multi_agent/dynamic_pipeline_full.py
@@ -26,7 +26,7 @@ from syrin.tool import tool
 # Model — Almock orchestrator returns a valid JSON plan so agents spawn
 # ---------------------------------------------------------------------------
 
-orchestrator_model = Model.Almock(
+orchestrator_model = Model.mock(
     latency_min=0.3,
     latency_max=0.8,
     response_mode="custom",
@@ -39,7 +39,7 @@ orchestrator_model = Model.Almock(
     pricing_tier="high",
 )
 
-agent_model = Model.Almock(
+agent_model = Model.mock(
     latency_min=0.3,
     latency_max=0.8,
     lorem_length=200,
@@ -83,32 +83,32 @@ def export_report(title: str, content: str) -> str:
 
 
 class TechResearchAgent(Agent):
-    _agent_name = "tech_researcher"
-    _agent_description = "Researches technology trends"
+    name = "tech_researcher"
+    description = "Researches technology trends"
     model = agent_model
     system_prompt = "You research technology trends."
     tools = [search_web, analyze_data]
 
 
 class FinanceResearchAgent(Agent):
-    _agent_name = "finance_researcher"
-    _agent_description = "Researches financial markets"
+    name = "finance_researcher"
+    description = "Researches financial markets"
     model = agent_model
     system_prompt = "You research financial markets."
     tools = [fetch_financial, analyze_data]
 
 
 class HealthcareResearchAgent(Agent):
-    _agent_name = "healthcare_researcher"
-    _agent_description = "Researches healthcare industry"
+    name = "healthcare_researcher"
+    description = "Researches healthcare industry"
     model = agent_model
     system_prompt = "You research healthcare industry."
     tools = [search_web, analyze_data]
 
 
 class SummarizerAgent(Agent):
-    _agent_name = "summarizer"
-    _agent_description = "Synthesizes research into clear reports"
+    name = "summarizer"
+    description = "Synthesizes research into clear reports"
     model = agent_model
     system_prompt = "You synthesize research into a clear report."
     tools = [generate_chart, export_report]

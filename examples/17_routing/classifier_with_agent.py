@@ -20,14 +20,14 @@ from syrin.router import (
 
 
 def main() -> None:
-    general_m = Model.Almock(
+    general_m = Model.mock(
         latency_min=0,
         latency_max=0,
         profile_name="general",
         strengths=[TaskType.GENERAL, TaskType.CREATIVE],
         priority=90,
     )
-    code_m = Model.Almock(
+    code_m = Model.mock(
         latency_min=0,
         latency_max=0,
         profile_name="code",

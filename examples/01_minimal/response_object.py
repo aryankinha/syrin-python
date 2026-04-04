@@ -8,7 +8,7 @@ Run:
 
 from syrin import Agent, Budget, Model
 
-model = Model.Almock()
+model = Model.mock()
 
 agent = Agent(
     model=model,

@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from syrin import Agent, AlmockPricing, Model
+from syrin import Agent, MockPricing, Model
 from syrin.enums import MessageRole
 from syrin.types import Message, ModelConfig
 
@@ -19,33 +19,33 @@ class TestAlmockCreation:
     """Valid creation and default behavior."""
 
     def test_almock_default_returns_model(self) -> None:
-        """Model.Almock() with no args returns a Model with provider almock."""
-        model = Model.Almock()
+        """Model.mock() with no args returns a Model with provider almock."""
+        model = Model.mock()
         assert model._provider == "almock"
         assert "almock" in (model._model_id or "")
 
     def test_almock_pricing_tier_low(self) -> None:
         """pricing_tier='low' sets low input/output price."""
-        model = Model.Almock(pricing_tier="low")
+        model = Model.mock(pricing_tier="low")
         assert model.pricing is not None
         assert model.pricing.input_per_1m < 1.0
         assert model.pricing.output_per_1m < 1.0
 
     def test_almock_pricing_tier_enum(self) -> None:
-        """pricing_tier=AlmockPricing.HIGH uses HIGH tier."""
-        model = Model.Almock(pricing_tier=AlmockPricing.HIGH)
+        """pricing_tier=MockPricing.HIGH uses HIGH tier."""
+        model = Model.mock(pricing_tier=MockPricing.HIGH)
         assert model.pricing is not None
         assert model.pricing.input_per_1m == 5.0
         assert model.pricing.output_per_1m == 15.0
 
     def test_almock_context_window(self) -> None:
         """context_window is set (default 8192)."""
-        model = Model.Almock(context_window=4096)
+        model = Model.mock(context_window=4096)
         assert model._settings.context_window == 4096
 
     def test_almock_custom_response_mode(self) -> None:
         """response_mode='custom' with custom_response returns that text."""
-        model = Model.Almock(
+        model = Model.mock(
             response_mode="custom",
             custom_response="Hello, mock!",
             latency_min=0,
@@ -57,7 +57,7 @@ class TestAlmockCreation:
 
     def test_almock_lorem_mode_default_length(self) -> None:
         """response_mode='lorem' (default) returns Lorem Ipsum of default length."""
-        model = Model.Almock(latency_min=0, latency_max=0, lorem_length=50)
+        model = Model.mock(latency_min=0, latency_max=0, lorem_length=50)
         resp = model.complete([Message(role=MessageRole.USER, content="Hi")])
         assert resp is not None
         assert resp.content is not None
@@ -66,7 +66,7 @@ class TestAlmockCreation:
 
     def test_almock_token_usage_populated(self) -> None:
         """Provider returns token_usage (input/output/total)."""
-        model = Model.Almock(latency_min=0, latency_max=0)
+        model = Model.mock(latency_min=0, latency_max=0)
         resp = model.complete([Message(role=MessageRole.USER, content="Hello world")])
         assert resp is not None
         assert resp.token_usage.input_tokens >= 0
@@ -123,7 +123,7 @@ class TestAlmockLatencyBehavior:
 
     def test_latency_seconds_positive_delays(self) -> None:
         """When latency_seconds=0.1, response is delayed ~0.1s (sync complete)."""
-        model = Model.Almock(latency_seconds=0.1)  # valid: > 0
+        model = Model.mock(latency_seconds=0.1)  # valid: > 0
         t0 = time.monotonic()
         resp = model.complete([Message(role=MessageRole.USER, content="Hi")])
         elapsed = time.monotonic() - t0
@@ -132,7 +132,7 @@ class TestAlmockLatencyBehavior:
 
     def test_latency_zero_via_min_max_ok(self) -> None:
         """latency_min=0, latency_max=0 means no delay (no latency_seconds)."""
-        model = Model.Almock(latency_min=0, latency_max=0)
+        model = Model.mock(latency_min=0, latency_max=0)
         t0 = time.monotonic()
         resp = model.complete([Message(role=MessageRole.USER, content="Hi")])
         elapsed = time.monotonic() - t0
@@ -149,8 +149,8 @@ class TestAlmockWithAgent:
     """Agent.run() works with Model.Almock (no API key)."""
 
     def test_agent_almock_returns_response(self) -> None:
-        """Agent(model=Model.Almock()) returns a Response with content."""
-        model = Model.Almock(latency_min=0, latency_max=0, lorem_length=20)
+        """Agent(model=Model.mock()) returns a Response with content."""
+        model = Model.mock(latency_min=0, latency_max=0, lorem_length=20)
         agent = Agent(model=model, system_prompt="You are helpful.")
         r = agent.run("Hello")
         assert r.content is not None
@@ -161,7 +161,7 @@ class TestAlmockWithAgent:
         """Cost from Almock is tracked when Agent has Budget."""
         from syrin import Budget
 
-        model = Model.Almock(pricing_tier=AlmockPricing.MEDIUM, latency_min=0, latency_max=0)
+        model = Model.mock(pricing_tier=MockPricing.MEDIUM, latency_min=0, latency_max=0)
         agent = Agent(
             model=model,
             system_prompt="Test.",
@@ -182,7 +182,7 @@ class TestAlmockLoremEdgeCases:
 
     def test_lorem_length_zero_uses_fallback(self) -> None:
         """lorem_length=0: provider uses fallback length (100)."""
-        model = Model.Almock(latency_min=0, latency_max=0, lorem_length=0)
+        model = Model.mock(latency_min=0, latency_max=0, lorem_length=0)
         resp = model.complete([Message(role=MessageRole.USER, content="Hi")])
         assert resp is not None
         # Implementation uses 100 as fallback when lorem_length <= 0
@@ -194,19 +194,19 @@ class TestAlmockLoremEdgeCases:
 # -----------------------------------------------------------------------------
 
 
-class TestAlmockPricingTiers:
+class TestMockPricingTiers:
     """All pricing tiers set correct input/output per 1M."""
 
     def test_ultra_high_tier(self) -> None:
         """ULTRA_HIGH has highest prices."""
-        model = Model.Almock(pricing_tier=AlmockPricing.ULTRA_HIGH)
+        model = Model.mock(pricing_tier=MockPricing.ULTRA_HIGH)
         assert model.pricing is not None
         assert model.pricing.input_per_1m == 30.0
         assert model.pricing.output_per_1m == 60.0
 
     def test_medium_tier(self) -> None:
         """MEDIUM tier has medium prices."""
-        model = Model.Almock(pricing_tier=AlmockPricing.MEDIUM)
+        model = Model.mock(pricing_tier=MockPricing.MEDIUM)
         assert model.pricing is not None
         assert model.pricing.input_per_1m == 0.50
         assert model.pricing.output_per_1m == 1.50

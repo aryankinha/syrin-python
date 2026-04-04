@@ -158,7 +158,7 @@ if __name__ == "__main__":
     # class AuthorityDemoAgent(Agent):
     #     _agent_name = "authority-demo"
     #     _agent_description = "Agent with authority layer guardrails demo"
-    #     model = Model.Almock()
+    #     model = Model.mock()
     #     system_prompt = "You are a helpful assistant."
     #     guardrails = [ContentFilter(blocked_words=["unauthorized"])]
     #

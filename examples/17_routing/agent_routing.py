@@ -22,7 +22,7 @@ from syrin.router import (
 
 def main() -> None:
     # Almock models with distinct strengths for routing demo
-    general_m = Model.Almock(
+    general_m = Model.mock(
         context_window=4096,
         latency_min=0,
         latency_max=0,
@@ -30,7 +30,7 @@ def main() -> None:
         strengths=[TaskType.GENERAL, TaskType.CREATIVE],
         priority=90,
     )
-    code_m = Model.Almock(
+    code_m = Model.mock(
         context_window=8192,
         latency_min=0,
         latency_max=0,

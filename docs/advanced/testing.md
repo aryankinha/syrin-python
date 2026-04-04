@@ -42,7 +42,7 @@ Testing follows a pyramid structure:
 
 Balance: Many fast unit tests, fewer integration tests, minimal E2E tests.
 
-## Mocking Models: Model.Almock
+## Mocking Models: Model.mock()
 
 The fastest way to test: replace real LLMs with mocks.
 
@@ -52,7 +52,7 @@ The fastest way to test: replace real LLMs with mocks.
 from syrin import Agent, Model
 
 # No API calls, no latency
-mock_model = Model.Almock()
+mock_model = Model.mock()
 
 agent = Agent(model=mock_model)
 result = agent.run("Hello!")
@@ -64,18 +64,18 @@ assert result.content is not None
 
 ```python
 # Fixed response
-mock = Model.Almock(
+mock = Model.mock(
     custom_response="The weather is sunny with a high of 72°F.",
 )
 
 # Lorem ipsum
-mock = Model.Almock(
+mock = Model.mock(
     response_mode="lorem",
     lorem_length=100,  # 100 characters
 )
 
 # Latency simulation
-mock = Model.Almock(
+mock = Model.mock(
     latency_min=0.5,   # Min 0.5 seconds
     latency_max=1.0,    # Max 1 second
 )
@@ -85,10 +85,10 @@ mock = Model.Almock(
 
 ```python
 # Test with different pricing
-cheap_model = Model.Almock(pricing_tier="low")      # ~$0.10/1M tokens
-medium_model = Model.Almock(pricing_tier="medium")  # ~$1.00/1M tokens
-expensive_model = Model.Almock(pricing_tier="high")  # ~$10.00/1M tokens
-ultra_expensive = Model.Almock(pricing_tier="ultra_high")
+cheap_model = Model.mock(pricing_tier="low")      # ~$0.10/1M tokens
+medium_model = Model.mock(pricing_tier="medium")  # ~$1.00/1M tokens
+expensive_model = Model.mock(pricing_tier="high")  # ~$10.00/1M tokens
+ultra_expensive = Model.mock(pricing_tier="ultra_high")
 ```
 
 ## Mocking Tools
@@ -108,7 +108,7 @@ class TestAgent(Agent):
 
 
 def test_weather_tool(monkeypatch):
-    agent = TestAgent(model=Model.Almock())
+    agent = TestAgent(model=Model.mock())
     
     # Monkeypatch the tool function
     original = agent.get_weather.func
@@ -133,7 +133,7 @@ class MockAgent(TestAgent):
 
 
 def test_with_mock():
-    agent = MockAgent(model=Model.Almock())
+    agent = MockAgent(model=Model.mock())
     result = agent.run("Weather in Paris?")
     assert "Paris" in result.content
 ```
@@ -227,7 +227,7 @@ from syrin.enums import MemoryType
 def agent():
     """Create a test agent."""
     return Agent(
-        model=Model.Almock(),
+        model=Model.mock(),
         memory=Memory(),
     )
 
@@ -249,7 +249,7 @@ def test_with_memory(agent):
 
 def test_cost_tracking(agent):
     """Test cost is tracked."""
-    agent.model = Model.Almock(pricing_tier="high")
+    agent.model = Model.mock(pricing_tier="high")
     
     result = agent.run("Tell me a story")
     assert result.cost >= 0  # Cost should be tracked
@@ -306,7 +306,7 @@ def memory():
 @pytest.fixture
 def agent(mock_deps, memory):
     return Agent(
-        model=Model.Almock(),
+        model=Model.mock(),
         deps=mock_deps,
         memory=memory,
         budget=Budget(max_cost=10.00),
@@ -377,7 +377,7 @@ def test_cost_event(agent):
 def test_budget_limit():
     """Test that budget limits are enforced."""
     agent = Agent(
-        model=Model.Almock(pricing_tier="ultra_high"),
+        model=Model.mock(pricing_tier="ultra_high"),
         budget=Budget(max_cost=0.01),  # Tiny budget
     )
     
@@ -395,7 +395,7 @@ def test_budget_callback():
         callback_called.append(ctx)
     
     agent = Agent(
-        model=Model.Almock(pricing_tier="high"),
+        model=Model.mock(pricing_tier="high"),
         budget=Budget(
             max_cost=1.00,
             on_exceeded=on_exceeded,
@@ -415,26 +415,26 @@ def test_budget_callback():
 ## Testing Multi-Agent
 
 ```python
-def test_handoff():
-    """Test agent handoff."""
+def test_spawn():
+    """Test agent spawn (task delegation)."""
     from syrin import Agent
     from syrin.enums import AgentType
     
-    agent1 = Agent(model=Model.Almock(), agent_type=AgentType.ROUTER)
-    agent2 = Agent(model=Model.Almock(), agent_type=AgentType.WORKER)
+    agent1 = Agent(model=Model.mock(), agent_type=AgentType.ROUTER)
+    agent2 = Agent(model=Model.mock(), agent_type=AgentType.WORKER)
     
-    # Setup handoff
-    agent1._register_handoff_target(agent2)
+    # Setup spawn target
+    agent1._register_spawn_target(agent2)
     
     result = agent1.run("Transfer to worker")
     
-    # Verify handoff occurred
-    assert "worker" in result.content.lower() or result.handoff_completed
+    # Verify spawn occurred
+    assert "worker" in result.content.lower() or result.spawn_completed
 
 
 def test_spawn():
     """Test spawning sub-agents."""
-    parent = Agent(model=Model.Almock())
+    parent = Agent(model=Model.mock())
     
     # Spawn a child agent
     child = parent.spawn(
@@ -451,7 +451,7 @@ def test_spawn():
 ```python
 def test_tool_error_handling():
     """Test graceful handling of tool errors."""
-    agent = TestAgent(model=Model.Almock())
+    agent = TestAgent(model=Model.mock())
     
     # Mock tool that raises
     def failing_tool():
@@ -473,8 +473,8 @@ def test_tool_error_handling():
 def test_api_error_recovery():
     """Test fallback on API errors."""
     # Create model with fallback
-    primary = Model.Almock()  # Will fail
-    fallback = Model.Almock()
+    primary = Model.mock()  # Will fail
+    fallback = Model.mock()
     
     model = primary.with_fallback(fallback)
     agent = Agent(model=model)
@@ -533,7 +533,7 @@ import pytest
     "What's the weather?",
 ])
 def test_prompts(prompt):
-    agent = Agent(model=Model.Almock())
+    agent = Agent(model=Model.mock())
     result = agent.run(prompt)
     assert result.content is not None
 ```
@@ -612,7 +612,7 @@ import time
 
 def test_response_time():
     """Test agent responds within acceptable time."""
-    agent = Agent(model=Model.Almock(latency_seconds=0.1))
+    agent = Agent(model=Model.mock(latency_seconds=0.1))
     
     start = time.time()
     agent.run("Hello")
@@ -625,7 +625,7 @@ def test_concurrent_requests():
     """Test handling concurrent requests."""
     import concurrent.futures
     
-    agent = Agent(model=Model.Almock())
+    agent = Agent(model=Model.mock())
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         futures = [

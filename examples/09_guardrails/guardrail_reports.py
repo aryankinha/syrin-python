@@ -15,7 +15,7 @@ from __future__ import annotations
 from syrin import Agent, Guardrail, GuardrailStage, Hook, Model
 from syrin.guardrails import ContentFilter
 
-model = Model.Almock()
+model = Model.mock()
 
 # ---------------------------------------------------------------------------
 # 1. Input guardrail blocks dangerous content
@@ -28,8 +28,8 @@ guardrail = ContentFilter(blocked_words=["hack", "steal", "password"])
 
 
 class Assistant(Agent):
-    _agent_name = "guardrail-assistant"
-    _agent_description = "Assistant with ContentFilter guardrail"
+    name = "guardrail-assistant"
+    description = "Assistant with ContentFilter guardrail"
     model = model
     system_prompt = "You are a helpful assistant."
     guardrails = [guardrail]

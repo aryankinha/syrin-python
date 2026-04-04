@@ -22,7 +22,7 @@ from syrin import (
 
 def main() -> None:
     agent = Agent(
-        model=Model.Almock(
+        model=Model.mock(
             response_mode="custom",
             custom_response="Capital structure: Authorized ₹50L, Issued ₹20L.",
             latency_min=0,
@@ -39,7 +39,7 @@ def main() -> None:
 
     # With citations — parse and style [Source: doc.pdf, Page N] markers
     agent_cited = Agent(
-        model=Model.Almock(
+        model=Model.mock(
             response_mode="custom",
             custom_response=(
                 "Authorized capital is ₹50,00,000 [Source: moa.pdf, Page 3]. "

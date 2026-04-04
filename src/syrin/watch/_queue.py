@@ -174,7 +174,7 @@ class _RedisBackend:
 
     async def connect(self) -> None:
         try:
-            import redis.asyncio as aioredis
+            import redis.asyncio as aioredis  # type: ignore[import-not-found]
 
             self._client = aioredis.from_url(self._url)
         except ImportError as exc:

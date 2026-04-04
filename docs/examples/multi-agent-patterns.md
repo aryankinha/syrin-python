@@ -1,6 +1,6 @@
 ---
 title: Multi-Agent Patterns
-description: Pipeline, handoff, spawning, and team collaboration
+description: Pipeline, spawn, and team collaboration
 weight: 330
 ---
 
@@ -71,8 +71,8 @@ analyzer = Analyzer()
 analysis = analyzer.run("Analyze the benefits of renewable energy")
 print(f"Analysis: {analysis.content[:80]}...")
 
-# Step 2: Hand off to Presenter
-presentation = analyzer.handoff(
+# Step 2: Spawn Presenter to present
+presentation = analyzer.spawn(
     Presenter,
     "Present the analysis",
     context={"analysis": analysis.content}
@@ -82,7 +82,7 @@ print(f"Presentation: {presentation.content[:80]}...")
 
 **What just happened:**
 1. Analyzer processes input and generates findings
-2. `handoff()` transfers to Presenter with context
+2. `spawn()` delegates to Presenter with context
 3. Presenter has full access to Analyzer's output
 4. Each agent contributes its specialty
 
@@ -145,17 +145,17 @@ model = Model.OpenAI("gpt-4o-mini", api_key="your-api-key")
 class Researcher(Agent):
     model = model
     system_prompt = "You research topics thoroughly."
-    _agent_name = "researcher"
+    name = "researcher"
 
 class Writer(Agent):
     model = model
     system_prompt = "You write clear, engaging content."
-    _agent_name = "writer"
+    name = "writer"
 
 class Critic(Agent):
     model = model
     system_prompt = "You provide constructive criticism."
-    _agent_name = "critic"
+    name = "critic"
 
 pipeline = DynamicPipeline(agents=[Researcher, Writer, Critic])
 result = pipeline.run("Write a blog post about quantum computing")
@@ -179,22 +179,22 @@ model = Model.OpenAI("gpt-4o-mini", api_key="your-api-key")
 class ProductManager(Agent):
     model = model
     system_prompt = "You define product requirements and priorities."
-    _agent_name = "pm"
+    name = "pm"
 
 class Engineer(Agent):
     model = model
     system_prompt = "You design and implement technical solutions."
-    _agent_name = "engineer"
+    name = "engineer"
 
 class Designer(Agent):
     model = model
     system_prompt = "You create intuitive user experiences."
-    _agent_name = "designer"
+    name = "designer"
 
 class QA(Agent):
     model = model
     system_prompt = "You ensure quality and find issues."
-    _agent_name = "qa"
+    name = "qa"
 
 # Team works on a feature
 team = [ProductManager(), Engineer(), Designer(), QA()]
@@ -211,9 +211,9 @@ result = team[0].spawn([
 3. Each agent contributes expertise
 4. Results can be synthesized by a coordinator
 
-## Handoff with Context Visibility
+## Spawn with Context Visibility
 
-Children see parent context during handoff.
+Child agents see parent context at spawn time.
 
 ```python
 from syrin import Agent, Model
@@ -236,14 +236,14 @@ senior = SeniorDev()
 task = "Implement user authentication"
 
 # Senior decides to delegate to Junior
-junior_result = senior.handoff(
+junior_result = senior.spawn(
     JuniorDev,
     task,
     context={"urgency": "high", "skill_level": "mid"}
 )
 
 # TechLead reviews Junior's work
-review = senior.handoff(
+review = senior.spawn(
     TechLead,
     f"Review this implementation: {junior_result.content}",
     context={"pr_number": 123, "reviewer": "tech-lead"}
@@ -256,9 +256,9 @@ review = senior.handoff(
 3. TechLead sees full context including previous work
 4. Workflow adapts based on task complexity
 
-## Intercepting Handoffs
+## Intercepting Spawns
 
-Add hooks to monitor or modify handoffs.
+Add hooks to monitor or modify spawns.
 
 ```python
 from syrin import Agent, Model
@@ -268,7 +268,7 @@ model = Model.OpenAI("gpt-4o-mini", api_key="your-api-key")
 
 class Analyzer(Agent):
     model = model
-    system_prompt = "You analyze data and hand off to presenters."
+    system_prompt = "You analyze data and spawn presenters."
 
 class ChartPresenter(Agent):
     model = model
@@ -278,19 +278,19 @@ class TextPresenter(Agent):
     model = model
     system_prompt = "You present data as text."
 
-def on_handoff(ctx):
+def on_spawn(ctx):
     print(f"Handoff from {ctx.source} to {ctx.target}")
     print(f"Task: {ctx.task[:50]}...")
 
-Analyzer.events.on(Hook.HANDOFF_START, on_handoff)
+Analyzer.events.on(Hook.SPAWN_START, on_spawn)
 
-def on_handoff_complete(ctx):
+def on_spawn_complete(ctx):
     print(f"Handoff complete. Cost: ${ctx.get('cost', 0):.4f}")
 
-Analyzer.events.on(Hook.HANDOFF_END, on_handoff_complete)
+Analyzer.events.on(Hook.SPAWN_END, on_spawn_complete)
 
 analyzer = Analyzer()
-result = analyzer.handoff(
+result = analyzer.spawn(
     ChartPresenter if "chart" in analyzer.run("Show revenue data").content 
     else TextPresenter,
     "Present the analysis"
@@ -298,8 +298,8 @@ result = analyzer.handoff(
 ```
 
 **What just happened:**
-1. Hooks fire before and after each handoff
-2. Can inspect or modify handoff parameters
+1. Hooks fire before and after each spawn
+2. Can inspect or modify spawn parameters
 3. Track costs and timing across agents
 4. Make routing decisions based on context
 
@@ -309,8 +309,8 @@ result = analyzer.handoff(
 # Sequential pipeline
 PYTHONPATH=. python examples/07_multi_agent/pipeline.py
 
-# Agent handoff
-PYTHONPATH=. python examples/07_multi_agent/handoff.py
+# Agent spawn
+PYTHONPATH=. python examples/07_multi_agent/spawn.py
 
 # Dynamic pipeline
 PYTHONPATH=. python examples/07_multi_agent/dynamic_pipeline_basic.py
@@ -326,5 +326,5 @@ PYTHONPATH=. python examples/07_multi_agent/dynamic_pipeline_basic.py
 
 - [Multi-agent overview](/agent-kit/multi-agent/overview)
 - [Pipeline patterns](/agent-kit/multi-agent/pipeline)
-- [Agent handoff](/agent-kit/multi-agent/handoff)
+- [Agent spawn](/agent-kit/multi-agent/handoff)
 - [Agent Swarm example](/agent-kit/examples/agent-swarm) for dynamic multi-agent with hooks

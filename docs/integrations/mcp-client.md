@@ -219,14 +219,7 @@ except RuntimeError as e:
     print(f"MCP error: {e}")
 ```
 
-Common errors:
-
-| Error | Cause | Solution |
-| --- | --- | --- |
-| Connection refused | Server not running | Start the MCP server |
-| Timeout | Server too slow | Increase `timeout` |
-| Unknown tool | Tool not found | Check server capabilities |
-| Invalid parameters | Wrong arguments | Check tool schema |
+Common errors and their solutions: a connection refused error means the server is not running — start the MCP server. A timeout error means the server is responding too slowly — increase the `timeout` parameter. An unknown tool error means the requested tool was not found on the server — check the server's published capabilities. An invalid parameters error means wrong arguments were passed — check the tool's input schema.
 
 ## Real-World Example
 
@@ -236,7 +229,7 @@ Here's a customer support agent using multiple MCP servers:
 from syrin import Agent, MCPClient, Model
 
 class SupportAgent(Agent):
-    _agent_name = "support-agent"
+    name = "support-agent"
     
     # Internal tools
     model = Model.OpenAI("gpt-4o", api_key="your-api-key")
@@ -262,14 +255,7 @@ All without any custom integration code.
 
 ## MCP Client vs Direct API Calls
 
-When should you use MCPClient vs direct API calls?
-
-| Use MCPClient | Use Direct API |
-| --- | --- |
-| Tool is MCP-compatible | Custom protocol |
-| Standard interface needed | Performance critical |
-| Tool may change | Full control needed |
-| Multiple consumers | Single purpose |
+Use `MCPClient` when the tool is MCP-compatible, when you need a standard interface, when the tool's API may change over time, or when multiple consumers will use the same tool. Use a direct API call when the tool uses a custom protocol, when performance is critical and the MCP layer adds unacceptable overhead, when you need full control over the request/response cycle, or when the tool serves a single dedicated purpose.
 
 ## Debugging MCP Connections
 

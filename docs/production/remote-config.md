@@ -6,35 +6,9 @@ weight: 120
 
 ## Change Your Agent Without Restarting
 
-You deployed an agent. Now you need to:
-- Lower the budget because costs are too high
-- Enable a new tool for testing
-- Switch from REACT to SINGLE_SHOT loop strategy
-- Rollback a bad change
+You deployed an agent. Now you need to lower the budget because costs are spiking, enable a new tool for testing, switch from REACT to SINGLE_SHOT loop strategy, or rollback a bad prompt change.
 
-Before remote config, you had to:
-1. Change the code
-2. Redeploy
-3. Restart the service
-4. Lose in-flight requests
-
-With remote config, you push changes instantly. No restart. No downtime.
-
-## The Problem
-
-Production systems need flexibility:
-- **Cost control**: Adjust budgets without redeploying
-- **A/B testing**: Try different prompts or strategies
-- **Feature flags**: Enable/disable tools gradually
-- **Incident response**: Lower limits during high-traffic events
-- **Rollback**: Revert bad changes instantly
-
-Traditional approaches:
-- Environment variables (require restart)
-- Config files (require restart)
-- Feature flags services (complex setup)
-
-Remote config provides a simple REST API for live configuration.
+Before remote config, that meant changing code, redeploying, restarting the service, and losing in-flight requests. With remote config, you push changes instantly — no restart, no downtime.
 
 ## Quick Start
 
@@ -169,23 +143,15 @@ If you want to understand remote config in one pass, use this order:
 5. Send a normal `/chat` request and observe the agent running with the new value
 6. Revert with `value: null` to return to baseline
 
-That flow teaches the three key ideas:
-
-- baseline values come from code
-- overrides come from the remote config API
-- current values are the effective runtime configuration
+That flow teaches the three key ideas: baseline values come from code, overrides come from the remote config API, and current values are the effective runtime configuration — the combination of both.
 
 ## Key Concepts
 
 ### Baseline vs Overrides
 
-| Concept | Description |
-|---------|-------------|
-| **Baseline** | Values from code (frozen at first GET) |
-| **Overrides** | User-applied changes |
-| **Current** | Effective values (baseline + overrides) |
+The config system has three layers. **Baseline** holds the values from code — frozen at the first `GET` request. **Overrides** are the user-applied changes pushed via the API. **Current** is the effective runtime value, calculated as baseline plus overrides.
 
-When you revert (`value: null`), the path is removed from overrides. Current falls back to baseline.
+When you revert (`value: null`), the path is removed from overrides and current falls back to baseline automatically.
 
 ### Reverting Changes
 
@@ -214,70 +180,33 @@ Now `current_values.budget.max_cost` is back to baseline (1.0).
 
 ### Schema Fields
 
-Each field includes metadata for UI rendering:
-
-| Field | Description |
-|-------|-------------|
-| `baseline_value` | Value from code |
-| `current_value` | Effective value |
-| `overridden` | True if this path has a remote override |
-| `enum_values` | For dropdowns (e.g., loop strategies) |
-| `constraints` | Min/max values |
+Each field includes metadata for UI rendering. `baseline_value` is the value from code. `current_value` is the effective runtime value. `overridden` is a boolean that is true if this path has an active remote override. `enum_values` lists valid string options for dropdown-style fields like loop strategies. `constraints` carries min/max bounds for numeric fields.
 
 ## What Can Be Configured?
 
 ### Agent Section
 
-| Path | Type | Description |
-|------|------|-------------|
-| `agent.system_prompt` | `str` | System prompt |
-| `agent.loop_strategy` | `str` | `react`, `single_shot`, `hitl` |
-| `agent.max_tool_iterations` | `int` | Max tool call loops |
-| `agent.human_approval_timeout` | `int` | HITL timeout in seconds |
+Four agent-level paths are available. `agent.system_prompt` (string) changes the system prompt. `agent.loop_strategy` (string) switches between `react`, `single_shot`, and `hitl`. `agent.max_tool_iterations` (int) caps the number of tool-call loops. `agent.human_approval_timeout` (int) sets the HITL confirmation timeout in seconds.
 
 ### Budget Section
 
-| Path | Type | Description |
-|------|------|-------------|
-| `budget.max_cost` | `float` | Run budget in USD |
-| `budget.reserve` | `float` | Reserve amount |
-| `budget.rate_limits.hour` | `float` | Hourly limit |
-| `budget.rate_limits.day` | `float` | Daily limit |
+Four budget paths control cost. `budget.max_cost` (float) sets the per-run budget in USD. `budget.reserve` (float) holds back a reserve amount. `budget.rate_limits.hour` (float) sets the hourly spend limit. `budget.rate_limits.day` (float) sets the daily spend limit.
 
 ### Tools Section
 
-| Path | Type | Description |
-|------|------|-------------|
-| `tools.{name}.enabled` | `bool` | Enable/disable a tool |
+`tools.{name}.enabled` (bool) enables or disables any individual tool by name. Substitute `{name}` with the tool's registered name.
 
 ### Memory Section
 
-| Path | Type | Description |
-|------|------|-------------|
-| `memory.top_k` | `int` | Max memories to recall |
-| `memory.relevance_threshold` | `float` | Min relevance score |
+Two memory paths are remotely configurable. `memory.top_k` (int) sets the maximum number of memories recalled per query. `memory.relevance_threshold` (float) sets the minimum relevance score for a memory to be returned.
 
 ## Hot Swaps (Require Restart)
 
-Some changes require a restart to take full effect. These are flagged as `pending_restart`:
+Some changes require a service restart to fully take effect. These are flagged as `pending_restart` in the PATCH response.
 
-| Path | Requires Restart |
-|------|-----------------|
-| `memory.backend` | ✅ Memory backend change |
-| `memory.path` | ✅ File path change |
-| `checkpoint.storage` | ✅ Checkpoint storage change |
-| `checkpoint.path` | ✅ Checkpoint path change |
+Four paths trigger this behavior. `memory.backend` requires a restart because the memory backend handles state outside the process. `memory.path` requires a restart because the file path change only takes effect when the backend initializes. `checkpoint.storage` and `checkpoint.path` both require a restart for the same reason — the checkpoint backend is initialized at startup.
 
-**What happens:**
-1. The change is applied to in-memory state
-2. `pending_restart` is returned
-3. Backend storage (Redis, files) only changes after restart
-
-**Your workflow:**
-1. Apply change via PATCH
-2. Change is effective in memory
-3. Restart the service
-4. Backend storage is updated
+What actually happens when you hit one of these paths: the change is applied to in-memory state immediately and returned as `pending_restart`, but the backend storage (Redis, files, etc.) only switches after a service restart. Your workflow is to apply the change via PATCH, confirm it's in memory, then restart when convenient.
 
 ## Streaming Updates
 
@@ -372,11 +301,7 @@ init(api_key="your-syrin-api-key")
 
 ### Transport Options
 
-| Transport | Use Case |
-|----------|----------|
-| **SSE** (default) | Real-time updates via streaming connection |
-| **Polling** | When SSE is blocked by firewall |
-| **Serve** | Self-hosted, no cloud |
+Three transport options are available. **SSE** (the default) delivers real-time updates via a persistent streaming connection — best for most production deployments. **Polling** checks for changes on a configurable interval, making it the right choice when SSE is blocked by a firewall or proxy. **Serve** mode is self-hosted with no cloud dependency.
 
 ```python
 from syrin.remote import init, PollingTransport
@@ -392,24 +317,15 @@ init(
 
 ### Validation
 
-All overrides are validated against the schema:
-- Unknown paths are rejected
-- Invalid enum values are rejected
-- Type mismatches are rejected
-- Callables cannot be overridden
+All overrides are validated against the schema. Unknown paths are rejected. Invalid enum values are rejected. Type mismatches are rejected. Callables cannot be overridden remotely.
 
 ### Authentication
 
-For self-hosted:
-- Add auth middleware to `/config` routes
-- Syrin Cloud uses API keys
+For self-hosted deployments, add auth middleware to the `/config` routes. Syrin Cloud uses API keys.
 
 ### Best Practices
 
-1. **Audit logging**: Log all PATCH requests
-2. **Approval workflow**: Require approval for production changes
-3. **Rollback plan**: Always know how to revert
-4. **Test first**: Test changes in staging
+Audit log all PATCH requests so you know who changed what and when. Require approval for production changes — a second pair of eyes prevents expensive mistakes. Always have a rollback plan before pushing changes. Test in staging first.
 
 ## API Reference
 

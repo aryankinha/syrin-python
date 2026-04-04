@@ -195,3 +195,264 @@ def test_tool_with_union_types() -> None:
     assert result == "5"
     result = union_param.func("hello")
     assert result == "hello"
+
+
+# =============================================================================
+# Docstring parsing — Args: and Returns:
+# =============================================================================
+
+
+def test_tool_parses_args_section_from_docstring() -> None:
+    """@tool reads Args: section and injects descriptions into JSON schema."""
+    from syrin.enums import DocFormat
+
+    @tool
+    def search(query: str, max_results: int = 5) -> str:
+        """Search the web.
+
+        Args:
+            query: The search query string
+            max_results: Maximum number of results to return
+        """
+        return ""
+
+    schema = search.to_format(DocFormat.JSON)["function"]  # type: ignore[index]
+    props = schema["parameters"]["properties"]  # type: ignore[index]
+    assert props["query"].get("description") == "The search query string"  # type: ignore[union-attr]
+    assert props["max_results"].get("description") == "Maximum number of results to return"  # type: ignore[union-attr]
+
+
+def test_tool_parses_returns_section_from_docstring() -> None:
+    """@tool reads Returns: section and injects it into the description."""
+    from syrin.enums import DocFormat
+
+    @tool
+    def lookup(key: str) -> str:
+        """Look up a value.
+
+        Returns:
+            The value associated with the key.
+        """
+        return ""
+
+    schema = lookup.to_format(DocFormat.JSON)["function"]  # type: ignore[index]
+    assert "The value associated with the key." in schema.get("description", "")  # type: ignore[operator]
+
+
+def test_tool_param_descriptions_override_docstring() -> None:
+    """Explicit param_descriptions= wins over the Args: docstring section."""
+    from syrin.enums import DocFormat
+
+    @tool(param_descriptions={"city": "Explicit city description"})
+    def get_weather(city: str) -> str:
+        """Get weather.
+
+        Args:
+            city: Docstring city description
+        """
+        return ""
+
+    schema = get_weather.to_format(DocFormat.JSON)["function"]  # type: ignore[index]
+    props = schema["parameters"]["properties"]  # type: ignore[index]
+    assert props["city"].get("description") == "Explicit city description"  # type: ignore[union-attr]
+
+
+def test_tool_returns_override_docstring() -> None:
+    """Explicit returns= wins over the Returns: docstring section."""
+    from syrin.enums import DocFormat
+
+    @tool(returns="Explicit return description")
+    def do_thing() -> str:
+        """Do a thing.
+
+        Returns:
+            Docstring return description.
+        """
+        return ""
+
+    schema = do_thing.to_format(DocFormat.JSON)["function"]  # type: ignore[index]
+    desc = schema.get("description", "")
+    assert "Explicit return description" in desc  # type: ignore[operator]
+    assert "Docstring return description" not in desc  # type: ignore[operator]
+
+
+def test_tool_no_args_section_has_no_param_descriptions() -> None:
+    """@tool without Args: section produces schema with no descriptions."""
+
+    @tool
+    def plain(x: int) -> str:
+        """A plain tool."""
+        return str(x)
+
+    props = plain.parameters_schema.get("properties", {})
+    assert "description" not in props.get("x", {})  # type: ignore[call-overload]
+
+
+def test_tool_multiline_param_description_parsed_correctly() -> None:
+    """Multi-line param descriptions in docstrings are joined."""
+
+    @tool
+    def search(query: str) -> str:
+        """Search.
+
+        Args:
+            query: The search query. Can be a simple keyword
+                or a full natural language question.
+        """
+        return ""
+
+    props = search.parameters_schema.get("properties", {})
+    desc = props.get("query", {}).get("description", "")  # type: ignore[union-attr]
+    assert "keyword" in desc
+    assert "natural language question" in desc
+
+
+# =============================================================================
+# @tool(examples=..., depends_on=...) params
+# =============================================================================
+
+
+def test_tool_examples_stored_on_spec() -> None:
+    """@tool(examples=[...]) stores examples on ToolSpec."""
+
+    @tool(examples=["search('cats')", "search('dogs')"])
+    def search(query: str) -> str:
+        return f"results for {query}"
+
+    assert search.examples == ["search('cats')", "search('dogs')"]
+
+
+def test_tool_depends_on_stored_on_spec() -> None:
+    """@tool(depends_on=[...]) stores depends_on on ToolSpec."""
+
+    @tool(depends_on=["read_file"])
+    def write_file(path: str, content: str) -> str:
+        return "ok"
+
+    assert write_file.depends_on == ["read_file"]
+
+
+def test_tool_examples_appear_in_toon_description() -> None:
+    """Examples are injected into the TOON-format description."""
+    from syrin.enums import DocFormat
+
+    @tool(examples=["add(1, 2)"])
+    def add(x: int, y: int) -> int:
+        return x + y
+
+    schema = add.to_format(DocFormat.TOON)
+    # TOON schema nests content under 'function'
+    description = schema.get("function", {}).get("description", "")  # type: ignore[union-attr]
+    assert "add(1, 2)" in description
+
+
+def test_tool_depends_on_appears_in_toon_description() -> None:
+    """depends_on is injected into the TOON-format description."""
+    from syrin.enums import DocFormat
+
+    @tool(depends_on=["open_file", "read_file"])
+    def close_file(handle: str) -> str:
+        return "closed"
+
+    schema = close_file.to_format(DocFormat.TOON)
+    description = schema.get("function", {}).get("description", "")  # type: ignore[union-attr]
+    assert "open_file" in description
+    assert "read_file" in description
+
+
+def test_tool_no_examples_or_depends_on_defaults_to_empty() -> None:
+    """ToolSpec.examples and .depends_on default to empty lists."""
+
+    @tool
+    def simple() -> str:
+        return "ok"
+
+    assert simple.examples == []
+    assert simple.depends_on == []
+
+
+def test_tool_returns_stored_on_spec() -> None:
+    """@tool(returns=...) stores returns on ToolSpec."""
+
+    @tool(returns="The computed result as a string.")
+    def compute(x: int) -> str:
+        return str(x)
+
+    assert compute.returns == "The computed result as a string."
+
+
+def test_tool_returns_appears_in_toon_description() -> None:
+    """returns= is injected into the TOON-format description."""
+    from syrin.enums import DocFormat
+
+    @tool(returns="JSON with keys: title, url")
+    def fetch(url: str) -> str:
+        return ""
+
+    schema = fetch.to_format(DocFormat.TOON)
+    description = schema.get("function", {}).get("description", "")  # type: ignore[union-attr]
+    assert "JSON with keys: title, url" in description
+
+
+# =============================================================================
+# ToolErrorMode integration
+# =============================================================================
+
+
+def test_tool_error_mode_propagate_reraises_original() -> None:
+    """ToolErrorMode.PROPAGATE (default) re-raises the original exception."""
+    from syrin import Agent, Model
+    from syrin.agent.config import AgentConfig
+    from syrin.enums import ToolErrorMode
+
+    @tool
+    def explode() -> str:
+        raise ValueError("boom")
+
+    agent = Agent(
+        model=Model.mock(),
+        tools=[explode],
+        config=AgentConfig(tool_error_mode=ToolErrorMode.PROPAGATE),
+    )
+    with pytest.raises(ValueError, match="boom"):
+        agent._execute_tool("explode", {})
+
+
+def test_tool_error_mode_stop_wraps_in_tool_execution_error() -> None:
+    """ToolErrorMode.STOP wraps the error in ToolExecutionError."""
+    from syrin import Agent, Model
+    from syrin.agent.config import AgentConfig
+    from syrin.enums import ToolErrorMode
+    from syrin.exceptions import ToolExecutionError
+
+    @tool
+    def explode() -> str:
+        raise ValueError("original error")
+
+    agent = Agent(
+        model=Model.mock(),
+        tools=[explode],
+        config=AgentConfig(tool_error_mode=ToolErrorMode.STOP),
+    )
+    with pytest.raises(ToolExecutionError, match="original error"):
+        agent._execute_tool("explode", {})
+
+
+def test_tool_error_mode_return_as_string_returns_error_message() -> None:
+    """ToolErrorMode.RETURN_AS_STRING returns error as a string instead of raising."""
+    from syrin import Agent, Model
+    from syrin.agent.config import AgentConfig
+    from syrin.enums import ToolErrorMode
+
+    @tool
+    def explode() -> str:
+        raise ValueError("string error")
+
+    agent = Agent(
+        model=Model.mock(),
+        tools=[explode],
+        config=AgentConfig(tool_error_mode=ToolErrorMode.RETURN_AS_STRING),
+    )
+    result = agent._execute_tool("explode", {})
+    assert isinstance(result, str)
+    assert "string error" in result

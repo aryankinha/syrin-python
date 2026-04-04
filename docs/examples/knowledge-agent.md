@@ -145,7 +145,7 @@ agentic_rag = AgenticRAG(
 )
 
 agent = Agent(
-    model=Model.Almock(),
+    model=Model.mock(),
     system_prompt="Answer questions using the knowledge base.",
     knowledge=agentic_rag,  # Use agentic retrieval
 )

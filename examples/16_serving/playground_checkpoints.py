@@ -34,8 +34,8 @@ checkpoint_config = CheckpointConfig(
 
 
 class CheckpointAssistant(Agent):
-    _agent_name = "checkpoint-assistant"
-    _agent_description = "Assistant with step checkpoints"
+    name = "checkpoint-assistant"
+    description = "Assistant with step checkpoints"
     model = almock
     system_prompt = "You are a helpful assistant. Remember context across turns."
     checkpoint = checkpoint_config

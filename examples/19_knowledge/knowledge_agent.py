@@ -65,7 +65,7 @@ async def main() -> None:
     print("\n-- 3. Agent with knowledge --")
 
     agent = Agent(
-        model=Model.Almock(),
+        model=Model.mock(),
         system_prompt=(
             "You are a helpful assistant. "
             "Use search_knowledge when asked about Python, Syrin, or RAG."
@@ -84,7 +84,7 @@ if __name__ == "__main__":
 # Optional: serve with playground UI (requires syrin[serve])
 # ---------------------------------------------------------------------------
 # agent = Agent(
-#     model=Model.Almock(),
+#     model=Model.mock(),
 #     system_prompt="You are a helpful assistant.",
 #     knowledge=knowledge,
 # )

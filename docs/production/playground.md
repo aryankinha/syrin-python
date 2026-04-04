@@ -134,11 +134,7 @@ agent.serve(
 
 ## Configuration Reference
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `enable_playground` | `bool` | `False` | Serve the web UI |
-| `debug` | `bool` | `False` | Show observability panel |
-| `route_prefix` | `str` | `""` | URL prefix for routes |
+Three parameters control the playground. `enable_playground` (bool, default `False`) serves the web UI. `debug` (bool, default `False`) shows the observability panel. `route_prefix` (str, default `""`) sets the URL prefix for all routes.
 
 **Important**: The observability panel only shows when BOTH:
 - `enable_playground=True`
@@ -157,13 +153,7 @@ Without debug mode, you get the chat UI but no hook events.
 
 ### Event Types (SSE)
 
-| Event Type | Content | Description |
-|------------|---------|-------------|
-| `status` | `{"type": "status", "message": "Thinking…"}` | Status update |
-| `text` | `{"text": "...", "accumulated": "..."}` | New tokens |
-| `budget` | `{"limit": 1.0, "remaining": 0.99, ...}` | Budget snapshot |
-| `hook` | `{"hook": "HOOK_NAME", "ctx": {...}}` | Lifecycle event (debug) |
-| `done` | `{"done": true, ...}` | Stream complete |
+Five event types flow from the server. `status` carries a status update like `{"type": "status", "message": "Thinking…"}`. `text` carries new tokens as they arrive: `{"text": "...", "accumulated": "..."}`. `budget` carries a snapshot of the current budget state: `{"limit": 1.0, "remaining": 0.99, ...}`. `hook` carries a lifecycle event when debug mode is on: `{"hook": "HOOK_NAME", "ctx": {...}}`. `done` signals the stream is complete: `{"done": true, ...}`.
 
 ### Hook Collection
 
@@ -188,12 +178,7 @@ Events are truncated to prevent large payloads:
 
 ## Playground vs Production
 
-| Feature | Development | Production |
-|---------|-------------|------------|
-| Playground UI | ✅ Enabled | ❌ Disabled |
-| Debug mode | ✅ Enabled | ❌ Disabled |
-| Observability panel | ✅ Visible | ❌ Hidden |
-| Detailed error messages | ✅ Full | ❌ Sanitized |
+In development you enable all of these: the playground UI, debug mode, the observability panel, and full detailed error messages. In production, all four should be off — the playground UI disabled, debug mode off, the observability panel hidden, and error messages sanitized to avoid leaking internals to users.
 
 ### Production Configuration
 

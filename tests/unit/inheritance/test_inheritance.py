@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from syrin.agent import Agent
+from syrin.enums import ExceedPolicy
 from syrin.model import Model
 from syrin.tool import tool
 from syrin.types import ProviderResponse, TokenUsage
@@ -279,12 +280,12 @@ class TestInheritanceEdgeCases:
 
     def test_inheritance_budget_exceeded(self) -> None:
         """Test budget inheritance behavior."""
-        from syrin.budget import Budget, raise_on_exceeded
+        from syrin.budget import Budget
         from syrin.exceptions import BudgetExceededError
 
         class Base(Agent):
             model = Model("openai/gpt-4")
-            budget = Budget(max_cost=0.000001, on_exceeded=raise_on_exceeded)
+            budget = Budget(max_cost=0.000001, exceed_policy=ExceedPolicy.STOP)
 
         class Child(Base):
             pass

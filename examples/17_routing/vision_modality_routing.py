@@ -19,7 +19,7 @@ from syrin.router import (
 
 def main() -> None:
     # Almock (no real vision; for structure demo)
-    text_model = Model.Almock(
+    text_model = Model.mock(
         latency_min=0,
         latency_max=0,
         profile_name="text-only",
@@ -28,7 +28,7 @@ def main() -> None:
         output_media={Media.TEXT},
         priority=90,
     )
-    vision_model = Model.Almock(
+    vision_model = Model.mock(
         latency_min=0,
         latency_max=0,
         profile_name="vision",

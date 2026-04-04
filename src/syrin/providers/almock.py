@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import random
 
-from syrin.enums import AlmockPricing
+from syrin.enums import MockPricing
 from syrin.tool import ToolSpec
 from syrin.types import (
     Message,
@@ -18,10 +18,10 @@ from .base import Provider
 
 # USD per 1M tokens (input, output) per tier — for budget testing
 ALMOCK_PRICING: dict[str, tuple[float, float]] = {
-    AlmockPricing.LOW: (0.01, 0.02),
-    AlmockPricing.MEDIUM: (0.50, 1.50),
-    AlmockPricing.HIGH: (5.0, 15.0),
-    AlmockPricing.ULTRA_HIGH: (30.0, 60.0),
+    MockPricing.LOW: (0.01, 0.02),
+    MockPricing.MEDIUM: (0.50, 1.50),
+    MockPricing.HIGH: (5.0, 15.0),
+    MockPricing.ULTRA_HIGH: (30.0, 60.0),
 }
 
 DEFAULT_LOREM = (

@@ -22,22 +22,22 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 class TechAgent(Agent):
-    _agent_name = "tech"
-    _agent_description = "Researches technology trends"
+    name = "tech"
+    description = "Researches technology trends"
     model = almock
     system_prompt = "You research technology trends."
 
 
 class FinanceAgent(Agent):
-    _agent_name = "finance"
-    _agent_description = "Researches financial markets"
+    name = "finance"
+    description = "Researches financial markets"
     model = almock
     system_prompt = "You research financial markets."
 
 
 class SummarizerAgent(Agent):
-    _agent_name = "summarizer"
-    _agent_description = "Synthesizes research into concise reports"
+    name = "summarizer"
+    description = "Synthesizes research into concise reports"
     model = almock
     system_prompt = "You synthesize research into a concise report."
 

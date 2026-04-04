@@ -1,21 +1,22 @@
-"""Pipeline -- run multiple agents in sequence, passing output forward.
+"""Workflow — run multiple agents in sequence, passing output forward.
 
 Demonstrates:
-- Pipeline() for sequential multi-agent execution
+- Workflow() for sequential multi-agent execution
 - @prompt for per-agent dynamic system prompts
-- Pipeline result with content and cost
+- Workflow result with content and cost
 
 Run:
     python examples/07_multi_agent/pipeline.py
 """
 
-from syrin import Agent, Model, Pipeline, prompt
+from __future__ import annotations
 
-model = Model.Almock()
+import asyncio
 
-# ---------------------------------------------------------------------------
-# 1. Define agents with dynamic prompts
-# ---------------------------------------------------------------------------
+from syrin import Agent, Model, prompt
+from syrin.workflow import Workflow
+
+model = Model.mock()
 
 
 @prompt
@@ -29,36 +30,32 @@ def writer_prompt(style: str) -> str:
 
 
 class Researcher(Agent):
-    _agent_name = "researcher"
-    _agent_description = "Researches topics and gathers information"
+    name = "researcher"
+    description = "Researches topics and gathers information"
     model = model
     system_prompt = researcher_prompt(domain="technology")
 
 
 class Writer(Agent):
-    _agent_name = "writer"
-    _agent_description = "Writes content in professional style"
+    name = "writer"
+    description = "Writes content in professional style"
     model = model
     system_prompt = writer_prompt(style="professional")
 
 
-# ---------------------------------------------------------------------------
-# 2. Run the pipeline
-# ---------------------------------------------------------------------------
-print("-- Pipeline: Researcher -> Writer --")
+async def main() -> None:
+    print("-- Workflow: Researcher -> Writer --")
 
-pipeline = Pipeline()
-result = pipeline.run(
-    [
-        (Researcher, "Find information about renewable energy"),
-        (Writer, "Write about renewable energy"),
-    ]
-)
+    wf = (
+        Workflow("research-pipeline")
+        .step(Researcher, task="Find information about renewable energy")
+        .step(Writer, task="Write about renewable energy")
+    )
+    result = await wf.run("renewable energy")
 
-print(f"  Result: {result.content[:100]}...")
-print(f"  Cost:   ${result.cost:.6f}")
+    print(f"  Result: {result.content[:100]}...")
+    print(f"  Cost:   ${result.cost:.6f}")
 
-# ---------------------------------------------------------------------------
-# Optional: serve with playground UI (requires syrin[serve])
-# ---------------------------------------------------------------------------
-# pipeline.serve(port=8000, enable_playground=True, debug=True)
+
+if __name__ == "__main__":
+    asyncio.run(main())

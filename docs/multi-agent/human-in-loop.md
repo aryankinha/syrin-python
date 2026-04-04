@@ -72,7 +72,7 @@ gate = ApprovalGate(callback=my_approval_function)
 agent = Agent(
     model=model,
     approval_gate=gate,
-    custom_loop=HumanInTheLoop(approval_gate=gate),
+    loop=HumanInTheLoop(approval_gate=gate),
 )
 ```
 
@@ -158,11 +158,7 @@ agent.run("Delete record abc123")
 
 HITL emits lifecycle hooks for monitoring approvals:
 
-| Hook | When | Context |
-|------|------|---------|
-| `HITL_PENDING` | Before approval request | `name`, `arguments`, `message`, `iteration` |
-| `HITL_APPROVED` | After approval granted | `name`, `arguments`, `approved`, `iteration` |
-| `HITL_REJECTED` | After approval denied | `name`, `arguments`, `approved`, `iteration` |
+Three hooks are emitted during the HITL lifecycle. `HITL_PENDING` fires before the approval request is sent and provides `name`, `arguments`, `message`, and `iteration` in the context. `HITL_APPROVED` fires after approval is granted and provides `name`, `arguments`, `approved`, and `iteration`. `HITL_REJECTED` fires after approval is denied and provides the same set of fields as `HITL_APPROVED`.
 
 ### Monitoring Approvals
 
@@ -237,19 +233,11 @@ agent.events.on(Hook.HITL_REJECTED, audit_rejection)
 
 ### HumanInTheLoop Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `approval_gate` | `ApprovalGateProtocol` | Required | Approval backend |
-| `approve` | `Callable` | None | Legacy: async callback (tool_name, args) -> bool |
-| `timeout` | `int` | 300 | Seconds to wait for approval |
-| `max_iterations` | `int` | 10 | Maximum tool-call loops |
+`HumanInTheLoop` accepts four parameters. `approval_gate` is the only required one and takes an `ApprovalGateProtocol` implementation that serves as the approval backend. `approve` is a legacy parameter that accepts an async callable with signature `(tool_name, args) -> bool` and defaults to `None`. `timeout` is an integer (default `300`) controlling how many seconds to wait for approval before treating the request as rejected. `max_iterations` is an integer (default `10`) that caps the number of tool-call loops the agent may execute.
 
 ### Agent Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `approval_gate` | `ApprovalGateProtocol` | None | Gate for HITL loop |
-| `human_approval_timeout` | `int` | 300 | Per-call timeout override |
+On the `Agent` itself, two parameters govern HITL behaviour. `approval_gate` takes an `ApprovalGateProtocol` instance (default `None`) and activates the HITL loop when set. `human_approval_timeout` is an integer (default `300`) that overrides the per-call timeout on a per-agent basis.
 
 ## Timeout Handling
 

@@ -6,8 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from syrin import Agent, AuditLog, Model, Pipeline
-from syrin.agent.multi_agent import DynamicPipeline
+from syrin import Agent, AuditLog, Model
+from syrin.agent.multi_agent import (
+    DynamicPipeline,
+    Pipeline,  # internal; removed from public API in v0.11.0
+)
 from syrin.enums import AuditEventType
 
 

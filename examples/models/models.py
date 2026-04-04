@@ -30,7 +30,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 # Use this to run examples without any API key. Uncomment the Almock line in
 # each example and comment the real model to try the library with zero cost.
 # High token amount and pricing tier so budget visibly decreases in playground.
-almock = Model.Almock(
+almock = Model.mock(
     latency_min=1,
     latency_max=3,
     lorem_length=800,
@@ -39,7 +39,7 @@ almock = Model.Almock(
 
 # Almock for DynamicPipeline orchestrator — returns valid JSON plan so agents spawn
 # Latency mimics real API calls for playground UX
-almock_orchestrator = Model.Almock(
+almock_orchestrator = Model.mock(
     latency_min=0.3,
     latency_max=0.8,
     response_mode="custom",
@@ -49,35 +49,35 @@ almock_orchestrator = Model.Almock(
 
 # Almock custom replies for DynamicPipeline spawned agents (demo-friendly output)
 # Latency mimics real API calls for playground UX
-almock_researcher = Model.Almock(
+almock_researcher = Model.mock(
     latency_min=0.5,
     latency_max=1.2,
     response_mode="custom",
     custom_response="Research findings: Based on the user's request, here are key points and sources. [Simulated research output for demo.]",
     pricing_tier="high",
 )
-almock_analyst = Model.Almock(
+almock_analyst = Model.mock(
     latency_min=0.5,
     latency_max=1.2,
     response_mode="custom",
     custom_response="Analysis: Structured evaluation of the topic. Pros and cons summarized. [Simulated analysis for demo.]",
     pricing_tier="high",
 )
-almock_writer = Model.Almock(
+almock_writer = Model.mock(
     latency_min=0.5,
     latency_max=1.2,
     response_mode="custom",
     custom_response="Draft: Clear, concise content based on the provided context. [Simulated draft for demo.]",
     pricing_tier="high",
 )
-almock_fact_checker = Model.Almock(
+almock_fact_checker = Model.mock(
     latency_min=0.5,
     latency_max=1.2,
     response_mode="custom",
     custom_response="Fact check: Verified claims. Sources confirmed. No major inaccuracies found. [Simulated fact check for demo.]",
     pricing_tier="high",
 )
-almock_summarizer = Model.Almock(
+almock_summarizer = Model.mock(
     latency_min=0.5,
     latency_max=1.2,
     response_mode="custom",

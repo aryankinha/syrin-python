@@ -11,7 +11,7 @@ Run:
 
 from syrin import Agent, Model
 
-model = Model.Almock()
+model = Model.mock()
 
 # ---------------------------------------------------------------------------
 # 1. Define parent and child agents
@@ -19,15 +19,15 @@ model = Model.Almock()
 
 
 class Parent(Agent):
-    _agent_name = "parent"
-    _agent_description = "Coordinator that spawns specialist agents"
+    name = "parent"
+    description = "Coordinator that spawns specialist agents"
     model = model
     system_prompt = "You are a coordinator."
 
 
 class Child(Agent):
-    _agent_name = "child"
-    _agent_description = "Specialist agent spawned by parent"
+    name = "child"
+    description = "Specialist agent spawned by parent"
     model = model
     system_prompt = "You are a specialist."
 

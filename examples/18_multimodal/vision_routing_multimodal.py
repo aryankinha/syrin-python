@@ -16,12 +16,6 @@ from __future__ import annotations
 
 import base64
 import os
-import sys
-from pathlib import Path
-
-_root = Path(__file__).resolve().parents[2]
-if str(_root) not in sys.path:
-    sys.path.insert(0, str(_root))
 
 from syrin import Agent, Model
 from syrin.enums import Media
@@ -55,7 +49,7 @@ def main() -> None:
             priority=90,
         )
     else:
-        text_model = Model.Almock(
+        text_model = Model.mock(
             latency_min=0,
             latency_max=0,
             profile_name="text-only",
@@ -64,7 +58,7 @@ def main() -> None:
             output_media={Media.TEXT},
             priority=80,
         )
-        vision_model = Model.Almock(
+        vision_model = Model.mock(
             latency_min=0,
             latency_max=0,
             profile_name="vision",

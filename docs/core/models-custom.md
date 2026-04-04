@@ -32,12 +32,7 @@ Syrin's custom model system gives you **freedom**. If you can call an API, you c
 
 ## Two Paths to Custom Models
 
-Depending on your API, you have two options:
-
-| API Type | Use This | When |
-|----------|----------|-------|
-| **OpenAI-Compatible** | `Model.Custom()` | API follows OpenAI's format |
-| **Anything Else** | Extend `Model` class | Custom protocols, weird APIs |
+Depending on your API, you have two options. Use `Model.Custom()` when the API follows OpenAI's format — many providers such as DeepSeek, Grok, and Moonshot are OpenAI-compatible, so a single line pointing to their endpoint is all that is required. Extend the `Model` class directly when the API uses a custom protocol, a non-standard authentication flow, or other quirks that prevent direct OpenAI-format compatibility.
 
 ### Path 1: OpenAI-Compatible APIs (The Easy Way)
 
@@ -375,11 +370,11 @@ class YourCustomModel(Model):
 
 ## Testing Your Custom Model
 
-Use `Almock` for testing without hitting APIs:
+Use `Model.mock()` for testing without hitting APIs (no API key needed):
 
 ```python
-# Replace your custom model with Almock during testing
-model = Model.Almock(
+# Replace your custom model with Model.mock() during testing
+model = Model.mock(
     latency_min=0.1,
     latency_max=0.3,
     lorem_length=100
@@ -410,14 +405,7 @@ agent = MyAgent(model=model)
 
 ## Pricing Reference for Custom Models
 
-When setting up cost tracking, here's a quick reference:
-
-| Model Tier | Input Price ($/1M) | Output Price ($/1M) |
-|-----------|-------------------|---------------------|
-| **Budget** | \$0.10 - \$0.50 | \$0.30 - \$2.00 |
-| **Mid-range** | \$0.50 - \$2.00 | \$2.00 - \$15.00 |
-| **Premium** | \$2.00 - \$15.00 | \$15.00 - \$75.00 |
-| **Experimental** | Negotiated | Negotiated |
+When setting up cost tracking, use the provider's pricing page as the authoritative source — most list prices as "$ per 1M tokens". As a rough guide: budget-tier models typically charge $0.10–$0.50 per 1M input tokens and $0.30–$2.00 per 1M output tokens. Mid-range models run $0.50–$2.00 input and $2.00–$15.00 output. Premium models run $2.00–$15.00 input and $15.00–$75.00 output. Experimental or enterprise models are typically negotiated directly with the provider.
 
 **Tip:** Check the provider's pricing page. Most list it as "\$X per 1M tokens".
 

@@ -14,12 +14,12 @@ Run:
 
 from __future__ import annotations
 
-from syrin import Agent, Budget, Model, warn_on_exceeded
+from syrin import Agent, Budget, Model
 from syrin.enums import ThresholdMetric
 from syrin.threshold import BudgetThreshold, ThresholdContext
 
 # Create a mock model — no API key needed
-model = Model.Almock()
+model = Model.mock()
 
 # NOTE: Almock returns near-zero costs (~$0.00004 per call).
 # Thresholds fire when cumulative spending crosses a percentage of max_cost.
@@ -48,7 +48,7 @@ agent = Agent(
         thresholds=[
             BudgetThreshold(at=50, action=on_50_pct, metric=ThresholdMetric.COST),
         ],
-        on_exceeded=warn_on_exceeded,
+        exceed_policy=ExceedPolicy.WARN,
     ),
 )
 agent.run("Hello!")
@@ -82,7 +82,7 @@ agent = Agent(
             BudgetThreshold(at=75, action=make_handler(75)),
             BudgetThreshold(at=100, action=make_handler(100)),
         ],
-        on_exceeded=warn_on_exceeded,
+        exceed_policy=ExceedPolicy.WARN,
     ),
 )
 agent.run("Tell me about AI")
@@ -99,8 +99,8 @@ print("=" * 60)
 class MonitoredAgent(Agent):
     """Agent with budget thresholds — warns at 80% spend."""
 
-    _agent_name = "monitored"
-    _agent_description = "Agent with budget thresholds (warn at 80%)"
+    name = "monitored"
+    description = "Agent with budget thresholds (warn at 80%)"
     model = model
     budget = Budget(
         max_cost=1.00,
@@ -111,7 +111,7 @@ class MonitoredAgent(Agent):
                 metric=ThresholdMetric.COST,
             ),
         ],
-        on_exceeded=warn_on_exceeded,
+        exceed_policy=ExceedPolicy.WARN,
     )
 
 

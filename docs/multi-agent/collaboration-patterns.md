@@ -8,15 +8,17 @@ weight: 97
 
 Single-agent workflows handle straightforward tasks well. But complex real-world problems often need more sophisticated collaboration. Multiple agents might need to work in parallel, vote on answers, or coordinate through a supervisor.
 
-This page covers advanced collaboration patterns that combine Syrin's primitives—Pipeline, Handoff, Spawn, and AgentTeam—into proven architectures.
+This page covers advanced collaboration patterns that combine Syrin's primitives—Workflow, Swarm, Handoff, and Spawn—into proven architectures.
 
-## The Team Pattern
+## The Swarm Pattern
 
-Group related agents that share context and budget:
+Group related agents that share context and budget using a `Swarm`:
 
 ```python
+import asyncio
 from syrin import Agent, Budget, Model
-from syrin.agent.multi_agent import AgentTeam
+from syrin.swarm import Swarm, SwarmConfig
+from syrin.enums import SwarmTopology
 
 model = Model.OpenAI("gpt-4o", api_key="your-api-key")
 
@@ -36,66 +38,58 @@ class Editor(Agent):
     system_prompt = "You edit and polish content."
 
 
-# Create a team with shared budget
-team = AgentTeam(
-    agents=[Researcher(), Writer(), Editor()],
-    budget=Budget(max_cost=5.00, shared=True),  # All agents share this budget
-    shared_memory=True,  # Agents share persistent memory
-)
+async def main() -> None:
+    swarm = Swarm(
+        agents=[Researcher, Writer, Editor],
+        config=SwarmConfig(
+            topology=SwarmTopology.ORCHESTRATOR,
+            budget=Budget(max_cost=5.00),
+        ),
+    )
+    result = await swarm.run("Research and write about renewable energy")
+    print(result.content)
 
-# Automatic agent selection based on task keywords
-result = team.run_task("Research and write about renewable energy")
+asyncio.run(main())
 ```
 
-**What just happened**: The team selected the appropriate agent based on task keywords. All agents share the same budget and memory, enabling fluid collaboration.
+**What just happened**: The orchestrator agent delegated sub-tasks to specialists. All agents share the same budget, enabling fluid collaboration.
 
-## Agent Selection
+## Swarm Agent Routing
 
-Teams can automatically route tasks to the best agent:
+Give agents descriptive names and descriptions — the orchestrator uses them to route tasks:
 
 ```python
 from syrin import Agent, Model
-from syrin.agent.multi_agent import AgentTeam
 
 model = Model.OpenAI("gpt-4o", api_key="your-api-key")
 
 
 class CodeAgent(Agent):
-    _agent_name = "coder"
+    name = "coder"
+    description = "Writes clean, correct code"
     model = model
     system_prompt = "You write code."
 
 
 class DebugAgent(Agent):
-    _agent_name = "debugger"
+    name = "debugger"
+    description = "Finds and fixes bugs"
     model = model
     system_prompt = "You find bugs."
 
 
 class TestAgent(Agent):
-    _agent_name = "tester"
+    name = "tester"
+    description = "Writes comprehensive tests"
     model = model
     system_prompt = "You write tests."
-
-
-team = AgentTeam(agents=[CodeAgent(), DebugAgent(), TestAgent()])
-
-# Automatic routing based on keywords
-selected = team.select_agent("write a function to parse JSON")
-print(selected.__class__.__name__)  # CodeAgent
-
-selected = team.select_agent("find the bug in my code")
-print(selected.__class__.__name__)  # DebugAgent
-
-selected = team.select_agent("add test coverage")
-print(selected.__class__.__name__)  # TestAgent
 ```
 
-**What just happened**: `select_agent()` matched task keywords to agent names and descriptions, routing to the most appropriate specialist.
+**What just happened**: `name` and `description` are the signals the orchestrator uses to decide which specialist to call for a given sub-task.
 
 ## Supervisor Pattern
 
-One agent coordinates others through structured handoffs:
+One agent coordinates others by spawning specialists:
 
 ```python
 from syrin import Agent, Budget, Model
@@ -112,28 +106,28 @@ class SupervisorAgent(Agent):
 Never do the work yourself—always delegate."""
 
     def handle_request(self, request: str) -> str:
-        triage = self.handoff(TriageAgent, f"Triage: {request}")
+        triage = self.spawn(TriageAgent, f"Triage: {request}")
         
         if "technical" in triage.content.lower():
-            result = self.handoff(
+            result = self.spawn(
                 TechSupportAgent,
                 f"Tech issue: {request}",
                 transfer_context=True,
             )
         elif "billing" in triage.content.lower():
-            result = self.handoff(
+            result = self.spawn(
                 BillingAgent,
                 f"Billing issue: {request}",
                 transfer_context=True,
             )
         else:
-            result = self.handoff(
+            result = self.spawn(
                 GeneralAgent,
                 f"General request: {request}",
                 transfer_context=True,
             )
         
-        return self.handoff(AggregatorAgent, f"Aggregate: {result.content}")
+        return self.spawn(AggregatorAgent, f"Aggregate: {result.content}")
 
 
 class TriageAgent(Agent):
@@ -165,7 +159,7 @@ supervisor = SupervisorAgent()
 response = supervisor.handle_request("My bill is wrong")
 ```
 
-**What just happened**: The supervisor delegated to specialists based on triage results. Each handoff transferred context so the aggregator could synthesize a coherent final response.
+**What just happened**: The supervisor delegated to specialists based on triage results. Each spawn transferred context so the aggregator could synthesize a coherent final response.
 
 ## Debate Pattern
 
@@ -253,7 +247,7 @@ class DataAnalysisOrchestrator(Agent):
         
         # Fan-in: aggregate results
         combined = "\n\n".join(r.content for r in results)
-        return self.handoff(
+        return self.spawn(
             AggregatorAgent,
             f"Synthesize these analyses:\n{combined}"
         )
@@ -265,13 +259,14 @@ report = orchestrator.analyze_large_dataset(large_dataset)
 
 **What just happened**: The orchestrator split work into chunks, spawned parallel agents to analyze each chunk (sharing the budget), then aggregated results. This scales analysis across large datasets.
 
-## Pipeline with Conditional Branching
+## Workflow with Conditional Branching
 
-Combine pipeline execution with dynamic routing:
+Combine sequential workflow steps with dynamic routing using `BranchStep`:
 
 ```python
+import asyncio
 from syrin import Agent, Model
-from syrin.agent.multi_agent import Pipeline, DynamicPipeline
+from syrin.workflow import Workflow
 
 model = Model.OpenAI("gpt-4o", api_key="your-api-key")
 
@@ -296,30 +291,22 @@ class QualityAgent(Agent):
     system_prompt = "Quality check the output."
 
 
-class ConditionalPipeline:
-    def __init__(self):
-        self.validator = ValidatorAgent()
-        self.processor = ProcessorAgent()
-        self.error_handler = ErrorHandlerAgent()
-        self.quality = QualityAgent()
+async def run_conditional(input_data: str) -> str:
+    validator = ValidatorAgent()
+    validation = validator.run(f"Validate: {input_data}")
 
-    def run(self, input_data: str) -> str:
-        validation = self.validator.run(f"Validate: {input_data}")
-        
-        if "invalid" in validation.content.lower():
-            return self.error_handler.run(f"Handle: {input_data}").content
-        
-        processed = self.processor.run(f"Process: {input_data}").content
-        quality = self.quality.run(f"Check: {processed}").content
-        
-        return f"{processed}\n\nQuality: {quality}"
+    if "invalid" in (validation.content or "").lower():
+        return ErrorHandlerAgent().run(f"Handle: {input_data}").content or ""
+
+    wf = Workflow("process-and-check").step(ProcessorAgent).step(QualityAgent)
+    result = await wf.run(input_data)
+    return result.content or ""
 
 
-pipeline = ConditionalPipeline()
-result = pipeline.run("some input")
+result = asyncio.run(run_conditional("some input"))
 ```
 
-**What just happened**: The pipeline validated input first, branching to error handling if invalid. Valid input proceeded through processing and quality checks.
+**What just happened**: Validation ran inline; the Workflow handled the sequential process + quality steps for valid input.
 
 ## Consensus Pattern
 
@@ -378,16 +365,11 @@ winner = run_consensus("Optimize a database query")
 
 Monitor multi-agent interactions with hooks:
 
-| Hook | When | Useful For |
-|------|------|------------|
-| `HANDOFF_START/END` | Agent transfers control | Tracking delegation chains |
-| `SPAWN_START/END` | Child agent created | Monitoring fan-out |
-| `AGENT_RUN_START/END` | Agent execution | Measuring agent contribution |
-| `DYNAMIC_PIPELINE_*` | Pipeline phases | Observing planning vs execution |
+Four hook groups are particularly useful for monitoring multi-agent interactions. `SPAWN_START` and `SPAWN_END` fire when an agent delegates to another, making them ideal for tracking delegation chains. `AGENT_RUN_START` and `AGENT_RUN_END` cover the full execution of any agent and help measure each agent's contribution. The `DYNAMIC_PIPELINE_*` family fires at distinct pipeline phases, letting you observe planning versus execution separately.
 
 ```python
 from syrin import Agent, Hook, Model
-from syrin.agent.multi_agent import AgentTeam
+from syrin.swarm import Swarm, SwarmConfig
 
 model = Model.OpenAI("gpt-4o", api_key="your-api-key")
 
@@ -396,28 +378,19 @@ class MonitoredAgent(Agent):
     model = model
 
 
-team = AgentTeam(agents=[MonitoredAgent() for _ in range(3)])
+swarm = Swarm(agents=[MonitoredAgent, MonitoredAgent, MonitoredAgent], config=SwarmConfig())
 
-for agent in team.agents:
-    agent.events.on(Hook.HANDOFF_START, lambda ctx: print(f"Handoff: {ctx.source_agent} -> {ctx.target_agent}"))
-    agent.events.on(Hook.HANDOFF_END, lambda ctx: print(f"Cost: ${ctx.cost:.4f}"))
+swarm.events.on(Hook.SPAWN_START, lambda ctx: print(f"Spawn: {ctx.source_agent} -> {ctx.target_agent}"))
+swarm.events.on(Hook.SPAWN_END, lambda ctx: print(f"Cost: ${ctx.cost:.4f}"))
 ```
 
 ## Pattern Selection Guide
 
-| Pattern | Use When | Key Primitive |
-|---------|----------|---------------|
-| **Team** | Related agents share resources | `AgentTeam` |
-| **Supervisor** | One agent coordinates specialists | `Handoff` |
-| **Debate** | Multiple perspectives needed | `parallel()` |
-| **Fan-Out/In** | Divide and conquer | `spawn_parallel()` |
-| **Pipeline** | Ordered stages | `Pipeline` |
-| **Consensus** | Vote on best solution | Multiple agents + voting |
+Six patterns cover most multi-agent collaboration needs. Use the **Swarm** pattern when related agents need to share resources like budget and memory with LLM-driven routing. Use the **Supervisor** pattern (built on `Handoff`) when one agent should coordinate multiple specialists with explicit logic. Use the **Debate** pattern (built on `parallel()`) when you need multiple perspectives before reaching a conclusion. Use the **Fan-Out/In** pattern (built on `spawn_parallel()`) for divide-and-conquer problems where work can be split across many agents. Use the **Workflow** pattern when tasks must be processed in a fixed ordered sequence. Use the **Consensus** pattern (multiple agents plus a voting agent) when you want the system to vote on the best solution from several independent attempts.
 
 ## See Also
 
-- [Pipeline](/agent-kit/multi-agent/pipeline) — Sequential and parallel execution
-- [Dynamic Pipeline](/agent-kit/multi-agent/dynamic-pipeline) — LLM-driven routing
-- [Handoff](/agent-kit/multi-agent/handoff) — Transfer control between agents
-- [Spawn](/agent-kit/multi-agent/handoff) — Create child agents
+- [Workflow](/agent-kit/multi-agent/workflow) — Sequential and parallel execution
+- [Swarm](/agent-kit/multi-agent/swarm) — LLM-driven multi-agent coordination
+- [Spawn](/agent-kit/multi-agent/handoff) — Delegate tasks to specialized child agents
 - [Hooks Reference](/agent-kit/debugging/hooks) — Monitor agent interactions

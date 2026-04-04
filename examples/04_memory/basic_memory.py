@@ -9,7 +9,7 @@ Run:
 
 from syrin import Agent, Memory, MemoryType, Model
 
-model = Model.Almock()
+model = Model.mock()
 
 # Create an agent with memory
 agent = Agent(

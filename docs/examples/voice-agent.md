@@ -203,13 +203,7 @@ python voice_server.py -t twilio -x YOUR_SUBDOMAIN.ngrok.io
 
 ## Key Features
 
-| Feature | Implementation |
-| --- | --- |
-| **Knowledge** | Resume files chunked and embedded |
-| **Scheduling** | Stub tools (ready for Calendly) |
-| **Short responses** | 1-3 sentences for phone |
-| **No markdown** | Natural speech only |
-| **Postgres** | Optional for production scale |
+Five features define this agent. The knowledge base is built from resume files that are chunked and embedded for semantic retrieval. Scheduling is handled by stub tools that are ready to integrate with a real calendar service such as Calendly. Responses are kept short — one to three sentences — to suit the pace of a phone conversation. The system prompt explicitly prohibits markdown formatting, since bullet points and headers do not translate to natural speech. PostgreSQL is available as an optional backend for production deployments that need to scale the knowledge store beyond in-memory storage.
 
 ## Running the Example
 

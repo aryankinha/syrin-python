@@ -7,7 +7,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from syrin import Agent
-from syrin.budget import Budget, BudgetThreshold, raise_on_exceeded
+from syrin.budget import Budget, BudgetThreshold
+from syrin.enums import ExceedPolicy
 from syrin.exceptions import BudgetExceededError
 from syrin.model import Model
 from syrin.types import CostInfo, ProviderResponse, TokenUsage
@@ -35,7 +36,7 @@ class TestPerRunLimitEnforced:
     def test_run_cost_exceeds_limit_raises_budget_exceeded(self) -> None:
         """When run cost exceeds budget.run, BudgetExceededError is raised."""
         model = Model("anthropic/claude-3-5-sonnet")
-        budget = Budget(max_cost=0.0, on_exceeded=raise_on_exceeded)
+        budget = Budget(max_cost=0.0, exceed_policy=ExceedPolicy.STOP)
         agent = Agent(model=model, budget=budget, system_prompt="Be brief.")
         mock_resp = _mock_provider_response(content="Hi", input_tokens=1000, output_tokens=500)
         with patch.object(
@@ -51,7 +52,7 @@ class TestPerRunLimitEnforced:
     def test_run_under_limit_returns_response(self) -> None:
         """When run cost is under limit, response is returned with cost populated."""
         model = Model("anthropic/claude-3-5-sonnet")
-        budget = Budget(max_cost=100.0, on_exceeded=raise_on_exceeded)
+        budget = Budget(max_cost=100.0, exceed_policy=ExceedPolicy.STOP)
         agent = Agent(model=model, budget=budget, system_prompt="Be brief.")
         mock_resp = _mock_provider_response(content="Hi", input_tokens=10, output_tokens=5)
         with patch.object(
@@ -67,7 +68,7 @@ class TestPerRunLimitEnforced:
     def test_response_has_budget_remaining_after_run(self) -> None:
         """Response.report or response.budget_remaining reflects remaining after run."""
         model = Model("anthropic/claude-3-5-sonnet")
-        budget = Budget(max_cost=10.0, on_exceeded=raise_on_exceeded)
+        budget = Budget(max_cost=10.0, exceed_policy=ExceedPolicy.STOP)
         agent = Agent(model=model, budget=budget, system_prompt="Be brief.")
         mock_resp = _mock_provider_response(content="Hi", input_tokens=5, output_tokens=5)
         with patch.object(
@@ -97,7 +98,7 @@ class TestThresholdActionsTriggered:
         tracker.record(CostInfo(cost_usd=0.15, token_usage=TokenUsage()))
         budget = Budget(
             max_cost=1.0,
-            on_exceeded=raise_on_exceeded,
+            exceed_policy=ExceedPolicy.STOP,
             thresholds=[BudgetThreshold(at=10, action=on_threshold)],
         )
         tracker.check_thresholds(budget, parent=None)
@@ -114,7 +115,7 @@ class TestThresholdActionsTriggered:
         model = Model("anthropic/claude-3-5-sonnet")
         budget = Budget(
             max_cost=100.0,
-            on_exceeded=raise_on_exceeded,
+            exceed_policy=ExceedPolicy.STOP,
             thresholds=[BudgetThreshold(at=1, action=warn_only)],
         )
         agent = Agent(model=model, budget=budget, system_prompt="Be brief.")
@@ -151,7 +152,7 @@ class TestBudgetEdgeCases:
     def test_budget_run_zero_raises_on_any_positive_cost(self) -> None:
         """Budget(max_cost=0) with raise_on_exceeded raises as soon as cost is recorded."""
         model = Model("anthropic/claude-3-5-sonnet")
-        budget = Budget(max_cost=0.0, on_exceeded=raise_on_exceeded)
+        budget = Budget(max_cost=0.0, exceed_policy=ExceedPolicy.STOP)
         agent = Agent(model=model, budget=budget, system_prompt="Be brief.")
         mock_resp = _mock_provider_response(content="x", input_tokens=1, output_tokens=1)
         with (

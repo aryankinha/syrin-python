@@ -17,12 +17,6 @@ Requires: OPENAI_API_KEY for chat; GOOGLE_API_KEY for image/video (or OPENAI_API
 from __future__ import annotations
 
 import os
-import sys
-from pathlib import Path
-
-_root = Path(__file__).resolve().parents[2]
-if str(_root) not in sys.path:
-    sys.path.insert(0, str(_root))
 
 from syrin import Agent, Budget, ImageGenerator, Model, VideoGenerator
 
@@ -37,7 +31,7 @@ def main() -> None:
     vid_gen = VideoGenerator.Gemini(api_key=api_key) if api_key else None
 
     agent = Agent(
-        model=Model.OpenAI("gpt-4o-mini") if os.getenv("OPENAI_API_KEY") else Model.Almock(),
+        model=Model.OpenAI("gpt-4o-mini") if os.getenv("OPENAI_API_KEY") else Model.mock(),
         system_prompt=(
             "You are helpful. When the user asks for an image, use generate_image. "
             "When they ask for a video, use generate_video."

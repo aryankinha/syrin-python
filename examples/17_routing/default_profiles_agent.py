@@ -19,7 +19,7 @@ from syrin.router import (
 
 def main() -> None:
     # Mirror get_default_profiles structure with Almock (no keys)
-    m = Model.Almock(latency_min=0, latency_max=0)
+    m = Model.mock(latency_min=0, latency_max=0)
     models_list = [
         m.with_routing(
             profile_name="claude-code",

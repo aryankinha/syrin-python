@@ -1,126 +1,100 @@
 ---
 title: Multi-Agent Overview
-description: Why and how to coordinate multiple AI agents to work together
+description: Why multiple agents beat one big agent, when to use each pattern, and what to expect
 weight: 90
 ---
 
-## One Agent Can't Do Everything
+## The Problem With One Big Agent
 
-Your customer support needs a technical expert, a refund specialist, and a billing analyst. Your research pipeline needs a searcher, an analyzer, and a writer. A single agent that does everything ends up doing everything mediocre.
+Imagine you are building an AI research assistant. It needs to search the web, analyze financial data, write professional prose, check legal compliance, and generate charts. You could put all of that into one agent.
 
-Multi-agent systems solve this. Multiple specialized agents, each focused on what they do best, working together to solve complex problems.
+But here is what happens: the agent becomes mediocre at everything. Its system prompt gets so long and contradictory that the LLM starts picking and choosing what to follow. Tool calls from one task pollute the context of another. When something goes wrong, you have no idea which part failed.
 
-## What Multi-Agent Means in Syrin
+There is also a mathematical reality that every multi-agent builder learns the hard way. If each agent has 85% accuracy and you chain 10 agents together, your end-to-end success rate is 0.85 to the power of 10 — about 20%. The longer the chain, the worse it gets.
 
-Syrin gives you three ways to coordinate agents:
+Syrin's multi-agent system is designed around these realities. Multiple specialized agents, each excellent at one thing, coordinated in ways that contain failures and share costs responsibly.
 
-1. **Pipeline** — Agents run in sequence, each passing results to the next
-2. **Parallel** — Multiple agents work on different parts simultaneously
-3. **Dynamic** — An LLM decides which agents to spawn and when
+## The Five Patterns
 
-Each approach serves different needs. Let's see when to use which.
+Syrin gives you five multi-agent patterns. Each is right for a specific situation.
 
-## The Patterns at a Glance
+**Parallel Swarm** — All agents run at the same time toward the same goal. Best when you want multiple independent perspectives on the same question, or when each agent handles a different slice of the work that does not depend on what the others do.
 
-| Pattern | When to Use | Example |
-|---------|-------------|---------|
-| **Pipeline** | Fixed workflow, known steps | Research → Analyze → Write |
-| **Parallel** | Independent tasks, speed matters | Gather data from multiple sources |
-| **Dynamic** | Unknown requirements, LLM decides | Complex queries needing flexible approach |
+**Orchestrator Swarm** — One lead agent decides which specialists to call and in what order. The lead agent reads the goal, reasons about it, and delegates. Best when the strategy should be dynamic — different goals require different specialists.
 
-## See It in Action
+**Pipeline** — Agents run in sequence. Each agent's output becomes the next agent's input. Best for multi-step workflows where step 3 genuinely needs step 2's output.
 
-```python
-from syrin import Agent, Model, Pipeline
+**Workflow** — A pipeline with conditional branching and parallel sections. Best for complex business logic: "if the sentiment is negative, route to the complaints specialist; otherwise route to the upsell specialist."
 
-class Researcher(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key="your-key")
-    system_prompt = "You find relevant information."
+**Consensus** — Multiple agents independently analyze the same question and their answers are synthesized into one. Best for high-stakes decisions where you want multiple viewpoints before committing.
 
-class Writer(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-key")
-    system_prompt = "You write clear reports."
+## Choosing the Right Pattern
 
-pipeline = Pipeline()
+Start simple and add complexity only when you need it.
 
-# Sequential: Researcher runs first, Writer gets the results
-result = pipeline.run([
-    (Researcher, "Research AI trends in healthcare"),
-    (Writer, "Write a summary based on the research"),
-])
+If you have **independent tasks** (research, translation, summarization can all happen at the same time), use **Parallel Swarm**.
 
-print(result.content)  # Writer's final output
-```
+If you have a **dynamic goal** where you do not know in advance which agents will be needed, use **Orchestrator Swarm**.
 
-**What just happened:** The researcher gathered information, then passed it to the writer. The writer synthesized everything into a clean report.
+If you have a **linear workflow** (research → draft → edit), use **Pipeline**.
 
-## Shared Budget Across Agents
+If you have **conditional logic** (route to specialist A or B based on content), use **Workflow**.
 
-All agents in a pipeline share the same budget:
+If you need **agreement before action** (three agents must all agree before a recommendation is made), use **Consensus**.
+
+## The Cost Problem in Multi-Agent Systems
+
+Multi-agent systems use roughly 15 times more tokens than single-agent interactions. That is not a bug — it is the nature of coordination. But it means budget control is not optional in a swarm.
+
+The $47,000 incident described in the [introduction](/agent-kit/introduction) involved four agents in an infinite loop. A shared budget with a per-agent maximum would have capped the damage at $100.
+
+Every Syrin multi-agent pattern supports shared budgets:
 
 ```python
 from syrin import Budget
+from syrin.enums import ExceedPolicy
 
-pipeline = Pipeline(
-    budget=Budget(max_cost=1.00),  # Shared $1 budget for all agents
+shared_budget = Budget(
+    max_cost=10.00,      # Total pool for all agents
+    exceed_policy=ExceedPolicy.WARN,
 )
-
-result = pipeline.run([
-    (Researcher, "Research AI"),
-    (Writer, "Write report"),
-])
-
-print(f"Total spent: ${result.cost:.4f}")  # Combined cost from both agents
 ```
 
-## Agents That Talk to Each Other
+This budget is passed to the `Swarm`, `Pipeline`, or `Workflow`. All agents draw from the same pool. The hard `max_cost` cap ensures total spend never exceeds the limit, regardless of how many agents are running.
 
-Beyond pipelines, agents can hand off tasks mid-conversation:
+## Memory Across Agents
+
+The other classic multi-agent problem: agents do not know what the others did. One agent builds a background. Another agent builds an incompatible asset. Neither knows about the other's implicit design decisions.
+
+Syrin solves this with `MemoryBus` — a shared publish/subscribe memory layer. Agents publish facts they discover. Other agents subscribe to topics they need. When Agent A discovers something important, Agent B learns about it without being coupled to Agent A's code.
 
 ```python
-class TriageAgent(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-key")
-    system_prompt = "You route requests to the right specialist."
+from syrin.swarm import MemoryBus
+from syrin.enums import MemoryType
 
-class BillingAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key="your-key")
-    system_prompt = "You handle billing questions."
-
-triage = TriageAgent()
-
-# Triage decides to hand off to Billing
-result = triage.handoff(
-    BillingAgent,
-    "User asked about their invoice #12345"
-)
+memory_bus = MemoryBus()
+# Agent A publishes: "Customer is in the EU, so GDPR applies"
+# Agent B subscribes to "compliance" and learns this before running
 ```
 
-## When It Makes Sense
+More on this in [MemoryBus](/agent-kit/multi-agent/memory-bus).
 
-Multi-agent shines when:
+## Agent Identity and Trust
 
-- **Tasks are fundamentally different** — Research vs. writing vs. coding
-- **Specialization matters** — One model excels at search, another at creative writing
-- **Workflows are predictable** — You know the steps, just need automation
-- **Cost needs control** — Smaller models for simple tasks, larger for complex ones
+In a swarm, agents communicate with each other. Agent A tells Agent B what to do. How does Agent B know the message actually came from Agent A and not from a malicious injection?
 
-## When to Stick with One Agent
+Syrin gives every agent a cryptographic Ed25519 identity. Every inter-agent message is signed. Every control command (pause, resume, kill) is verified. No agent can impersonate another.
 
-Don't reach for multi-agent when:
+This is enterprise-grade security for multi-agent systems that were, until recently, completely without it.
 
-- **Simple Q&A** — One agent handles it fine
-- **Linear conversation** — The task flows naturally in one exchange
-- **Low latency matters** — Multiple agents add overhead
-- **You're prototyping** — Start simple, add complexity when needed
+## What's Next
 
-## What's Next?
+Choose your pattern and dive in:
 
-- [When to Use Multi-Agent](/agent-kit/multi-agent/when-to-use) — Decision guide for your use case
-- [Pipeline](/agent-kit/multi-agent/pipeline) — Sequential agent execution
-- [Dynamic Pipeline](/agent-kit/multi-agent/dynamic-pipeline) — Let the LLM decide
-
-## See Also
-
-- [Agents: Overview](/agent-kit/agent/overview) — Single agent fundamentals
-- [Agents: Handoff](/agent-kit/multi-agent/handoff) — Transfer control between agents
-- [Core Concepts: Budget](/agent-kit/core/budget) — Cost control across agents
+- [Swarm](/agent-kit/multi-agent/swarm) — All topologies (PARALLEL, ORCHESTRATOR, CONSENSUS, REFLECTION) with full examples
+- [Pipeline](/agent-kit/multi-agent/pipeline) — Sequential agent chains with shared context
+- [Workflow](/agent-kit/multi-agent/workflow) — Conditional and parallel workflow execution
+- [A2A Communication](/agent-kit/multi-agent/a2a) — Typed agent-to-agent messaging
+- [MemoryBus](/agent-kit/multi-agent/memory-bus) — Shared memory across agents
+- [Budget Delegation](/agent-kit/multi-agent/budget-delegation) — Shared budgets, per-agent caps, reallocation
+- [When to Use Multi-Agent](/agent-kit/multi-agent/when-to-use) — Detailed pattern selection guide

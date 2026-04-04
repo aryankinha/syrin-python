@@ -8,24 +8,11 @@ weight: 201
 
 You've enabled grounding. You've extracted facts and verified them. But now comes the hard question: **how much should you trust each fact?**
 
-A fact can be:
-- **Verified but wrong** — The source document was incorrect
-- **Verified by weak evidence** — The source tangentially mentions it
-- **Not verified at all** — The source doesn't address it
-
-This guide explains confidence levels and how to calibrate them for your use case.
+A fact can be verified but wrong (the source document was incorrect), verified by weak evidence (the source only tangentially mentions it), or not verified at all (the source doesn't address it). This guide explains confidence levels and how to calibrate them for your use case.
 
 ## Understanding Confidence
 
-In Syrin's grounding system, confidence is a score from 0.0 to 1.0:
-
-| Score Range | Interpretation |
-| --- | --- |
-| 0.9 - 1.0 | Very high confidence |
-| 0.7 - 0.9 | High confidence |
-| 0.5 - 0.7 | Medium confidence |
-| 0.3 - 0.5 | Low confidence |
-| 0.0 - 0.3 | Very low confidence |
+In Syrin's grounding system, confidence is a score from 0.0 to 1.0. Scores of 0.9–1.0 represent very high confidence. Scores of 0.7–0.9 represent high confidence. Scores of 0.5–0.7 are medium confidence. Scores of 0.3–0.5 are low confidence. Anything below 0.3 is very low confidence — treat it with serious skepticism.
 
 But confidence isn't just a number. It's about **where the confidence comes from**.
 
@@ -81,7 +68,7 @@ Final Confidence: 0.9
 
 ## Verification Status Impact
 
-Verification status dramatically affects how to interpret confidence:
+Verification status dramatically affects how to interpret confidence.
 
 ### VERIFIED
 
@@ -145,32 +132,11 @@ GroundingConfig(
 
 ### Choosing a Threshold
 
-| Use Case | Threshold | Rationale |
-| --- | --- | --- |
-| Legal/Compliance | 0.85+ | High accuracy required |
-| Financial | 0.8+ | Money implications |
-| Medical | 0.8+ | Health stakes |
-| General Q&A | 0.7 | Balanced |
-| Research | 0.5 | Include more, filter later |
+The right threshold depends on the stakes. Legal and compliance use cases require 0.85 or higher — accuracy is essential and errors have real consequences. Financial and medical use cases should also be at 0.8 or higher given the implications of errors. For general Q&A, 0.7 is a sensible balance. Research and discovery workflows can drop to 0.5 to include more facts for human review later.
 
 ### Threshold vs. Status
 
-**Always consider both:**
-
-```
-# Good combination
-confidence_threshold=0.7
-verification=VERIFIED
-
-# This is high confidence
-
-# Problem combination  
-confidence_threshold=0.7
-verification=CONTRADICTED
-
-# The status overrides the number!
-# CONTRADICTED facts should never be used
-```
+Always consider both the confidence score and the verification status. A VERIFIED fact at 0.7 confidence is reliable. A CONTRADICTED fact at 0.7 confidence is dangerous — the status overrides the number. CONTRADICTED facts should never be used, regardless of their confidence score.
 
 ## Calibrating for Your Use Case
 
@@ -259,24 +225,24 @@ def get_dangerous_facts(facts: list[GroundedFact]) -> list[GroundedFact]:
 def format_fact(fact: GroundedFact) -> str:
     """Format a fact with appropriate confidence indicator."""
     if fact.verification == VerificationStatus.CONTRADICTED:
-        return f"⚠️ [CONTRADICTED] {fact.content}"
+        return f"[CONTRADICTED] {fact.content}"
     
     if fact.verification == VerificationStatus.NOT_FOUND:
-        return f"❓ [NOT FOUND] {fact.content}"
+        return f"[NOT FOUND] {fact.content}"
     
     if fact.confidence >= 0.85:
-        indicator = "✅"
+        indicator = "HIGH"
     elif fact.confidence >= 0.7:
-        indicator = "⚡"
+        indicator = "MEDIUM"
     else:
-        indicator = "⚠️"
+        indicator = "LOW"
     
     citation = f" [{fact.source}"
     if fact.page:
         citation += f", p.{fact.page}"
     citation += "]"
     
-    return f"{indicator} [{fact.confidence:.0%}] {fact.content}{citation}"
+    return f"[{indicator} {fact.confidence:.0%}] {fact.content}{citation}"
 ```
 
 ### Answer Generation with Confidence
@@ -296,12 +262,12 @@ def generate_answer_with_confidence(facts: list[GroundedFact]) -> str:
             parts.append(f"- {f.content}")
     
     if needs_review:
-        parts.append("\n⚠️ Information needing verification:")
+        parts.append("\nInformation needing verification:")
         for f in needs_review:
             parts.append(f"- {f.content}")
     
     if dangerous:
-        parts.append("\n❌ Claims not supported by sources:")
+        parts.append("\nClaims not supported by sources:")
         for f in dangerous:
             parts.append(f"- {f.content}")
     
@@ -310,7 +276,7 @@ def generate_answer_with_confidence(facts: list[GroundedFact]) -> str:
 
 ## Calibration Over Time
 
-Confidence systems need tuning. Track:
+Confidence systems need tuning. Track accuracy metrics after ground truth is known.
 
 ### Accuracy Metrics
 
@@ -356,40 +322,31 @@ false_positives = [r for r in results
 
 When showing results to users, present confidence clearly:
 
-### Display Format
-
 ```
-✅ High Confidence (85%+)
+HIGH CONFIDENCE (85%+)
    "The company was founded in 2015."
    Source: Company Overview, Page 2
 
-⚡ Medium Confidence (70-85%)
+MEDIUM CONFIDENCE (70-85%)
    "The product costs $99."
    Source: Price List, Page 1
 
-⚠️ Low Confidence (<70%)
+LOW CONFIDENCE (<70%)
    "The team has 50 employees."
    Source: About Page
 
-❌ Contradicted
+CONTRADICTED
    "The company is profitable."
    Source contradicts this claim.
 
-❓ Not Verified
+NOT VERIFIED
    "The CEO has a computer science degree."
    No source found for this claim.
 ```
 
 ### Actionable Guidance
 
-| Confidence Level | User Guidance |
-| --- | --- |
-| 90%+ | Very reliable, safe to use |
-| 70-90% | Generally reliable, minor verification recommended |
-| 50-70% | Verify before critical use |
-| <50% | Do not use without additional verification |
-| CONTRADICTED | Do not use, incorrect |
-| NOT_FOUND | Do not use, not in sources |
+At 90% confidence or higher, facts are very reliable and safe to use without additional checking. Between 70% and 90%, they're generally reliable but minor verification is recommended. Between 50% and 70%, verify before using in anything critical. Below 50%, don't use without independent verification. CONTRADICTED facts are incorrect — do not use them. NOT_FOUND facts have no backing source — do not use them.
 
 ## Common Pitfalls
 
@@ -417,10 +374,7 @@ GroundingConfig(confidence_threshold=0.7)  # Adjust based on testing
 
 ### Over-trusting Single Sources
 
-```python
-# What if the source is wrong?
-# Best practice: Multiple independent sources for critical facts
-```
+For critical facts, best practice is to have multiple independent sources corroborate. A single source can be wrong, and grounding won't catch that — it only verifies that the fact matches the source, not that the source is correct.
 
 ## What's Next?
 

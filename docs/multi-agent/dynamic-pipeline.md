@@ -4,6 +4,8 @@ description: Let the LLM decide which agents to spawn for each task
 weight: 94
 ---
 
+> **Renamed in v0.11.0:** This class was renamed to `AgentRouter`. The `DynamicPipeline` import raises `ImportError` in v0.11.0. See [agent-router.md](agent-router.md) for the updated reference and [migration guide](/migration/v0.10-to-v0.11) for upgrade instructions.
+
 ## The Problem with Static Pipelines
 
 Regular pipelines work when you know the steps ahead of time:
@@ -48,20 +50,20 @@ from syrin.agent.multi_agent import DynamicPipeline
 
 # Define your specialized agents
 class Researcher(Agent):
-    _agent_name = "researcher"
-    _agent_description = "Researches topics and gathers information"
+    name = "researcher"
+    description = "Researches topics and gathers information"
     model = Model.OpenAI("gpt-4o-mini", api_key="your-key")
     system_prompt = "You research topics. Use for: finding facts, investigating questions."
 
 class Analyst(Agent):
-    _agent_name = "analyst"
-    _agent_description = "Analyzes data and provides structured reasoning"
+    name = "analyst"
+    description = "Analyzes data and provides structured reasoning"
     model = Model.OpenAI("gpt-4o-mini", api_key="your-key")
     system_prompt = "You analyze data. Use for: comparing options, pros/cons, evaluation."
 
 class Writer(Agent):
-    _agent_name = "writer"
-    _agent_description = "Writes clear, engaging content"
+    name = "writer"
+    description = "Writes clear, engaging content"
     model = Model.OpenAI("gpt-4o", api_key="your-key")  # Best model for writing
     system_prompt = "You write content. Use for: drafting text, creative writing."
 
@@ -170,27 +172,27 @@ The pipeline parses the plan and:
 
 ## Agent Naming
 
-The orchestrator picks agents by name. You control names with `_agent_name`:
+The orchestrator picks agents by name. You control names with `name`:
 
 ```python
 class MyAgent(Agent):
-    _agent_name = "researcher"  # This is how the orchestrator refers to it
-    _agent_description = "Researches topics"  # Shown to orchestrator
+    name = "researcher"  # This is how the orchestrator refers to it
+    description = "Researches topics"  # Shown to orchestrator
     model = Model.OpenAI("gpt-4o-mini")
     system_prompt = "You research topics..."
 ```
 
-If you don't set `_agent_name`, it defaults to the lowercase class name: `MyAgent` → `myagent`.
+If you don't set `name`, it defaults to the lowercase class name: `MyAgent` → `myagent`.
 
-**Important:** The orchestrator uses `_agent_name` to match the plan's `type` field. Case doesn't matter ("researcher" matches "Researcher").
+**Important:** The orchestrator uses `name` to match the plan's `type` field. Case doesn't matter ("researcher" matches "Researcher").
 
 ## Agent Descriptions
 
-The `_agent_description` (or `system_prompt`) is shown to the orchestrator. Make it clear when to use each agent:
+The `description` (or `system_prompt`) is shown to the orchestrator. Make it clear when to use each agent:
 
 ```python
 class Researcher(Agent):
-    _agent_name = "researcher"
+    name = "researcher"
     model = Model.OpenAI("gpt-4o-mini")
     system_prompt = """
         You research topics and gather information.
@@ -320,15 +322,9 @@ All done! Total: $0.0268
 
 ## Hook Reference
 
-| Hook | When | Key Fields |
-|------|-------|------------|
-| `DYNAMIC_PIPELINE_START` | Planning begins | `task`, `model`, `available_agents`, `budget_remaining` |
-| `DYNAMIC_PIPELINE_PLAN` | Plan generated | `plan` (array), `plan_count` |
-| `DYNAMIC_PIPELINE_EXECUTE` | Execution starts | `plan`, `mode` |
-| `DYNAMIC_PIPELINE_AGENT_SPAWN` | Agent spawning | `agent_type`, `task`, `execution_mode` |
-| `DYNAMIC_PIPELINE_AGENT_COMPLETE` | Agent finishes | `agent_type`, `cost`, `duration`, `result_preview` |
-| `DYNAMIC_PIPELINE_END` | Pipeline done | `total_cost`, `duration`, `agents_spawned` |
-| `DYNAMIC_PIPELINE_ERROR` | Something failed | `error`, `agents_spawned` |
+Seven hooks cover the full pipeline lifecycle. `DYNAMIC_PIPELINE_START` fires when planning begins — key fields: `task`, `model`, `available_agents`, `budget_remaining`. `DYNAMIC_PIPELINE_PLAN` fires when the orchestrator generates a plan — key fields: `plan` (array), `plan_count`. `DYNAMIC_PIPELINE_EXECUTE` fires when execution starts — key fields: `plan`, `mode`.
+
+`DYNAMIC_PIPELINE_AGENT_SPAWN` fires each time an agent is spawned — key fields: `agent_type`, `task`, `execution_mode`. `DYNAMIC_PIPELINE_AGENT_COMPLETE` fires when an agent finishes — key fields: `agent_type`, `cost`, `duration`, `result_preview`. `DYNAMIC_PIPELINE_END` fires when the pipeline completes — key fields: `total_cost`, `duration`, `agents_spawned`. `DYNAMIC_PIPELINE_ERROR` fires on failure — key fields: `error`, `agents_spawned`.
 
 ## Debug Mode
 
@@ -426,7 +422,7 @@ from syrin.agent.multi_agent import DynamicPipeline
 from syrin.enums import Hook
 
 class Researcher(Agent):
-    _agent_name = "researcher"
+    name = "researcher"
     model = Model.OpenAI("gpt-4o-mini", api_key="your-key")
     system_prompt = """
         You research topics thoroughly.
@@ -434,7 +430,7 @@ class Researcher(Agent):
     """
 
 class Analyst(Agent):
-    _agent_name = "analyst"
+    name = "analyst"
     model = Model.OpenAI("gpt-4o-mini", api_key="your-key")
     system_prompt = """
         You analyze information and identify patterns.
@@ -442,7 +438,7 @@ class Analyst(Agent):
     """
 
 class Writer(Agent):
-    _agent_name = "writer"
+    name = "writer"
     model = Model.OpenAI("gpt-4o", api_key="your-key")  # Best model for writing
     system_prompt = """
         You write clear, engaging content.
@@ -450,7 +446,7 @@ class Writer(Agent):
     """
 
 class FactChecker(Agent):
-    _agent_name = "fact_checker"
+    name = "fact_checker"
     model = Model.OpenAI("gpt-4o-mini", api_key="your-key")
     system_prompt = """
         You verify claims and check accuracy.
@@ -458,7 +454,7 @@ class FactChecker(Agent):
     """
 
 class Summarizer(Agent):
-    _agent_name = "summarizer"
+    name = "summarizer"
     model = Model.OpenAI("gpt-4o-mini", api_key="your-key")
     system_prompt = """
         You distill information to key points.
@@ -490,13 +486,9 @@ print(result.content)
 
 ## When to Use Dynamic Pipeline
 
-| Use Case | Dynamic Pipeline | Static Pipeline |
-|----------|-----------------|----------------|
-| Unknown task complexity | ✅ | ❌ |
-| Varying agent combinations | ✅ | ❌ |
-| Ad-hoc research | ✅ | ❌ |
-| Known fixed workflow | ❌ | ✅ |
-| Performance-critical (faster) | ❌ | ✅ |
+Use dynamic pipeline when tasks vary significantly, you want the LLM to optimize the workflow, you're building research or analysis tools, or you can't predict user requests. Dynamic pipeline also handles unknown task complexity and varying agent combinations naturally.
+
+Use static pipeline when the workflow is always the same, performance matters (no planning overhead), or you need predictable execution order.
 
 **Use dynamic pipeline when:**
 - Tasks vary significantly
@@ -511,7 +503,7 @@ print(result.content)
 
 ## What's Next?
 
-- [Handoff](/agent-kit/multi-agent/handoff) — Transfer control between agents mid-conversation
+- [Spawn](/agent-kit/multi-agent/handoff) — Delegate tasks to specialized agents at runtime
 - [Pipeline](/agent-kit/multi-agent/pipeline) — Static sequential execution
 - [Pipeline: Parallel](/agent-kit/multi-agent/pipeline-parallel) — Static parallel execution
 

@@ -317,24 +317,19 @@ The Knowledge pool handles:
 
 ## Loader Options Reference
 
-| Loader | Key Options | Output |
-| --- | --- | --- |
-| `PDF` | - | Text content |
-| `DOCX` | - | Text content |
-| `Markdown` | - | Markdown content |
-| `TextFile` | - | Plain text |
-| `Text` | - | Plain text |
-| `Texts` | - | Plain text |
-| `CSV` | `rows_per_document`, `encoding` | Tabular text |
-| `Excel` | `sheets` | Tabular text |
-| `Python` | - | Code content |
-| `JSON` | `jq_path` | Structured text |
-| `YAML` | - | Structured text |
-| `URL` | - | HTML/text content |
-| `Directory` | `glob`, `pattern`, `recursive` | Mixed |
-| `GitHub` | `repos`, `include_readme`, `include_code` | Mixed |
-| `GoogleDrive` | `recursive`, `pattern`, `api_key` | Mixed |
-| `Docling` | `extract_tables`, `table_format`, `ocr` | Text, tables, images |
+Simple file loaders — `PDF`, `DOCX`, `Markdown`, `TextFile`, `Text`, and `Texts` — take just a path or string and output text content. `Markdown` preserves Markdown formatting; the others output plain text.
+
+Spreadsheet loaders add options: `CSV` accepts `rows_per_document` and `encoding`; `Excel` accepts a `sheets` list to target specific tabs. Both output tabular text.
+
+`Python` outputs code content with no additional options.
+
+Structured data loaders: `JSON` accepts a `jq_path` for extracting nested values; `YAML` has no additional options. Both output structured text.
+
+`URL` fetches a web page and returns HTML or text content with no additional options.
+
+Multi-file loaders: `Directory` accepts `glob`, `pattern`, and `recursive`; `GitHub` accepts `repos`, `include_readme`, and `include_code`; `GoogleDrive` accepts `recursive`, `pattern`, and `api_key`. All three output mixed content types.
+
+`Docling` is the most capable loader — it outputs text, tables, and images, controlled by `extract_tables`, `table_format`, and `ocr`.
 
 ## Performance Tips
 

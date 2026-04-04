@@ -8,15 +8,11 @@ weight: 174
 
 You have spans. You have sessions. You have rich attributes and events. Now what?
 
-This guide shows you how to route your trace data to the right destination—whether that's your terminal, a log file, or a full-featured observability platform. Exporters are the bridges between Syrin's tracing system and the outside world.
+This guide shows you how to route your trace data to the right destination — whether that's your terminal, a log file, or a full-featured observability platform. Exporters are the bridges between Syrin's tracing system and the outside world.
 
 ## The Export Pipeline
 
-Here's how tracing works in Syrin:
-
-1. Spans are created during agent execution
-2. When a span completes, the tracer calls all registered exporters
-3. Each exporter decides what to do with the span data
+Tracing in Syrin works in three steps. Spans are created during agent execution. When a span completes, the tracer calls all registered exporters. Each exporter decides what to do with the span data.
 
 You can register multiple exporters simultaneously. This lets you send traces to both console (for development) and a remote platform (for production).
 
@@ -73,11 +69,7 @@ exporter = ConsoleExporter(
 )
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `pretty` | bool | `True` | Pretty-print span attributes |
-| `colors` | bool | `True` | Use terminal colors (green=ok, red=error, yellow=pending) |
-| `verbose` | bool | `False` | Print all spans including children |
+Three options control the output. `pretty` (bool, default `True`) pretty-prints span attributes. `colors` (bool, default `True`) uses terminal colors — green for ok, red for error, yellow for pending. `verbose` (bool, default `False`) prints all spans including children rather than just root spans.
 
 ### Verbose Mode
 
@@ -175,7 +167,7 @@ trace.add_exporter(exporter)
 
 ## InMemoryExporter: Testing and Debugging
 
-When you need to inspect spans in code—particularly useful for testing—InMemoryExporter stores them in a list you can examine.
+When you need to inspect spans in code — particularly useful for testing — InMemoryExporter stores them in a list you can examine.
 
 ### Basic Usage
 
@@ -243,7 +235,7 @@ def test_agent_calls_llm(tracing_exporter):
 
 ## OTLPExporter: OpenTelemetry Integration
 
-Connect Syrin to any OpenTelemetry-compatible backend—Jaeger, Grafana Tempo, Datadog, Honeycomb, and more.
+Connect Syrin to any OpenTelemetry-compatible backend — Jaeger, Grafana Tempo, Datadog, Honeycomb, and more.
 
 ### Prerequisites
 
@@ -345,7 +337,7 @@ exporter = OTLPExporter(
 
 ## LangfuseExporter: AI-Native Observability
 
-Langfuse is built specifically for AI applications. It provides prompt management, evaluation, cost analytics, and debugging—everything you need for production LLM apps.
+Langfuse is built specifically for AI applications. It provides prompt management, evaluation, cost analytics, and debugging — everything you need for production LLM apps.
 
 ### Prerequisites
 
@@ -372,12 +364,7 @@ result = agent.run("Hello")
 
 ### Configuration Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `public_key` | str | None | Langfuse public key |
-| `secret_key` | str | None | Langfuse secret key |
-| `host` | str | None | Self-hosted Langfuse URL |
-| `environment` | str | None | Environment name (production, development) |
+Four options configure the exporter. `public_key` (str) is your Langfuse public key. `secret_key` (str) is your Langfuse secret key. `host` (str, optional) is your self-hosted Langfuse URL — omit for the cloud version. `environment` (str, optional) names the environment such as `production` or `development`.
 
 ### Self-Hosted Langfuse
 
@@ -396,23 +383,13 @@ trace.add_exporter(exporter)
 
 ### What Gets Exported
 
-LangfuseExporter automatically maps Syrin spans:
+LangfuseExporter automatically maps Syrin spans. Agent runs become Langfuse traces. LLM calls become Langfuse generations with token usage and cost. Tool calls become Langfuse spans. Session metadata becomes trace metadata.
 
-- **Agent runs** → Langfuse traces
-- **LLM calls** → Langfuse generations (with token usage and cost)
-- **Tool calls** → Langfuse spans
-- **Session metadata** → Trace metadata
-
-You can then use Langfuse to:
-
-- Compare prompts and model performance
-- Run evaluations on outputs
-- Track costs across models and agents
-- Debug specific traces
+You can then use Langfuse to compare prompts and model performance, run evaluations on outputs, track costs across models and agents, and debug specific traces.
 
 ## PhoenixExporter: Local AI Debugging
 
-Phoenix (by Arize) is an open-source observability platform optimized for local development and testing. It runs entirely locally—no cloud account required.
+Phoenix (by Arize) is an open-source observability platform optimized for local development and testing. It runs entirely locally — no cloud account required.
 
 ### Prerequisites
 
@@ -536,23 +513,9 @@ class SpanExporter(Protocol):
         ...
 ```
 
-`Span` is a dataclass with the same fields as the JSONL output:
+`Span` is a dataclass with twelve fields. `name` (str) is the span name like `"llm.complete"`. `kind` (SpanKind) is one of `AGENT`, `LLM`, `TOOL`, `MEMORY`, or `RETRIEVAL`. `trace_id` (str) groups all spans from one `agent.run()` call together. `span_id` (str) uniquely identifies this span. `parent_span_id` (str or None) links to the parent — None for root spans. `session_id` (str or None) is the session set at agent construction.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | str | Span name (e.g., `"llm.complete"`) |
-| `kind` | SpanKind | `AGENT`, `LLM`, `TOOL`, `MEMORY`, `RETRIEVAL` |
-| `trace_id` | str | Groups all spans from one `agent.run()` call |
-| `span_id` | str | Unique span identifier |
-| `parent_span_id` | str \| None | Parent span, or None for root |
-| `session_id` | str \| None | Session set at agent construction |
-| `start_time` | datetime | When span started |
-| `end_time` | datetime | When span ended |
-| `duration_ms` | float | Duration in milliseconds |
-| `status` | str | `"ok"`, `"error"`, or `"pending"` |
-| `status_message` | str \| None | Error message on failure |
-| `attributes` | dict | Key-value pairs (model, tokens, cost, etc.) |
-| `events` | list | Timestamped events inside the span |
+`start_time` (datetime) and `end_time` (datetime) bound the span in time. `duration_ms` (float) is the duration in milliseconds. `status` (str) is one of `"ok"`, `"error"`, or `"pending"`. `status_message` (str or None) carries the error message on failure. `attributes` (dict) holds key-value pairs like model name, token counts, and cost. `events` (list) contains timestamped events that occurred inside the span.
 
 ### Example: Send to an Internal API
 
@@ -672,16 +635,9 @@ trace.add_exporter(FilterExporter(
 
 ## Choosing the Right Exporter
 
-| Use Case | Recommended Exporter |
-|----------|---------------------|
-| Local development | `ConsoleExporter` |
-| CI/CD testing | `InMemoryExporter` |
-| Production debugging | `JSONLExporter` + remote platform |
-| Grafana/Tempo | `OTLPExporter` |
-| Datadog | `OTLPExporter` |
-| Cost analytics | `LangfuseExporter` |
-| Local AI iteration | `PhoenixExporter` |
-| Prompt experimentation | `PhoenixExporter` |
+For local development, `ConsoleExporter` gives you immediate visibility with colored tree output. For CI/CD testing where you need to assert on span contents, `InMemoryExporter` is your friend. For production debugging without a platform, `JSONLExporter` writes spans to a file you can analyze later.
+
+If you're running Grafana Tempo, Datadog, or any other OpenTelemetry-compatible backend, use `OTLPExporter`. For AI-specific cost analytics and prompt comparison, `LangfuseExporter` is purpose-built. For local AI iteration where you're actively tuning prompts, `PhoenixExporter` runs entirely on your machine and requires no cloud account.
 
 ## What's Next?
 

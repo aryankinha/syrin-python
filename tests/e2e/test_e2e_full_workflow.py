@@ -28,11 +28,9 @@ from syrin import (
     SingleShotLoop,
     TokenLimits,
     TokenRateLimit,
-    raise_on_exceeded,
-    warn_on_exceeded,
 )
-from syrin.budget import stop_on_exceeded
-from syrin.exceptions import BudgetExceededError, BudgetThresholdError
+from syrin.enums import ExceedPolicy
+from syrin.exceptions import BudgetExceededError
 from syrin.memory import Memory
 from syrin.threshold import BudgetThreshold
 from syrin.tool import tool
@@ -146,13 +144,19 @@ class TestAgentWithTools:
         assert result == "5"
 
     def test_tool_execution_error_is_caught(self) -> None:
+        from syrin.agent.config import AgentConfig
+        from syrin.enums import ToolErrorMode
         from syrin.exceptions import ToolExecutionError
 
         @tool
         def fail_tool() -> str:
             raise ValueError("Intentional failure")
 
-        agent = Agent(model=_almock(), tools=[fail_tool])
+        agent = Agent(
+            model=_almock(),
+            tools=[fail_tool],
+            config=AgentConfig(tool_error_mode=ToolErrorMode.STOP),
+        )
         with pytest.raises(ToolExecutionError, match="Intentional failure"):
             agent._execute_tool("fail_tool", {})
 
@@ -194,7 +198,7 @@ class TestAgentWithBudget:
     def test_budget_warn_on_exceeded_continues(self) -> None:
         agent = Agent(
             model=_almock(),
-            budget=Budget(max_cost=0.0, on_exceeded=warn_on_exceeded),
+            budget=Budget(max_cost=0.0, exceed_policy=ExceedPolicy.WARN),
         )
         r = agent.run("Hello")
         assert r.content is not None
@@ -202,7 +206,7 @@ class TestAgentWithBudget:
     def test_budget_raise_on_exceeded_stops(self) -> None:
         agent = Agent(
             model=_almock(),
-            budget=Budget(max_cost=0.0, on_exceeded=raise_on_exceeded),
+            budget=Budget(max_cost=0.0, exceed_policy=ExceedPolicy.STOP),
         )
         with pytest.raises(BudgetExceededError) as exc:
             agent.run("Hello")
@@ -211,9 +215,9 @@ class TestAgentWithBudget:
     def test_budget_stop_on_exceeded(self) -> None:
         agent = Agent(
             model=_almock(),
-            budget=Budget(max_cost=0.0, on_exceeded=stop_on_exceeded),
+            budget=Budget(max_cost=0.0, exceed_policy=ExceedPolicy.STOP),
         )
-        with pytest.raises(BudgetThresholdError):
+        with pytest.raises(BudgetExceededError):
             agent.run("Hello")
 
     def test_budget_with_reserve(self) -> None:
@@ -256,10 +260,9 @@ class TestAgentWithBudget:
         assert agent._budget_tracker.current_run_cost == 1.5
         assert budget.remaining == 8.5
 
-    def test_budget_shared_flag(self) -> None:
-        budget = Budget(max_cost=10.0, shared=True)
-        assert budget.shared is True
-        assert "shared=True" in str(budget)
+    def test_budget_str_representation(self) -> None:
+        budget = Budget(max_cost=10.0)
+        assert "10" in str(budget)
 
 
 # =============================================================================
@@ -275,10 +278,10 @@ class TestAgentWithTokenLimits:
 
         agent = Agent(
             model=_almock(),
-            budget=Budget(max_cost=100.0, on_exceeded=raise_on_exceeded),
+            budget=Budget(max_cost=100.0, exceed_policy=ExceedPolicy.STOP),
             config=AgentConfig(
                 context=Context(
-                    token_limits=TokenLimits(max_tokens=1, on_exceeded=raise_on_exceeded)
+                    token_limits=TokenLimits(max_tokens=1, exceed_policy=ExceedPolicy.STOP)
                 )
             ),
         )
@@ -291,12 +294,12 @@ class TestAgentWithTokenLimits:
 
         agent = Agent(
             model=_almock(),
-            budget=Budget(max_cost=100.0, on_exceeded=raise_on_exceeded),
+            budget=Budget(max_cost=100.0, exceed_policy=ExceedPolicy.STOP),
             config=AgentConfig(
                 context=Context(
                     token_limits=TokenLimits(
                         rate_limits=TokenRateLimit(hour=1),
-                        on_exceeded=raise_on_exceeded,
+                        exceed_policy=ExceedPolicy.STOP,
                     )
                 )
             ),
@@ -610,7 +613,7 @@ class TestAgentWithEverything:
         agent = Agent(
             model=_almock(),
             memory=Memory(),
-            budget=Budget(max_cost=0.0, on_exceeded=raise_on_exceeded),
+            budget=Budget(max_cost=0.0, exceed_policy=ExceedPolicy.STOP),
         )
         agent.remember("Context", memory_type=MemoryType.CORE)
         with pytest.raises(BudgetExceededError):
@@ -654,12 +657,12 @@ class TestLoopStrategies:
     """Different loop strategies work correctly."""
 
     def test_single_shot_loop(self) -> None:
-        agent = Agent(model=_almock(), custom_loop=SingleShotLoop())
+        agent = Agent(model=_almock(), loop=SingleShotLoop())
         r = agent.run("Hello")
         assert r.content is not None
 
     def test_react_loop_default(self) -> None:
-        agent = Agent(model=_almock(), custom_loop=ReactLoop(max_iterations=5))
+        agent = Agent(model=_almock(), loop=ReactLoop(max_iterations=5))
         r = agent.run("Hello")
         assert r.content is not None
 
@@ -669,7 +672,7 @@ class TestLoopStrategies:
 
     def test_react_loop_min_iterations(self) -> None:
         loop = ReactLoop(max_iterations=1)
-        agent = Agent(model=_almock(), custom_loop=loop)
+        agent = Agent(model=_almock(), loop=loop)
         r = agent.run("Hello")
         assert r.content is not None
 
@@ -726,7 +729,7 @@ class TestEdgeCasesAndErrors:
         """Zero budget + warn = continues execution."""
         agent = Agent(
             model=_almock(),
-            budget=Budget(max_cost=0.0, on_exceeded=warn_on_exceeded),
+            budget=Budget(max_cost=0.0, exceed_policy=ExceedPolicy.WARN),
         )
         r = agent.run("Hello")
         assert r.content is not None

@@ -18,7 +18,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from examples.models.models import almock
-from syrin import Agent, Budget, RateLimit, raise_on_exceeded
+from syrin import Agent, Budget, RateLimit
 from syrin.budget_store import BudgetStore
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -30,14 +30,14 @@ store_path.parent.mkdir(parents=True, exist_ok=True)
 
 
 class PersistentAgent(Agent):
-    _agent_name = "persistent-budget"
-    _agent_description = "Agent with BudgetStore file backend (persists across restarts)"
+    name = "persistent-budget"
+    description = "Agent with BudgetStore file backend (persists across restarts)"
     model = almock
     system_prompt = "You are concise."
     budget = Budget(
         max_cost=0.10,
         rate_limits=RateLimit(day=5.00, month=50.00, month_days=30),
-        on_exceeded=raise_on_exceeded,
+        exceed_policy=ExceedPolicy.STOP,
     )
 
 

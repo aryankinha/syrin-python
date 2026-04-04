@@ -30,7 +30,7 @@ from syrin.agent.multi_agent import DynamicPipeline
 from syrin.enums import Hook
 
 # Orchestrator decides which agents to spawn
-orchestrator_model = Model.Almock(
+orchestrator_model = Model.mock(
     response_mode="custom",
     custom_response='[{"type":"researcher","task":"Research AI trends"},'
                      '{"type":"analyst","task":"Analyze market data"},'
@@ -39,20 +39,20 @@ orchestrator_model = Model.Almock(
 
 # Specialized agents
 class Researcher(Agent):
-    _agent_name = "researcher"
-    model = Model.Almock()
+    name = "researcher"
+    model = Model.mock()
     system_prompt = "You research topics thoroughly."
     tools = [search_web]
 
 class Analyst(Agent):
-    _agent_name = "analyst"
-    model = Model.Almock()
+    name = "analyst"
+    model = Model.mock()
     system_prompt = "You analyze data critically."
     tools = [analyze_data]
 
 class Writer(Agent):
-    _agent_name = "writer"
-    model = Model.Almock()
+    name = "writer"
+    model = Model.mock()
     system_prompt = "You write clear reports."
     tools = [export_report]
 
@@ -110,17 +110,9 @@ debugger.on(pipeline,
 
 ## Dynamic Pipeline Hooks
 
-The pipeline emits these lifecycle hooks:
+The pipeline emits seven lifecycle hooks. `DYNAMIC_PIPELINE_START` fires when the pipeline begins — context includes `task`, `mode`, `model`, `available_agents`, and `budget_remaining`. `DYNAMIC_PIPELINE_PLAN` fires when the orchestrator generates a plan — context includes `task`, `plan` (the list of agent assignments), and `plan_count`. `DYNAMIC_PIPELINE_EXECUTE` fires when execution starts — context includes `plan`, `plan_count`, and `mode`.
 
-| Hook | When | Context Fields |
-| --- | --- | --- |
-| `DYNAMIC_PIPELINE_START` | Pipeline begins | `task`, `mode`, `model`, `available_agents`, `budget_remaining` |
-| `DYNAMIC_PIPELINE_PLAN` | Plan generated | `task`, `plan` (list), `plan_count` |
-| `DYNAMIC_PIPELINE_EXECUTE` | Execution starts | `plan`, `plan_count`, `mode` |
-| `DYNAMIC_PIPELINE_AGENT_SPAWN` | Agent spawned | `agent_type`, `task`, `spawn_time`, `execution_mode` |
-| `DYNAMIC_PIPELINE_AGENT_COMPLETE` | Agent finished | `agent_type`, `task`, `result_preview`, `cost`, `tokens`, `duration` |
-| `DYNAMIC_PIPELINE_END` | Pipeline done | `task`, `mode`, `agents_spawned`, `total_cost`, `total_tokens`, `duration`, `result_preview` |
-| `DYNAMIC_PIPELINE_ERROR` | Error occurred | `task`, `mode`, `error`, `error_type`, `agents_spawned`, `total_cost` |
+`DYNAMIC_PIPELINE_AGENT_SPAWN` fires each time an agent is spawned — context includes `agent_type`, `task`, `spawn_time`, and `execution_mode`. `DYNAMIC_PIPELINE_AGENT_COMPLETE` fires when each agent finishes — context includes `agent_type`, `task`, `result_preview`, `cost`, `tokens`, and `duration`. `DYNAMIC_PIPELINE_END` fires when the pipeline completes — context includes `task`, `mode`, `agents_spawned`, `total_cost`, `total_tokens`, `duration`, and `result_preview`. `DYNAMIC_PIPELINE_ERROR` fires on failure — context includes `task`, `mode`, `error`, `error_type`, `agents_spawned`, and `total_cost`.
 
 ## Hook Reference
 
@@ -324,23 +316,23 @@ def fetch_news(topic: str) -> str:
     return f"[SIMULATED] Latest news on: {topic}"
 
 class TechResearcher(Agent):
-    _agent_name = "tech_researcher"
-    model = Model.Almock()
+    name = "tech_researcher"
+    model = Model.mock()
     system_prompt = "You research technology topics."
     tools = [search_web, fetch_news]
 
 class MarketAnalyst(Agent):
-    _agent_name = "market_analyst"
-    model = Model.Almock()
+    name = "market_analyst"
+    model = Model.mock()
     system_prompt = "You analyze market trends."
     tools = [analyze_data, fetch_news]
 
 class Writer(Agent):
-    _agent_name = "writer"
-    model = Model.Almock()
+    name = "writer"
+    model = Model.mock()
     system_prompt = "You write clear executive summaries."
 
-orchestrator = Model.Almock(
+orchestrator = Model.mock(
     response_mode="custom",
     custom_response='[{"type":"tech_researcher","task":"Research AI technologies"},'
                      '{"type":"market_analyst","task":"Analyze AI market size and growth"},'
@@ -437,18 +429,7 @@ The playground shows:
 
 ## Key Hooks Summary
 
-| Hook | When | Context Fields |
-| --- | --- | --- |
-| `DYNAMIC_PIPELINE_START` | Pipeline begins | `task`, `mode`, `model`, `available_agents`, `budget_remaining` |
-| `DYNAMIC_PIPELINE_PLAN` | Plan generated | `task`, `plan` (list), `plan_count` |
-| `DYNAMIC_PIPELINE_EXECUTE` | Execution starts | `plan`, `plan_count`, `mode` |
-| `DYNAMIC_PIPELINE_AGENT_SPAWN` | Agent spawned | `agent_type`, `task`, `spawn_time`, `execution_mode` |
-| `DYNAMIC_PIPELINE_AGENT_COMPLETE` | Agent finished | `agent_type`, `task`, `result_preview`, `cost`, `tokens`, `duration` |
-| `DYNAMIC_PIPELINE_END` | Pipeline done | `task`, `mode`, `agents_spawned`, `total_cost`, `total_tokens`, `duration`, `result_preview` |
-| `DYNAMIC_PIPELINE_ERROR` | Error occurred | `task`, `mode`, `error`, `error_type`, `agents_spawned`, `total_cost` |
-| `TOOL_CALL_START` | Tool called (per-agent) | `tool_name`, `arguments` |
-| `TOOL_CALL_END` | Tool finished (per-agent) | `tool_name`, `result` |
-| `TOOL_ERROR` | Tool error (per-agent) | `tool_name`, `error` |
+The pipeline hooks are described in the Dynamic Pipeline Hooks section above. In addition, each individual agent emits three tool-level hooks: `TOOL_CALL_START` fires when a tool begins execution (context: `tool_name`, `arguments`), `TOOL_CALL_END` fires when it completes (context: `tool_name`, `result`), and `TOOL_ERROR` fires when a tool raises an exception (context: `tool_name`, `error`).
 
 ## Running the Example
 

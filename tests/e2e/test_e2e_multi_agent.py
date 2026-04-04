@@ -1,5 +1,5 @@
 """
-E2E: Multi-agent orchestration — handoff, spawn, pipeline, dynamic pipeline.
+E2E: Multi-agent orchestration — spawn, pipeline, router, dynamic pipeline.
 
 No internal mocks. Uses Almock provider for real call stack execution.
 """
@@ -10,16 +10,14 @@ import pytest
 
 from syrin import (
     Agent,
+    AgentRouter,
     Budget,
-    DynamicPipeline,
-    Hook,
     Memory,
     MemoryType,
     Model,
-    Pipeline,
     Response,
 )
-from syrin.tool import tool
+from syrin.agent.multi_agent import Pipeline  # internal; removed from public API in v0.11.0
 
 
 def _almock(**kwargs) -> Model:
@@ -29,82 +27,7 @@ def _almock(**kwargs) -> Model:
 
 
 # =============================================================================
-# 1. HANDOFF
-# =============================================================================
-
-
-class TestHandoff:
-    """Agent hands off to specialized agent."""
-
-    def test_basic_handoff(self) -> None:
-        class Specialist(Agent):
-            model = _almock()
-            system_prompt = "You are a specialist."
-
-        parent = Agent(model=_almock(), memory=Memory())
-        parent.remember("Important context", memory_type=MemoryType.CORE)
-        result = parent.handoff(Specialist, "Handle this task")
-        assert isinstance(result, Response)
-        assert result.content is not None
-        assert len(result.content) > 0
-
-    def test_handoff_transfers_context(self) -> None:
-        class Target(Agent):
-            model = _almock()
-
-        source = Agent(model=_almock(), memory=Memory())
-        source.remember("Secret knowledge", memory_type=MemoryType.CORE)
-        result = source.handoff(Target, "Use context", transfer_context=True)
-        assert result.content is not None
-
-    def test_handoff_without_context_transfer(self) -> None:
-        class Target(Agent):
-            model = _almock()
-
-        source = Agent(model=_almock(), memory=Memory())
-        source.remember("This should not transfer", memory_type=MemoryType.CORE)
-        result = source.handoff(Target, "Do task", transfer_context=False)
-        assert result.content is not None
-
-    def test_handoff_with_budget_transfer(self) -> None:
-        class Target(Agent):
-            model = _almock()
-
-        budget = Budget(max_cost=10.0, shared=True)
-        source = Agent(model=_almock(), budget=budget, memory=Memory())
-        result = source.handoff(Target, "Do task", transfer_budget=True)
-        assert result.content is not None
-
-    def test_handoff_chain(self) -> None:
-        """A → B → C handoff chain."""
-
-        class AgentB(Agent):
-            model = _almock()
-
-        class AgentC(Agent):
-            model = _almock()
-
-        a = Agent(model=_almock(), memory=Memory())
-        a.remember("From A", memory_type=MemoryType.EPISODIC)
-        r_b = a.handoff(AgentB, "Relay task")
-        assert r_b.content is not None
-
-    def test_handoff_source_without_memory_warns(self, caplog) -> None:
-        """Handoff with transfer_context=True but no memory logs a warning."""
-
-        class Target(Agent):
-            model = _almock()
-
-        source = Agent(model=_almock())  # No memory
-        import logging
-
-        with caplog.at_level(logging.WARNING):
-            result = source.handoff(Target, "Task", transfer_context=True)
-        assert result.content is not None
-
-
-# =============================================================================
-# 2. SPAWN
+# 1. SPAWN
 # =============================================================================
 
 
@@ -165,7 +88,7 @@ class TestSpawn:
         class Child(Agent):
             model = _almock()
 
-        parent = Agent(model=_almock(), budget=Budget(max_cost=10.0, shared=True))
+        parent = Agent(model=_almock(), budget=Budget(max_cost=10.0))
         result = parent.spawn(Child, task="Shared budget task")
         assert result.content is not None
         # Parent's budget should reflect child's spend
@@ -189,7 +112,7 @@ class TestSpawn:
 
 
 # =============================================================================
-# 3. PIPELINE
+# 2. PIPELINE
 # =============================================================================
 
 
@@ -273,144 +196,43 @@ class TestPipeline:
 
 
 # =============================================================================
-# 4. DYNAMIC PIPELINE
+# 3. DYNAMIC PIPELINE
 # =============================================================================
 
 
-class TestDynamicPipeline:
-    """Dynamic pipeline with registration, execution, hooks."""
+class TestAgentRouter:
+    """AgentRouter (replaces DynamicPipeline in v0.11.0) — basic routing tests."""
 
-    def test_dynamic_pipeline_basic(self) -> None:
+    def test_agent_router_basic(self) -> None:
         class Analyzer(Agent):
             model = _almock()
+            system_prompt = "analyzer"
 
         class Summarizer(Agent):
             model = _almock()
+            system_prompt = "summarizer"
 
-        dp = DynamicPipeline(
-            agents=[Analyzer, Summarizer],
-            model=_almock(),
-        )
-        result = dp.run("Analyze and summarize AI trends")
+        router = AgentRouter(agents=[Analyzer, Summarizer], model=_almock())
+        result = router.run("Analyze and summarize AI trends")
         assert result is not None
 
-    def test_dynamic_pipeline_parallel(self) -> None:
-        class Worker1(Agent):
-            model = _almock()
-
-        class Worker2(Agent):
-            model = _almock()
-
-        dp = DynamicPipeline(
-            agents=[Worker1, Worker2],
-            model=_almock(),
-            max_parallel=2,
-        )
-        result = dp.run("Process in parallel", mode="parallel")
-        assert result is not None
-
-    def test_dynamic_pipeline_with_hooks(self) -> None:
-        events = []
-
-        class Step1(Agent):
-            model = _almock()
-
-        class Step2(Agent):
-            model = _almock()
-
-        dp = DynamicPipeline(agents=[Step1, Step2], model=_almock())
-        dp.events.on(
-            Hook.DYNAMIC_PIPELINE_START,
-            lambda _: events.append("dp_start"),
-        )
-        dp.events.on(
-            Hook.DYNAMIC_PIPELINE_END,
-            lambda _: events.append("dp_end"),
-        )
-        dp.run("Process")
-        assert "dp_start" in events
-        assert "dp_end" in events
-
-    def test_dynamic_pipeline_event_lifecycle(self) -> None:
-        """Verify START, PLAN, and END events always fire."""
-        lifecycle = []
-
-        class StepA(Agent):
-            model = _almock()
-
-        class StepB(Agent):
-            model = _almock()
-
-        dp = DynamicPipeline(agents=[StepA, StepB], model=_almock())
-        dp.events.on(
-            Hook.DYNAMIC_PIPELINE_START,
-            lambda _: lifecycle.append("start"),
-        )
-        dp.events.on(
-            Hook.DYNAMIC_PIPELINE_PLAN,
-            lambda _: lifecycle.append("plan"),
-        )
-        dp.events.on(
-            Hook.DYNAMIC_PIPELINE_END,
-            lambda _: lifecycle.append("end"),
-        )
-        dp.run("Run all")
-        # START and END always fire; PLAN fires when planner returns
-        assert "start" in lifecycle
-        assert "end" in lifecycle
-
-    def test_dynamic_pipeline_single_agent(self) -> None:
+    def test_agent_router_single_agent(self) -> None:
         class Solo(Agent):
             model = _almock()
+            system_prompt = "solo"
 
-        dp = DynamicPipeline(agents=[Solo], model=_almock())
-        result = dp.run("Solo task")
+        router = AgentRouter(agents=[Solo], model=_almock())
+        result = router.run("Solo task")
         assert result is not None
-
-    def test_dynamic_pipeline_requires_model(self) -> None:
-        """DynamicPipeline without model raises ValueError."""
-
-        class Worker(Agent):
-            model = _almock()
-
-        with pytest.raises(ValueError, match="model is required"):
-            DynamicPipeline(agents=[Worker])
 
 
 # =============================================================================
-# 5. MULTI-AGENT WITH ALL FEATURES
+# 4. MULTI-AGENT WITH ALL FEATURES
 # =============================================================================
 
 
 class TestMultiAgentFullFeatures:
     """Multi-agent with budget, memory, tools, hooks — combined."""
-
-    def test_handoff_with_full_features(self) -> None:
-        events = []
-
-        @tool
-        def search(query: str) -> str:
-            return f"Found: {query}"
-
-        class Specialist(Agent):
-            model = _almock()
-            tools = [search]
-
-        source = Agent(
-            model=_almock(),
-            memory=Memory(),
-            budget=Budget(max_cost=10.0, shared=True),
-        )
-        source.events.on(Hook.AGENT_RUN_START, lambda _: events.append("source_start"))
-
-        source.remember("User wants help with Python", memory_type=MemoryType.CORE)
-        result = source.handoff(
-            Specialist,
-            "Help with Python",
-            transfer_context=True,
-            transfer_budget=True,
-        )
-        assert result.content is not None
 
     def test_spawn_with_memory_isolation(self) -> None:
         """Child agent should not share parent's memory unless explicitly transferred."""

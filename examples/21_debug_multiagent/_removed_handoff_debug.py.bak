@@ -1,0 +1,107 @@
+"""Handoff Debug — Inspect agent state at the moment of handoff.
+
+Demonstrates:
+- Attaching Pry to two agents (source + target)
+- pry.debugpoint("label") at handoff point — pauses execution so you can
+  inspect the stream, agents tab, and memory tab BEFORE the handoff resumes
+- Press [p] to resume from debugpoint, [q] to quit when done
+- In the agents tab (press [a]) you see HANDOFF_START with source/target/input
+- In the event tab (press [e]) you see full handoff context at that moment
+
+Run:
+    python examples/21_debug_multiagent/handoff_debug.py --debug
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from examples.models.models import gpt4_mini  # noqa: E402
+from syrin import Agent, tool  # noqa: E402
+from syrin.debug import Pry  # noqa: E402
+
+_PRY = Pry.from_debug_flag()
+
+# ---------------------------------------------------------------------------
+# Tools — so the tool tab has something to show
+# ---------------------------------------------------------------------------
+
+
+@tool
+def summarize_findings(findings: str) -> str:
+    """Compress research findings into a bullet list."""
+    lines = [f"• {line.strip()}" for line in findings.split(".") if line.strip()]
+    return "\n".join(lines[:5]) or findings[:200]
+
+
+@tool
+def word_count(text: str) -> int:
+    """Count words in text."""
+    return len(text.split())
+
+
+# ---------------------------------------------------------------------------
+# Agents
+# ---------------------------------------------------------------------------
+
+
+class ResearchAgent(Agent):
+    name = "researcher"
+    description = "Deep research on any topic"
+    model = gpt4_mini
+    system_prompt = (
+        "You are an expert researcher. Research topics thoroughly and list key findings."
+    )
+    tools = [word_count, summarize_findings]
+
+
+class PresentationAgent(Agent):
+    name = "presenter"
+    description = "Present research findings clearly"
+    model = gpt4_mini
+    system_prompt = "You are a presentation specialist. Take research findings and craft clear, engaging narratives."
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    pry = _PRY or Pry()
+
+    researcher = ResearchAgent()
+    presenter = PresentationAgent()
+
+    # Attach both agents so the UI watches all hooks from both
+    pry.attach(researcher).attach(presenter)
+
+    # Run research in a background thread so the TUI stays responsive
+    def _run() -> None:
+        # Step 1: Research phase
+        researcher.run("Research the environmental impact of electric vehicles.")
+
+        # ── Debug checkpoint ─────────────────────────────────────────────────
+        # This PAUSES execution here.  In the TUI:
+        #   [a] → agents tab shows the completed run with cost/iterations
+        #   [t] → tools tab shows calls to word_count / summarize_findings
+        #   [m] → memory tab shows context state at this exact moment
+        #   [e] → event tab previews the last event detail
+        # Press [p] to resume, [n] to step one hook at a time.
+        pry.debugpoint("before handoff — inspect agent state here")
+
+        # Step 2: Hand off to presenter — this fires HANDOFF_START hook
+        # which the UI shows in the agents tab with source/target/user_input
+        researcher.handoff(PresentationAgent, "Present the electric vehicle research findings.")
+
+        # Another checkpoint after handoff completes
+        pry.debugpoint("handoff complete — inspect presenter output")
+
+    with pry:
+        t = pry.run(_run)
+        t.join()
+        pry.wait()  # keeps TUI open until user presses q

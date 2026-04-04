@@ -46,8 +46,8 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 # Use for: finding information, web search, gathering data, investigating topics
 class ResearcherAgent(Agent):
-    _agent_name = "researcher"
-    _agent_description = "Researches topics and gathers information"
+    name = "researcher"
+    description = "Researches topics and gathers information"
     model = almock_researcher
     system_prompt = (
         "You research topics and gather information. Use for: finding facts, "
@@ -57,8 +57,8 @@ class ResearcherAgent(Agent):
 
 # Use for: analyzing data, comparing options, evaluating pros/cons, structured reasoning
 class AnalystAgent(Agent):
-    _agent_name = "analyst"
-    _agent_description = "Analyzes data and provides structured reasoning"
+    name = "analyst"
+    description = "Analyzes data and provides structured reasoning"
     model = almock_analyst
     system_prompt = (
         "You analyze data and provide structured reasoning. Use for: comparing "
@@ -68,8 +68,8 @@ class AnalystAgent(Agent):
 
 # Use for: writing content, drafting text, creative writing, formatting
 class WriterAgent(Agent):
-    _agent_name = "writer"
-    _agent_description = "Writes content in clear, engaging style"
+    name = "writer"
+    description = "Writes content in clear, engaging style"
     model = almock_writer
     system_prompt = (
         "You write content in a clear, engaging style. Use for: drafting text, "
@@ -79,8 +79,8 @@ class WriterAgent(Agent):
 
 # Use for: fact-checking, verifying claims, validating accuracy
 class FactCheckerAgent(Agent):
-    _agent_name = "fact_checker"
-    _agent_description = "Fact-checks and verifies claims"
+    name = "fact_checker"
+    description = "Fact-checks and verifies claims"
     model = almock_fact_checker
     system_prompt = (
         "You fact-check and verify claims. Use for: validating accuracy, "
@@ -90,8 +90,8 @@ class FactCheckerAgent(Agent):
 
 # Use for: summarizing long content, condensing, executive summaries
 class SummarizerAgent(Agent):
-    _agent_name = "summarizer"
-    _agent_description = "Synthesizes and summarizes content"
+    name = "summarizer"
+    description = "Synthesizes and summarizes content"
     model = almock_summarizer
     system_prompt = (
         "You synthesize and summarize content. Use for: executive summaries, "

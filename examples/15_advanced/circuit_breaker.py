@@ -11,10 +11,10 @@ Run: python examples/15_advanced/circuit_breaker.py
 from syrin import Agent, CircuitBreaker, Hook, Model
 
 # Primary model (Almock for demo; in production use Model.Anthropic(...) etc.)
-primary = Model.Almock(latency_seconds=0.01, lorem_length=50)
+primary = Model.mock(latency_seconds=0.01, lorem_length=50)
 
 # Fallback model when circuit trips (e.g., a cheaper or local model)
-fallback = Model.Almock(latency_seconds=0.01, lorem_length=30)
+fallback = Model.mock(latency_seconds=0.01, lorem_length=30)
 
 cb = CircuitBreaker(
     failure_threshold=3,
@@ -24,8 +24,8 @@ cb = CircuitBreaker(
 
 
 class CircuitBreakerAgent(Agent):
-    _agent_name = "circuit-breaker"
-    _agent_description = "Agent with circuit breaker for LLM failures"
+    name = "circuit-breaker"
+    description = "Agent with circuit breaker for LLM failures"
     model = primary
     system_prompt = "You are helpful."
     circuit_breaker = cb

@@ -17,8 +17,8 @@ from syrin.serve.http import build_router
 class _TestAgent(Agent):
     """Test agent using Almock (no real API calls)."""
 
-    _agent_name = "test-agent"
-    _agent_description = "Test agent"
+    name = "test-agent"
+    description = "Test agent"
     model = Model.Almock()
 
 

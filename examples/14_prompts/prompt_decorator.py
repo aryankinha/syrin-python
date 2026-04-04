@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from syrin import Agent, Model, prompt
 
-mock = Model.Almock(latency_seconds=0.01, lorem_length=50)
+mock = Model.mock(latency_seconds=0.01, lorem_length=50)
 
 
 @prompt

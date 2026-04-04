@@ -6,20 +6,9 @@ weight: 240
 
 ## You Can't See What Your Agent Does
 
-You deployed an agent to production. It's making LLM calls, using tools, managing budget. But:
+You deployed an agent to production. It's making LLM calls, using tools, managing budget. But how do you know what's happening inside? How do you log for compliance? How do you react to events like budget warnings? How do you modify behavior mid-execution?
 
-- How do you know what's happening inside?
-- How do you log for compliance?
-- How do you react to events (like budget warnings)?
-- How do you modify behavior mid-execution?
-
-**The challenge:**
-- Agents are black boxes
-- You need visibility into execution
-- You need to react to lifecycle moments
-- You need to modify data before/after operations
-
-**The solution:** Syrin's Events system — every moment in the agent lifecycle emits an event you can subscribe to.
+Agents are black boxes by default. The solution is Syrin's Events system — every moment in the agent lifecycle emits an event you can subscribe to, modify, or react to in real time.
 
 ## The Events System
 
@@ -37,19 +26,11 @@ agent.events.on(Hook.AGENT_RUN_END, lambda ctx: print(f"Done: {ctx.cost}"))
 
 ## Hook Categories
 
-Syrin emits hooks across multiple categories:
+Hooks span nine categories. The **Agent** category covers agent lifecycle moments like `RUN_START` and `RUN_END`. The **LLM** category fires around model interactions — `REQUEST_START` before the API call and `REQUEST_END` after. The **Tool** category fires around tool use — `TOOL_CALL_START` when a tool begins and `TOOL_CALL_END` when it finishes.
 
-| Category | Description | Example Hooks |
-| --- | --- | --- |
-| Agent | Agent lifecycle | RUN_START, RUN_END |
-| LLM | Model interactions | REQUEST_START, REQUEST_END |
-| Tool | Tool usage | TOOL_CALL_START, TOOL_CALL_END |
-| Memory | Memory operations | MEMORY_STORE, MEMORY_RECALL |
-| Context | Context management | CONTEXT_PREPARE, CONTEXT_COMPACT |
-| Budget | Cost tracking | BUDGET_CHECK, BUDGET_EXCEEDED |
-| MCP | MCP protocol | MCP_CONNECTED, MCP_TOOL_CALL |
-| Multi-Agent | Agent orchestration | HANDOFF_START, SPAWN_START |
-| Grounding | RAG verification | GROUNDING_EXTRACT_START |
+The **Memory** category covers memory operations: `MEMORY_STORE` when a memory is saved, `MEMORY_RECALL` when memories are retrieved. The **Context** category handles the token window — `CONTEXT_PREPARE` and `CONTEXT_COMPACT`. The **Budget** category fires on cost checks — `BUDGET_CHECK` every time the budget is evaluated and `BUDGET_EXCEEDED` when the limit is hit.
+
+The **MCP** category covers the Model Context Protocol — `MCP_CONNECTED` and `MCP_TOOL_CALL`. The **Multi-Agent** category fires during agent coordination — `SPAWN_START`, `SPAWN_END`, and similar. The **Grounding** category covers RAG verification — `GROUNDING_EXTRACT_START`, `GROUNDING_VERIFY`, and `GROUNDING_COMPLETE`.
 
 ## Basic Event Usage
 
@@ -342,51 +323,27 @@ agent.events.on(Hook.AGENT_RUN_END, send_slack_notification)
 
 ### Agent Lifecycle
 
-| Hook | When | Context Fields |
-| --- | --- | --- |
-| `AGENT_RUN_START` | Before processing | input, model_id, agent_name |
-| `AGENT_RUN_END` | After completion | input, output, cost, tokens, duration_ms |
-| `AGENT_ERROR` | On exception | error, error_type, input |
+`AGENT_RUN_START` fires before processing begins. Its context includes `input`, `model_id`, and `agent_name`. `AGENT_RUN_END` fires after completion with `input`, `output`, `cost`, `tokens`, and `duration_ms`. `AGENT_ERROR` fires on any unhandled exception with `error`, `error_type`, and `input`.
 
 ### LLM Lifecycle
 
-| Hook | When | Context Fields |
-| --- | --- | --- |
-| `LLM_REQUEST_START` | Before API call | messages, model_id, temperature, tools |
-| `LLM_REQUEST_END` | After API response | content, tool_calls, tokens, duration_ms |
-| `LLM_STREAM_START` | Streaming starts | model_id |
-| `LLM_STREAM_END` | Streaming ends | content, tokens |
+`LLM_REQUEST_START` fires before the API call with `messages`, `model_id`, `temperature`, and `tools`. `LLM_REQUEST_END` fires after the API response with `content`, `tool_calls`, `tokens`, and `duration_ms`. `LLM_STREAM_START` fires when streaming begins with `model_id`. `LLM_STREAM_END` fires when the stream completes with `content` and `tokens`.
 
 ### Tool Lifecycle
 
-| Hook | When | Context Fields |
-| --- | --- | --- |
-| `TOOL_CALL_START` | Before tool execution | tool_name, arguments |
-| `TOOL_CALL_END` | After tool execution | tool_name, result, duration_ms |
-| `TOOL_ERROR` | Tool raised exception | tool_name, error, arguments |
+`TOOL_CALL_START` fires before tool execution with `tool_name` and `arguments`. `TOOL_CALL_END` fires after execution with `tool_name`, `result`, and `duration_ms`. `TOOL_ERROR` fires when a tool raises an exception with `tool_name`, `error`, and `arguments`.
 
 ### Memory Lifecycle
 
-| Hook | When | Context Fields |
-| --- | --- | --- |
-| `MEMORY_STORE` | Memory stored | content, memory_type, key |
-| `MEMORY_RECALL` | Memory retrieved | query, results |
-| `MEMORY_FORGET` | Memory deleted | key |
+`MEMORY_STORE` fires when a memory is saved with `content`, `memory_type`, and `key`. `MEMORY_RECALL` fires when memories are retrieved with `query` and `results`. `MEMORY_FORGET` fires when a memory is deleted with `key`.
 
 ### Context Lifecycle
 
-| Hook | When | Context Fields |
-| --- | --- | --- |
-| `CONTEXT_PREPARE` | Context prepared | messages, tokens, max_tokens |
-| `CONTEXT_COMPACT` | Compaction ran | method, tokens_before, tokens_after |
-| `CONTEXT_THRESHOLD` | Threshold triggered | percent, max_tokens, action |
+`CONTEXT_PREPARE` fires when the context window is assembled with `messages`, `tokens`, and `max_tokens`. `CONTEXT_COMPACT` fires when compaction runs with `method`, `tokens_before`, and `tokens_after`. `CONTEXT_THRESHOLD` fires when a threshold is hit with `percent`, `max_tokens`, and `action`.
 
 ### Budget Lifecycle
 
-| Hook | When | Context Fields |
-| --- | --- | --- |
-| `BUDGET_CHECK` | Budget checked | limit, spent, remaining, percent |
-| `BUDGET_EXCEEDED` | Budget limit hit | limit, spent, exceeded_by |
+`BUDGET_CHECK` fires each time the budget is evaluated with `limit`, `spent`, `remaining`, and `percent`. `BUDGET_EXCEEDED` fires when the agent hits its limit with `limit`, `spent`, and `exceeded_by`.
 
 ## Observability Integration
 

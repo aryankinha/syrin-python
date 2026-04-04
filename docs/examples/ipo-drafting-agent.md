@@ -267,14 +267,7 @@ data/
 
 ## Components Used
 
-| Component | Purpose |
-| --- | --- |
-| `Knowledge` | Document loading, chunking, embedding |
-| `AgenticRAGConfig` | Multi-query search |
-| `GroundingConfig` | Fact extraction and verification |
-| `FactVerificationGuardrail` | Validate grounded facts |
-| `Output(DraftOutput)` | Structured legal output |
-| `Budget` | Cost limits per run |
+Six components work together in this example. `Knowledge` handles document loading, chunking, and embedding. `AgenticRAGConfig` enables multi-query search with iterative retrieval. `GroundingConfig` performs fact extraction and verification against source documents. `FactVerificationGuardrail` validates that grounded facts meet the confidence threshold before they enter the output. `Output(DraftOutput)` enforces the structured legal output schema with validation retries. `Budget` caps the cost per run to prevent runaway spend on deep retrieval tasks.
 
 ## Key Patterns
 

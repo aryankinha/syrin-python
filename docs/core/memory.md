@@ -1,416 +1,473 @@
 ---
 title: Memory
-description: Make your agents remember conversations and learn over time
+description: Give your agents a memory that works like a human brain — four types, configurable decay, and pluggable backends
 weight: 20
 ---
 
-## The Problem: Your Agent Has Alzheimer's
+## The problem every agent has
 
-Every conversation starts from scratch. Watch:
+A user spends ten minutes telling your agent their name, their stack, their preferences. They close the tab. They come back tomorrow. The agent has no idea who they are.
 
-**Conversation 1:**
-> User: Hi, my name is Alice.
-> Agent: Hello Alice! Nice to meet you.
+This is not a bug — it is the default. Language models have no state between calls. Every conversation starts blank.
 
-**Conversation 2 (5 minutes later):**
-> User: What's my name again?
-> Agent: I don't know your name. You haven't told me yet.
+The fix is not to stuff everything into the system prompt. Prompts have limits, and bloated prompts cost tokens on every single message. The real fix is a proper memory system: one that stores what matters, recalls what is relevant, and quietly forgets what has become stale.
 
-Sound familiar? This is how most AI agents work. They have **no memory**. Each conversation is a clean slate.
-
-This is frustrating for users. You shouldn't have to repeat yourself.
+That is what `Memory()` is.
 
 ---
 
-## The Solution: Memory That Actually Works
+## Why four memory types?
 
-What if your agent could remember?
+When cognitive scientists studied how human memory works, they found it is not a single store. It is at least four distinct systems, each with different rules about what gets in, how long it stays, and how it is retrieved.
 
-- **Your name**, preferences, and habits
-- **What you discussed** last time
-- **Facts you taught** it
-- **How you like things** done
+Syrin models these directly because they map cleanly onto the problems agents face:
 
-Syrin's memory system makes this possible. It's inspired by how human memory actually works—some things are permanent, some fade over time, and some need reinforcement.
+**Core** is who you are. Your name, your preferences, your important relationships. This information almost never changes. It should survive indefinitely.
 
----
+**Episodic** is what happened. Specific events tied to a moment — "the user asked about pricing on Tuesday." These memories are inherently time-bound. A meeting from last month is less relevant than one from yesterday.
 
-## The Human Memory Analogy
+**Semantic** is what you know. Facts and beliefs that are independent of when they were acquired. "Python decorators wrap functions." The fact does not expire the way an episode does.
 
-Think about how your brain works:
+**Procedural** is how you do things. Learned behaviors and instructions. "When the user asks for code, add type hints." These are stable skills — they should persist until explicitly updated.
 
-| Human Memory | Syrin Memory | What It Stores |
-|-------------|--------------|----------------|
-| **Who you are** | **Core** | Your name, identity, important facts |
-| **What happened** | **Episodic** | Past conversations, events, experiences |
-| **What you learned** | **Semantic** | Facts, knowledge, definitions |
-| **How to do things** | **Procedural** | Procedures, processes, skills |
-
-Just like your brain, Syrin:
-- **Remembers important things** (high importance)
-- **Forgets unimportant things** (decay over time)
-- **Reinforces** memories when accessed (access boosts)
+When you use all four, you can build agents that behave very differently from a stateless LLM. They know their users. They learn. They adapt.
 
 ---
 
-## Your First Agent With Memory
+## Setup
 
-Here's a simple example:
+Attach a `Memory()` to any agent. No extra infrastructure needed — the default is an in-memory store.
 
 ```python
 from syrin import Agent, Model
-from syrin.memory import Memory
+from syrin import Memory
 from syrin.enums import MemoryType
 
-# Create agent with memory
 agent = Agent(
-    model=Model.Almock(),  # No API key needed
-    memory=Memory()  # Enable memory!
+    model=Model.OpenAI("gpt-4o-mini", api_key="your-api-key"),
+    # model=Model.mock(),  # no API key needed for testing
+    memory=Memory(),
 )
 
-# Tell the agent something
 agent.remember("My name is Alice", memory_type=MemoryType.CORE)
-
-# Later... the agent remembers!
-response = agent.run("What do you know about me?")
-print(response.content)
-# "You told me your name is Alice."
+memories = agent.recall(memory_type=MemoryType.CORE)
+print(f"Stored memory id: {memories[0].content!r}")
 ```
 
-**That's it.** Your agent now has persistent memory.
+Output:
 
----
-
-## The Four Memory Types
-
-### 1. Core Memory (The Identity)
-
-**What it stores:** Who you are, what matters to you.
-
-**Characteristics:**
-- Highest importance (0.9 by default)
-- Rarely decays
-- Always recalled first
-
-**Examples:**
-- "User's name is Alice"
-- "User prefers concise answers"
-- "User works at Acme Corp"
-- "User is a Python developer"
-
-```python
-agent.remember("User's name is Alice", memory_type=MemoryType.CORE, importance=1.0)
 ```
-
-**Best for:** User identity, preferences, key relationships.
-
----
-
-### 2. Episodic Memory (The History)
-
-**What it stores:** What happened, when, and where.
-
-**Characteristics:**
-- Medium importance (0.7 by default)
-- Decays over time unless reinforced
-- Captures specific events
-
-**Examples:**
-- "Yesterday we discussed Python"
-- "User asked about pricing on Tuesday"
-- "Last week: User wanted to export data"
-
-```python
-agent.remember("User asked about cloud pricing today", memory_type=MemoryType.EPISODIC)
-```
-
-**Best for:** Conversation history, past events, activities.
-
----
-
-### 3. Semantic Memory (The Knowledge)
-
-**What it stores:** Facts and learned information.
-
-**Characteristics:**
-- High importance (0.8 by default)
-- Decays slowly
-- Retrieved by meaning, not keywords
-
-**Examples:**
-- "User prefers Python over JavaScript"
-- "User's company uses AWS"
-- "User is building a chatbot"
-
-```python
-agent.remember("User prefers Python", memory_type=MemoryType.SEMANTIC)
-```
-
-**Best for:** Factual knowledge, preferences, learned information.
-
----
-
-### 4. Procedural Memory (The Skills)
-
-**What it stores:** How to do things.
-
-**Characteristics:**
-- High importance (0.85 by default)
-- Decays very slowly
-- Stores processes and workflows
-
-**Examples:**
-- "When user asks for code, add type hints"
-- "User likes markdown formatted responses"
-- "How to get user data: check the database"
-
-```python
-agent.remember("User wants responses in bullet points", memory_type=MemoryType.PROCEDURAL)
-```
-
-**Best for:** Instructions, procedures, learned behaviors.
-
----
-
-## Basic Operations
-
-### Remember (Store a Memory)
-
-```python
-# Simple remember
-agent.remember("User likes dark mode")
-
-# With type and importance
-agent.remember(
-    "User's name is Alice",
-    memory_type=MemoryType.CORE,
-    importance=1.0  # 1.0 = critical, 0.0 = forget immediately
-)
-```
-
-### Recall (Get Memories)
-
-```python
-# Search by query
-memories = agent.recall("preferences")
-print([m.content for m in memories])
-
-# Filter by type
-core_memories = agent.recall(memory_type=MemoryType.CORE)
-
-# Get all memories
-all_memories = agent.recall()
-```
-
-### Forget (Delete a Memory)
-
-```python
-# Delete by query
-agent.forget(query="old preference")
-
-# Delete by type
-agent.forget(memory_type=MemoryType.EPISODIC)
-
-# Delete specific memory
-agent.forget(memory_id="memory-123")
+Stored memory id: 'My name is Alice'
 ```
 
 ---
 
-## Real Example: Personal Assistant
+## Core memory — the identity layer
 
-Here's how memory works in a real assistant:
+Core memory holds the facts about a user that should never decay. Think of it as the agent's permanent record of who this person is.
+
+You reach for core memory when forgetting something would cause the agent to behave offensively — like forgetting a user's name, or forgetting that they have accessibility requirements.
 
 ```python
 from syrin import Agent, Model
-from syrin.memory import Memory
+from syrin import Memory
 from syrin.enums import MemoryType
 
-class Assistant(Agent):
-    model = Model.Almock()
-    memory = Memory()
-    system_prompt = "You are a helpful personal assistant."
+agent = Agent(model=Model.OpenAI("gpt-4o-mini", api_key="your-api-key"), memory=Memory())
+# model = Model.mock()  # no API key needed for testing
 
-# First conversation
-assistant.remember("User's name is Alice", memory_type=MemoryType.CORE)
-assistant.remember("Alice prefers morning meetings", memory_type=MemoryType.SEMANTIC)
-assistant.remember("Discussed project timeline today", memory_type=MemoryType.EPISODIC)
-assistant.remember("Alice likes bullet points", memory_type=MemoryType.PROCEDURAL)
+agent.remember("User's name is Alice", memory_type=MemoryType.CORE, importance=1.0)
+agent.remember("Alice uses a screen reader", memory_type=MemoryType.CORE, importance=1.0)
+agent.remember("Alice works at Acme Corp", memory_type=MemoryType.CORE, importance=0.9)
 
-# Second conversation (days later)
-response = assistant.run("What do you remember about me?")
-# "Your name is Alice, you prefer morning meetings, and you like responses in bullet points."
+mems = agent.recall(memory_type=MemoryType.CORE)
+for m in mems:
+    print(f"[{m.type}] importance={m.importance}  {m.content!r}")
+```
+
+Output:
+
+```
+[core] importance=1.0  "User's name is Alice"
+[core] importance=1.0  'Alice uses a screen reader'
+[core] importance=0.9  'Alice works at Acme Corp'
+```
+
+Set `importance=1.0` for anything critical. That ensures decay curves leave it untouched.
+
+---
+
+## Episodic memory — what happened
+
+Episodic memory captures specific events. It answers "what did we talk about?" not "what do I know in general?"
+
+The defining trait of an episode is that it is bound to a moment. That is also why it decays naturally. A conversation from three months ago matters less than one from this morning.
+
+Use episodic memory to give agents a sense of history — so they can refer back to past conversations, avoid repeating themselves, and notice patterns over time.
+
+```python
+from syrin import Agent, Model
+from syrin import Memory
+from syrin.enums import MemoryType
+
+agent = Agent(model=Model.OpenAI("gpt-4o-mini", api_key="your-api-key"), memory=Memory())
+# model = Model.mock()  # no API key needed for testing
+
+agent.remember("Alice asked about Python decorators on Tuesday", memory_type=MemoryType.EPISODIC, importance=0.7)
+agent.remember("Alice mentioned she is preparing for a code review", memory_type=MemoryType.EPISODIC, importance=0.6)
+
+mems = agent.recall(memory_type=MemoryType.EPISODIC)
+for m in mems:
+    print(f"[{m.type}] importance={m.importance}  {m.content!r}")
+```
+
+Output:
+
+```
+[episodic] importance=0.7  'Alice asked about Python decorators on Tuesday'
+[episodic] importance=0.6  'Alice mentioned she is preparing for a code review'
+```
+
+Pair episodic memory with decay (covered below) so that stale episodes fade out instead of cluttering recalls forever.
+
+---
+
+## Semantic memory — what the agent knows
+
+Semantic memory holds facts. The difference from episodic: semantic knowledge does not care about when it was learned. "Python decorators are functions that wrap other functions" is true whether the agent learned it today or a year ago.
+
+This is where domain knowledge, learned user preferences, and factual beliefs live. It is also the memory type that benefits most from vector-database backends, because similarity search lets the agent find relevant facts even when the wording does not exactly match the query.
+
+```python
+from syrin import Agent, Model
+from syrin import Memory
+from syrin.enums import MemoryType
+
+agent = Agent(model=Model.OpenAI("gpt-4o-mini", api_key="your-api-key"), memory=Memory())
+# model = Model.mock()  # no API key needed for testing
+
+agent.remember("Python decorators are functions that wrap other functions", memory_type=MemoryType.SEMANTIC, importance=0.8)
+agent.remember("Alice prefers concise technical explanations over analogies", memory_type=MemoryType.SEMANTIC, importance=0.85)
+
+mems = agent.recall(memory_type=MemoryType.SEMANTIC)
+for m in mems:
+    print(f"[{m.type}] importance={m.importance}  {m.content!r}")
+```
+
+Output:
+
+```
+[semantic] importance=0.8  'Python decorators are functions that wrap other functions'
+[semantic] importance=0.85  'Alice prefers concise technical explanations over analogies'
 ```
 
 ---
 
-## Understanding Importance
+## Procedural memory — how the agent behaves
 
-Every memory has an importance score (0.0 to 1.0):
+Procedural memory stores instructions. Not facts about the world, but facts about how this particular agent should operate with this particular user.
 
-| Score | Meaning | Example |
-|-------|---------|---------|
-| **1.0** | Critical, never forget | User's name |
-| **0.8-0.9** | Very important | Strong preferences |
-| **0.5-0.7** | Important | Recent events |
-| **0.3-0.5** | Somewhat important | Minor details |
-| **0.0-0.2** | Forget soon | Temporary info |
+This is where behavioral adaptations live. If a user has told the agent to always add type hints, always respond in French, or always start answers with a summary — store that in procedural memory. It survives across sessions and shapes every response.
 
 ```python
-# Critical memory (never decays)
-agent.remember("User is John Smith", importance=1.0, memory_type=MemoryType.CORE)
+from syrin import Agent, Model
+from syrin import Memory
+from syrin.enums import MemoryType
 
-# Temporary memory (forget quickly)
-agent.remember("User is looking at laptops today", importance=0.3)
+agent = Agent(model=Model.OpenAI("gpt-4o-mini", api_key="your-api-key"), memory=Memory())
+# model = Model.mock()  # no API key needed for testing
+
+agent.remember("When Alice asks for code examples, always add type hints", memory_type=MemoryType.PROCEDURAL, importance=0.9)
+agent.remember("Alice likes responses to start with a one-sentence summary", memory_type=MemoryType.PROCEDURAL, importance=0.85)
+
+mems = agent.recall(memory_type=MemoryType.PROCEDURAL)
+for m in mems:
+    print(f"[{m.type}] importance={m.importance}  {m.content!r}")
+```
+
+Output:
+
+```
+[procedural] importance=0.9  'When Alice asks for code examples, always add type hints'
+[procedural] importance=0.85  'Alice likes responses to start with a one-sentence summary'
 ```
 
 ---
 
-## Decay: How Forgetting Works
+## The remember / recall / forget API
 
-Just like human memory, Syrin memories **fade over time** unless reinforced.
+These three methods are the entire public interface for working with memory. There is nothing else to learn.
 
-### Why Decay?
-
-- Keeps memory from overflowing
-- Removes outdated information
-- Focuses on what's relevant
-- Agents become more accurate over time
-
-### How It Works
+### remember — store a memory
 
 ```python
-from syrin.memory import Decay
-from syrin.enums import DecayStrategy
+from syrin import Agent, Model
+from syrin import Memory
+from syrin.enums import MemoryType
 
-# Enable decay
+agent = Agent(model=Model.OpenAI("gpt-4o-mini", api_key="your-api-key"), memory=Memory())
+# model = Model.mock()  # no API key needed for testing
+
+# Minimal call — type defaults to EPISODIC, importance to 1.0
+agent.remember("Alice asked about pricing")
+
+# Explicit type and importance
+memory_id = agent.remember(
+    "Alice's name is Alice",
+    memory_type=MemoryType.CORE,
+    importance=1.0,
+)
+print(f"Stored with id: {memory_id[:8]}...")
+```
+
+Output:
+
+```
+Stored with id: 28e18f80...
+```
+
+`remember` returns the memory ID. You can use it later to delete a specific memory by ID.
+
+### recall — retrieve memories
+
+```python
+from syrin import Agent, Model
+from syrin import Memory
+from syrin.enums import MemoryType
+
+agent = Agent(model=Model.OpenAI("gpt-4o-mini", api_key="your-api-key"), memory=Memory())
+# model = Model.mock()  # no API key needed for testing
+agent.remember("Alice works at Acme Corp", memory_type=MemoryType.CORE)
+agent.remember("Alice prefers dark mode", memory_type=MemoryType.SEMANTIC)
+agent.remember("The deadline is Friday", memory_type=MemoryType.EPISODIC)
+
+# Recall by type
+core_mems = agent.recall(memory_type=MemoryType.CORE)
+print(f"Core memories: {len(core_mems)}")
+
+# Recall by keyword query (searches content)
+results = agent.recall("Alice")
+print(f"Results for 'Alice': {len(results)}")
+for m in results:
+    print(f"  [{m.type}] {m.content!r}")
+
+# Recall everything
+all_mems = agent.recall()
+print(f"Total memories: {len(all_mems)}")
+```
+
+Output:
+
+```
+Core memories: 1
+Results for 'Alice': 2
+  [core] 'Alice works at Acme Corp'
+  [semantic] 'Alice prefers dark mode'
+Total memories: 3
+```
+
+`recall` returns a list of `MemoryEntry` objects. Each entry has `.content`, `.type`, and `.importance`.
+
+### forget — delete memories
+
+```python
+from syrin import Agent, Model
+from syrin import Memory
+from syrin.enums import MemoryType
+
+agent = Agent(model=Model.OpenAI("gpt-4o-mini", api_key="your-api-key"), memory=Memory())
+# model = Model.mock()  # no API key needed for testing
+agent.remember("Meeting notes from Monday", memory_type=MemoryType.EPISODIC)
+agent.remember("Meeting notes from Tuesday", memory_type=MemoryType.EPISODIC)
+agent.remember("Alice's birthday is in June", memory_type=MemoryType.CORE)
+
+print(f"Before: {len(agent.recall())} memories total")
+
+# Forget all episodic memories
+deleted = agent.forget(memory_type=MemoryType.EPISODIC)
+print(f"Deleted: {deleted} episodic memories")
+print(f"After: {len(agent.recall())} memories total")
+print(f"Remaining core: {len(agent.recall(memory_type=MemoryType.CORE))}")
+```
+
+Output:
+
+```
+Before: 3 memories total
+Deleted: 2 episodic memories
+After: 1 memories total
+Remaining core: 1
+```
+
+`forget` returns the count of deleted memories. You can target by type, by query keyword, or by the exact memory ID returned from `remember`.
+
+---
+
+## MemoryEntry attributes
+
+Every object returned by `recall` is a `MemoryEntry`. The three attributes you will use most often:
+
+```python
+from syrin import Agent, Model
+from syrin import Memory, MemoryEntry
+from syrin.enums import MemoryType
+
+agent = Agent(model=Model.OpenAI("gpt-4o-mini", api_key="your-api-key"), memory=Memory())
+# model = Model.mock()  # no API key needed for testing
+agent.remember("Alice prefers concise answers", memory_type=MemoryType.SEMANTIC, importance=0.85)
+
+mems = agent.recall(memory_type=MemoryType.SEMANTIC)
+entry = mems[0]
+
+print(f"entry.content    = {entry.content!r}")
+print(f"entry.type       = {entry.type!r}")
+print(f"entry.importance = {entry.importance}")
+print(f"isinstance MemoryEntry: {isinstance(entry, MemoryEntry)}")
+```
+
+Output:
+
+```
+entry.content    = 'Alice prefers concise answers'
+entry.type       = <MemoryType.SEMANTIC: 'semantic'>
+entry.importance = 0.85
+isinstance MemoryEntry: True
+```
+
+`MemoryEntry` also carries `.id`, `.created_at`, `.last_accessed`, `.access_count`, `.keywords`, and `.metadata` for more advanced use cases.
+
+---
+
+## Memory decay — forgetting on purpose
+
+Human brains forget. Not because they malfunction — because forgetting is useful. It keeps the signal-to-noise ratio high. You remember your anniversary, not every Tuesday from 2019.
+
+Syrin's `Decay` class implements this. When you attach a decay curve to your memory, older memories gradually lose importance. Memories that are recalled frequently get a small importance boost, which is how reinforcement works — the things you use stay sharp.
+
+### Configuring decay
+
+```python
+from syrin import Agent, Model, Decay
+from syrin import Memory
+from syrin.enums import MemoryType, DecayStrategy
+
 memory = Memory(
     decay=Decay(
         strategy=DecayStrategy.EXPONENTIAL,
-        rate=0.95,  # How fast to forget (higher = slower)
-        reinforce_on_access=True,  # Access boosts memory
-        min_importance=0.1  # Floor - never forget below this
+        half_life_hours=24.0,
     )
 )
+agent = Agent(model=Model.OpenAI("gpt-4o-mini", api_key="your-api-key"), memory=memory)
+# model = Model.mock()  # no API key needed for testing
+
+agent.remember("This memory will decay over time", memory_type=MemoryType.EPISODIC)
+mems = agent.recall(memory_type=MemoryType.EPISODIC)
+print(f"Memory stored with decay configured: {len(mems)} memory")
+print(f"Strategy: {memory.decay.strategy}")
+print(f"Half-life: {memory.decay.half_life_hours} hours")
+print(f"Computed rate: {memory.decay.rate:.6f}")
+print(f"Reinforce on access: {memory.decay.reinforce_on_access}")
 ```
 
-### Decay Strategies
+Output:
 
-| Strategy | How It Works | Best For |
-|----------|-------------|----------|
-| **EXPONENTIAL** | Fast initial decay, then slower | Typical forgetfulness |
-| **LINEAR** | Constant rate | Predictable aging |
-| **LOGARITHMIC** | Slow start, faster later | Long-term retention |
-| **NONE** | No decay | Critical, permanent memories |
+```
+Memory stored with decay configured: 1 memory
+Strategy: exponential
+Half-life: 24.0 hours
+Computed rate: 0.971532
+Reinforce on access: True
+```
 
-### Half-Life
+`half_life_hours=24.0` means a memory's importance halves every 24 hours. After 24 hours it is at 0.5, after 48 it is at 0.25, and so on. `reinforce_on_access=True` (the default) means every time that memory is recalled, it gets a small importance boost — used memories stay relevant.
 
-Set decay by how long memories should last:
+### Choosing a decay strategy
+
+There are five strategies. Each models a different forgetting curve:
 
 ```python
-# Memory halves in importance every 24 hours
-decay = Decay(
+from syrin import Decay
+from syrin.enums import DecayStrategy
+
+for strategy in DecayStrategy:
+    d = Decay(strategy=strategy)
+    print(f"DecayStrategy.{strategy.name:12s} = {strategy.value!r}")
+```
+
+Output:
+
+```
+DecayStrategy.EXPONENTIAL  = 'exponential'
+DecayStrategy.LINEAR       = 'linear'
+DecayStrategy.LOGARITHMIC  = 'logarithmic'
+DecayStrategy.STEP         = 'step'
+DecayStrategy.NONE         = 'none'
+```
+
+`EXPONENTIAL` is the right default for most use cases. It decays quickly at first and then flattens — the same shape as real human forgetting. `LINEAR` is simpler and more predictable. `LOGARITHMIC` starts slow and accelerates. `NONE` disables decay entirely, which is what you want for core memories you have set to permanent.
+
+You can set a floor with `min_importance` so that nothing ever drops to zero:
+
+```python
+from syrin import Decay
+from syrin.enums import DecayStrategy
+
+d = Decay(
     strategy=DecayStrategy.EXPONENTIAL,
-    half_life_hours=24,  # Importance halves every 24 hours
+    half_life_hours=24.0,
+    min_importance=0.1,    # never drop below 10%
+    reinforce_on_access=True,
 )
 ```
 
 ---
 
-## Automatic Memory
+## Backends
 
-Don't want to manually remember everything? Enable auto-store:
+The default backend is in-memory — it lives in Python heap, fast and zero-config, but does not survive process restarts.
+
+For persistence, use SQLite. One line change:
 
 ```python
-memory = Memory(
-    auto_store=True  # Automatically stores conversations
-)
+from syrin import Agent, Model
+from syrin import Memory
+from syrin.enums import MemoryType, MemoryBackend
 
-agent = Agent(model=Model.Almock(), memory=memory)
+memory = Memory(backend=MemoryBackend.SQLITE, path="./memories.db")
+agent = Agent(model=Model.OpenAI("gpt-4o-mini", api_key="your-api-key"), memory=memory)
+# model = Model.mock()  # no API key needed for testing
 
-# Every conversation is automatically remembered
-agent.run("I love coffee")
-agent.run("My favorite is espresso")
-# These are automatically stored as episodic memories
+agent.remember("Persisted to disk", memory_type=MemoryType.CORE)
+mems = agent.recall(memory_type=MemoryType.CORE)
+print(f"Backend: {memory.backend}")
+print(f"Content: {mems[0].content!r}")
+```
+
+Output:
+
+```
+Backend: sqlite
+Content: 'Persisted to disk'
+```
+
+SQLite is ideal for single-process deployments: local tools, personal assistants, development environments. The database is a plain file at the path you specify.
+
+For production systems with multiple processes, or when you need semantic similarity search rather than keyword matching, the vector database backends (`QDRANT`, `CHROMA`, `REDIS`, `POSTGRES`) are the right choice. These are covered in depth on the [Memory Backends](/agent-kit/core/memory-backends) page.
+
+The full list of backend options:
+
+```python
+from syrin.enums import MemoryBackend
+
+for b in MemoryBackend:
+    print(f"MemoryBackend.{b.name:10s} = {b.value!r}")
 ```
 
 ---
 
-## Configuration
+## What's next
 
-### Quick Start (Most Use Cases)
-
-```python
-memory = Memory()  # Defaults work great!
-```
-
-### Common Configurations
-
-```python
-# High-memory assistant
-memory = Memory(
-    top_k=10,  # Recall up to 10 memories
-    decay=Decay(strategy=DecayStrategy.EXPONENTIAL, rate=0.99),
-)
-
-# Fast, minimal memory
-memory = Memory(
-    top_k=3,
-    restrict_to=[MemoryType.CORE],  # Only core memories
-)
-
-# Research assistant
-memory = Memory(
-    top_k=20,
-    decay=Decay(half_life_hours=48),
-    restrict_to=[MemoryType.CORE, MemoryType.SEMANTIC, MemoryType.PROCEDURAL],
-)
-```
-
-### All Options
-
-```python
-from syrin.enums import InjectionStrategy, WriteMode
-
-memory = Memory(
-    # Storage
-    backend=MemoryBackend.SQLITE,  # or MEMORY, QDRANT, REDIS, etc.
-    path="./memory.db",
-    
-    # What to store
-    restrict_to=[MemoryType.CORE, MemoryType.EPISODIC, MemoryType.SEMANTIC, MemoryType.PROCEDURAL],
-    
-    # Retrieval
-    top_k=10,  # Max memories to recall
-    relevance_threshold=0.7,  # Min relevance (0-1)
-    injection_strategy=InjectionStrategy.ATTENTION_OPTIMIZED,
-    
-    # Behavior
-    auto_store=True,  # Auto-save conversations
-    decay=Decay(strategy=DecayStrategy.EXPONENTIAL),
-    write_mode=WriteMode.ASYNC,  # Don't block on write
-)
-```
-
----
-
-## Additional Memory Exports
-
-The memory package also exports:
-
-- `MemoryEntry` for explicit memory records.
-- `MemorySnapshot` and `MemorySnapshotEntry` for serialized snapshots and inspection.
-- `MemoryStore` for lower-level store access.
-- `InMemoryBackend`, `SQLiteBackend`, `QdrantBackend`, `ChromaBackend`, `RedisBackend`, `PostgresBackend`, and `BACKENDS` for backend selection and registration.
-
-## What's Next?
-
-- [Memory Types](/agent-kit/core/memory-types) - Deep dive into each memory type
-- [Memory Backends](/agent-kit/core/memory-backends) - SQLite, Redis, PostgreSQL, and more
-- [Context](/agent-kit/core/context) - How memory fits into context window
-
-## See Also
-
-- [Prompts](/agent-kit/core/prompts) - Instruct your agent effectively
-- [Budget](/agent-kit/core/budget) - Control memory costs
-- [Agents](/agent-kit/agent/overview) - Building agents with memory
+- [Memory Backends](/agent-kit/core/memory-backends) — SQLite, Qdrant, Chroma, Redis, and PostgreSQL in detail
+- [Budget](/agent-kit/core/budget) — Control the cost of memory operations
+- [Agent](/agent-kit/agent/overview) — Building agents that remember across sessions
+- [Hooks](/agent-kit/core/hooks) — React to memory events with lifecycle hooks

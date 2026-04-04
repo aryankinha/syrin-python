@@ -16,7 +16,7 @@ from syrin.budget import (
     raise_on_exceeded,
     warn_on_exceeded,
 )
-from syrin.enums import ThresholdMetric
+from syrin.enums import ExceedPolicy, ThresholdMetric
 from syrin.types import CostInfo, TokenUsage
 
 
@@ -28,7 +28,7 @@ def test_rate_limit_model() -> None:
 
 
 def test_budget_model() -> None:
-    b = Budget(max_cost=5.0, on_exceeded=warn_on_exceeded, thresholds=[])
+    b = Budget(max_cost=5.0, exceed_policy=ExceedPolicy.WARN, thresholds=[])
     assert b.max_cost == 5.0
     assert b.on_exceeded is warn_on_exceeded
     assert b.thresholds == []
@@ -340,17 +340,16 @@ def test_budget_with_no_thresholds() -> None:
 
 
 def test_budget_on_exceeded_various_valid_actions() -> None:
-    """Test all valid on_exceeded actions."""
-    b1 = Budget(max_cost=1.0, on_exceeded=raise_on_exceeded)
+    """ExceedPolicy values map to the correct internal handlers."""
+    b1 = Budget(max_cost=1.0, exceed_policy=ExceedPolicy.STOP)
     assert b1.on_exceeded is raise_on_exceeded
 
-    b2 = Budget(max_cost=1.0, on_exceeded=warn_on_exceeded)
+    b2 = Budget(max_cost=1.0, exceed_policy=ExceedPolicy.WARN)
     assert b2.on_exceeded is warn_on_exceeded
 
-    from syrin.budget import stop_on_exceeded
-
-    b3 = Budget(max_cost=1.0, on_exceeded=stop_on_exceeded)
-    assert b3.on_exceeded is stop_on_exceeded
+    # IGNORE → no-op lambda (callable but not one of the named handlers)
+    b3 = Budget(max_cost=1.0, exceed_policy=ExceedPolicy.IGNORE)
+    assert callable(b3.on_exceeded)
 
 
 def test_budget_tracker_reset_run_multiple_times() -> None:

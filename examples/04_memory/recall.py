@@ -23,7 +23,7 @@ def main() -> None:
 
     # Create an agent with in-memory persistence (no API key needed)
     assistant = Agent(
-        model=Model.Almock(),
+        model=Model.mock(),
         system_prompt="You are a helpful assistant.",
         memory=Memory(),
     )
@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
     # Optional: serve the agent in the playground
     # assistant = Agent(
-    #     model=Model.Almock(),
+    #     model=Model.mock(),
     #     system_prompt="You are a helpful assistant.",
     #     memory=Memory(),
     # )

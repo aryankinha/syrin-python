@@ -49,8 +49,8 @@ if __name__ == "__main__":
     load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
     class ProductAgent(Agent):
-        _agent_name = "product-agent"
-        _agent_description = "Product catalog agent (MCP tools)"
+        name = "product-agent"
+        description = "Product catalog agent (MCP tools)"
         model = almock
         system_prompt = "You help users find products."
         tools = [ProductMCP()]

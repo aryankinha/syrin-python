@@ -42,7 +42,7 @@ class AgentBuilder:
         self._budget_store: object = None
         self._memory: Memory | None = None
         self._loop_strategy: object = None
-        self._custom_loop: object = None
+        self._loop: object = None
         self._guardrails: object = None
         self._context: Context | None = None
         self._rate_limit: object = None
@@ -96,9 +96,9 @@ class AgentBuilder:
         self._loop_strategy = strategy
         return self
 
-    def with_custom_loop(self, loop: object) -> AgentBuilder:
-        """Set custom Loop instance."""
-        self._custom_loop = loop
+    def with_loop(self, loop: object) -> AgentBuilder:
+        """Set Loop instance or class (e.g. ReactLoop(), HumanInTheLoop())."""
+        self._loop = loop
         return self
 
     def with_guardrails(self, guardrails: object) -> AgentBuilder:
@@ -171,7 +171,7 @@ class AgentBuilder:
             budget_store=self._budget_store,  # type: ignore[arg-type]
             memory=self._memory,
             loop_strategy=self._loop_strategy,  # type: ignore[arg-type]
-            custom_loop=self._custom_loop,  # type: ignore[arg-type]
+            loop=self._loop,  # type: ignore[arg-type]
             guardrails=self._guardrails,  # type: ignore[arg-type]
             debug=self._debug,
             config=config,

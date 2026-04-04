@@ -125,7 +125,7 @@ def main() -> None:
     print("=" * 60)
 
     agent = Agent(
-        model=Model.Almock(),
+        model=Model.mock(),
         memory=Memory(
             # restrict_to replaces the old types= parameter; omit for all 4 types (default)
             top_k=5,
@@ -170,7 +170,7 @@ if __name__ == "__main__":
 
     # Optional: serve the agent in the playground
     # agent = Agent(
-    #     model=Model.Almock(),
+    #     model=Model.mock(),
     #     memory=Memory(
     #         types=[MemoryType.CORE, MemoryType.EPISODIC, MemoryType.SEMANTIC, MemoryType.PROCEDURAL],
     #         top_k=5,

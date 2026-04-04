@@ -16,8 +16,8 @@ from syrin.serve.http import build_router
 class _TestAgentWithBudget(Agent):
     """Agent with budget for config override tests."""
 
-    _agent_name = "config-test-agent"
-    _agent_description = "Config test"
+    name = "config-test-agent"
+    description = "Config test"
     model = Model.Almock()
 
 

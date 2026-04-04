@@ -11,7 +11,7 @@ import pytest
 from syrin.budget import Budget, raise_on_exceeded
 from syrin.checkpoint import CheckpointConfig, CheckpointTrigger
 from syrin.context import Context
-from syrin.enums import StopReason
+from syrin.enums import ExceedPolicy, StopReason
 from syrin.exceptions import (
     BudgetExceededError,
     BudgetThresholdError,
@@ -129,7 +129,7 @@ def test_validation_error_has_attempts_and_last_error() -> None:
 
 def test_budget_valid_run_and_callback() -> None:
     """Budget accepts run=float and on_exceeded=callable."""
-    b = Budget(max_cost=0.5, on_exceeded=raise_on_exceeded)
+    b = Budget(max_cost=0.5, exceed_policy=ExceedPolicy.STOP)
     assert b.max_cost == 0.5
     assert b.on_exceeded is raise_on_exceeded
 
@@ -138,7 +138,7 @@ def test_budget_valid_with_thresholds() -> None:
     """Budget accepts list of BudgetThreshold."""
     b = Budget(
         run=1.0,
-        on_exceeded=raise_on_exceeded,
+        exceed_policy=ExceedPolicy.STOP,
         thresholds=[BudgetThreshold(at=80, action=lambda _ctx: None)],
     )
     assert len(b.thresholds) == 1

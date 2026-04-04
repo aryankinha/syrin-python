@@ -86,8 +86,8 @@ if __name__ == "__main__":
     from syrin import Agent
 
     class ConfigDemoAgent(Agent):
-        _agent_name = "config-demo"
-        _agent_description = "Agent with global config demo"
+        name = "config-demo"
+        description = "Agent with global config demo"
         model = almock
         system_prompt = "You are helpful."
 

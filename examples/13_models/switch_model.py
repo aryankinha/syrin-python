@@ -31,7 +31,7 @@ cheap_model = almock  # For demo, both are almock — in prod use different mode
 
 
 class AdaptiveAgent(Agent):
-    _agent_name = "adaptive_agent"
+    name = "adaptive_agent"
     model = powerful_model
     system_prompt = "You are a helpful assistant."
     budget = Budget(

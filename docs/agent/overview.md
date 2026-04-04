@@ -1,131 +1,47 @@
 ---
-title: Agents Overview
-description: What is an Agent in Syrin and why you'd want one
+title: Agent Overview
+description: What a Syrin agent is, what it can do, and how it fits together
 weight: 60
 ---
 
-## Your AI Agent: Not Just a Chatbot Wrapper
+## What Is a Syrin Agent?
 
-You've seen them. Those "AI agents" that are really just a fancy API call with a for-loop. They hallucinate answers, burn through your budget like there's no tomorrow, and have no memory of what happened five messages ago.
+An agent is an AI-powered program that can think, act, and remember.
 
-Syrin agents are different. They're built for **production**—real applications where cost matters, memory persists, tools actually work, and you can see exactly what's happening under the hood.
+More precisely: an agent is a Python class that wraps an LLM and gives it capabilities — tools it can use, memory it can draw on, a budget it cannot exceed, and lifecycle hooks so you can see everything it does.
 
-## What is an Agent, Anyway?
+Think of it like hiring an employee. You give them a brain (the model), a job description (the system prompt), tools to do their job (the tools list), a spending limit (the budget), and a notebook to remember things (memory). They work until the task is done or the budget runs out.
 
-An agent is an AI-powered program that:
-
-- Talks to an LLM (OpenAI, Anthropic, Google, Ollama, etc.)
-- Can call **tools** (search, calculate, make API calls)
-- Can **remember** and **recall** information across sessions
-- Respects **budgets**—literally stops when it hits your cost limit
-- Emits **lifecycle events** for full observability
-- Supports **multi-agent** patterns (handoff, spawn, pipelines)
-
-Think of it as an employee. You give them a brain (model), instructions (system prompt), tools (abilities), and a budget (allowance). They work until the budget runs out or the task is done.
-
-## The Problem with Plain API Calls
-
-Here's what happens with a basic API call:
-
-```python
-# The "AI agent" that will haunt your dreams
-import openai
-response = openai.ChatCompletion.create(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": "Hello"}]
-)
-print(response.choices[0].message.content)
-```
-
-**What you get:** A single response. No tools. No memory. No budget control. No visibility. Just... hope that worked.
-
-## The Syrin Solution: Agents with Superpowers
-
-Here's what an actual agent looks like:
-
-```python
-from syrin import Agent, Model, Budget
-from syrin.tool import tool
-from syrin.enums import MemoryType, ExceedPolicy
-
-# Define a tool the agent can use
-@tool
-def search_web(query: str) -> str:
-    """Search the web for current information."""
-    # Real implementation would call a search API
-    return f"Search results for: {query}"
-
-# Create an agent with budget, memory, and tools
-class ResearchAgent(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-    system_prompt = """
-        You are a thorough research assistant. Use tools when you need 
-        current information. Be precise and cite your sources.
-    """
-    tools = [search_web]
-    budget = Budget(max_cost=1.00, exceed_policy=ExceedPolicy.STOP)
-
-# Create and use the agent
-agent = ResearchAgent()
-response = agent.run("What are the latest developments in AI?")
-print(f"Response: {response.content}")
-print(f"Cost: ${response.cost:.4f}")
-```
-
-**What just happened:**
-1. Agent created with a specific model and personality
-2. Tool registered so the agent can search the web
-3. Budget set to $1.00 max per run
-4. Response received with full cost transparency
-
-## Agent vs Script: When to Use Each
-
-| Scenario | Use an Agent | Use a Script |
-|----------|-------------|--------------|
-| Multi-turn conversations | ✅ | ❌ |
-| Tool use required | ✅ | ❌ |
-| Budget control needed | ✅ | ❌ |
-| Persistent memory across sessions | ✅ | ❌ |
-| Single LLM call | ✅ | ✅ |
-| Simple transformation | ✅ | ✅ |
-
-## What's Inside an Agent
-
-Each agent has these components:
-
-- **Model** — The brain (OpenAI, Anthropic, etc.)
-- **System Prompt** — The instruction manual
-- **Tools** — What the agent can DO
-- **Memory** — What the agent remembers
-- **Context** — Token budget and compaction
-- **Budget** — Cost control with thresholds
-- **Guardrails** — Safety rails for input/output
-- **Loop** — How the agent thinks (REACT, etc.)
-
-Each of these is a **dial you can turn**. We'll cover each in detail, but first...
-
-## The Simplest Possible Agent
+## The Simplest Agent
 
 ```python
 from syrin import Agent, Model
 
-# This is valid. It works. It's not recommended for production.
-agent = Agent(
-    model=Model.OpenAI("gpt-4o", api_key="your-api-key"),
-)
-response = agent.run("Hello!")
+class Assistant(Agent):
+    model = Model.mock()
+    system_prompt = "You are helpful."
+
+response = Assistant().run("Hello!")
 print(response.content)
 ```
 
-That's it. No tools, no memory, no budget. Just a brain and a message.
+Output:
 
-## A More Complete Example
+```
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore
+```
+
+That is the smallest valid Syrin agent. Two class attributes and you are running. Swap `Model.mock()` for any real model and you get real answers.
+
+The class pattern is the recommended way to build agents — it enables inheritance, reuse, and clean testing. You can also create agents via the constructor (`Agent(model=..., system_prompt=...)`) for quick one-off scripts, but the class pattern is preferred for anything you'll maintain.
+
+## A More Complete Agent
+
+Here is the same pattern with the capabilities that make agents useful in production:
 
 ```python
-from syrin import Agent, Model, Budget
-from syrin.tool import tool
+from syrin import Agent, Budget, Memory, Model, tool
 from syrin.enums import ExceedPolicy
-from syrin.memory import Memory, MemoryPreset
 
 @tool
 def get_weather(city: str) -> str:
@@ -133,99 +49,128 @@ def get_weather(city: str) -> str:
     return f"Sunny, 72°F in {city}"
 
 class WeatherAssistant(Agent):
-    # The brain - pick your model
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-    
-    # The personality - how it should behave
+    model = Model.mock()
     system_prompt = "You are a friendly weather assistant."
-    
-    # The tools - what it can do
     tools = [get_weather]
-    
-    # The wallet - how much it can spend
-    budget = Budget(max_cost=0.50, exceed_policy=ExceedPolicy.STOP)
-    
-    # The memory - what it remembers
-    memory = MemoryPreset.STANDARD  # Core + Episodic memory
+    budget = Budget(max_cost=0.50, exceed_policy=ExceedPolicy.WARN)
+    memory = Memory()
 
-# Create and use
 agent = WeatherAssistant()
 response = agent.run("What's the weather in Tokyo?")
-print(f"Reply: {response.content}")
-print(f"Spent: ${agent.budget_state.spent:.4f}")
+print(f"Reply: {response.content[:60]}")
+print(f"Spent: ${agent.budget_state.spent:.6f}")
+print(f"Tools available: {[t.name for t in agent.tools]}")
 ```
 
-## How an Agent Thinks (The Loop)
-
-By default, Syrin uses **ReACT**—a think-act-observe loop:
+Output:
 
 ```
-1. Think: "The user asked about weather in Tokyo"
-2. Act: Call the get_weather tool
-3. Observe: "Sunny, 72°F in Tokyo"
-4. Think: "Now I have the answer"
-5. Respond: "It's sunny and 72°F in Tokyo!"
+Reply: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed
+Spent: $0.000046
+Tools available: ['get_weather']
 ```
 
-You can change this with `loop_strategy`:
+The tool is registered and available. With a real model, the agent would call `get_weather("Tokyo")` and use the result in its response. With the mock model, it returns placeholder text — but the plumbing is all there.
+
+## What Lives Inside an Agent
+
+Every Syrin agent has these components. All of them are optional except the model:
+
+**Model** — The AI brain. Which LLM answers questions, which provider hosts it, and what the call costs. You can switch models mid-run if the budget runs low.
+
+**System Prompt** — Instructions to the LLM. Defines personality, constraints, format requirements, and anything else the agent should always know. Can be a static string, a method that computes it dynamically, or a template with variables.
+
+**Tools** — Functions the agent can call. The LLM decides when to call them and with what arguments. Syrin handles the call, captures the result, and feeds it back to the LLM. More on this in [Tools](/agent-kit/agent/tools).
+
+**Memory** — A structured store with four types: Core, Episodic, Semantic, and Procedural. Memories persist across `run()` calls and optionally across restarts. More on this in [Memory](/agent-kit/core/memory).
+
+**Budget** — A cost limit with a configurable behavior when the limit is hit: warn and continue, raise an exception, or switch to a cheaper model. The budget accumulates across all `run()` calls on the same agent instance. More on this in [Budget](/agent-kit/core/budget).
+
+**Context** — The conversation history. Syrin manages token counts, compaction, and history windowing automatically. You can configure limits and strategies. More on this in [Context](/agent-kit/core/context).
+
+**Guardrails** — Rules that check inputs and outputs. PII detection, prompt injection filtering, content filtering, length limits. More on this in [Guardrails](/agent-kit/agent/guardrails).
+
+**Hooks** — 70+ lifecycle events you can subscribe to. Every LLM call, every tool execution, every budget check. More on this in [Hooks](/agent-kit/debugging/hooks).
+
+## How the Agent Loop Works
+
+By default, Syrin uses the REACT loop — Reason, Act, Observe, repeat:
+
+1. The agent receives your input
+2. It calls the LLM with the system prompt, conversation history, and your input
+3. If the LLM wants to call a tool, Syrin calls it and feeds the result back
+4. Steps 2-3 repeat until the LLM gives a final answer
+5. The final answer is wrapped in a `Response` object and returned to you
+
+If you give your agent no tools, step 3 never happens. One LLM call, one response. You can also explicitly use `LoopStrategy.SINGLE_SHOT` to force a single call even if tools are available.
+
+## Class Definition vs. Instance
+
+The class defines what your agent is. The instance is the live, running agent.
 
 ```python
-# Single shot = one LLM call, no tool loops
-agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
-    loop_strategy=LoopStrategy.SINGLE_SHOT,  # Just one response
-)
-```
+class MyAgent(Agent):
+    model = Model.mock()
+    system_prompt = "You are helpful."
+    budget = Budget(max_cost=1.00, exceed_policy=ExceedPolicy.WARN)
 
-## Real Control, Real Visibility
-
-The key difference with Syrin: **you control everything, and you see everything**.
-
-```python
-from syrin import Agent, Model, Budget, Hook
 from syrin.enums import ExceedPolicy
+from syrin import Budget
 
-agent = Agent(
-    model=Model.OpenAI("gpt-4o", api_key="your-api-key"),
-    budget=Budget(max_cost=0.10, exceed_policy=ExceedPolicy.WARN),
-    debug=True,  # Print events to console
-)
+# Each instance is independent
+agent1 = MyAgent()
+agent2 = MyAgent()
 
-# Hook into any lifecycle event
-agent.events.on(Hook.LLM_REQUEST_END, lambda ctx: print(f"Tokens: {ctx.tokens}"))
-agent.events.on(Hook.BUDGET_THRESHOLD, lambda ctx: print(f"{ctx.percentage:.0f}% spent!"))
+agent1.run("Hello!")
+agent2.run("Hi there!")
 
-response = agent.run("Tell me about quantum computing")
-print(f"Total cost: ${agent.budget_state.spent:.4f}")
+# Budgets are separate
+print(f"Agent 1 spent: ${agent1.budget_state.spent:.6f}")
+print(f"Agent 2 spent: ${agent2.budget_state.spent:.6f}")
 ```
 
-This level of control is what makes Syrin agents production-ready.
+They do not share state. Each instance has its own conversation history, its own budget counter, and its own memory (if memory is in-memory backend). For shared state across instances, use [Swarm](/agent-kit/multi-agent/swarm).
 
-## When NOT to Use an Agent
+## Inheritance
 
-Agents add overhead. If you just need a single LLM call, use the model directly:
+Agent classes follow standard Python inheritance. Child classes inherit all parent class attributes and can override any of them:
 
 ```python
-# Don't do this:
-agent = Agent(model=Model.OpenAI("gpt-4o"))
-agent.run("Translate 'hello' to French")
+class BaseAgent(Agent):
+    model = Model.mock()
+    budget = Budget(max_cost=5.00, exceed_policy=ExceedPolicy.WARN)
+    tools = [get_weather]  # All children inherit this tool
 
-# Do this instead:
-from syrin.model import Model
-model = Model.OpenAI("gpt-4o")
-# ... make a single call
+class SpecializedAgent(BaseAgent):
+    system_prompt = "You specialize in weather reports."  # Overrides nothing from Base
+
+class ReportingAgent(BaseAgent):
+    system_prompt = "You write detailed weather reports."
+    # Inherits model, budget, and tools from BaseAgent
 ```
 
-## What's Next?
+Tools from parent classes are merged, not replaced. If `BaseAgent` has `[tool_a]` and `ChildAgent` has `[tool_b]`, the child has `[tool_a, tool_b]`. To remove a parent tool, define a `tools` list explicitly on the child.
 
-- [Agent Anatomy](/agent-kit/agent/anatomy) - Deep dive into each component
-- [Creating Agents](/agent-kit/agent/creating-agents) - Four ways to build an agent
-- [Running Agents](/agent-kit/agent/running-agents) - Sync, async, and streaming
-- [Builder Pattern](/agent-kit/agent/builder-pattern) - Fluent agent construction
+## What Makes an Agent Different From a Plain API Call
 
-## See Also
+A plain LLM API call gives you text back. That is all.
 
-- [Models](/agent-kit/core/models) - Choosing the right AI brain
-- [Memory](/agent-kit/core/memory) - Making agents remember
-- [Budget](/agent-kit/core/budget) - Controlling costs
-- [Tools](/agent-kit/agent/tools) - Giving agents abilities
+A Syrin agent gives you:
+- Cost tracking down to the fractional cent, automatically
+- Conversation history that persists across multiple `run()` calls
+- A budget that enforces your spending limit without any extra code
+- Memory that the agent can draw on across sessions
+- Tools it can call with structured, validated arguments
+- Events you can subscribe to for logging, alerting, and debugging
+- Guardrails that check inputs and outputs automatically
+- The ability to spawn child agents, hand off to specialists, or join a swarm
+
+None of these require you to write the plumbing. They are on by default, off when you do not configure them.
+
+## What's Next
+
+- [Creating Agents](/agent-kit/agent/creating-agents) — The class pattern, the builder pattern, and when to use each
+- [Running Agents](/agent-kit/agent/running-agents) — `run()`, `arun()`, `stream()`, and what to do with the response
+- [Tools](/agent-kit/agent/tools) — Give your agent real-world abilities
+- [Memory](/agent-kit/core/memory) — Four memory types, backends, and decay
+- [Budget](/agent-kit/core/budget) — Cost control with thresholds and rate limits

@@ -6,17 +6,17 @@ Run:
     python examples/01_minimal/agent_with_budget.py
 """
 
-from syrin import Agent, Budget, Model, raise_on_exceeded, warn_on_exceeded
+from syrin import Agent, Budget, Model
 from syrin.exceptions import BudgetExceededError
 
-model = Model.Almock()
+model = Model.mock()
 
 # --- Example 1: Budget with warning ---
 # warn_on_exceeded: logs a warning but keeps running
 agent = Agent(
     model=model,
     system_prompt="Be concise.",
-    budget=Budget(max_cost=0.50, on_exceeded=warn_on_exceeded),
+    budget=Budget(max_cost=0.50, exceed_policy=ExceedPolicy.WARN),
 )
 
 response = agent.run("What is machine learning?")
@@ -30,7 +30,7 @@ print()
 agent2 = Agent(
     model=model,
     system_prompt="Be concise.",
-    budget=Budget(max_cost=0.0001, on_exceeded=raise_on_exceeded),
+    budget=Budget(max_cost=0.0001, exceed_policy=ExceedPolicy.STOP),
 )
 
 try:
@@ -44,7 +44,7 @@ print()
 class CostAwareAgent(Agent):
     model = model
     system_prompt = "You are a concise assistant."
-    budget = Budget(max_cost=1.00, on_exceeded=warn_on_exceeded)
+    budget = Budget(max_cost=1.00, exceed_policy=ExceedPolicy.WARN)
 
 
 agent3 = CostAwareAgent()

@@ -14,12 +14,6 @@ Without GOOGLE_API_KEY the agent runs but has no image/video tools.
 from __future__ import annotations
 
 import os
-import sys
-from pathlib import Path
-
-_root = Path(__file__).resolve().parents[2]
-if str(_root) not in sys.path:
-    sys.path.insert(0, str(_root))
 
 from syrin import Agent, Model
 from syrin.enums import Media
@@ -30,7 +24,7 @@ def main() -> None:
     if os.getenv("OPENAI_API_KEY"):
         model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
     else:
-        model = Model.Almock(latency_min=0, latency_max=0)
+        model = Model.mock(latency_min=0, latency_max=0)
 
     agent = Agent(
         model=model,

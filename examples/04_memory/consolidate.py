@@ -61,7 +61,7 @@ if __name__ == "__main__":
     # Optional: serve the agent in the playground
     # from syrin import Agent
     # agent = Agent(
-    #     model=Model.Almock(),
+    #     model=Model.mock(),
     #     system_prompt="You are a helpful assistant. Use memory to remember user preferences.",
     #     memory=Memory(),
     # )

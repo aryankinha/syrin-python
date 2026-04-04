@@ -1,251 +1,215 @@
 ---
 title: Tracing
-description: Understand agent execution with distributed tracing
+description: Capture every span of an agent run — for production debugging, auditing, and observability platforms
 weight: 173
 ---
 
-## Something Failed in Production
+## What Is Tracing?
 
-Your agent worked perfectly in development. Then in production, something went wrong. A user reported wrong routing. Another got an error. But by the time you looked, the evidence was gone.
+Every agent run is a tree of operations: memory recall, context preparation, LLM call, tool execution. Tracing captures each of those operations as a **span** — a named record with a start time, duration, status, and attributes.
 
-Traditional debugging relies on reproducing the issue. But AI agents are non-deterministic. The same input might work 99 times and fail once. You need to see what happened—not recreate it.
+When something fails in production, you don't have to reproduce it. You look at the trace and see exactly what happened, in order, with timing.
 
-Tracing gives you that visibility. Every agent operation becomes a **span**—a record of what happened, when, and how long it took. Spans form a tree showing the complete execution path. You see not just the final output, but every decision along the way.
+## Enabling Tracing
 
-## The Problem
-
-Production debugging without tracing is guesswork:
-
-- **What happened?** You see the error, not the cause
-- **Why did it happen?** The stack trace doesn't show agent decisions
-- **Where did it happen?** No visibility into which tool failed
-- **When did it happen?** No timeline of operations
-- **Who was affected?** No correlation with user requests
-
-You might add logging, but logs are:
-- Scattered across files
-- Hard to correlate
-- Missing context
-- Difficult to analyze at scale
-
-## The Solution
-
-Syrin's tracing system captures every operation as a span:
+Tracing is always running internally. To see it, add an exporter:
 
 ```python
 from syrin import Agent, Model
-from syrin.observability import trace, ConsoleExporter, get_tracer
+from syrin.observability import get_tracer, ConsoleExporter
 
-# Add console exporter for visibility
+# Print every span to the console
 get_tracer().add_exporter(ConsoleExporter())
 
-agent = Agent(model=Model.Almock())
-result = agent.run("Hello")
+agent = Agent(model=Model.OpenAI("gpt-4o-mini", api_key="your-api-key"), system_prompt="You are helpful.")
+# model = Model.mock()  # no API key needed for testing
+result = agent.run("Hello!")
 ```
 
-**Output:**
+Output (color removed for readability):
+
 ```
-agent: agent.run
-  trace_id=a1b2c3d4 span_id=e5f6g7h8
-  duration=145.23ms status=ok
+agent: agent.response
+  trace_id=0338f95d span_id=e9397da1
+  duration=1194.43ms status=ok
   attributes:
-    agent.name=Assistant
+    agent.name=agent
+    agent.class=Agent
     input=Hello
-  tool: tool.search
-    trace_id=a1b2c3d4 span_id=i9j0k1l2
-    duration=23.45ms status=ok
+    llm.model=almock/default
+    llm.tokens.total=30
+    cost.usd=$0.00004
+  memory: memory.recall
+    trace_id=0338f95d span_id=cb8dc975
+    duration=0.01ms status=ok
     attributes:
-      tool.name=search
-      tool.input={"query": "Hello"}
+      memory.operation=recall
+      memory.results.count=0
+  internal: context.prepare
+    trace_id=0338f95d span_id=e49002ee
+    duration=0.19ms status=ok
+    attributes:
+      context.max_tokens=8192
+      context.tokens=13
+  llm: llm.iteration_1
+    trace_id=0338f95d span_id=3621196c
+    duration=1185.98ms status=ok
+    attributes:
+      llm.model=almock/default
+      llm.tokens.total=30
 ```
 
-**What just happened**: You see the complete execution tree. The agent span contains a tool span. You know exactly what tools were called, with what inputs, and how long each took.
+Every span shares a `trace_id` — so you can link the whole tree back to one `agent.run()` call.
 
-## How Tracing Works
+## Collecting Spans in Memory
 
-### Spans
-
-A **span** is a record of a single operation:
-
-```python
-from syrin.observability import Span, SpanKind, SpanContext
-
-span = Span(
-    name="my_operation",
-    kind=SpanKind.TOOL,
-    context=SpanContext.create(),
-)
-span.set_attribute("tool.name", "search")
-span.set_attribute("duration_ms", 50)
-```
-
-### Span Properties
-
-| Property | Description |
-|----------|-------------|
-| `name` | Operation name |
-| `kind` | Type (agent, llm, tool, memory, etc.) |
-| `trace_id` | Unique trace identifier |
-| `span_id` | Unique span identifier |
-| `parent_span_id` | Parent span (for hierarchy) |
-| `start_time` | When operation started |
-| `duration_ms` | How long it took |
-| `status` | ok, error, or cancelled |
-| `attributes` | Key-value metadata |
-| `events` | Timestamped events within the span |
-
-### Span Hierarchy
-
-Spans form a tree reflecting the execution flow:
-
-```
-agent.run (root span)
-├── llm.request (child span)
-│   └── [LLM call details]
-├── tool.search (child span)
-│   ├── tool.input (event)
-│   └── tool.output (event)
-└── tool.calculate (child span)
-```
-
-## Quick Examples
-
-### Enable Tracing with Console Output
+For programmatic access, use `InMemoryExporter`:
 
 ```python
 from syrin import Agent, Model
-from syrin.observability import ConsoleExporter, get_tracer
+from syrin.observability import get_tracer, InMemoryExporter
 
-get_tracer().add_exporter(ConsoleExporter())
+exporter = InMemoryExporter()
+get_tracer().add_exporter(exporter)
 
-agent = Agent(model=Model.Almock())
-result = agent.run("What's the weather?")
+agent = Agent(model=Model.OpenAI("gpt-4o-mini", api_key="your-api-key"), system_prompt="You are helpful.")
+# model = Model.mock()  # no API key needed for testing
+result = agent.run("Hello!")
+
+print(f"Total spans: {len(exporter.spans)}")
+for span in exporter.spans:
+    print(f"  {span.name} — {span.duration_ms:.2f}ms — {span.status}")
+    for key, val in list(span.attributes.items())[:2]:
+        print(f"    {key}: {val}")
 ```
 
-### JSONL Export for Analysis
+Output:
+
+```
+Total spans: 5
+  memory.recall — 0.01ms — ok
+    memory.operation: recall
+    memory.kind: persistent
+  memory.recall — 0.02ms — ok
+    memory.operation: recall
+    memory.kind: conversation
+  context.prepare — 0.16ms — ok
+    context.max_tokens: 8192
+    context.tokens: 14
+  llm.iteration_1 — 1185.98ms — ok
+    llm.model: almock/default
+    agent.iteration: 1
+  agent.response — 1194.43ms — ok
+    agent.name: agent
+    cost.usd: 4.1e-05
+```
+
+## Saving Traces to JSONL
+
+For persistent logs, use `JSONLExporter`:
 
 ```python
 from syrin import Agent, Model
-from syrin.observability import JSONLExporter, get_tracer
+from syrin.observability import get_tracer, JSONLExporter
 
+# Write every span to a file
 get_tracer().add_exporter(JSONLExporter("traces.jsonl"))
 
-agent = Agent(model=Model.Almock())
-result = agent.run("Hello")
+agent = Agent(model=Model.OpenAI("gpt-4o-mini", api_key="your-api-key"), system_prompt="You are helpful.")
+# model = Model.mock()  # no API key needed for testing
+agent.run("Analyze this document for key insights")
+# Spans are written to traces.jsonl as newline-delimited JSON
 ```
 
-### Session Tracking
+Each line in `traces.jsonl` is one span as a JSON object. Use this for:
+- Long-term audit trails
+- Batch analysis of many runs
+- Feeding into log aggregation systems
 
-Group related traces:
+## Span Attributes
+
+Each span has these standard fields:
+
+**`span.name`** — the operation name, e.g. `"agent.response"`, `"llm.iteration_1"`, `"memory.recall"`, `"context.prepare"`, `"tool.call"`.
+
+**`span.context.trace_id`** — shared across all spans in one `agent.run()` call. Use this to group related spans.
+
+**`span.duration_ms`** — how long the operation took in milliseconds.
+
+**`span.status`** — `"ok"` or `"error"`.
+
+**`span.attributes`** — a dict of key-value pairs. Common attributes:
+- `agent.name` — the agent's name
+- `llm.model` — model ID for LLM spans
+- `llm.tokens.total` — tokens consumed
+- `cost.usd` — cost in USD
+- `memory.operation` — `"recall"`, `"store"`, `"forget"`
+- `tool.name` — for tool spans
+- `context.max_tokens`, `context.tokens` — context stats
+
+## Multiple Exporters
+
+You can add multiple exporters at once. Each span is sent to all of them:
 
 ```python
-from syrin.observability import trace, session
+from syrin.observability import get_tracer, ConsoleExporter, JSONLExporter, InMemoryExporter
 
-# All spans within this block share the session ID
-with session("user-123-conversation-456"):
-    response1 = agent.run("Hello")
-    response2 = agent.run("Follow-up question")
-    response3 = agent.run("Another question")
+tracer = get_tracer()
+tracer.add_exporter(ConsoleExporter())          # Dev: see in terminal
+tracer.add_exporter(JSONLExporter("audit.jsonl"))  # Prod: persist to disk
+tracer.add_exporter(InMemoryExporter())          # Tests: assert on spans
 ```
 
-### Manual Spans
+## Custom Exporters
 
-Wrap custom operations:
+If you use an external observability platform (Datadog, Honeycomb, Jaeger, etc.), implement the `SpanExporter` protocol:
 
 ```python
-from syrin.observability import trace, SpanKind
+from syrin.observability import SpanExporter, Span
 
-with trace.span("my_operation", kind=SpanKind.WORKFLOW) as span:
-    span.set_attribute("custom_field", "value")
-    # Your code here
-    result = some_operation()
-    span.set_attribute("result_size", len(result))
+class DatadogExporter(SpanExporter):
+    def export(self, span: Span) -> None:
+        # Send span to Datadog
+        dd_trace_api.record(
+            name=span.name,
+            trace_id=span.context.trace_id,
+            duration=span.duration_ms,
+            attributes=dict(span.attributes),
+        )
+
+from syrin.observability import get_tracer
+get_tracer().add_exporter(DatadogExporter())
 ```
 
-## Span Kinds
+## Hooks vs. Tracing
 
-| Kind | Description |
-|-------|-------------|
-| `AGENT` | Agent execution |
-| `LLM` | LLM completion call |
-| `TOOL` | Tool execution |
-| `MEMORY` | Memory operation |
-| `BUDGET` | Budget check |
-| `GUARDRAIL` | Guardrail check |
-| `HANDOFF` | Agent handoff |
-| `WORKFLOW` | User-defined workflow |
-| `INTERNAL` | Framework operation |
+Both hooks and tracing give you visibility into agent execution, but they serve different purposes.
 
-## Semantic Attributes
+**Hooks** run during execution, in the same thread as the agent. Use hooks when you need to react in real time — alerting when budget is low, stopping on a guardrail hit, routing based on a tool result. Hooks are the action layer.
 
-Standard attribute keys for consistency:
+**Tracing** captures the same events as structured spans, written after the fact. Use tracing when you need to reconstruct what happened after a run — debugging a production failure, auditing compliance, analyzing performance trends. Tracing is the record layer.
 
-```python
-from syrin.observability import SemanticAttributes
-
-span.set_attribute(SemanticAttributes.LLM_MODEL, "gpt-4o")
-span.set_attribute(SemanticAttributes.LLM_TOKENS_TOTAL, 150)
-span.set_attribute(SemanticAttributes.TOOL_NAME, "search")
-span.set_attribute(SemanticAttributes.TOOL_INPUT, '{"query": "..."}')
-```
+In practice, most production systems use both: hooks for live monitoring and reaction, tracing for persistent records.
 
 ## Debug Mode
 
-Enable full introspection with `debug=True`:
+For development, `debug=True` on the agent prints a human-readable trace to the console without any exporter setup:
 
 ```python
-agent = Agent(model=Model.Almock(), debug=True)
-result = agent.run("Hello")
+from syrin import Agent, Model
+
+agent = Agent(
+    model=Model.mock(),
+    system_prompt="You are helpful.",
+    debug=True,  # Prints every event as it fires
+)
+agent.run("Hello!")
 ```
 
-Debug mode:
-- Enables verbose console output
-- Captures full context
-- Records all events
-- Adds human-readable formatting
+This is the fastest way to see what's happening during development. For production observability, use exporters.
 
-## Response Traces
+## What's Next
 
-Every response includes trace information:
-
-```python
-result = agent.run("Hello")
-
-# Access trace steps
-for step in result.trace:
-    print(f"Step: {step.step_type}")
-    print(f"  Cost: ${step.cost_usd:.6f}")
-    print(f"  Latency: {step.latency_ms}ms")
-```
-
-## Tracing in HTTP Serving
-
-Enable tracing when serving:
-
-```python
-agent = Agent(model=Model.Almock(), debug=True)
-agent.serve(port=8000, enable_playground=True)
-```
-
-The playground shows trace events in real-time.
-
-## Trace Helper Context Managers
-
-In addition to `trace()`, `span()`, and `session()`, Syrin exports helper span constructors for common operations:
-
-- `llm_span()` for model calls
-- `tool_span()` for tool execution
-- `memory_span()` for memory work
-- `budget_span()` for budget accounting
-- `guardrail_span()` for safety checks
-- `handoff_span()` for agent-to-agent transfer
-- `agent_span()` for whole-agent execution blocks
-
-These helpers are useful when you want consistent span names and attributes in custom instrumentation.
-
-## See Also
-
-- [Debugging Overview](/agent-kit/debugging/overview) — Introduction to observability
-- [Hooks](/agent-kit/debugging/hooks) — Event subscriptions
-- [Tracing Exporters](/agent-kit/debugging/tracing-exporters) — Export to OTLP, Langfuse, Phoenix
-- [Debugging Techniques](/agent-kit/debugging/debugging-techniques) — Real-world debugging patterns
+- [Hooks & Events](/agent-kit/debugging/hooks) — React to events during execution
+- [Hooks Reference](/agent-kit/debugging/hooks-reference) — All 182 hooks with context keys
+- [Logging](/agent-kit/debugging/logging) — Structured log output

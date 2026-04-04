@@ -9,7 +9,7 @@ import pytest
 
 from syrin.agent import Agent
 from syrin.cost import ModelPricing
-from syrin.enums import MessageRole
+from syrin.enums import ExceedPolicy, MessageRole
 from syrin.exceptions import BudgetExceededError
 from syrin.model import Model
 from syrin.types import ModelConfig, ProviderResponse, TokenUsage, ToolCall
@@ -155,9 +155,8 @@ def test_agent_budget_exceeded_raises() -> None:
     from syrin.exceptions import BudgetExceededError
 
     model = Model("openai/gpt-4")
-    from syrin.budget import raise_on_exceeded
 
-    budget = Budget(max_cost=0.0, on_exceeded=raise_on_exceeded)
+    budget = Budget(max_cost=0.0, exceed_policy=ExceedPolicy.STOP)
     agent = Agent(model=model, budget=budget)
     with patch.object(
         agent._provider,
@@ -177,16 +176,18 @@ def test_agent_budget_exceeded_raises() -> None:
 def test_agent_budget_exceeded_run_tokens_raises_with_correct_message_and_type() -> None:
     """When context.token_limits run limit exceeded, BudgetExceededError has budget_type 'run_tokens' and message."""
     from syrin.agent.config import AgentConfig
-    from syrin.budget import Budget, TokenLimits, raise_on_exceeded
+    from syrin.budget import Budget, TokenLimits
     from syrin.context import Context
     from syrin.exceptions import BudgetExceededError
 
     model = Model("openai/gpt-4")
     agent = Agent(
         model=model,
-        budget=Budget(max_cost=10.0, on_exceeded=raise_on_exceeded),
+        budget=Budget(max_cost=10.0, exceed_policy=ExceedPolicy.STOP),
         config=AgentConfig(
-            context=Context(token_limits=TokenLimits(max_tokens=50, on_exceeded=raise_on_exceeded))
+            context=Context(
+                token_limits=TokenLimits(max_tokens=50, exceed_policy=ExceedPolicy.STOP)
+            )
         ),
     )
     with patch.object(
@@ -215,7 +216,7 @@ def test_agent_budget_exceeded_run_tokens_raises_with_correct_message_and_type()
 def test_agent_budget_exceeded_hour_rate_raises_with_correct_message_and_type() -> None:
     """When hourly rate exceeded, BudgetExceededError has budget_type 'hour'."""
     from syrin import RateLimit
-    from syrin.budget import Budget, raise_on_exceeded
+    from syrin.budget import Budget
     from syrin.exceptions import BudgetExceededError
 
     model = Model("openai/gpt-4")
@@ -224,7 +225,7 @@ def test_agent_budget_exceeded_hour_rate_raises_with_correct_message_and_type() 
         budget=Budget(
             max_cost=100.0,
             rate_limits=RateLimit(hour=0.001),
-            on_exceeded=raise_on_exceeded,
+            exceed_policy=ExceedPolicy.STOP,
         ),
     )
     with patch.object(
@@ -286,7 +287,7 @@ def test_agent_budget_exceeded_context_passed_to_on_exceeded_callback() -> None:
 
 def test_agent_budget_uses_cost_from_pricing_override() -> None:
     """Budget check uses cost computed from model's pricing (custom pricing)."""
-    from syrin.budget import Budget, raise_on_exceeded
+    from syrin.budget import Budget
     from syrin.exceptions import BudgetExceededError
 
     # Pricing that makes 1000 input + 500 output tokens = $1.0 (over run=0.5)
@@ -297,7 +298,7 @@ def test_agent_budget_uses_cost_from_pricing_override() -> None:
     )
     agent = Agent(
         model=model,
-        budget=Budget(max_cost=0.5, on_exceeded=raise_on_exceeded),
+        budget=Budget(max_cost=0.5, exceed_policy=ExceedPolicy.STOP),
     )
     with (
         patch.object(
@@ -319,7 +320,7 @@ def test_agent_budget_uses_cost_from_pricing_override() -> None:
 def test_agent_budget_exceeded_hour_tokens_raises_with_correct_type_and_message() -> None:
     """When context.token_limits per-hour exceeded, BudgetExceededError has budget_type 'hour_tokens' and message."""
     from syrin import RateLimit
-    from syrin.budget import Budget, TokenLimits, TokenRateLimit, raise_on_exceeded
+    from syrin.budget import Budget, TokenLimits, TokenRateLimit
     from syrin.context import Context
     from syrin.exceptions import BudgetExceededError
 
@@ -331,13 +332,13 @@ def test_agent_budget_exceeded_hour_tokens_raises_with_correct_type_and_message(
         budget=Budget(
             max_cost=100.0,
             rate_limits=RateLimit(hour=100.0),
-            on_exceeded=raise_on_exceeded,
+            exceed_policy=ExceedPolicy.STOP,
         ),
         config=AgentConfig(
             context=Context(
                 token_limits=TokenLimits(
                     rate_limits=TokenRateLimit(hour=50),
-                    on_exceeded=raise_on_exceeded,
+                    exceed_policy=ExceedPolicy.STOP,
                 )
             )
         ),
@@ -500,10 +501,10 @@ def test_agent_with_concurrent_responses() -> None:
 
 def test_agent_budget_exceeded_with_warning_continues() -> None:
     """Test that WARN on exceeded doesn't crash."""
-    from syrin.budget import Budget, warn_on_exceeded
+    from syrin.budget import Budget
 
     model = Model("openai/gpt-4")
-    budget = Budget(max_cost=0.0, on_exceeded=warn_on_exceeded)
+    budget = Budget(max_cost=0.0, exceed_policy=ExceedPolicy.WARN)
     agent = Agent(model=model, budget=budget)
 
     with patch.object(
@@ -522,11 +523,11 @@ def test_agent_budget_exceeded_with_warning_continues() -> None:
 
 def test_agent_pre_call_budget_blocks_when_estimate_exceeds_run_limit() -> None:
     """Pre-call estimate skips LLM call when run limit would be exceeded."""
-    from syrin.budget import Budget, raise_on_exceeded
+    from syrin.budget import Budget
 
     # Very low run limit so estimated cost for "Hello" exceeds it
     model = Model("openai/gpt-4", pricing=ModelPricing(input_per_1m=10.0, output_per_1m=30.0))
-    budget = Budget(max_cost=0.0001, on_exceeded=raise_on_exceeded)
+    budget = Budget(max_cost=0.0001, exceed_policy=ExceedPolicy.STOP)
     agent = Agent(model=model, budget=budget)
 
     complete_calls: list[tuple] = []
@@ -632,8 +633,8 @@ def test_agent_explicit_name_and_description() -> None:
     """Agent with explicit name and description uses them."""
 
     class Assistant(Agent):
-        _agent_name = "product-agent"
-        _agent_description = "E-commerce product assistant"
+        name = "product-agent"
+        description = "E-commerce product assistant"
         model = Model("openai/gpt-4")
         system_prompt = "Help"
 
@@ -646,14 +647,14 @@ def test_agent_name_inheritance_override() -> None:
     """Child class name overrides parent; override pattern."""
 
     class BaseAgent(Agent):
-        _agent_name = "base"
-        _agent_description = "Base agent"
+        name = "base"
+        description = "Base agent"
         model = Model("openai/gpt-4")
         system_prompt = "Base"
 
     class ChildAgent(BaseAgent):
-        _agent_name = "child"
-        _agent_description = "Child agent"
+        name = "child"
+        description = "Child agent"
 
     agent = ChildAgent()
     assert agent.name == "child"
@@ -664,8 +665,8 @@ def test_agent_name_instance_override() -> None:
     """Constructor name overrides class default."""
 
     class Assistant(Agent):
-        _agent_name = "assistant"
-        _agent_description = "Help assistant"
+        name = "assistant"
+        description = "Help assistant"
         model = Model("openai/gpt-4")
         system_prompt = "Help"
 
@@ -784,10 +785,10 @@ def test_agent_response_structure_mocked(
 
 def test_agent_budget_tracking_with_mocked_api() -> None:
     """Verify budget tracking works with mocked API."""
-    from syrin.budget import Budget, warn_on_exceeded
+    from syrin.budget import Budget
 
     model = Model("openai/gpt-4o-mini")
-    budget = Budget(max_cost=10.0, on_exceeded=warn_on_exceeded)
+    budget = Budget(max_cost=10.0, exceed_policy=ExceedPolicy.WARN)
     agent = Agent(model=model, budget=budget)
 
     with patch.object(
@@ -835,11 +836,11 @@ def test_agent_stream_stops_and_raises_when_budget_exceeded_mid_stream() -> None
     """When budget is exceeded during streaming, stream stops and raises BudgetExceededError."""
     from unittest.mock import MagicMock
 
-    from syrin.budget import Budget, raise_on_exceeded
+    from syrin.budget import Budget
     from syrin.exceptions import BudgetExceededError
 
     model = Model("openai/gpt-4o-mini")
-    agent = Agent(model=model, budget=Budget(max_cost=0.10, on_exceeded=raise_on_exceeded))
+    agent = Agent(model=model, budget=Budget(max_cost=0.10, exceed_policy=ExceedPolicy.STOP))
 
     c1 = MagicMock()
     c1.content = "A"

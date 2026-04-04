@@ -369,6 +369,32 @@ class Workflow:
             return await executor.run(input_text)
         return await self._run_with_graph(executor, input_text)
 
+    def run_sync(
+        self,
+        input_text: str,
+        show_graph: bool = False,
+    ) -> Response[str]:
+        """Synchronous wrapper for run(). Use in non-async contexts (scripts, CLIs, tests).
+
+        Internally calls asyncio.run(). Do not call from inside an already-running
+        event loop — use await self.run() there instead.
+
+        Args:
+            input_text: Initial task string fed to the first step.
+            show_graph: Render a live graph to the terminal during execution.
+
+        Returns:
+            Response[str] from the last step.
+
+        Example:
+            wf = Workflow("pipeline").step(ResearchAgent).step(WriteAgent)
+            result = wf.run_sync("AI trends 2025")
+            print(result.content)
+        """
+        import asyncio
+
+        return asyncio.run(self.run(input_text, show_graph=show_graph))
+
     async def _run_with_graph(self, executor: WorkflowExecutor, input_text: str) -> Response[str]:
         """Run the workflow with a live Rich progress display.
 

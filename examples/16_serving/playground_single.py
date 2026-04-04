@@ -26,8 +26,8 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 class Assistant(Agent):
-    _agent_name = "assistant"
-    _agent_description = "Helpful assistant — single agent demo"
+    name = "assistant"
+    description = "Helpful assistant — single agent demo"
     model = almock
     system_prompt = "You are a helpful assistant. Be concise."
     budget = Budget(max_cost=0.5, rate_limits=RateLimit(hour=10, day=100, week=700))

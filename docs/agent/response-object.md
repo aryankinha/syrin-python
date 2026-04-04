@@ -1,625 +1,269 @@
 ---
 title: Response Object
-description: Everything you get back from an agent—and why it matters
+description: Every field on the Response — cost, tokens, stop reason, trace, and more
 weight: 65
 ---
 
-## Your Agent's Report Card
+## More Than Just Text
 
-You asked your agent to do something. It did. Now what?
+Most agent libraries give you a string. Syrin gives you a `Response` object with a full picture of what just happened: what it said, what it cost, how many tokens it burned, why it stopped, and whether anything went wrong along the way.
 
-The `Response` object is your agent's report card. It's not just "the text it said." It's a complete audit trail: how much it cost, how many tokens it burned, what tools it called, how long it took, and whether it actually finished or got stopped mid-way.
+You asked your agent a question. Before you use the answer, you might want to know: did it finish? How much did it cost? Did a tool fail? The Response object has all of that.
 
-Most libraries give you a string. We give you **observability**.
-
-## The Problem: You Can't Improve What You Can't See
-
-Picture this: Your agent is "working." Users say it's slow. Is it the model? The tools? The context window? Without visibility, you're guessing.
-
-Or this: Your agent runs fine for the first 10 requests, then starts hallucinating. Why? Maybe context is growing. Maybe memory is polluted. But you don't know because you're flying blind.
-
-**The Response object changes this.** Every call gives you everything: cost, tokens, iterations, guardrail results, memory operations, routing decisions. It's not just output—it's **feedback**.
-
-## Basic Response Anatomy
+## The Basics
 
 ```python
-from syrin import Agent, Model
+from syrin import Agent, Model, Budget
+from syrin.enums import ExceedPolicy
 
 class Assistant(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
+    model = Model.mock()
+    system_prompt = "You are a helpful assistant."
+    budget = Budget(max_cost=1.00, exceed_policy=ExceedPolicy.WARN)
 
 agent = Assistant()
 response = agent.run("What is 2 + 2?")
 
-# The basics
-print(response.content)      # "2 + 2 equals 4."
-print(response.cost)         # 0.000015
-print(response.tokens)      # TokenUsage(input=45, output=8, total=53)
-print(response.stop_reason)  # StopReason.END_TURN
-print(response.duration)     # 0.42 (seconds)
+print(response.content)         # The text response
+print(f"${response.cost:.6f}")  # Cost in USD
+print(response.tokens)          # TokenUsage object
+print(response.model)           # Model ID used
+print(response.stop_reason)     # Why it stopped
+print(f"{response.duration:.2f}s")  # How long it took
+print(response.iterations)      # How many LLM calls
+print(response.budget_remaining)  # Remaining budget
 ```
 
-**Output:**
+Output:
+
 ```
-2 + 2 equals 4.
-0.000015
-TokenUsage(input_tokens=45, output_tokens=8, total_tokens=53)
-END_TURN
-0.42
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod...
+$0.000041
+input_tokens=7 output_tokens=25 total_tokens=32 cached_tokens=0 reasoning_tokens=0
+mock/default
+end_turn
+2.48s
+1
+0.999959
 ```
 
-## The Full Response Schema
+## Field Reference
 
-Here's every field, organized by what it tells you:
+### Content
 
-### The Main Answer
+**`response.content`** is the main text the agent produced. It is always a string.
 
-| Field | Type | What It Is |
-|-------|------|------------|
-| `content` | `str` | The main response text |
-| `raw` | `str` | Raw text before parsing |
+**`response.model`** is the model ID that generated the response, e.g. `"openai/gpt-4o-mini"` or `"mock/default"`.
+
+**`response.model_used`** is the actual model that ran (may differ from `model` when using routing or fallback).
 
 ```python
-# Quick access
-print(response.content)       # The text
-print(str(response))          # Same as content (Response is stringable)
+print(response.content[:60])
+print(str(response))  # Same as response.content — the Response is stringable
+print(bool(response))  # True if stop_reason == END_TURN, False otherwise
 ```
 
-### The Bill (Cost)
+### Cost
 
-| Field | Type | What It Is |
-|-------|------|------------|
-| `cost` | `float` | Total cost in USD |
-| `budget_remaining` | `float \| None` | Remaining budget |
-| `budget_used` | `float \| None` | Spent this run |
+**`response.cost`** is the total USD cost of this run (all LLM calls, all tool iterations combined).
+
+**`response.budget_remaining`** is how much budget is left, or `None` if no budget was set.
+
+**`response.budget_used`** is how much budget was consumed in this run.
+
+**`response.budget`** is a `BudgetStatus` object with `.remaining`, `.used`, and `.total`.
 
 ```python
-print(f"This call cost: ${response.cost:.6f}")
-
-# With budget configured
-if response.budget_remaining is not None:
-    print(f"Left to spend: ${response.budget_remaining:.4f}")
+print(f"Cost: ${response.cost:.6f}")
+print(f"Remaining: ${response.budget_remaining:.4f}")
+print(f"Budget: {response.budget}")
+# Budget: BudgetStatus(remaining=$1.0000, used=$0.000041, total=$1.0000)
 ```
 
-### The Token Burn
+### Tokens
 
-| Field | Type | What It Is |
-|-------|------|------------|
-| `tokens` | `TokenUsage` | Input/output/total tokens |
+**`response.tokens`** is a `TokenUsage` object with:
+
+- `.input_tokens` — tokens in the prompt
+- `.output_tokens` — tokens in the response
+- `.total_tokens` — the sum
+- `.cached_tokens` — tokens served from the provider's cache (if any)
+- `.reasoning_tokens` — tokens used for chain-of-thought (o1/o3 models)
 
 ```python
-tokens = response.tokens
-print(f"Input: {tokens.input_tokens}")
-print(f"Output: {tokens.output_tokens}")
-print(f"Total: {tokens.total_tokens}")
+t = response.tokens
+print(f"In: {t.input_tokens}, Out: {t.output_tokens}, Total: {t.total_tokens}")
 ```
 
-**Why does this matter?** Tokens are money. If input_tokens is 80,000 and you're sending the same context every time, you're wasting cash. Optimization starts with measurement.
+**`response.total_tokens`** `int` — Total tokens used (input + output). Convenience for `response.tokens.total_tokens`.
 
-### Why Did It Stop?
+Tokens are money. If `input_tokens` is growing across calls, your context is accumulating. Watch it.
 
-| Field | Type | What It Is |
-|-------|------|------------|
-| `stop_reason` | `StopReason` | Why the run ended |
+### Stop Reason
+
+**`response.stop_reason`** is a `StopReason` enum value telling you why the agent stopped:
+
+- `StopReason.END_TURN` — Completed successfully. The model decided it was done.
+- `StopReason.BUDGET` — Hit the cost limit before finishing.
+- `StopReason.MAX_ITERATIONS` — The tool loop hit `max_tool_iterations`.
+- `StopReason.TIMEOUT` — The run timed out.
+- `StopReason.TOOL_ERROR` — A tool raised an exception and the agent couldn't recover.
+- `StopReason.HANDOFF` — The agent handed off to another agent.
+- `StopReason.GUARDRAIL` — Input or output was blocked by a guardrail.
+- `StopReason.CANCELLED` — The run was cancelled.
 
 ```python
 from syrin.enums import StopReason
 
-response = agent.run("Complex task with many tools")
-
 if response.stop_reason == StopReason.END_TURN:
     print("Completed normally")
 elif response.stop_reason == StopReason.BUDGET:
-    print("Stopped by budget limit")
+    print(f"Stopped at ${response.cost:.4f} — increase the budget")
 elif response.stop_reason == StopReason.MAX_ITERATIONS:
-    print("Hit the iteration cap (tools taking too long)")
-elif response.stop_reason == StopReason.TOOL_ERROR:
-    print("A tool failed")
-elif response.stop_reason == StopReason.GUARDRAIL:
-    print("Blocked by guardrail")
+    print(f"Tool loop ran {response.iterations} iterations — something looping?")
 ```
 
-**All StopReason values:**
+### Performance
 
-| Value | When |
-|-------|------|
-| `END_TURN` | Completed successfully |
-| `BUDGET` | Hit cost limit |
-| `MAX_ITERATIONS` | Tool loop exceeded `max_tool_iterations` |
-| `TIMEOUT` | Timed out |
-| `TOOL_ERROR` | Tool raised an exception |
-| `HANDOFF` | Transferred to another agent |
-| `GUARDRAIL` | Input/output blocked |
-| `CANCELLED` | Cancelled |
+**`response.duration`** is wall-clock seconds from the start of `run()` to return.
 
-### The Iteration Count
+**`response.iterations`** is how many LLM calls were made. A simple question is 1. A task that requires two tool calls is typically 3 (ask → call tool → resume → finish).
 
-| Field | Type | What It Is |
-|-------|------|------------|
-| `iterations` | `int` | Number of LLM/tool cycles |
+A high iteration count isn't necessarily bad, but if it's much higher than expected, a tool might be failing or the agent might be confused.
+
+### Tool Calls
+
+**`response.tool_calls`** is the list of tool calls the model made (as request objects, not results).
 
 ```python
-# One response = 1 iteration
-# With tools: each tool call = +1 iteration
-print(f"Ran for {response.iterations} iterations")
+for call in response.tool_calls:
+    print(f"Tool: {call.name}, Args: {call.arguments}")
 ```
 
-**Why care?** If iterations is high (say, 10) but your task should need 2, something's wrong. Maybe tools are failing. Maybe the agent is confused.
+### Structured Output
 
-### The Model
+When you configure `Output(MyModel)`, the validated Python object is in:
 
-| Field | Type | What It Is |
-|-------|------|------------|
-| `model` | `str` | Model ID used |
-| `model_used` | `str \| None` | Actual model (for routing/OpenRouter) |
-| `routing_reason` | `RoutingReason \| None` | Why model was chosen |
+**`response.output`** — the canonical way to get structured output. Contains the validated Python object (e.g. a `UserInfo` instance) when `Output(MyModel)` is configured, `None` otherwise.
+
+**`response.structured`** — validation state object with `.is_valid`, `.all_errors`, etc.
 
 ```python
-print(f"Model: {response.model}")
-# "openai/gpt-4o-mini"
+if response.output:
+    print(response.output.name)  # Direct field access on your model
 ```
 
-## Practical Inspection Recipe
+### Attachments
 
-If you only inspect five things after a run, inspect these:
+For agents that generate or return files:
 
-```python
-result = agent.run("Analyze this request")
+**`response.attachments`** — list of `MediaAttachment` objects with `.type`, `.content_type`, `.url`, `.content_bytes`.
 
-print(result.content)
-print(result.stop_reason)
-print(result.tokens.total_tokens)
-print(result.report.budget)
-print(result.report.guardrail.passed)
+**`response.citations`** — parsed citations if citation formatting is enabled.
 
-for step in result.trace:
-    print(step.step_type, step.cost_usd, step.latency_ms)
-```
+**`response.file`** — file path if the output was written to disk.
 
-That gives you:
+---
 
-- user-visible output
-- termination reason
-- token burn
-- budget state
-- whether guardrails passed
-- the step-by-step trace needed for debugging
+## The Report Object
 
-## The Full Report: agent.report
-
-The `report` object contains detailed metrics from every subsystem:
+`response.report` gives you subsystem-level metrics from the entire run:
 
 ```python
-response = agent.run("Your request")
-
-# Access the report
 report = response.report
 
 # Guardrail results
 print(f"Input passed: {report.guardrail.input_passed}")
 print(f"Output passed: {report.guardrail.output_passed}")
-print(f"Was blocked: {report.guardrail.blocked}")
+print(f"Blocked: {report.guardrail.blocked}")
 
 # Context usage
 print(f"Initial tokens: {report.context.initial_tokens}")
 print(f"Final tokens: {report.context.final_tokens}")
-print(f"Compactions: {report.context.compressions}")
+print(f"Compressions: {report.context.compressions}")
 
 # Memory operations
 print(f"Recalls: {report.memory.recalls}")
 print(f"Stores: {report.memory.stores}")
 print(f"Forgets: {report.memory.forgets}")
 
-# Token details
-print(f"Input tokens: {report.tokens.input_tokens}")
-print(f"Output tokens: {report.tokens.output_tokens}")
-print(f"Total tokens: {report.tokens.total_tokens}")
+# Tokens breakdown
 print(f"Cost: ${report.tokens.cost_usd:.6f}")
 
 # Rate limiting
-print(f"Rate limit checks: {report.ratelimits.checks}")
 print(f"Throttles: {report.ratelimits.throttles}")
-
-# Checkpointing
-print(f"Saves: {report.checkpoints.saves}")
-print(f"Loads: {report.checkpoints.loads}")
 ```
 
-### Report Sub-Objects
+The sub-objects on `report`:
 
-| Report | Contains |
-|--------|----------|
-| `report.guardrail` | Input/output validation results |
-| `report.context` | Token counts and compaction |
-| `report.memory` | Remember/recall/forget operations |
-| `report.tokens` | Detailed token breakdown |
-| `report.output` | Structured output validation |
-| `report.ratelimits` | Rate limit checks |
-| `report.checkpoints` | Saves and loads |
-| `report.grounding` | Citation verification (when enabled) |
+- `report.guardrail` — GuardrailReport with input/output pass state and blocked flag
+- `report.context` — ContextReport with token counts and compression events
+- `report.memory` — MemoryReport with recall/store/forget counts
+- `report.tokens` — TokenReport with a detailed cost breakdown
+- `report.output` — OutputReport with structured output validation state
+- `report.ratelimits` — RateLimitReport with throttle counts
+- `report.checkpoints` — CheckpointReport with save/load counts
+- `report.grounding` — GroundingReport (when fact grounding is enabled)
 
-### A real report inspection example
-
-`examples/10_observability/reports.py` is the concrete example for this part of the API. Use it when you want to see:
-
-- guardrail pass/block state
-- token and cost accounting
-- budget used and remaining
-- memory store/recall counters
-- rate-limit and checkpoint counters
-- report reset behavior across multiple calls
+---
 
 ## The Execution Trace
 
-`response.trace` shows every step the agent took. Think of it as the "flight recorder" for your agent's execution. This is built from hooks internally, but you get it automatically in the Response.
+`response.trace` is the step-by-step flight recorder of the run. It starts empty for simple runs and populates when there are tools or multi-step interactions:
 
 ```python
 for step in response.trace:
     print(f"Step: {step.step_type}")
-    print(f"  Model: {step.model}")
-    print(f"  Tokens: {step.tokens}")
     print(f"  Cost: ${step.cost_usd:.6f}")
     print(f"  Latency: {step.latency_ms}ms")
     if step.extra:
         print(f"  Extra: {step.extra}")
 ```
 
-**Sample trace:**
-```
-Step: llm_call
-  Model: openai/gpt-4o
-  Tokens: 142
-  Cost: $0.000142
-  Latency: 320ms
+Use `response.trace` for post-hoc debugging and auditing. Use `agent.events.on(Hook.XXX, handler)` for real-time observation during the run.
 
-Step: tool_call
-  Extra: {'tool_name': 'search', 'arguments': {'query': 'weather'}}
+---
 
-Step: tool_result
-  Extra: {'tool_name': 'search', 'duration_ms': 45}
+## Quick Patterns
 
-Step: llm_call
-  Tokens: 289
-  Cost: $0.000289
-  Latency: 410ms
-```
-
-### Hooks vs Trace: Two Views of the Same Data
-
-| Aspect | Hooks | Trace |
-|--------|-------|-------|
-| **When** | Real-time, during execution | Post-hoc, after completion |
-| **Use case** | Live dashboards, alerts | Debugging, auditing |
-| **Access** | `agent.events.on(Hook.XXX, handler)` | `response.trace` |
-| **Persistence** | Fire and forget | Stored in Response |
-
-Use **hooks** when you need to react during execution (alerts, monitoring). Use **trace** when you need to audit or debug after.
-
-```python
-# Hooks: React during execution
-agent.events.on(Hook.BUDGET_THRESHOLD, lambda ctx: send_alert(ctx))
-
-# Trace: Review after execution
-response = agent.run("Task")
-for step in response.trace:
-    log_step(step)  # Audit trail
-```
-
-## The Tool Calls
-
-`response.tool_calls` shows what tools the model requested (before execution):
-
-```python
-for call in response.tool_calls:
-    print(f"Tool: {call.name}")
-    print(f"Arguments: {call.arguments}")
-```
-
-**Note:** This is what the model *requested*, not what happened. For execution results, check the trace.
-
-## Media and Attachments
-
-When a response contains generated or returned media, inspect `response.attachments` and related output fields:
-
-```python
-result = agent.run("Generate an image of a lighthouse at dusk")
-
-for attachment in result.attachments:
-    print(attachment.type, attachment.content_type, attachment.url)
-
-print(result.file)         # Generated file path when output formatting creates one
-print(result.file_bytes)   # Raw bytes when available
-print(result.citations)    # Parsed citations when citation formatting is enabled
-```
-
-## Structured Output: Getting Typed Responses
-
-When you need data, not text, use structured output:
-
-```python
-from pydantic import BaseModel
-from syrin import Agent, Model, Output
-
-class UserInfo(BaseModel):
-    name: str
-    age: int
-    email: str
-
-class Extractor(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-    output = Output(UserInfo)
-
-agent = Extractor()
-response = agent.run("John is 30 years old, email: john@example.com")
-
-# Access structured data
-print(response.structured.parsed)        # UserInfo instance
-print(response.structured.parsed.name)   # "John"
-print(response.structured.parsed.age)    # 30
-print(response.structured.parsed.email)  # "john@example.com"
-
-# Convenience accessors
-print(response.parsed)                    # Same as structured.parsed
-print(response.data)                     # Dict form
-```
-
-### Structured Output Validation
-
-```python
-print(f"Valid: {response.structured.is_valid}")
-print(f"Errors: {response.structured.all_errors}")
-print(f"Attempts: {len(response.structured.validation_attempts)}")
-```
-
-## Media Attachments
-
-For agents that generate images, audio, or video:
-
-```python
-response = agent.run("Generate an image of a sunset")
-
-for attachment in response.attachments:
-    print(f"Type: {attachment.type}")           # "image"
-    print(f"Content-Type: {attachment.content_type}")  # "image/png"
-    
-    if attachment.content_bytes:
-        # Binary data
-        with open("output.png", "wb") as f:
-            f.write(attachment.content_bytes)
-    
-    if attachment.url:
-        # URL reference
-        print(f"URL: {attachment.url}")
-```
-
-## Routing Information
-
-When using model routing (`model=[gpt-4o-mini, gpt-4o]`):
-
-```python
-response = agent.run("Explain quantum physics")
-
-# Why was this model chosen?
-if response.routing_reason:
-    print(f"Selected: {response.routing_reason.selected_model}")
-    print(f"Task type: {response.routing_reason.task_type}")
-    print(f"Reason: {response.routing_reason.reason}")
-
-# What actually ran?
-print(f"Model used: {response.model_used}")
-print(f"Actual cost: {response.actual_cost}")
-```
-
-## Budget Status
-
-```python
-# Quick access
-budget = response.budget
-print(budget)
-# "BudgetStatus(remaining=$0.85, used=$0.15, total=$1.00)"
-
-print(f"Remaining: ${budget.remaining:.4f}")
-print(f"Used: ${budget.used:.4f}")
-print(f"Total: ${budget.total}")
-```
-
-## Boolean and String Magic
-
-```python
-# Boolean: True if completed successfully
-if response:
-    print("Got a complete response")
-else:
-    print(f"Stopped early: {response.stop_reason}")
-
-# String: Same as content
-print(response)  # Prints the text content
-```
-
-## Complete Example: Debugging an Expensive Agent
-
-```python
-from syrin import Agent, Model, Budget
-from syrin.enums import ExceedPolicy, StopReason
-
-class ExpensiveAgent(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-    budget = Budget(max_cost=0.50, exceed_policy=ExceedPolicy.WARN)
-
-agent = ExpensiveAgent()
-
-# Run a request
-response = agent.run("Research quantum computing applications")
-
-# Full diagnostic
-print("=" * 50)
-print("DIAGNOSTIC REPORT")
-print("=" * 50)
-
-print(f"\n📝 Content (first 100 chars):")
-print(f"   {response.content[:100]}...")
-
-print(f"\n💰 Cost:")
-print(f"   This call: ${response.cost:.6f}")
-print(f"   Budget remaining: ${response.budget_remaining:.4f}")
-print(f"   Budget status: {response.budget}")
-
-print(f"\n📊 Tokens:")
-print(f"   Input: {response.tokens.input_tokens}")
-print(f"   Output: {response.tokens.output_tokens}")
-print(f"   Total: {response.tokens.total_tokens}")
-
-print(f"\n🔄 Execution:")
-print(f"   Stop reason: {response.stop_reason.value}")
-print(f"   Iterations: {response.iterations}")
-
-print(f"\n🛡️ Guardrails:")
-print(f"   Input passed: {response.report.guardrail.input_passed}")
-print(f"   Output passed: {response.report.guardrail.output_passed}")
-print(f"   Blocked: {response.report.guardrail.blocked}")
-
-print(f"\n🧠 Memory:")
-print(f"   Recalls: {response.report.memory.recalls}")
-print(f"   Stores: {response.report.memory.stores}")
-
-print(f"\n⏱️ Performance:")
-print(f"   Duration: {response.duration:.2f}s")
-
-if response.stop_reason != StopReason.END_TURN:
-    print(f"\n⚠️ WARNING: Did not complete normally!")
-    print(f"   Reason: {response.stop_reason.value}")
-```
-
-**Sample output:**
-```
-==================================================
-DIAGNOSTIC REPORT
-==================================================
-
-📝 Content (first 100 chars):
-   Quantum computing harnesses quantum mechanical phenomena like superposition...
-
-💰 Cost:
-   This call: $0.023456
-   Budget remaining: $0.476544
-   Budget status: BudgetStatus(remaining=$0.48, used=$0.02, total=$0.50)
-
-📊 Tokens:
-   Input: 1245
-   Output: 567
-   Total: 1812
-
-🔄 Execution:
-   Stop reason: end_turn
-   Iterations: 3
-
-🛡️ Guardrails:
-   Input passed: True
-   Output passed: True
-   Blocked: False
-
-🧠 Memory:
-   Recalls: 2
-   Stores: 1
-
-⏱️ Performance:
-   Duration: 1.42s
-```
-
-## Common Patterns
-
-### Pattern 1: Check for Success
+**Check if it completed successfully:**
 
 ```python
 response = agent.run("Task")
-if response:
-    # Success
+if bool(response):  # True when stop_reason == END_TURN
     process(response.content)
 else:
-    # Handle failure
-    print(f"Failed: {response.stop_reason}")
+    print(f"Stopped early: {response.stop_reason}")
 ```
 
-### Pattern 2: Extract Structured Data
-
-```python
-response = agent.run("Extract: Alice, 25, alice@example.com")
-if response.structured:
-    user = response.structured.parsed
-    print(user.name, user.age, user.email)
-```
-
-### Pattern 3: Monitor Costs
+**Log cost and tokens:**
 
 ```python
 response = agent.run("Task")
-if response.cost > 0.10:
-    print(f"Expensive call: ${response.cost:.4f}")
-    # Alert, log, etc.
+print(f"${response.cost:.6f} | {response.tokens.total_tokens} tokens | {response.duration:.1f}s")
 ```
 
-### Pattern 4: Debug Iterations
+**Alert on high iteration count:**
 
 ```python
-response = agent.run("Complex task")
+response = agent.run("Task with tools")
 if response.iterations > 5:
-    print(f"High iteration count: {response.iterations}")
-    # Investigate tool performance
+    print(f"Warning: {response.iterations} iterations — check tool behavior")
 ```
 
-### Pattern 5: Check Memory Health
+**Check guardrail state:**
 
 ```python
 response = agent.run("User input")
-memory_report = response.report.memory
-if memory_report.recalls > 10:
-    print("Excessive memory recalls - check relevance scoring")
-if memory_report.stores > 3:
-    print("Many stores - agent may be remembering too much")
+if response.report.guardrail.blocked:
+    print(f"Blocked at stage: {response.report.guardrail.blocked_stage}")
 ```
 
-## The Response in Context
+---
 
-Here's how the Response fits into the full execution flow:
+## What's Next
 
-**Before response() returns:**
-1. Input guardrails validate user input
-2. Memory recalls relevant information
-3. Messages are built (system prompt + memory + history)
-4. REACT loop runs (LLM calls + tool executions)
-5. Output guardrails validate the response
-6. Memory stores new information
-7. Budget is recorded
-
-**The Response contains:**
-- `content` — The main response text
-- `cost` — How much this call cost
-- `tokens` — Token usage breakdown
-- `stop_reason` — Why the agent stopped
-- `iterations` — How many tool loops
-- `report` — Detailed metrics from all subsystems
-- `trace` — Step-by-step execution record
-
-## Public Response Types
-
-The response package exports more than the top-level `Response` object:
-
-- `MediaAttachment` for image, video, and audio attachments.
-- `TraceStep` for individual execution-trace entries.
-- `StructuredOutput` for parsed and validated output details.
-- `GuardrailReport`, `GroundingReport`, `ContextReport`, `MemoryReport`, `TokenReport`, `OutputReport`, `RateLimitReport`, `CheckpointReport`, and `AgentReport` for subsystem-level reporting.
-- `ValidationAttempt`, `ToolCall`, `ToolOutput`, and `CostInfo` from `syrin.types` when you need lower-level validation, tool-call, and cost structures around a response.
-
-## What's Next?
-
-- [Structured Output](/agent-kit/agent/structured-output) - Get typed data back
-- [Streaming](/agent-kit/agent/streaming) - Real-time responses
-- [Tools](/agent-kit/agent/tools) - What tools do
-- [Budget](/agent-kit/core/budget) - Cost control
-
-## See Also
-
-- [Running Agents](/agent-kit/agent/running-agents) - How to call response()
-- [Loop Strategies](/agent-kit/agent/running-agents) - How the agent thinks
-- [Agent Anatomy](/agent-kit/agent/anatomy) - Components overview
-- [Memory](/agent-kit/core/memory) - What was remembered
+- [Streaming](/agent-kit/agent/streaming) — Get tokens as they arrive
+- [Structured Output](/agent-kit/agent/structured-output) — Get typed Python objects back
+- [Hooks Reference](/agent-kit/debugging/hooks-reference) — Subscribe to events during execution
+- [Budget](/agent-kit/core/budget) — Control what each run can spend

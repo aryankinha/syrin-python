@@ -22,7 +22,7 @@ def get_weather(city: str) -> str:
 
 
 def main() -> None:
-    text_only = Model.Almock(
+    text_only = Model.mock(
         latency_min=0,
         latency_max=0,
         profile_name="text-only",
@@ -30,7 +30,7 @@ def main() -> None:
         supports_tools=False,
         priority=90,
     )
-    with_tools = Model.Almock(
+    with_tools = Model.mock(
         latency_min=0,
         latency_max=0,
         profile_name="with-tools",

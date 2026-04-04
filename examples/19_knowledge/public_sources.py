@@ -19,14 +19,8 @@ from __future__ import annotations
 
 import asyncio
 import os
-import sys
-from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parent.parent.parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
-
-from syrin.knowledge.sources import GitHubSource, RSSSource  # noqa: E402
+from syrin.knowledge.sources import GitHubSource, RSSSource
 
 # ---------------------------------------------------------------------------
 # 1. GitHubSource — load README from a public repo

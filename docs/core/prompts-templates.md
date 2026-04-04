@@ -307,15 +307,7 @@ agent = Agent(
 
 ### PromptContext Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `agent` | `Any` | The Agent instance |
-| `agent_id` | `str` | Agent name or class name |
-| `conversation_id` | `str \| None` | Current conversation ID |
-| `memory` | `Any` | Agent's memory backend |
-| `budget_state` | `Any` | Current budget state |
-| `date` | `datetime` | Current UTC datetime |
-| `builtins` | `dict` | Injected built-in variables |
+`PromptContext` exposes seven fields for dynamic prompt construction. `agent` provides the `Agent` instance itself. `agent_id` is a `str` containing the agent's name or class name. `conversation_id` is a `str | None` with the current conversation ID, if one exists. `memory` provides access to the agent's memory backend. `budget_state` reflects the current budget state. `date` is the current UTC `datetime`. `builtins` is a `dict` of automatically injected built-in variables such as the date and agent ID.
 
 ---
 

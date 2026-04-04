@@ -72,15 +72,9 @@ Hooks are **event subscriptions**. When something happens in the agent, it emits
 
 ## What You Can Observe
 
-| Category | Hooks | Use Cases |
-|----------|-------|-----------|
-| **Agent lifecycle** | `AGENT_RUN_START`, `AGENT_RUN_END` | Track requests, measure duration |
-| **LLM calls** | `LLM_REQUEST_START`, `LLM_REQUEST_END` | Token counts, cost, latency |
-| **Tool execution** | `TOOL_CALL_START`, `TOOL_CALL_END` | Tool usage, arguments, results |
-| **Budget** | `BUDGET_CHECK`, `BUDGET_THRESHOLD`, `BUDGET_EXCEEDED` | Cost control, alerts |
-| **Memory** | `MEMORY_STORE`, `MEMORY_RECALL`, `MEMORY_FORGET` | What was remembered |
-| **Handoff** | `HANDOFF_START`, `HANDOFF_END` | Agent transfers |
-| **Context** | `CONTEXT_COMPACT`, `CONTEXT_THRESHOLD` | Token usage, compaction |
+Seven categories of hooks cover the full agent lifecycle. **Agent lifecycle** hooks — `AGENT_RUN_START` and `AGENT_RUN_END` — let you track requests and measure duration. **LLM call** hooks — `LLM_REQUEST_START` and `LLM_REQUEST_END` — give you token counts, cost, and latency. **Tool execution** hooks — `TOOL_CALL_START` and `TOOL_CALL_END` — expose tool usage, arguments, and results.
+
+**Budget** hooks — `BUDGET_CHECK`, `BUDGET_THRESHOLD`, `BUDGET_EXCEEDED` — power cost control and alerts. **Memory** hooks — `MEMORY_STORE`, `MEMORY_RECALL`, `MEMORY_FORGET` — tell you what was remembered and recalled. **Spawn** hooks — `SPAWN_START` and `SPAWN_END` — fire when agents delegate tasks to other agents. **Context** hooks — `CONTEXT_COMPACT` and `CONTEXT_THRESHOLD` — expose token usage and compaction events.
 
 ## Quick Example: Debug Mode
 
@@ -157,14 +151,7 @@ result = agent.run("Use your tools to find today's weather")
 
 ## Why Hooks Over Logging?
 
-| Feature | `print()` | Hooks |
-|---------|-----------|-------|
-| **Structured data** | Strings only | Typed context |
-| **Subscribe selectively** | All or nothing | Filter by event |
-| **Modify behavior** | No | `before()` hooks can change context |
-| **Side effects** | No | Fire webhooks, write files |
-| **Correlation** | Manual | Built-in trace IDs |
-| **Production-ready** | Ad-hoc | Audit logging, OTLP export |
+Six things distinguish hooks from `print()`. Hooks carry **structured data** — typed context objects, not string fragments. You can **subscribe selectively** — hooks fire only the events you care about, not everything. `before()` hooks let you **modify behavior** by changing the context before the operation runs — you can't do that with print. Hooks support **side effects** like firing webhooks or writing files directly from the callback. **Correlation** is built in via trace IDs rather than requiring manual instrumentation. And hooks are **production-ready** — they integrate with audit logging and OTLP export without any extra work on your end.
 
 ## Additional Debugging Exports
 

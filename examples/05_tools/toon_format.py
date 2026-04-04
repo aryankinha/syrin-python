@@ -107,7 +107,7 @@ print("4. Agent with TOON-format tools")
 print("=" * 50)
 
 agent = Agent(
-    model=Model.Almock(),
+    model=Model.mock(),
     system_prompt="You are a helpful assistant. Use tools when needed.",
     tools=[calculate, search_web, send_email],
 )

@@ -72,7 +72,7 @@ def test_spawn_budget_inheritance_shared_parent_remaining_decreases(
     class Child(Agent):
         model = Model("test/model")
 
-    parent = Parent(budget=Budget(max_cost=10.0, shared=True))
+    parent = Parent(budget=Budget(max_cost=10.0))
     initial_remaining = parent._budget.remaining
     assert initial_remaining is not None
 

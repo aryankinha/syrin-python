@@ -38,8 +38,8 @@ def summarize_document(text: str) -> str:
 
 
 class ResearchAgent(Agent):
-    _agent_name = "research_agent"
-    _agent_description = "Research agent with tools and memory"
+    name = "research_agent"
+    description = "Research agent with tools and memory"
     model = almock
     system_prompt = "You are a research assistant."
     tools = [search_web, summarize_document]

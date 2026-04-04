@@ -1,189 +1,148 @@
 ---
-title: Tasks
-description: Structured agent methods that feel like function calls
+title: Agent Methods as Entry Points
+description: Define named, typed operations on your agent — call them like Python functions
 weight: 80
 ---
 
-## Tasks: Your Agent's API
+## Tools vs. Entry-Point Methods
 
-You've seen tools—they give your agent abilities. Tasks are different: they're structured methods *on* your agent that feel like API endpoints. Where tools are discovered dynamically by the LLM, tasks are explicit, named, and callable like regular Python methods.
+Tools give the LLM capabilities it can choose to use. The LLM decides when to call a tool and with what arguments. That's great for open-ended reasoning.
 
-## The Problem: Ambiguous Tool Discovery
+But sometimes you want explicit, named operations that you call directly — like an API. "Summarize this text." "Translate this." "Compare these two things." You're not asking the LLM to decide; you're calling a specific function.
 
-With tools, the LLM decides when to call what. This is powerful but can be unpredictable:
-- "Should I use search or browse?"
-- "Is calculator even available?"
-- Users can't easily invoke specific capabilities
+The answer is plain Python methods on your agent class.
 
-Tasks solve this by giving you explicit method names.
+## Defining Named Methods
 
-## The Solution: @task Decorator
-
-The `@task` decorator marks a method as a callable task:
+Add methods to your Agent class that call `self.run()` internally:
 
 ```python
 from syrin import Agent, Model
-from syrin.task import task
-
-class MyAgent(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-    system_prompt = "You are a helpful research assistant."
-    
-    @task
-    def summarize(self, text: str) -> str:
-        """Summarize the given text in one sentence."""
-        return self.run(f"Summarize: {text}").content
-    
-    @task
-    def translate(self, text: str, language: str = "English") -> str:
-        """Translate text to the specified language."""
-        return self.run(f"Translate to {language}: {text}").content
-```
-
-Now call them like regular methods:
-
-```python
-agent = MyAgent()
-
-# Call tasks directly
-summary = agent.summarize("Long article about AI...")
-translation = agent.translate("Hello world", language="Spanish")
-```
-
-## Tasks vs Tools
-
-| Aspect | Tasks | Tools |
-|--------|-------|-------|
-| **Discovery** | Explicit, named | Dynamic, LLM-decided |
-| **Interface** | Python method | Tool schema |
-| **Parameters** | Type hints | JSON schema |
-| **Use case** | Structured operations | Dynamic tool use |
-| **User access** | Direct API | Implicit via prompt |
-
-**Use tasks when:**
-- You need explicit, discoverable capabilities
-- Users should be able to call specific functions
-- You're building an API or service
-
-**Use tools when:**
-- The LLM should decide when to use capabilities
-- Tools are supplementary to conversation
-- You want open-ended exploration
-
-## Task Parameters
-
-Tasks use Python type hints just like regular methods:
-
-```python
-@task
-def analyze_sentiment(self, text: str) -> str:
-    """Analyze the sentiment of text."""
-    return self.run(f"Analyze sentiment: {text}").content
-
-@task
-def extract_entities(self, text: str, entity_type: str = "person") -> str:
-    """Extract entities of a specific type."""
-    return self.run(f"Extract {entity_type} entities: {text}").content
-
-@task
-def batch_process(self, items: list[str]) -> list[str]:
-    """Process a batch of items."""
-    results = []
-    for item in items:
-        result = self.run(f"Process: {item}").content
-        results.append(result)
-    return results
-```
-
-## Complete Example: Research Assistant
-
-```python
-from syrin import Agent, Model
-from syrin.task import task
 
 class ResearchAssistant(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
+    model = Model.mock()
     system_prompt = "You are a helpful research assistant."
-    
-    @task
-    def search_topic(self, query: str) -> str:
-        """Search for information on a topic."""
-        return self.run(f"Search and summarize: {query}").content
-    
-    @task
-    def compare(self, topic_a: str, topic_b: str) -> str:
-        """Compare two topics side by side."""
-        return self.run(
-            f"Compare and contrast {topic_a} vs {topic_b}"
-        ).content
-    
-    @task
-    def fact_check(self, claim: str) -> str:
-        """Check if a claim is factual."""
-        return self.run(f"Fact check: {claim}").content
 
-# Use it
-assistant = ResearchAssistant()
+    def summarize(self, text: str) -> str:
+        """Summarize the given text in one sentence."""
+        return self.run(f"Summarize this: {text}").content or ""
 
-# Direct task calls
-summary = assistant.search_topic("quantum computing")
-comparison = assistant.compare("Python", "JavaScript")
-verdict = assistant.fact_check("The earth is flat")
+    def translate(self, text: str, language: str = "English") -> str:
+        """Translate text to the specified language."""
+        return self.run(f"Translate to {language}: {text}").content or ""
+
+agent = ResearchAssistant()
+
+summary = agent.summarize("Long article about AI and its implications...")
+print(f"Summary: {summary[:50]}")
+
+translation = agent.translate("Hello world", language="Spanish")
+print(f"Translation: {translation[:50]}")
 ```
 
-## Tasks with Tools
+Output:
 
-Tasks and tools work together:
+```
+Summary: Lorem ipsum dolor sit amet, consectetur adipiscing
+Translation: Lorem ipsum dolor sit amet, consectetur adipiscing
+```
+
+(With a real model, these would be actual summaries and translations.)
+
+## Why Define Methods?
+
+Methods are about the **caller's interface**, not the LLM's behavior. When you build an agent that will be used programmatically — as part of a workflow, or a larger system — you want explicit entry points.
+
+Without named methods:
 
 ```python
-from syrin import Agent, Model, tool
-from syrin.task import task
+# Callers have to know the right prompt to pass
+result = agent.run("Summarize this: " + text)
+```
+
+With named methods:
+
+```python
+# Callers use a named, typed method
+result = agent.summarize(text)
+```
+
+The second form is discoverable, type-checkable, and readable. IDEs can autocomplete it.
+
+## Methods with Structured Output
+
+Methods can return any Python type — dicts, Pydantic models, dataclasses:
+
+```python
+from syrin import Agent, Model
+
+class AnalysisAgent(Agent):
+    model = Model.mock()
+    system_prompt = "You analyze text and data."
+
+    def triage(self, item: str) -> dict:
+        """Triage an item and return priority, category, summary."""
+        response = self.run(
+            f"Triage this item: {item}. "
+            "Respond with: priority (high/medium/low), category, and summary."
+        )
+        content = response.content or ""
+        return {
+            "priority": "medium",
+            "category": "general",
+            "summary": content[:100],
+        }
+
+agent = AnalysisAgent()
+result = agent.triage("Server CPU at 98% for the last 10 minutes")
+for key, value in result.items():
+    print(f"  {key}: {value}")
+```
+
+## Methods That Call Tools
+
+A method can invoke the agent, and the agent can use its tools internally. The method is the external interface; tools are the internal machinery:
+
+```python
+from syrin import Agent, Model
+from syrin.tool import tool
 
 @tool
 def web_search(query: str) -> str:
-    """Search the web."""
+    """Search the web for information."""
     return f"Results for: {query}"
 
 class ResearchAgent(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
+    model = Model.mock()
+    system_prompt = "You research topics thoroughly using web search."
     tools = [web_search]
-    
-    @task
+
     def deep_research(self, topic: str) -> str:
-        """Perform deep research on a topic."""
-        # This task uses the web_search tool internally
-        return self.run(
-            f"Research {topic} thoroughly and provide a detailed summary"
-        ).content
+        """Research a topic thoroughly and provide a summary."""
+        return self.run(f"Research {topic} in depth").content or ""
+
+agent = ResearchAgent()
+result = agent.deep_research("large language model efficiency")
+print(result[:50])
 ```
 
-## Observability: Task Tracking
+The LLM may call `web_search` internally — the method doesn't care. It just calls `self.run()` and returns the content.
 
-Track task execution with hooks:
+## When Named Methods Make Sense
 
-```python
-from syrin import Hook
+Use named methods when:
+- You want named, discoverable entry points for your agent's capabilities
+- You're building an agent that other code will call programmatically
+- You want IDE autocomplete and type checking for callers
+- The operation has a specific, repeatable purpose
 
-def on_agent_run_end(ctx: dict) -> None:
-    task = ctx.get("task_name")
-    if task:
-        print(f"Task '{task}' completed")
+Use plain `agent.run()` when:
+- The user or system drives the conversation naturally
+- You don't know in advance what the agent will be asked to do
+- You want open-ended chat behavior
 
-agent.events.on(Hook.AGENT_RUN_END, on_agent_run_end)
-```
+## What's Next
 
-## Task Metadata
-
-The public task/types surface also includes `TaskSpec`, which is the metadata object attached to task-decorated methods and useful when you need to inspect or generate task contracts programmatically.
-
-## What's Next?
-
-- [Tools](/agent-kit/agent/tools) — Dynamic tool calling
-- [Structured Output](/agent-kit/agent/structured-output) — Typed task responses
-- [Loop Strategies](/agent-kit/agent/running-agents) — How tasks execute
-
-## See Also
-
-- [Running Agents](/agent-kit/agent/running-agents) — How to execute agents
-- [Agent Anatomy](/agent-kit/agent/anatomy) — Components overview
-- [Guardrails](/agent-kit/agent/guardrails) — Safety for tasks
+- [Tools](/agent-kit/agent/tools) — Give the agent capabilities that the LLM can call
+- [Running Agents](/agent-kit/agent/running-agents) — How `run()`, `arun()`, and streaming work
+- [Structured Output](/agent-kit/agent/structured-output) — Return typed Python objects from agents

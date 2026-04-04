@@ -278,7 +278,10 @@ disable_error_code = [
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "-v --tb=short -W ignore::ResourceWarning"
-filterwarnings = ["ignore::DeprecationWarning"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore:@tool.*has no description:UserWarning",
+]
 
 [tool.coverage.run]
 source = ["src/syrin"]

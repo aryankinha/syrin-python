@@ -40,8 +40,8 @@ class AnalysisOutput(BaseModel):
 
 # 1. Basic report access
 class Assistant(Agent):
-    _agent_name = "reports-assistant"
-    _agent_description = "Agent with full report sections"
+    name = "reports-assistant"
+    description = "Agent with full report sections"
     model = almock
     system_prompt = "You are a helpful assistant."
 

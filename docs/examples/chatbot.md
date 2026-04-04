@@ -116,7 +116,7 @@ models = [
 ]
 
 class Chatbot(Agent):
-    _agent_name = "chatbot"
+    name = "chatbot"
     model = models
     model_router = RoutingConfig(routing_mode=RoutingMode.AUTO)
     input_media = {Media.TEXT, Media.IMAGE}

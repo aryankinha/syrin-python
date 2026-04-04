@@ -353,16 +353,36 @@ class AuditEventType(StrEnum):
     SERVE_REQUEST_END = "serve_request_end"
 
 
-class AlmockPricing(StrEnum):
+class MockPricing(StrEnum):
     """Pricing tier for Almock (An LLM Mock). Use to test costing without real API calls.
 
     LOW, MEDIUM, HIGH, ULTRA_HIGH map to increasing USD-per-1M-tokens for budget testing.
+
+    Attributes:
+        LOW: ~$0.15/$0.60 per 1M tokens (GPT-3.5 class).
+        MEDIUM: ~$1/$3 per 1M tokens (GPT-4o-mini class).
+        HIGH: ~$10/$30 per 1M tokens (GPT-4 class).
+        ULTRA_HIGH: ~$30/$60 per 1M tokens (Claude Opus class).
     """
 
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     ULTRA_HIGH = "ultra_high"
+
+
+class MockResponseMode(StrEnum):
+    """Response mode for Almock (An LLM Mock).
+
+    Controls what text the mock model returns when called during tests.
+
+    Attributes:
+        LOREM: Return Lorem Ipsum text of ``lorem_length`` characters. Default.
+        CUSTOM: Return the exact text set in ``custom_response``.
+    """
+
+    LOREM = "lorem"
+    CUSTOM = "custom"
 
 
 class Media(StrEnum):
@@ -462,6 +482,10 @@ class Hook(StrEnum):
         CHECKPOINT_LOAD: Agent state restored from checkpoint.
         REMOTE_CONFIG_UPDATE: Remote configuration updated successfully.
         REMOTE_CONFIG_ERROR: Remote configuration update failed.
+        CONFIG_RECEIVED: New config payload received from the remote source.
+        CONFIG_APPLIED: Config change applied successfully to the agent.
+        CONFIG_ROLLBACK: Config version rolled back to a prior snapshot.
+        CONFIG_REJECTED: A config field change was rejected by access control.
         CONTEXT_COMPRESS: Context window compressed (summarization).
         CONTEXT_COMPACT: Context window compacted (truncation).
         CONTEXT_THRESHOLD: Context token threshold crossed.
@@ -500,6 +524,8 @@ class Hook(StrEnum):
         PIPELINE_END: Static pipeline execution completed.
         PIPELINE_AGENT_START: Static pipeline agent step started.
         PIPELINE_AGENT_COMPLETE: Static pipeline agent step completed.
+        PRY_BREAKPOINT_HIT: Pry debugger paused at a breakpoint.
+        PRY_SESSION_ENDED: Pry debugger session ended.
     """
 
     # — Agent lifecycle —
@@ -535,6 +561,10 @@ class Hook(StrEnum):
     BUDGET_CHECK = "budget.check"
     BUDGET_THRESHOLD = "budget.threshold"
     BUDGET_EXCEEDED = "budget.exceeded"
+    ESTIMATION_COMPLETE = "estimation.complete"
+    BUDGET_FORECAST = "budget.forecast"
+    DAILY_LIMIT_APPROACHING = "budget.daily_limit.approaching"
+    BUDGET_ANOMALY = "budget.anomaly"
 
     # — Model routing —
     MODEL_SWITCH = "model.switch"
@@ -550,6 +580,22 @@ class Hook(StrEnum):
     GENERATION_VOICE_START = "generation.voice.start"
     GENERATION_VOICE_END = "generation.voice.end"
     GENERATION_VOICE_ERROR = "generation.voice.error"
+
+    # — Agent lifecycle —
+    GOAL_SET = "agent.goal.set"
+    GOAL_UPDATED = "agent.goal.updated"
+    MEMORY_TRUNCATED = "agent.memory.truncated"
+
+    # — Security —
+    SIGNATURE_INVALID = "security.signature.invalid"
+    IDENTITY_VERIFIED = "security.identity.verified"
+    PII_DETECTED = "security.pii.detected"
+    PII_BLOCKED = "security.pii.blocked"
+    PII_REDACTED = "security.pii.redacted"
+    PII_AUDIT = "security.pii.audit"
+    TOOL_OUTPUT_SUSPICIOUS = "security.tool_output.suspicious"
+    TOOL_OUTPUT_BLOCKED = "security.tool_output.blocked"
+    TOOL_OUTPUT_SANITIZED = "security.tool_output.sanitized"
 
     # — Handoff & spawn —
     HANDOFF_START = "handoff.start"
@@ -601,6 +647,12 @@ class Hook(StrEnum):
     # — Remote config —
     REMOTE_CONFIG_UPDATE = "remote.config.update"
     REMOTE_CONFIG_ERROR = "remote.config.error"
+    CONFIG_RECEIVED = "config.received"
+    CONFIG_APPLIED = "config.applied"
+    CONFIG_ROLLBACK = "config.rollback"
+    CONFIG_REJECTED = "config.rejected"
+    COMMAND_EXECUTED = "command.executed"
+    COMMAND_REJECTED = "command.rejected"
 
     # — Context management —
     CONTEXT_COMPRESS = "context.compress"
@@ -658,6 +710,8 @@ class Hook(StrEnum):
     PIPELINE_END = "pipeline.end"
     PIPELINE_AGENT_START = "pipeline.agent.start"
     PIPELINE_AGENT_COMPLETE = "pipeline.agent.complete"
+    PIPELINE_PAUSED = "pipeline.paused"
+    PIPELINE_RESUMED = "pipeline.resumed"
 
     # — Prompt injection —
     INJECTION_DETECTED = "injection.detected"
@@ -671,6 +725,68 @@ class Hook(StrEnum):
     # — Watch / event-driven triggers —
     WATCH_TRIGGER = "watch.trigger"
     WATCH_ERROR = "watch.error"
+
+    # — Workflow —
+    WORKFLOW_STARTED = "workflow.started"
+    WORKFLOW_ENDED = "workflow.ended"
+    WORKFLOW_COMPLETED = "workflow.completed"
+    WORKFLOW_FAILED = "workflow.failed"
+    WORKFLOW_STEP_START = "workflow.step.start"
+    WORKFLOW_STEP_END = "workflow.step.end"
+    WORKFLOW_PAUSED = "workflow.paused"
+    WORKFLOW_RESUMED = "workflow.resumed"
+    WORKFLOW_CANCELLED = "workflow.cancelled"
+    WORKFLOW_BRANCH_TAKEN = "workflow.branch.taken"
+
+    # — Swarm lifecycle —
+    SWARM_STARTED = "swarm.started"
+    SWARM_ENDED = "swarm.ended"
+    SWARM_PARTIAL_RESULT = "swarm.partial_result"
+    SWARM_BUDGET_LOW = "swarm.budget.low"
+    SWARM_AGENT_HANDOFF = "swarm.agent.handoff"
+
+    # — Swarm agent events —
+    AGENT_JOINED_SWARM = "swarm.agent.joined"
+    AGENT_LEFT_SWARM = "swarm.agent.left"
+    AGENT_FAILED = "swarm.agent.failed"
+    BLAST_RADIUS_COMPUTED = "swarm.blast_radius"
+    AGENT_REGISTERED = "swarm.agent.registered"
+    AGENT_UNREGISTERED = "swarm.agent.unregistered"
+    AGENT_ESCALATION = "swarm.agent.escalation"
+    AGENT_BROADCAST = "swarm.agent.broadcast"
+
+    # — Memory bus —
+    MEMORY_BUS_PUBLISHED = "memory.bus.published"
+    MEMORY_BUS_READ = "memory.bus.read"
+    MEMORY_BUS_FILTERED = "memory.bus.filtered"
+    MEMORY_BUS_EXPIRED = "memory.bus.expired"
+
+    # — A2A messaging —
+    A2A_MESSAGE_SENT = "a2a.message.sent"
+    A2A_MESSAGE_RECEIVED = "a2a.message.received"
+    A2A_MESSAGE_ACKED = "a2a.message.acked"
+    A2A_MESSAGE_TIMEOUT = "a2a.message.timeout"
+    A2A_QUEUE_FULL = "a2a.queue.full"
+
+    # — Swarm authority / control —
+    AGENT_PERMISSION_DENIED = "swarm.permission.denied"
+    AGENT_CONTROL_ACTION = "swarm.control.action"
+    AGENT_DELEGATION = "swarm.delegation"
+
+    # — Broadcast / pub-sub —
+    BROADCAST_SENT = "broadcast.sent"
+    BROADCAST_RECEIVED = "broadcast.received"
+    BROADCAST_DROPPED = "broadcast.dropped"
+
+    # — Swarm monitor —
+    MONITOR_HEARTBEAT = "swarm.monitor.heartbeat"
+    MONITOR_STATE_CHANGE = "swarm.monitor.state_change"
+    MONITOR_COST_SPIKE = "swarm.monitor.cost_spike"
+    MONITOR_INTERVENTION = "swarm.monitor.intervention"
+
+    # — Pry debugger —
+    PRY_BREAKPOINT_HIT = "pry.breakpoint.hit"
+    PRY_SESSION_ENDED = "pry.session.ended"
 
 
 class AspectRatio(StrEnum):
@@ -901,6 +1017,283 @@ class RateLimitAction(StrEnum):
     CUSTOM = "custom"
 
 
+class AgentStatus(StrEnum):
+    """Current execution status of an agent within a Swarm.
+
+    Attributes:
+        IDLE: Agent has not started running.
+        RUNNING: Agent is actively executing.
+        PAUSED: Agent has been paused by a control action.
+        DRAINING: Agent is completing its current step, then will pause.
+        STOPPED: Agent finished normally.
+        FAILED: Agent raised an unhandled exception.
+        KILLED: Agent was forcibly terminated.
+    """
+
+    IDLE = "idle"
+    RUNNING = "running"
+    PAUSED = "paused"
+    DRAINING = "draining"
+    STOPPED = "stopped"
+    FAILED = "failed"
+    KILLED = "killed"
+
+
+class PauseMode(StrEnum):
+    """Controls when a workflow or agent pause takes effect.
+
+    Attributes:
+        AFTER_CURRENT_STEP: Pause after the currently running step completes.
+        IMMEDIATE: Pause as soon as possible, potentially mid-step.
+        DRAIN: Complete the current step/run entirely before pausing.
+            Unlike AFTER_CURRENT_STEP, DRAIN also waits for any pending
+            tool calls to finish before transitioning to PAUSED.
+    """
+
+    AFTER_CURRENT_STEP = "after_current_step"
+    IMMEDIATE = "immediate"
+    DRAIN = "drain"
+
+
+class WorkflowStatus(StrEnum):
+    """Lifecycle status of a Workflow execution.
+
+    Attributes:
+        RUNNING: Workflow is actively executing steps.
+        PAUSED: Workflow execution has been paused.
+        COMPLETED: All steps completed successfully.
+        CANCELLED: Workflow was cancelled before completion.
+        FAILED: Workflow encountered an unrecoverable error.
+    """
+
+    RUNNING = "running"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    FAILED = "failed"
+
+
+class EstimationPolicy(StrEnum):
+    """Policy for pre-flight budget estimation checks.
+
+    Controls what happens when the estimated p95 cost exceeds the configured budget.
+    Set on :class:`~syrin.Budget` via ``estimation_policy``.
+
+    Attributes:
+        DISABLED: Skip estimation entirely (default when estimation=False).
+        WARN_ONLY: Log a warning if budget appears insufficient. Never raises.
+        RAISE: Raise :class:`~syrin.budget.InsufficientBudgetError` if budget < p95 estimate.
+    """
+
+    DISABLED = "disabled"
+    WARN_ONLY = "warn_only"
+    RAISE = "raise"
+
+
+class ConsensusStrategy(StrEnum):
+    """Voting strategy for the CONSENSUS swarm topology.
+
+    Attributes:
+        MAJORITY: Winner is determined by more than 50% of agent votes.
+        UNANIMITY: All agents must agree; any dissent causes a retry or failure.
+        WEIGHTED: Each agent's vote is weighted by a configured weight value.
+    """
+
+    MAJORITY = "majority"
+    UNANIMITY = "unanimity"
+    WEIGHTED = "weighted"
+
+
+class DebugPoint(StrEnum):
+    """Trigger point for a Pry debugpoint in a workflow.
+
+    Attributes:
+        ON_HANDOFF: Pause before handing off context to the next step.
+        ON_LLM_REQUEST: Pause before each LLM call; prompt visible in detail panel.
+        ON_TOOL_RESULT: Pause after a tool call with the result visible.
+        ON_A2A_RECEIVE: Pause when an agent receives an A2A message.
+        ON_ERROR: Pause on agent exception instead of triggering fallback.
+    """
+
+    ON_HANDOFF = "on_handoff"
+    ON_LLM_REQUEST = "on_llm_request"
+    ON_TOOL_RESULT = "on_tool_result"
+    ON_A2A_RECEIVE = "on_a2a_receive"
+    ON_ERROR = "on_error"
+
+
+class PryResumeMode(StrEnum):
+    """How to resume execution from a Pry debugpoint.
+
+    Attributes:
+        STEP: Execute one step and pause again.
+        CONTINUE: Continue normal execution without further pausing.
+        CONTINUE_AGENT: Resume only the selected agent; others remain paused.
+    """
+
+    STEP = "step"
+    CONTINUE = "continue"
+    CONTINUE_AGENT = "continue_agent"
+
+
+class A2AChannel(StrEnum):
+    """Routing mode for agent-to-agent messages.
+
+    Attributes:
+        DIRECT: Point-to-point delivery to a single named agent.
+        BROADCAST: Delivered to all registered agents except the sender.
+        TOPIC: Delivered to all agents subscribed to the named topic.
+    """
+
+    DIRECT = "direct"
+    BROADCAST = "broadcast"
+    TOPIC = "topic"
+
+
+class FallbackStrategy(StrEnum):
+    """Strategy applied when an agent in a Swarm fails.
+
+    Attributes:
+        SKIP_AND_CONTINUE: Skip the failed agent and continue with the remaining
+            agents in the swarm.
+        ABORT_SWARM: Abort the entire swarm run immediately when any agent fails.
+        ISOLATE_AND_CONTINUE: Isolate the failing agent and continue without it;
+            partial results may be collected.
+    """
+
+    SKIP_AND_CONTINUE = "skip_and_continue"
+    ABORT_SWARM = "abort_swarm"
+    ISOLATE_AND_CONTINUE = "isolate_and_continue"
+
+
+class ToolErrorMode(StrEnum):
+    """What happens when a @tool function raises an exception.
+
+    Attributes:
+        PROPAGATE: Re-raise the exception immediately to the caller. Use during development
+            to surface bugs fast.
+        RETURN_AS_STRING: Catch the exception and return the error message as a string to
+            the LLM, letting it handle or retry.
+        STOP: Stop the agent run and raise ToolExecutionError to the caller, including the
+            original exception as the cause.
+    """
+
+    PROPAGATE = "propagate"
+    RETURN_AS_STRING = "return_as_string"
+    STOP = "stop"
+
+
+class SwarmTopology(StrEnum):
+    """Execution topology for a Swarm run.
+
+    Attributes:
+        PARALLEL: All agents run concurrently; outputs are merged.
+        CONSENSUS: Agents vote; the winner is selected by a consensus strategy.
+        REFLECTION: Producer–critic iterative loop between two agents.
+        ORCHESTRATOR: One orchestrator agent dispatches work to worker agents.
+        WORKFLOW: Sequential multi-step pipeline (Workflow-backed topology).
+    """
+
+    PARALLEL = "parallel"
+    CONSENSUS = "consensus"
+    REFLECTION = "reflection"
+    ORCHESTRATOR = "orchestrator"
+    WORKFLOW = "workflow"
+
+
+class AgentRole(StrEnum):
+    """Role assigned to an agent within a Swarm for authority control.
+
+    Attributes:
+        ADMIN: Full authority; may control any agent in the swarm.
+        ORCHESTRATOR: May control, spawn, and signal worker agents.
+        SUPERVISOR: May control and signal worker agents.
+        WORKER: Standard role; limited to self-management.
+    """
+
+    ADMIN = "admin"
+    ORCHESTRATOR = "orchestrator"
+    SUPERVISOR = "supervisor"
+    WORKER = "worker"
+
+
+class AgentPermission(StrEnum):
+    """Permission bit checked by SwarmAuthorityGuard before a control action.
+
+    Attributes:
+        CONTROL: May pause, resume, kill, or change the context of an agent.
+        READ: May read the agent's state or output.
+        SIGNAL: May send lifecycle signals to an agent.
+        SPAWN: May spawn new agents.
+        CONTEXT: May modify an agent's context mid-run.
+        ADMIN: Grants all permissions.
+    """
+
+    CONTROL = "control"
+    READ = "read"
+    SIGNAL = "signal"
+    SPAWN = "spawn"
+    CONTEXT = "context"
+    ADMIN = "admin"
+
+
+class DelegationScope(StrEnum):
+    """How long a delegated authority grant is valid.
+
+    Attributes:
+        CURRENT_RUN: Delegation expires at the end of the current swarm run.
+        PERMANENT: Delegation persists until explicitly revoked.
+    """
+
+    CURRENT_RUN = "current_run"
+    PERMANENT = "permanent"
+
+
+class MonitorEventType(StrEnum):
+    """Type of event emitted by the MonitorLoop supervisor.
+
+    Attributes:
+        HEARTBEAT: Periodic heartbeat emitted to confirm agents are alive.
+        OUTPUT_READY: An agent has produced output and is ready for the next step.
+    """
+
+    HEARTBEAT = "heartbeat"
+    OUTPUT_READY = "output_ready"
+
+
+class InterventionAction(StrEnum):
+    """Action taken by the MonitorLoop when intervening in a swarm run.
+
+    Attributes:
+        PAUSE_AND_WAIT: Pause the target agent and wait for manual instruction.
+        CHANGE_CONTEXT_AND_RERUN: Replace the agent's context and re-run the step.
+    """
+
+    PAUSE_AND_WAIT = "pause_and_wait"
+    CHANGE_CONTEXT_AND_RERUN = "change_context_and_rerun"
+
+
+class AssessmentResult(StrEnum):
+    """Quality assessment result returned by a MonitorLoop supervisor callback.
+
+    Returned from a supervisor's assessment function to signal the quality
+    of an agent's last output, driving automatic intervention decisions.
+
+    Attributes:
+        EXCELLENT: Output quality is excellent — no intervention needed.
+        ACCEPTABLE: Output is acceptable — continue without intervention.
+        POOR: Output quality is poor — request intervention via MonitorLoop.
+        FAILED: Agent has failed its task — escalate intervention.
+        UNRECOVERABLE: Agent is in an unrecoverable state — kill it.
+    """
+
+    EXCELLENT = "excellent"
+    ACCEPTABLE = "acceptable"
+    POOR = "poor"
+    FAILED = "failed"
+    UNRECOVERABLE = "unrecoverable"
+
+
 class ExceedPolicy(StrEnum):
     """What to do when a budget or token limit is exceeded.
 
@@ -919,3 +1312,133 @@ class ExceedPolicy(StrEnum):
     WARN = "warn"
     SWITCH = "switch"
     IGNORE = "ignore"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# v0.11.0 — Remote Config Control Plane StrEnums
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+class RemoteTransport(StrEnum):
+    """Transport mechanism for the Remote Config Control Plane.
+
+    Attributes:
+        SSE: Server-Sent Events — push-based, low-latency.
+        POLLING: HTTP polling on a fixed interval.
+        WEBSOCKET: Bidirectional WebSocket connection.
+    """
+
+    SSE = "sse"
+    POLLING = "polling"
+    WEBSOCKET = "websocket"
+
+
+class RemoteField(StrEnum):
+    """Configurable field categories for remote config access control.
+
+    Each value corresponds to a top-level config domain. Use these in the
+    ``allow`` and ``deny`` lists on :class:`~syrin.remote_config.RemoteConfig`.
+
+    Attributes:
+        MODEL: Model name, provider, and generation settings.
+        BUDGET: Cost limits and budget caps.
+        GUARDRAILS: Guardrail enable/disable.
+        MEMORY: Memory backend, decay, top_k.
+        CONTEXT: Context window settings.
+        TOOLS: Tool enable/disable.
+        SYSTEM_PROMPT: Agent system prompt text.
+        RATE_LIMIT: Rate limit settings.
+        CIRCUIT_BREAKER: Circuit breaker settings.
+        OUTPUT: Output format / output config.
+        MCP: MCP server enable/disable.
+        KNOWLEDGE: Knowledge store settings.
+        CHECKPOINT: Checkpoint configuration.
+        IDENTITY: Agent identity — security boundary, typically denied.
+        AUDIT_BACKEND: Audit destination — security boundary, typically denied.
+    """
+
+    MODEL = "model"
+    BUDGET = "budget"
+    GUARDRAILS = "guardrails"
+    MEMORY = "memory"
+    CONTEXT = "context"
+    TOOLS = "tools"
+    SYSTEM_PROMPT = "system_prompt"
+    RATE_LIMIT = "rate_limit"
+    CIRCUIT_BREAKER = "circuit_breaker"
+    OUTPUT = "output"
+    MCP = "mcp"
+    KNOWLEDGE = "knowledge"
+    CHECKPOINT = "checkpoint"
+    IDENTITY = "identity"
+    AUDIT_BACKEND = "audit_backend"
+
+
+class RemoteCommand(StrEnum):
+    """Commands that can be sent to a running agent via the control plane.
+
+    Attributes:
+        PAUSE: Pause agent execution (completes current step first).
+        RESUME: Resume a paused agent.
+        KILL: Terminate the agent immediately.
+        ROLLBACK: Roll back the agent to the last checkpoint.
+        FLUSH_MEMORY: Clear agent memory.
+        ROTATE_SECRET: Trigger secret re-fetch / key rotation.
+        RELOAD_TOOLS: Reload tool definitions without restart.
+        DRAIN: Complete the current run, then pause.
+    """
+
+    PAUSE = "agent.pause"
+    RESUME = "agent.resume"
+    KILL = "agent.kill"
+    ROLLBACK = "agent.rollback"
+    FLUSH_MEMORY = "agent.memory.flush"
+    ROTATE_SECRET = "agent.secret.rotate"
+    RELOAD_TOOLS = "agent.tools.reload"
+    DRAIN = "agent.drain"
+
+
+class BroadcastDelivery(StrEnum):
+    """Delivery semantics for broadcast messages.
+
+    Attributes:
+        AT_MOST_ONCE: Best-effort delivery; no deduplication or retry.
+        EXACTLY_ONCE: Deduplicated delivery (requires Redis backend).
+            Reserved — raises :class:`NotImplementedError` in v0.11.0;
+            will be implemented in v0.12.0.
+    """
+
+    AT_MOST_ONCE = "at_most_once"
+    EXACTLY_ONCE = "exactly_once"
+
+
+class PreflightPolicy(StrEnum):
+    """Policy applied during pre-flight budget validation before the first LLM call.
+
+    Set on :class:`~syrin.Budget` via ``preflight_fail_on``.
+
+    Attributes:
+        BELOW_P95: Raise :class:`~syrin.budget.InsufficientBudgetError` when
+            the configured budget is below the p95 cost estimate.
+        WARN_ONLY: Log a warning but do not abort the run.
+    """
+
+    BELOW_P95 = "below_p95"
+    WARN_ONLY = "warn_only"
+
+
+class BudgetForecastStatus(StrEnum):
+    """Status of a real-time budget forecast computed after each step.
+
+    Set on :class:`~syrin.budget._forecast.ForecastResult` via ``status``.
+
+    Attributes:
+        ON_TRACK: Projected cost is below the p50 estimate — run is on track.
+        AT_RISK: Projected cost exceeds p50 but is below p95 — risk of overspend.
+        LIKELY_EXCEEDED: Projected cost exceeds the p95 estimate — budget will
+            likely be exceeded if the run continues at the current burn rate.
+    """
+
+    ON_TRACK = "on_track"
+    AT_RISK = "at_risk"
+    LIKELY_EXCEEDED = "likely_exceeded"

@@ -24,7 +24,7 @@ async def example_basic_arun() -> None:
     print("1. agent.arun() -- basic async call")
     print("=" * 50)
 
-    agent = Agent(model=Model.Almock(), system_prompt="You are a helpful assistant.")
+    agent = Agent(model=Model.mock(), system_prompt="You are a helpful assistant.")
     result = await agent.arun("What is Python?")
     print(f"  Answer: {result.content[:80]}...")
     print(f"  Cost: ${result.cost:.6f}")
@@ -40,15 +40,15 @@ async def example_parallel_agents() -> None:
     print("=" * 50)
 
     class Researcher(Agent):
-        model = Model.Almock()
+        model = Model.mock()
         system_prompt = "You are a researcher."
 
     class Writer(Agent):
-        model = Model.Almock()
+        model = Model.mock()
         system_prompt = "You are a writer."
 
     class Reviewer(Agent):
-        model = Model.Almock()
+        model = Model.mock()
         system_prompt = "You are a reviewer."
 
     researcher = Researcher()
@@ -76,7 +76,7 @@ async def example_sequential_async() -> None:
     print("3. Sequential async -- dependent calls")
     print("=" * 50)
 
-    agent = Agent(model=Model.Almock(), system_prompt="You are a helpful assistant.")
+    agent = Agent(model=Model.mock(), system_prompt="You are a helpful assistant.")
 
     r1 = await agent.arun("What is Python?")
     print(f"  Step 1: {r1.content[:60]}...")
@@ -97,7 +97,7 @@ async def example_async_with_timeout() -> None:
     print("4. Async with timeout")
     print("=" * 50)
 
-    agent = Agent(model=Model.Almock())
+    agent = Agent(model=Model.mock())
 
     try:
         result = await asyncio.wait_for(agent.arun("Hello!"), timeout=10.0)
@@ -120,5 +120,5 @@ if __name__ == "__main__":
     asyncio.run(main())
 
     # Optional: serve with playground UI
-    # agent = Agent(model=Model.Almock(), system_prompt="You are a helpful assistant.")
+    # agent = Agent(model=Model.mock(), system_prompt="You are a helpful assistant.")
     # agent.serve(port=8000, enable_playground=True, debug=True)

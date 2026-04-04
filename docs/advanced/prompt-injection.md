@@ -61,14 +61,7 @@ agent = Agent(
 )
 ```
 
-`PromptInjectionGuardrail` accepts the following parameters:
-
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `stage` | `str` | `"input"` | When to evaluate: `"input"` (before the LLM call) or `"output"` (after). |
-| `confidence_threshold` | `float` | `0.85` | Classifier confidence above which a request is blocked. |
-| `action` | `GuardrailAction` | `GuardrailAction.BLOCK` | What to do when the threshold is exceeded: `BLOCK`, `WARN`, or `REDACT`. |
-| `classifier` | `Model \| None` | `None` | Override the classifier model. Defaults to a lightweight built-in classifier. |
+`PromptInjectionGuardrail` accepts four parameters. `stage` is a `str` (default `"input"`) that controls when evaluation occurs — `"input"` runs the check before the LLM call, while `"output"` runs it after. `confidence_threshold` is a `float` (default `0.85`) above which a request is blocked. `action` is a `GuardrailAction` (default `GuardrailAction.BLOCK`) that determines what happens when the threshold is exceeded — options are `BLOCK`, `WARN`, or `REDACT`. `classifier` accepts a `Model` or `None` (default `None`); when `None`, a lightweight built-in classifier is used.
 
 The guardrail checks for:
 - Instruction override patterns (`"ignore your"`, `"disregard"`, `"new instructions"`)
@@ -201,13 +194,9 @@ syrin supports this pattern through agent handoffs and the `input_filter` parame
 
 ## Defense Matrix
 
-| Attack Vector | Primary Defense | Secondary Defense |
-|---|---|---|
-| User direct injection | `PromptInjectionGuardrail(stage="input")` | Rate limiting |
-| Tool output injection | `spotlight_tool_outputs=True` | Dual-LLM pattern |
-| Retrieved doc injection | Dual-LLM pattern | Spotlighting |
-| Memory poisoning | Validate before `agent.memory.remember()` | Namespace isolation |
-| Prompt leakage | Output guardrails | Budget limits |
+No single defense is sufficient. Apply all layers for agents operating on untrusted data.
+
+For user direct injection, the primary defense is `PromptInjectionGuardrail(stage="input")` with rate limiting as a secondary measure. For tool output injection, enabling `spotlight_tool_outputs=True` is the primary defense, backed by the dual-LLM pattern. For retrieved document injection, the dual-LLM pattern is primary and spotlighting serves as a secondary layer. Memory poisoning is primarily defended by validating content before calling `agent.memory.remember()`, with namespace isolation as a secondary control. Prompt leakage is addressed first by output guardrails and secondarily by budget limits that cap response length.
 
 No single defense is sufficient. Apply all layers for agents operating on untrusted data.
 

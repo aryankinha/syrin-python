@@ -24,14 +24,14 @@ from __future__ import annotations
 
 import json
 
-from syrin import Agent, Budget, Model, RateLimit, warn_on_exceeded
+from syrin import Agent, Budget, Model, RateLimit
 from syrin.budget_store import BudgetStore, BudgetTracker
 from syrin.cost import ModelPricing
 from syrin.enums import ExceedPolicy, Hook
 from syrin.exceptions import BudgetExceededError
 from syrin.threshold import BudgetThreshold, ThresholdContext
 
-model = Model.Almock()
+model = Model.mock()
 
 SEP = "=" * 60
 
@@ -157,7 +157,7 @@ agent_alert = Agent(
     budget=Budget(
         max_cost=0.000046,  # One Almock call (~$0.000038) = 83% → fires the 80% threshold
         thresholds=[BudgetThreshold(at=80, action=on_80_pct)],
-        on_exceeded=warn_on_exceeded,
+        exceed_policy=ExceedPolicy.WARN,
     ),
 )
 agent_alert.run("This call will use ~83% of budget and fire the 80% threshold")
@@ -175,8 +175,8 @@ print(SEP)
 # When budget is 70% spent, downgrade to a cheaper model automatically.
 # This is threshold-driven switching — no human intervention needed.
 
-expensive = Model.Almock()
-cheap = Model.Almock()  # In production: Model.OpenAI("gpt-4o-mini", ...)
+expensive = Model.mock()
+cheap = Model.mock()  # In production: Model.OpenAI("gpt-4o-mini", ...)
 
 
 def switch_to_cheap(ctx: ThresholdContext) -> None:
@@ -190,7 +190,7 @@ agent_switch = Agent(
     budget=Budget(
         max_cost=0.000046,  # One call = 83% → fires the 70% threshold, switches model
         thresholds=[BudgetThreshold(at=70, action=switch_to_cheap)],
-        on_exceeded=warn_on_exceeded,
+        exceed_policy=ExceedPolicy.WARN,
     ),
 )
 agent_switch.run("This call trips the 70% threshold and switches to cheap model")
@@ -235,7 +235,7 @@ def on_budget_event(payload: object) -> None:
 
 agent_obs = Agent(
     model=model,
-    budget=Budget(max_cost=1.00, on_exceeded=warn_on_exceeded),
+    budget=Budget(max_cost=1.00, exceed_policy=ExceedPolicy.WARN),
 )
 # Subscribe to budget-related hook events
 agent_obs.events.on(Hook.BUDGET_EXCEEDED, on_budget_event)
@@ -313,10 +313,10 @@ print(SEP)
 print("10. PARALLEL MULTI-AGENT — SHARED BUDGET POOL")
 print(SEP)
 
-# All child agents consume from the same Budget(shared=True) pool.
+# All child agents consume from the same Budget() pool.
 # The BudgetTracker uses a thread-safe SQLite store so parallel writes don't corrupt.
 
-shared_budget = Budget(max_cost=5.00, shared=True, on_exceeded=warn_on_exceeded)
+shared_budget = Budget(max_cost=5.00, exceed_policy=ExceedPolicy.WARN)
 orchestrator = Agent(model=model, budget=shared_budget)
 
 
@@ -329,7 +329,7 @@ for i in range(3):
     orchestrator.spawn(WorkerAgent, task=f"Subtask {i + 1}")
 
 print(f"   After 3 workers, orchestrator budget state: {orchestrator.budget_state}")
-print("   → Budget.shared=True: all spawned children deduct from the same pool.")
+print("   → Budget.: all spawned children deduct from the same pool.")
 print("   → Thread-safe: SQLite WAL mode prevents double-spend in parallel runs.")
 print()
 
@@ -409,6 +409,6 @@ print("  reserve: always hold back budget for the reply")
 print("  Thresholds: proactive alerts at any percentage")
 print("  budget_summary() / export_costs(): programmatic dashboard")
 print("  apply_remote_overrides(): live tuning without restart")
-print("  shared=True: unified pool across parallel agents")
+print("  : unified pool across parallel agents")
 print("  ModelPricing: override rates when providers change")
 print("  BudgetStore ABC: plug in any persistence backend")

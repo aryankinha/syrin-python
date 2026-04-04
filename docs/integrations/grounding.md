@@ -65,14 +65,7 @@ The grounding pipeline:
 
 ### Verification Status
 
-Each fact gets a status:
-
-| Status | Meaning | Action |
-| --- | --- | --- |
-| `VERIFIED` | Fact confirmed by source | Safe to use |
-| `CONTRADICTED` | Source says otherwise | Flag/error |
-| `UNVERIFIED` | Source doesn't address this | Use with caution |
-| `NOT_FOUND` | No relevant source | Don't use |
+Each fact gets a status. `VERIFIED` means the fact is confirmed by the source — safe to use. `CONTRADICTED` means the source says otherwise — flag it or return an error, never use it. `UNVERIFIED` means the source doesn't address the claim — use with caution or exclude. `NOT_FOUND` means no relevant source was found at all — don't use it.
 
 ## Using Grounding in Syrin
 
@@ -202,12 +195,7 @@ GroundingConfig(
 )
 ```
 
-| Threshold | Effect |
-| --- | --- |
-| 0.9+ | Only highly confident facts |
-| 0.7 | Balanced (recommended) |
-| 0.5 | More facts, some noise |
-| 0.0 | Include all facts |
+A threshold of 0.9+ keeps only highly confident facts. 0.7 is the balanced, recommended default. 0.5 includes more facts with some noise. 0.0 includes all facts regardless of confidence.
 
 ## Batch Verification
 
@@ -319,16 +307,7 @@ agent.events.on(Hook.GROUNDING_COMPLETE, on_complete)
 
 ## Performance Considerations
 
-Grounding adds latency:
-
-| Stage | Without Grounding | With Grounding |
-| --- | --- | --- |
-| Search | ~100ms | ~100ms |
-| Extraction | - | ~200ms |
-| Verification | - | ~300ms |
-| **Total** | **~100ms** | **~600ms** |
-
-The cost is accuracy. For production systems where accuracy matters, the latency is worthwhile.
+Grounding adds latency. Search alone takes about 100ms either way. Fact extraction adds roughly 200ms and verification adds another 300ms, bringing the total from ~100ms (without grounding) to ~600ms (with grounding). The cost is accuracy. For production systems where accuracy matters, the latency is worthwhile.
 
 ## What's Next?
 

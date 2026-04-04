@@ -12,7 +12,7 @@ Run:
 
 from syrin import Agent, AgentConfig, CheckpointConfig, CheckpointTrigger, Model
 
-model = Model.Almock()
+model = Model.mock()
 
 # ---------------------------------------------------------------------------
 # 1. Basic checkpoint: save, list, load

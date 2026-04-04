@@ -141,8 +141,8 @@ def test_agent_card_override_from_class() -> None:
     from syrin.serve import AgentCard, AgentCardAuth, AgentCardProvider  # noqa: F811
 
     class CustomAgent(Agent):
-        _agent_name = "custom-agent"
-        _agent_description = "Custom discovery agent"
+        name = "custom-agent"
+        description = "Custom discovery agent"
         model = Model.Almock()
         agent_card = AgentCard(
             provider=AgentCardProvider(organization="MyCompany", url="https://mycompany.com"),

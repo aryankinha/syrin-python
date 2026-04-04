@@ -30,8 +30,8 @@ from syrin.watch import CronProtocol, TriggerEvent  # noqa: E402
 
 
 class DailyReportAgent(Agent):
-    _agent_name = "daily_reporter"
-    _agent_description = "Generates a brief daily status report"
+    name = "daily_reporter"
+    description = "Generates a brief daily status report"
     model = almock
     system_prompt = "You generate concise daily status reports. Keep each report to 2-3 sentences."
 

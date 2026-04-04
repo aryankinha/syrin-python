@@ -56,7 +56,7 @@ def setup_text_logging(level: int = logging.INFO) -> None:
 
 
 class SimpleAgent(Agent):
-    _agent_name = "simple_agent"
+    name = "simple_agent"
     model = almock
     system_prompt = "You are a helpful assistant."
 

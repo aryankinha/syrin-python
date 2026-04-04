@@ -136,11 +136,7 @@ Select agent:
 
 ## Exit Commands
 
-| Command | Action |
-|---------|--------|
-| `Ctrl+C` | Interrupt current request or exit |
-| `Ctrl+D` | Exit (EOF) |
-| `exit` or `quit` | Not supported (just Ctrl+C/D) |
+`Ctrl+C` interrupts the current request or exits the REPL. `Ctrl+D` exits via EOF. The text commands `exit` and `quit` are not supported — use `Ctrl+C` or `Ctrl+D` to leave.
 
 ## Common Patterns
 
@@ -248,16 +244,9 @@ For streaming or web integration, use HTTP mode with `enable_playground=True`.
 
 ## When to Use CLI vs HTTP
 
-| Scenario | Use CLI | Use HTTP |
-|----------|---------|----------|
-| During development | ✅ | |
-| Testing prompts | ✅ | |
-| Testing tools | ✅ | |
-| Frontend integration | | ✅ |
-| Webhook receivers | | ✅ |
-| Production serving | | ✅ |
-| Streaming UX | | ✅ |
-| Playground testing | | ✅ |
+Use CLI during development, when testing prompts, and when testing tools — it's the fastest path from code change to interactive feedback with no server setup required.
+
+Use HTTP when you need frontend integration, webhook receivers, production serving, streaming UX, or playground testing. Anything that needs to serve real users goes through HTTP.
 
 ## See Also
 

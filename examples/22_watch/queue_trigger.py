@@ -89,8 +89,8 @@ assert isinstance(InMemoryQueueBackend([]), QueueBackend)
 
 
 class TaskAgent(Agent):
-    _agent_name = "task_agent"
-    _agent_description = "Processes queued tasks"
+    name = "task_agent"
+    description = "Processes queued tasks"
     model = almock
     system_prompt = (
         "You are an operations task processor. "
@@ -178,12 +178,12 @@ async def demo_pipeline_queue() -> None:
     from syrin.agent.multi_agent import Pipeline
 
     class ResearchAgent(Agent):
-        _agent_name = "researcher"
+        name = "researcher"
         model = almock
         system_prompt = "You research topics and provide a 1-sentence summary."
 
     class SummaryAgent(Agent):
-        _agent_name = "summarizer"
+        name = "summarizer"
         model = almock
         system_prompt = "You condense research into a 1-sentence executive summary."
 

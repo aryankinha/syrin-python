@@ -183,6 +183,6 @@ class TestLoopStrategyMapping:
         assert LoopStrategyMapping.get_loop(LoopStrategy.SINGLE_SHOT) is SingleShotLoop
 
     def test_plan_execute_and_code_action_still_available_as_loop_param(self) -> None:
-        """PlanExecuteLoop and CodeActionLoop can still be passed as custom_loop=... (not via loop_strategy)."""
+        """PlanExecuteLoop and CodeActionLoop can still be passed as loop=... (not via loop_strategy)."""
         assert PlanExecuteLoop is not None
         assert CodeActionLoop is not None

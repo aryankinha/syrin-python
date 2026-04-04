@@ -34,8 +34,8 @@ chain = GuardrailChain(
 
 
 class GuardedAssistant(Agent):
-    _agent_name = "guarded"
-    _agent_description = "Assistant with content filter (blocks spam, scam)"
+    name = "guarded"
+    description = "Assistant with content filter (blocks spam, scam)"
     model = almock
     system_prompt = "You are a helpful assistant."
     guardrails = chain

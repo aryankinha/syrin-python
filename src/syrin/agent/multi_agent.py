@@ -614,7 +614,7 @@ class AgentTeam:
 
         Args:
             agents: List of agent instances
-            budget: Optional budget. If budget.shared=True, all agents share this budget.
+            budget: Optional budget shared across all agents in the team.
             shared_memory: Whether agents share persistent memory
             max_agents: Maximum number of agents allowed in the team (optional limit)
         """
@@ -624,7 +624,7 @@ class AgentTeam:
         self._shared_memory_backend = None
         self._max_agents = max_agents
 
-        if budget and budget.shared:
+        if budget:
             for agent in agents:
                 agent._budget = budget
 
@@ -1366,10 +1366,9 @@ IMPORTANT: Return ONLY valid JSON, no other text."""
 
 
 __all__ = [
-    "Pipeline",
-    "PipelineBuilder",
-    "PipelineRun",
-    "AgentTeam",
+    # Pipeline, PipelineBuilder, PipelineRun, AgentTeam removed from public API in v0.11.0.
+    # Use syrin.Workflow for sequential pipelines and syrin.Swarm for coordination.
+    # These remain here for internal use by syrin.serve only.
     "DynamicPipeline",
     "parallel",
     "sequential",

@@ -30,7 +30,7 @@ def main() -> None:
             api_key=os.getenv("ANTHROPIC_API_KEY"),
         )
     else:
-        model = Model.Almock(latency_min=0, latency_max=0)
+        model = Model.mock(latency_min=0, latency_max=0)
 
     agent = Agent(
         model=model,

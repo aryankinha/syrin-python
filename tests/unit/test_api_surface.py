@@ -4,6 +4,8 @@ TokenLimits.per_hour, RateLimit.window, GuardrailCheckResult.guardrail_name, Age
 
 from __future__ import annotations
 
+import pytest
+
 from syrin import Agent, CheckpointConfig, Model
 from syrin.agent.config import AgentConfig
 from syrin.budget import RateLimit, TokenLimits, TokenRateLimit
@@ -148,3 +150,79 @@ class TestAgentCheckpointer:
         state = agent.checkpointer.load(cid)
         assert state is not None
         assert state.agent_name == "test_agent"
+
+
+class TestRemovedSymbols:
+    """Symbols removed in v0.11.0 raise ImportError with actionable migration messages."""
+
+    def test_import_dynamic_pipeline_raises_import_error(self) -> None:
+        """from syrin import DynamicPipeline raises ImportError."""
+        import syrin
+
+        with pytest.raises(ImportError) as exc_info:
+            _ = syrin.DynamicPipeline  # type: ignore[attr-defined]
+
+        assert "DynamicPipeline" in str(exc_info.value)
+        assert "AgentRouter" in str(exc_info.value)
+
+    def test_import_pipeline_raises_import_error(self) -> None:
+        """from syrin import Pipeline raises ImportError with Workflow guidance."""
+        import syrin
+
+        with pytest.raises(ImportError) as exc_info:
+            _ = syrin.Pipeline  # type: ignore[attr-defined]
+
+        assert "Pipeline" in str(exc_info.value)
+        assert "Workflow" in str(exc_info.value)
+
+    def test_import_agent_team_raises_import_error(self) -> None:
+        """from syrin import AgentTeam raises ImportError with Swarm guidance."""
+        import syrin
+
+        with pytest.raises(ImportError) as exc_info:
+            _ = syrin.AgentTeam  # type: ignore[attr-defined]
+
+        assert "AgentTeam" in str(exc_info.value)
+        assert "Swarm" in str(exc_info.value)
+
+    def test_import_task_raises_import_error(self) -> None:
+        """'task' is not in the public syrin namespace."""
+        # syrin.task as a subpackage may be pre-imported by other tests; what matters
+        # is that 'task' is not in __all__ and therefore not in the public API.
+        import syrin
+
+        assert "task" not in syrin.__all__
+
+    def test_import_react_alias_raises_import_error(self) -> None:
+        """REACT acronym alias raises ImportError pointing to ReactLoop."""
+        import syrin
+
+        with pytest.raises(ImportError) as exc_info:
+            _ = syrin.REACT  # type: ignore[attr-defined]
+
+        assert "ReactLoop" in str(exc_info.value)
+
+    def test_import_error_message_mentions_v0_11_0(self) -> None:
+        """ImportError messages mention v0.11.0 for non-module removed symbols."""
+        import syrin
+
+        # 'task' is excluded: as a subpackage it may be pre-imported by the test
+        # runner, making getattr return the module rather than triggering __getattr__.
+        # Its removal from __all__ is tested by test_import_task_raises_import_error.
+        for removed in ("DynamicPipeline", "Pipeline", "AgentTeam", "REACT"):
+            with pytest.raises(ImportError) as exc_info:
+                _ = getattr(syrin, removed)
+            assert "v0.11.0" in str(exc_info.value), f"Missing v0.11.0 in {removed} error"
+
+    def test_agent_router_still_importable(self) -> None:
+        """AgentRouter (DynamicPipeline replacement) remains importable."""
+        from syrin import AgentRouter
+
+        assert AgentRouter is not None
+
+    def test_swarm_and_workflow_importable(self) -> None:
+        """Swarm and Workflow are now top-level imports."""
+        from syrin import Swarm, Workflow
+
+        assert Swarm is not None
+        assert Workflow is not None

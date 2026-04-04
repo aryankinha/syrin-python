@@ -21,8 +21,8 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 class TracingAgent(Agent):
-    _agent_name = "tracing-agent"
-    _agent_description = "Agent with debug tracing enabled"
+    name = "tracing-agent"
+    description = "Agent with debug tracing enabled"
     model = almock
     system_prompt = "You are helpful."
     debug = True

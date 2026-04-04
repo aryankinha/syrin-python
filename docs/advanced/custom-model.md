@@ -353,9 +353,9 @@ model = Model.OpenAI(
     api_key="...",
 ).with_output(WeatherResponse)
 
-# Agent returns parsed WeatherResponse
+# Agent returns structured WeatherResponse
 response = agent.run("What's the weather in Tokyo?")
-result = response.parsed  # WeatherResponse instance
+result = response.output  # WeatherResponse instance
 print(result.city, result.temperature, result.condition)
 ```
 
@@ -388,32 +388,32 @@ for chunk in model.complete(
     print(chunk.content, end="", flush=True)
 ```
 
-## Testing with Almock
+## Testing with the Mock Model
 
-Test without API calls using `Model.Almock()`:
+Test without API calls using `Model.mock()` — no API key needed:
 
 ```python
 from syrin import Model, Agent
 
 # Fast mock with no latency
-mock = Model.Almock(
+mock = Model.mock(
     latency_seconds=0.01,
     lorem_length=100,
 )
 
 # Test with different pricing tiers
-cheap_mock = Model.Almock(pricing_tier="low")
-expensive_mock = Model.Almock(pricing_tier="ultra_high")
+cheap_mock = Model.mock(pricing_tier="low")
+expensive_mock = Model.mock(pricing_tier="ultra_high")
 
 agent = Agent(model=mock)
 response = agent.run("Hello!")
 print(f"Response: {response.content}")
-print(f"Cost: ${response.cost}")  # Always 0 for Almock unless pricing tier set
+print(f"Cost: ${response.cost}")  # Always 0 for Model.mock() unless pricing tier set
 ```
 
-**Almock options:**
+**Mock model options:**
 ```python
-Model.Almock(
+Model.mock(
     response_mode="lorem",      # Lorem ipsum text
     custom_response="Hello!",    # Fixed response
     lorem_length=50,            # Length in chars

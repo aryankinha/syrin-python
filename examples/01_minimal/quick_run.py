@@ -1,40 +1,29 @@
 """Quick Run — Fastest way to use Syrin.
 
-Three ways to get started, from simplest to most flexible.
+Two ways to get started, from simplest to most flexible.
 
 Run:
     python examples/01_minimal/quick_run.py
 """
 
-from syrin import Agent, Budget, Model, warn_on_exceeded
+from syrin import Agent, Budget, Model
 
-model = Model.Almock()  # No API key needed
+model = Model.mock()  # No API key needed
 
-# --- Way 1: Builder (recommended) ---
-agent = (
-    Agent.builder(model)
-    .with_system_prompt("Explain like I'm five years old.")
-    .with_budget(Budget(max_cost=0.50))
-    .build()
-)
+# --- Way 1: Inline (one-off query) ---
+agent = Agent(model=model, system_prompt="Explain like I'm five years old.")
 response = agent.run("What is gravity?")
-print(f"Builder: {response.content[:80]}...")
-print()
-
-# --- Way 2: Preset (one-liner) ---
-agent2 = Agent.basic(model, system_prompt="You are a helpful assistant.")
-response2 = agent2.run("What is 2 + 2?")
-print(f"Preset:  {response2.content}")
+print(f"Inline:  {response.content[:80]}...")
 print()
 
 
-# --- Way 3: Class-based (best for reuse) ---
+# --- Way 2: Class-based (best for reuse) ---
 class MyAgent(Agent):
     model = model
     system_prompt = "You are helpful and concise."
-    budget = Budget(max_cost=1.00, on_exceeded=warn_on_exceeded)
+    budget = Budget(max_cost=1.00, exceed_policy=ExceedPolicy.WARN)
 
 
-agent3 = MyAgent()
-response3 = agent3.run("Hello!")
-print(f"Class:   {response3.content}")
+agent2 = MyAgent()
+response2 = agent2.run("Hello!")
+print(f"Class:   {response2.content}")

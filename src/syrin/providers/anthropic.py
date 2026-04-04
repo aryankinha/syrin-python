@@ -20,7 +20,7 @@ def _get_client(api_key: str | None, base_url: str | None = None) -> object:
             kwargs: dict[str, object] = {"api_key": api_key}
             if base_url:
                 kwargs["base_url"] = base_url
-            _client_cache[key] = anthropic.AsyncAnthropic(**kwargs)  # type: ignore[arg-type]
+            _client_cache[key] = anthropic.AsyncAnthropic(**kwargs)
         return _client_cache[key]
 
 

@@ -24,14 +24,7 @@ Modern AI isn't just text. Users want agents that can:
 
 ## Media Types
 
-Syrin supports these media types:
-
-| Media | Input | Output | Providers |
-| --- | --- | --- | --- |
-| TEXT | ✓ | ✓ | All models |
-| IMAGE | ✓ | ✓ | GPT-4V, Claude, Gemini (input); DALL-E, Imagen (output) |
-| AUDIO | ✓ | ✓ | Whisper (input); ElevenLabs, OpenAI TTS (output) |
-| VIDEO | ✗ | ✓ | Veo, Sora |
+Syrin supports four media types. `TEXT` supports both input and output across all models. `IMAGE` supports both input and output — GPT-4V, Claude, and Gemini handle image input, while DALL-E and Imagen handle image generation output. `AUDIO` supports both input and output — Whisper handles audio input (transcription), while ElevenLabs and OpenAI TTS handle audio output (synthesis). `VIDEO` supports output only (not input), with Veo and Sora as the supported generation providers.
 
 ## Image Generation
 
@@ -517,12 +510,7 @@ result = agent.run([
 
 ## Performance Considerations
 
-| Operation | Typical Latency | Notes |
-| --- | --- | --- |
-| Image generation | 5-30 seconds | Depends on provider and queue |
-| Video generation | 1-5 minutes | Very slow, consider caching |
-| Voice synthesis | <1 second | Fast, real-time possible |
-| Vision processing | Similar to text | Varies by model |
+Latency varies significantly across generation types. Image generation typically takes 5–30 seconds depending on the provider and queue depth. Video generation is substantially slower at 1–5 minutes — consider caching results when the same content may be requested repeatedly. Voice synthesis is fast at under 1 second, making real-time audio output viable. Vision processing (sending images to a model for analysis) has latency similar to text-only requests, though it varies by model.
 
 ## Public Generation API
 

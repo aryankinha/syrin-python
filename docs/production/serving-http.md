@@ -60,12 +60,7 @@ curl -X POST http://localhost:8000/chat \
 
 **Body parameters** (all optional except `message`):
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `message` | `string` | User message (required) |
-| `input` | `string` | Alias for `message` |
-| `content` | `string` | Alias for `message` |
-| `conversation_id` | `string` | Optional conversation identifier |
+`message` (string, required) is the user message. `input` and `content` are aliases for `message` — use whichever matches your data model. `conversation_id` (string, optional) is a session identifier for context tracking.
 
 ### Response
 
@@ -352,18 +347,7 @@ router.serve(port=8000)
 
 ### ServeConfig Parameters
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `protocol` | `HTTP` | Transport protocol |
-| `host` | `"0.0.0.0"` | Bind address |
-| `port` | `8000` | HTTP port |
-| `route_prefix` | `""` | URL prefix |
-| `stream` | `True` | Enable streaming endpoint |
-| `include_metadata` | `True` | Include cost/tokens in responses |
-| `debug` | `False` | Enable debug mode (verbose logging) |
-| `enable_playground` | `False` | Serve web playground |
-| `enable_discovery` | `None` | A2A discovery (auto if named, False to disable) |
-| `max_message_length` | `100000` | Max message characters |
+Ten parameters control the server. `protocol` (default `HTTP`) selects the transport. `host` (default `"0.0.0.0"`) sets the bind address. `port` (default `8000`) sets the HTTP port. `route_prefix` (default `""`) adds a URL prefix to all routes. `stream` (default `True`) enables the `/stream` SSE endpoint. `include_metadata` (default `True`) includes cost and token counts in responses. `debug` (default `False`) enables verbose logging. `enable_playground` (default `False`) serves the web playground UI. `enable_discovery` (default `None`) controls A2A discovery — auto-enabled when the agent has a name, or set to `False` to disable explicitly. `max_message_length` (default `100000`) caps the maximum number of characters per message.
 
 ## What's Next?
 

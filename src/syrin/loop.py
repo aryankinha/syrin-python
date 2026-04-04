@@ -6,14 +6,14 @@ custom implementations, but built-in loops are simplified.
 
 Usage:
     # Simple - just use the built-in
-    agent = Agent(custom_loop=ReactLoop())
+    agent = Agent(loop=ReactLoop())
 
     # Human in the loop - simplified
     async def approve(tool): return True
-    agent = Agent(custom_loop=HumanInTheLoop(approve))
+    agent = Agent(loop=HumanInTheLoop(approve))
 
     # Single shot - no iteration
-    agent = Agent(custom_loop=SingleShotLoop())
+    agent = Agent(loop=SingleShotLoop())
 """
 
 from __future__ import annotations
@@ -145,9 +145,22 @@ def _truncate_tool_result_for_context(
     )
     if len(result) <= effective_max:
         return result
+    label = f"Tool {tool_name!r} " if tool_name else "Tool "
     if max_len > 0:
-        label = f"Tool {tool_name!r} " if tool_name else ""
-        _log.info("%sresult truncated: %d -> %d chars", label, len(result), max_len)
+        _log.warning(
+            "%sresult truncated by max_tool_result_length: %d → %d chars",
+            label,
+            len(result),
+            max_len,
+        )
+    else:
+        _log.warning(
+            "%sresult hit the safety cap (%d chars); original was %d chars. "
+            "Set max_tool_result_length= on your agent to control this.",
+            label,
+            MAX_TOOL_RESULT_SAFETY_CAP,
+            len(result),
+        )
     return result[:effective_max] + " [...] (truncated)"
 
 
@@ -1364,12 +1377,6 @@ class LoopStrategyMapping:
         return loop_class()
 
 
-# Simple constants
-REACT = ReactLoop
-SINGLE_SHOT = SingleShotLoop
-HITL = HumanInTheLoop
-
-
 __all__ = [
     "Loop",
     "LoopResult",
@@ -1379,9 +1386,6 @@ __all__ = [
     "PlanExecuteLoop",
     "CodeActionLoop",
     "LoopStrategyMapping",
-    "REACT",
-    "SINGLE_SHOT",
-    "HITL",
     "ToolApprovalFn",
     "MAX_TOOL_RESULT_DISPLAY_LENGTH",
     "MAX_TOOL_RESULT_SAFETY_CAP",

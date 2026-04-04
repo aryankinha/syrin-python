@@ -28,7 +28,7 @@ from syrin.guardrails import (
     PIIScanner,
 )
 
-model = Model.Almock()
+model = Model.mock()
 
 
 async def example_content_filter() -> None:
@@ -174,8 +174,8 @@ async def _run() -> None:
 
 # Agent with guardrails applied as a list
 class GuardrailDemoAgent(Agent):
-    _agent_name = "guardrail-demo"
-    _agent_description = "Agent with ContentFilter and PIIScanner guardrails"
+    name = "guardrail-demo"
+    description = "Agent with ContentFilter and PIIScanner guardrails"
     model = model
     system_prompt = "You are a helpful assistant."
     guardrails = [ContentFilter(blocked_words=["password", "secret"]), PIIScanner()]

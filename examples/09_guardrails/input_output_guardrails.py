@@ -36,9 +36,9 @@ print(f"Blocked text -> passed={blocked.passed}, reason={blocked.reason}")
 
 
 class GuardedAgent(Agent):
-    _agent_name = "guarded-agent"
-    _agent_description = "Agent with ContentFilter guardrail"
-    model = Model.Almock()
+    name = "guarded-agent"
+    description = "Agent with ContentFilter guardrail"
+    model = Model.mock()
     system_prompt = "You are helpful."
     guardrails = [spam_filter]
 

@@ -10,15 +10,15 @@ Requires: uv pip install syrin[serve]
 """
 
 import syrin
-from syrin import Agent, AgentConfig, AuditLog, Model, Pipeline
-from syrin.agent.multi_agent import DynamicPipeline
+from syrin import Agent, AgentConfig, AuditLog, Model
+from syrin.agent.multi_agent import DynamicPipeline, Pipeline  # internal
 
 
 def main() -> None:
     # Agent with audit - writes to ./audit_agent.jsonl
     audit = AuditLog(path="./audit_agent.jsonl")
     agent = Agent(
-        model=Model.Almock(),
+        model=Model.mock(),
         system_prompt="You are helpful.",
         config=AgentConfig(audit=audit),
     )
@@ -29,7 +29,7 @@ def main() -> None:
     pipeline_audit = AuditLog(path="./audit_pipeline.jsonl")
 
     class Writer(Agent):
-        model = Model.Almock()
+        model = Model.mock()
         system_prompt = "Write concisely."
 
     pipeline = Pipeline(audit=pipeline_audit)
@@ -40,7 +40,7 @@ def main() -> None:
     dyn_audit = AuditLog(path="./audit_dynamic.jsonl")
     dyn = DynamicPipeline(
         agents=[Writer],
-        model=Model.Almock(),
+        model=Model.mock(),
         audit=dyn_audit,
     )
     dyn.run("Greet the user")
@@ -55,9 +55,9 @@ def main() -> None:
 
 
 class AuditDemoAgent(syrin.Agent):
-    _agent_name = "audit-agent"
-    _agent_description = "Agent with audit logging"
-    model = syrin.Model.Almock()
+    name = "audit-agent"
+    description = "Agent with audit logging"
+    model = syrin.Model.mock()
     system_prompt = "You are helpful."
 
 

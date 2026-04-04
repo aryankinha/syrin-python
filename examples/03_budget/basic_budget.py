@@ -6,10 +6,10 @@ Run:
     python examples/03_budget/basic_budget.py
 """
 
-from syrin import Agent, Budget, Model, raise_on_exceeded, warn_on_exceeded
+from syrin import Agent, Budget, Model
 from syrin.exceptions import BudgetExceededError
 
-model = Model.Almock()
+model = Model.mock()
 
 # ============================================================
 # 1. Simple run budget — spend up to $0.50 per run
@@ -26,7 +26,7 @@ print()
 # ============================================================
 # 2. warn_on_exceeded — log a warning but keep running
 # ============================================================
-agent2 = Agent(model=model, budget=Budget(max_cost=0.05, on_exceeded=warn_on_exceeded))
+agent2 = Agent(model=model, budget=Budget(max_cost=0.05, exceed_policy=ExceedPolicy.WARN))
 result2 = agent2.run("Summarize Python in two sentences.")
 
 print("=== Warn on Exceeded ===")
@@ -37,7 +37,7 @@ print()
 # ============================================================
 # 3. raise_on_exceeded — hard stop when budget is hit
 # ============================================================
-agent3 = Agent(model=model, budget=Budget(max_cost=0.0001, on_exceeded=raise_on_exceeded))
+agent3 = Agent(model=model, budget=Budget(max_cost=0.0001, exceed_policy=ExceedPolicy.STOP))
 
 print("=== Raise on Exceeded ===")
 try:
@@ -70,7 +70,7 @@ print()
 class CostAwareAgent(Agent):
     model = model
     system_prompt = "You are a concise assistant."
-    budget = Budget(max_cost=1.00, on_exceeded=warn_on_exceeded)
+    budget = Budget(max_cost=1.00, exceed_policy=ExceedPolicy.WARN)
 
 
 agent5 = CostAwareAgent()

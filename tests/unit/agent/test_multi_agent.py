@@ -1,4 +1,4 @@
-"""Tests for multi-agent patterns: handoff, spawn, and pipeline."""
+"""Tests for multi-agent patterns: spawn, pipeline."""
 
 from __future__ import annotations
 
@@ -6,11 +6,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from syrin import Agent, HandoffBlockedError, HandoffRetryRequested, Model, Response
-from syrin.context.snapshot import ContextSnapshot
+from syrin import Agent, Model, Response
 from syrin.enums import Hook, MemoryType
 from syrin.events import EventContext
-from syrin.exceptions import ValidationError
 from syrin.memory import Memory
 from syrin.types import TokenUsage
 
@@ -26,108 +24,6 @@ def create_mock_provider():
         )
     )
     return mock
-
-
-class TestHandoff:
-    """Tests for Agent handoff functionality."""
-
-    @patch("syrin.agent._construction._resolve_provider")
-    def test_handoff_basic(self, mock_get_provider):
-        """Test basic handoff creates target agent and runs with context."""
-        mock_get_provider.return_value = create_mock_provider()
-
-        class Researcher(Agent):
-            model = Model("test/model")
-
-        class Writer(Agent):
-            model = Model("test/model")
-
-        researcher = Researcher()
-        Writer()
-
-        result = researcher.handoff(Writer, "Write about AI")
-
-        assert isinstance(result, Response)
-        assert result.content is not None
-
-    @patch("syrin.agent._construction._resolve_provider")
-    def test_handoff_with_context_transfer(self, mock_get_provider):
-        """Test handoff transfers context from source to target agent."""
-        mock_get_provider.return_value = create_mock_provider()
-
-        class AgentA(Agent):
-            model = Model("test/model")
-
-        class AgentB(Agent):
-            model = Model("test/model")
-
-        agent_a = AgentA(memory=Memory())
-        agent_a.remember("Key fact from AgentA", memory_type=MemoryType.CORE)
-
-        result = agent_a.handoff(AgentB, "Continue with this info", transfer_context=True)
-
-        assert isinstance(result, Response)
-
-    @patch("syrin.agent._construction._resolve_provider")
-    def test_handoff_without_context_transfer(self, mock_get_provider):
-        """Test handoff without context transfer."""
-        mock_get_provider.return_value = create_mock_provider()
-
-        class AgentA(Agent):
-            model = Model("test/model")
-
-        class AgentB(Agent):
-            model = Model("test/model")
-
-        agent_a = AgentA(memory=Memory())
-        agent_a.remember("Secret info", memory_type=MemoryType.CORE)
-
-        result = agent_a.handoff(AgentB, "New task", transfer_context=False)
-
-        assert isinstance(result, Response)
-
-    @patch("syrin.agent._construction._resolve_provider")
-    def test_handoff_with_budget_transfer(self, mock_get_provider):
-        """Test handoff transfers budget from source to target agent."""
-        from syrin import Budget
-
-        mock_get_provider.return_value = create_mock_provider()
-
-        class AgentA(Agent):
-            model = Model("test/model")
-            budget = Budget(max_cost=1.0)
-
-        class AgentB(Agent):
-            model = Model("test/model")
-
-        agent_a = AgentA()
-
-        result = agent_a.handoff(AgentB, "Task", transfer_budget=True)
-
-        assert isinstance(result, Response)
-
-    @patch("syrin.agent._construction._resolve_provider")
-    def test_handoff_chain(self, mock_get_provider):
-        """Test multiple handoffs in sequence."""
-        mock_get_provider.return_value = create_mock_provider()
-
-        class Agent1(Agent):
-            model = Model("test/model")
-
-        class Agent2(Agent):
-            model = Model("test/model")
-
-        class Agent3(Agent):
-            model = Model("test/model")
-
-        agent1 = Agent1()
-        agent2 = Agent2()
-        Agent3()
-
-        agent1.handoff(Agent2, "Task 1")
-        result = agent2.handoff(Agent3, "Task 2")
-
-        assert isinstance(result, Response)
 
 
 class TestSpawn:
@@ -199,7 +95,7 @@ class TestSpawn:
         class Child(Agent):
             model = Model("test/model")
 
-        parent = Parent(budget=Budget(max_cost=10.0, shared=True))
+        parent = Parent(budget=Budget(max_cost=10.0))
         parent_tracker = parent._budget_tracker
 
         result = parent.spawn(Child, task="Do something")
@@ -261,264 +157,6 @@ class TestSpawn:
         assert len(results) == 3
         for result in results:
             assert isinstance(result, Response)
-
-
-# -----------------------------------------------------------------------------
-# Handoff & spawn hooks, HandoffBlocked, HandoffRetryRequested
-# -----------------------------------------------------------------------------
-
-
-class TestHandoffHooks:
-    """TDD tests for handoff hooks and edge cases."""
-
-    @patch("syrin.agent._construction._resolve_provider")
-    def test_handoff_emits_start_and_end(self, mock_get_provider):
-        """HANDOFF_START and HANDOFF_END emitted with correct context."""
-        mock_get_provider.return_value = create_mock_provider()
-
-        captured_start: list[EventContext] = []
-        captured_end: list[EventContext] = []
-
-        class SourceAgent(Agent):
-            model = Model("test/model")
-
-        class TargetAgent(Agent):
-            model = Model("test/model")
-
-        source = SourceAgent()
-
-        def on_start(ctx: EventContext) -> None:
-            captured_start.append(ctx)
-
-        def on_end(ctx: EventContext) -> None:
-            captured_end.append(ctx)
-
-        source.events.on(Hook.HANDOFF_START, on_start)
-        source.events.on(Hook.HANDOFF_END, on_end)
-
-        result = source.handoff(TargetAgent, "Do task")
-
-        assert len(captured_start) == 1
-        assert captured_start[0]["source_agent"] == "SourceAgent"
-        assert captured_start[0]["target_agent"] == "TargetAgent"
-        assert captured_start[0]["task"] == "Do task"
-        assert "mem_count" in captured_start[0]
-        assert captured_start[0]["transfer_context"] is True
-
-        assert len(captured_end) == 1
-        assert captured_end[0]["source_agent"] == "SourceAgent"
-        assert captured_end[0]["target_agent"] == "TargetAgent"
-        assert captured_end[0]["task"] == "Do task"
-        assert "cost" in captured_end[0]
-        assert "duration" in captured_end[0]
-        assert "response_preview" in captured_end[0]
-        assert result.content is not None
-
-    @patch("syrin.agent._construction._resolve_provider")
-    def test_handoff_before_handler_blocks_emits_blocked(self, mock_get_provider):
-        """Before-handler raises HandoffBlockedError -> HANDOFF_BLOCKED emitted."""
-        mock_get_provider.return_value = create_mock_provider()
-
-        blocked_ctx: list[EventContext] = []
-
-        class SourceAgent(Agent):
-            model = Model("test/model")
-
-        class TargetAgent(Agent):
-            model = Model("test/model")
-
-        def block(_ctx: EventContext) -> None:
-            raise HandoffBlockedError("invalid task", "SourceAgent", "TargetAgent", "bad")
-
-        source = SourceAgent()
-        source.events.before(Hook.HANDOFF_START, block)
-        source.events.on(Hook.HANDOFF_BLOCKED, lambda ctx: blocked_ctx.append(ctx))
-
-        with pytest.raises(HandoffBlockedError, match="invalid task"):
-            source.handoff(TargetAgent, "bad")
-
-        assert len(blocked_ctx) == 1
-        assert blocked_ctx[0]["source_agent"] == "SourceAgent"
-        assert blocked_ctx[0]["target_agent"] == "TargetAgent"
-        assert blocked_ctx[0]["task"] == "bad"
-        assert blocked_ctx[0]["reason"] == "invalid task"
-
-    @patch("syrin.agent._construction._resolve_provider")
-    def test_handoff_task_none_raises_validation_error(self, mock_get_provider):
-        """handoff with task=None raises ValidationError."""
-        mock_get_provider.return_value = create_mock_provider()
-
-        class SourceAgent(Agent):
-            model = Model("test/model")
-
-        class TargetAgent(Agent):
-            model = Model("test/model")
-
-        source = SourceAgent()
-
-        with pytest.raises(ValidationError, match="handoff task must be non-empty"):
-            source.handoff(TargetAgent, None)  # type: ignore[arg-type]
-
-    @patch("syrin.agent._construction._resolve_provider")
-    def test_handoff_task_empty_raises_validation_error(self, mock_get_provider):
-        """handoff with empty task raises ValidationError."""
-        mock_get_provider.return_value = create_mock_provider()
-
-        class SourceAgent(Agent):
-            model = Model("test/model")
-
-        class TargetAgent(Agent):
-            model = Model("test/model")
-
-        source = SourceAgent()
-
-        with pytest.raises(ValidationError, match="handoff task must be non-empty"):
-            source.handoff(TargetAgent, "")
-
-        with pytest.raises(ValidationError, match="handoff task must be non-empty"):
-            source.handoff(TargetAgent, "   ")
-
-    @patch("syrin.agent._construction._resolve_provider")
-    def test_handoff_retry_requested_propagates(self, mock_get_provider):
-        """HandoffRetryRequested from target propagates to caller."""
-        mock_get_provider.return_value = create_mock_provider()
-
-        class SourceAgent(Agent):
-            model = Model("test/model")
-
-        class TargetAgent(Agent):
-            model = Model("test/model")
-
-            def run(self, user_input: str, **kwargs: object) -> Response[str]:
-                raise HandoffRetryRequested(
-                    "Invalid format", format_hint="Use JSON with fields: x, y"
-                )
-
-        source = SourceAgent()
-
-        with pytest.raises(HandoffRetryRequested) as exc_info:
-            source.handoff(TargetAgent, "bad data")
-
-        assert "Use JSON with fields: x, y" in exc_info.value.format_hint
-
-    @patch("syrin.agent._construction._resolve_provider")
-    def test_handoff_mem_count_in_start_context(self, mock_get_provider):
-        """HANDOFF_START ctx has correct mem_count when memories transferred."""
-        mock_get_provider.return_value = create_mock_provider()
-
-        start_ctx: list[EventContext] = []
-
-        class SourceAgent(Agent):
-            model = Model("test/model")
-
-        class TargetAgent(Agent):
-            model = Model("test/model")
-
-        source = SourceAgent(memory=Memory())
-        source.remember("Fact 1", memory_type=MemoryType.CORE)
-        source.remember("Fact 2", memory_type=MemoryType.CORE)
-        source.events.on(Hook.HANDOFF_START, lambda ctx: start_ctx.append(ctx))
-
-        source.handoff(TargetAgent, "Task", transfer_context=True)
-
-        assert len(start_ctx) == 1
-        assert start_ctx[0]["mem_count"] == 2
-
-    @patch("syrin.agent._construction._resolve_provider")
-    def test_handoff_start_includes_handoff_context(self, mock_get_provider):
-        """HANDOFF_START context includes handoff_context (ContextSnapshot)."""
-        mock_get_provider.return_value = create_mock_provider()
-
-        start_ctx: list[EventContext] = []
-
-        class SourceAgent(Agent):
-            model = Model("test/model")
-
-        class TargetAgent(Agent):
-            model = Model("test/model")
-
-        source = SourceAgent()
-        source.events.on(Hook.HANDOFF_START, lambda ctx: start_ctx.append(ctx))
-
-        source.handoff(TargetAgent, "Do task")
-
-        assert len(start_ctx) == 1
-        assert "handoff_context" in start_ctx[0]
-        handoff_context = start_ctx[0]["handoff_context"]
-        assert isinstance(handoff_context, ContextSnapshot)
-        assert handoff_context.total_tokens >= 0
-        assert handoff_context.context_rot_risk in ("low", "medium", "high")
-
-    @patch("syrin.agent._construction._resolve_provider")
-    def test_handoff_start_handoff_context_empty_when_no_prepare(self, mock_get_provider):
-        """When source never ran response(), handoff_context has zero total_tokens."""
-        mock_get_provider.return_value = create_mock_provider()
-
-        start_ctx: list[EventContext] = []
-
-        class SourceAgent(Agent):
-            model = Model("test/model")
-
-        class TargetAgent(Agent):
-            model = Model("test/model")
-
-        source = SourceAgent()
-        source.events.on(Hook.HANDOFF_START, lambda ctx: start_ctx.append(ctx))
-
-        source.handoff(TargetAgent, "Do task")
-
-        assert len(start_ctx) == 1
-        snap = start_ctx[0]["handoff_context"]
-        assert isinstance(snap, ContextSnapshot)
-        assert snap.total_tokens == 0
-
-    @patch("syrin.agent._construction._resolve_provider")
-    def test_handoff_blocked_includes_handoff_context(self, mock_get_provider):
-        """HANDOFF_BLOCKED context includes handoff_context (same snapshot as START)."""
-        mock_get_provider.return_value = create_mock_provider()
-
-        blocked_ctx: list[EventContext] = []
-
-        class SourceAgent(Agent):
-            model = Model("test/model")
-
-        class TargetAgent(Agent):
-            model = Model("test/model")
-
-        def block(_ctx: EventContext) -> None:
-            raise HandoffBlockedError("blocked", "SourceAgent", "TargetAgent", "task")
-
-        source = SourceAgent()
-        source.events.before(Hook.HANDOFF_START, block)
-        source.events.on(Hook.HANDOFF_BLOCKED, lambda ctx: blocked_ctx.append(ctx))
-
-        with pytest.raises(HandoffBlockedError):
-            source.handoff(TargetAgent, "task")
-
-        assert len(blocked_ctx) == 1
-        assert "handoff_context" in blocked_ctx[0]
-        assert isinstance(blocked_ctx[0]["handoff_context"], ContextSnapshot)
-
-    @patch("syrin.agent._construction._resolve_provider")
-    def test_handoff_end_does_not_include_handoff_context(self, mock_get_provider):
-        """HANDOFF_END context does not include handoff_context (only START/BLOCKED)."""
-        mock_get_provider.return_value = create_mock_provider()
-
-        end_ctx: list[EventContext] = []
-
-        class SourceAgent(Agent):
-            model = Model("test/model")
-
-        class TargetAgent(Agent):
-            model = Model("test/model")
-
-        source = SourceAgent()
-        source.events.on(Hook.HANDOFF_END, lambda ctx: end_ctx.append(ctx))
-
-        source.handoff(TargetAgent, "Do task")
-
-        assert len(end_ctx) == 1
-        assert "handoff_context" not in end_ctx[0]
 
 
 class TestSpawnHooks:
@@ -867,13 +505,6 @@ class TestParallelSequential:
 class TestEdgeCases:
     """Edge case tests for multi-agent patterns."""
 
-    def test_handoff_with_invalid_agent(self):
-        """Test handoff with invalid agent class."""
-        agent = Agent(model=Model("test/model"))
-
-        with pytest.raises(ValidationError, match="target_agent"):
-            agent.handoff(None, "task")  # type: ignore[arg-type]
-
     @patch("syrin.agent._construction._resolve_provider")
     def test_spawn_with_invalid_budget(self, mock_get_provider):
         """Test spawn with invalid budget - negative budget should be rejected."""
@@ -929,7 +560,7 @@ class TestDynamicPipeline:
         """Create a test researcher agent."""
 
         class ResearcherAgent(Agent):
-            _agent_name = "researcher"
+            name = "researcher"
             model = Model(provider="openai", model_id="gpt-4o-mini")
             system_prompt = "You research and gather information."
 
@@ -940,7 +571,7 @@ class TestDynamicPipeline:
         """Create a test writer agent."""
 
         class WriterAgent(Agent):
-            _agent_name = "writer"
+            name = "writer"
             model = Model(provider="openai", model_id="gpt-4o-mini")
             system_prompt = "You write reports."
 
@@ -1017,7 +648,7 @@ class TestDynamicPipeline:
         from syrin.agent.multi_agent import DynamicPipeline
 
         class MyAgent(Agent):
-            _agent_name = "custom_name"
+            name = "custom_name"
             model = Model(provider="openai", model_id="gpt-4o-mini")
             system_prompt = "Test agent"
 

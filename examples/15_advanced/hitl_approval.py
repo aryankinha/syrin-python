@@ -10,7 +10,7 @@ Run: python examples/15_advanced/hitl_approval.py
 
 from syrin import Agent, ApprovalGate, Hook, Model, tool
 
-mock = Model.Almock(latency_seconds=0.01, lorem_length=40)
+mock = Model.mock(latency_seconds=0.01, lorem_length=40)
 
 
 # --- Tools: delete_record requires approval, search does not ---
@@ -39,8 +39,8 @@ gate = ApprovalGate(callback=approve_cb)
 
 
 class HITLAgent(Agent):
-    _agent_name = "hitl-agent"
-    _agent_description = "Agent with human-in-the-loop approval"
+    name = "hitl-agent"
+    description = "Agent with human-in-the-loop approval"
     model = mock
     system_prompt = "Use delete_record to delete, search to find."
     tools = [delete_record, search]

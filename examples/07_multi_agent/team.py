@@ -1,20 +1,22 @@
-"""AgentTeam Example.
+"""Swarm Example — Multi-agent coordination with shared budget.
 
 Demonstrates:
-- Creating an AgentTeam with multiple specialized agents
-- Shared budget across team members
-- Automatic agent selection for tasks (team.select_agent)
-- Running tasks via team.run_task()
+- Creating a Swarm with multiple specialized agents
+- Shared budget across swarm members
+- Running a task via swarm.run()
 
 Run: python examples/07_multi_agent/team.py
 """
 
 from __future__ import annotations
 
-from syrin import Agent, Budget, Model, prompt
-from syrin.agent.multi_agent import AgentTeam
+import asyncio
 
-model = Model.Almock()
+from syrin import Agent, Budget, Model, prompt
+from syrin.enums import SwarmTopology
+from syrin.swarm import Swarm, SwarmConfig
+
+model = Model.mock()
 
 
 @prompt
@@ -27,60 +29,36 @@ def writer_prompt(style: str) -> str:
     return f"You are a writer with a {style} style."
 
 
-# --- Specialized team agents ---
-
-
 class Researcher(Agent):
-    _agent_name = "researcher"
-    _agent_description = "Researches topics (technology)"
-    model = Model.Almock()
+    name = "researcher"
+    description = "Researches topics (technology)"
+    model = Model.mock()
     system_prompt = researcher_prompt(domain="technology")
 
 
 class Writer(Agent):
-    _agent_name = "writer"
-    _agent_description = "Writes content in engaging style"
-    model = Model.Almock()
+    name = "writer"
+    description = "Writes content in engaging style"
+    model = Model.mock()
     system_prompt = writer_prompt(style="engaging")
 
 
-# --- General-purpose agents for selection demo ---
-
-
-class GeneralResearcher(Agent):
-    _agent_name = "general-researcher"
-    _agent_description = "General researcher"
-    model = Model.Almock()
-    system_prompt = researcher_prompt(domain="general")
-
-
-class GeneralWriter(Agent):
-    _agent_name = "general-writer"
-    _agent_description = "General writer"
-    model = Model.Almock()
-    system_prompt = writer_prompt(style="general")
-
-
-if __name__ == "__main__":
-    # 1. Team with shared budget — run_task routes to the best agent
-    print("=== Team with shared budget ===\n")
-    team = AgentTeam(
-        agents=[Researcher(), Writer()],
-        budget=Budget(max_cost=0.50, shared=True),
+async def main() -> None:
+    # Swarm with shared budget — run routes to the best agent
+    print("=== Swarm with shared budget ===\n")
+    swarm = Swarm(
+        agents=[Researcher, Writer],
+        config=SwarmConfig(
+            topology=SwarmTopology.CONSENSUS,
+            budget=Budget(
+                max_cost=0.50,
+            ),
+        ),
     )
-    result = team.run_task("Research AI trends")
+    result = await swarm.run("Research AI trends")
     print(f"Result: {result.content[:80]}...")
     print(f"Cost: ${result.cost:.6f}\n")
 
-    # 2. Agent selection — team picks the best agent for a given task
-    print("=== Agent selection ===\n")
-    team = AgentTeam(agents=[GeneralResearcher(), GeneralWriter()])
-    selected = team.select_agent("research machine learning")
-    print(f"Task 'research ML' -> {selected.__class__.__name__}")
-    selected = team.select_agent("write an article about AI")
-    print(f"Task 'write article' -> {selected.__class__.__name__}")
 
-    # Optional: serve both agents via AgentRouter
-    # from syrin.serve import AgentRouter
-    # router = AgentRouter(agents=[Researcher(), Writer()])
-    # router.serve(port=8000, enable_playground=True, debug=True)
+if __name__ == "__main__":
+    asyncio.run(main())

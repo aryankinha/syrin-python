@@ -490,29 +490,67 @@ class Response(Generic[T]):
         return None
 
     @property
-    def parsed(self) -> object | None:
-        """Convenience: parsed structured output, or None if not configured or invalid.
+    def output(self) -> object | None:
+        """Typed structured output instance, or None if not configured or not yet parsed.
 
-        Equivalent to response.structured.parsed when output=Output(MyModel) is set.
+        This is the canonical way to get structured output from a response.
+        When ``Output(MyModel)`` is configured: always the typed ``MyModel`` instance
+        once validation succeeds. Returns ``None`` when no output type is configured
+        or when parsing failed. Access ``response.structured`` for per-attempt details.
         """
         if self.structured is not None:
             return self.structured.parsed
         return None
 
     @property
-    def output(self) -> object | None:
-        """Typed structured output instance, or None if not configured or not yet parsed.
+    def total_tokens(self) -> int:
+        """Total tokens used (input + output). Convenience for ``response.tokens.total_tokens``."""
+        return self.tokens.total_tokens
 
-        When ``Output(MyModel)`` is configured: always the typed ``MyModel`` instance
-        once validation succeeds. Returns ``None`` when no output type is configured
-        or when parsing failed. Access ``response.structured`` for per-attempt details.
+    @property
+    def is_valid(self) -> bool:
+        """Whether the response is valid.
 
-        Equivalent to ``response.structured.parsed`` — use ``response.output`` for
-        clean, readable code.
+        For structured output (``Output(MyModel)`` configured): ``True`` when validation
+        succeeded. For plain text responses: always ``True`` — nothing to validate.
+
+        Use this as the canonical check before accessing ``response.output``::
+
+            if response.is_valid:
+                print(response.output.my_field)
         """
         if self.structured is not None:
-            return self.structured.parsed
-        return None
+            return self.structured.is_valid
+        return True
+
+    @property
+    def validation_attempts(self) -> int:
+        """Number of structured output validation attempts made during this run.
+
+        Returns 0 for plain text responses (no structured output configured).
+        Returns > 1 when the model failed to produce valid output on the first try
+        and validation retries were configured (``Output(MyModel, validation_retries=N)``).
+
+        Use this to detect and debug unexpected retry costs::
+
+            if response.validation_attempts > 1:
+                print(f"Needed {response.validation_attempts} attempts to get valid output")
+        """
+        if self.structured is not None:
+            return len(self.structured.validation_attempts)
+        return 0
+
+    @property
+    def parsed(self) -> object | None:
+        """Parsed structured output instance. Alias for ``response.output``.
+
+        Returns the typed ``MyModel`` instance when ``Output(MyModel)`` is configured
+        and validation succeeded. Returns ``None`` when no output type is configured
+        or when parsing failed.
+
+        Prefer ``response.output`` for clarity; this alias exists for legacy code.
+        """
+        return self.output
 
     def __str__(self) -> str:
         return str(self.content)
@@ -529,7 +567,6 @@ class Response(Generic[T]):
         The budget object includes:
         - budget.remaining: remaining budget amount
         - budget.max_cost: total budget cap
-        - budget.shared: whether budget is shared with children
         - budget.cost: alias for response.cost (convenience)
         """
         # Return a BudgetStatus object with convenience properties

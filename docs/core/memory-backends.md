@@ -6,89 +6,47 @@ weight: 22
 
 ## Where Do Memories Live?
 
-By default, Syrin stores memories in memory (RAM). This is fast and requires no setup—but memories disappear when your app restarts.
+By default, Syrin stores memories in RAM. Fast, zero setup — and completely gone when your process restarts.
 
-For persistent memory, choose a backend that fits your needs:
-
-| Backend | Setup | Persistence | Semantic Search | Best For |
-|---------|-------|-------------|----------------|----------|
-| **Memory** | None | ❌ (RAM) | ❌ | Testing, prototypes |
-| **SQLite** | None | ✅ (file) | ❌ | Simple apps, single-user |
-| **Redis** | Server | ✅ | ❌ | Fast, distributed |
-| **PostgreSQL** | Server | ✅ | Optional | Production, teams |
-| **Qdrant** | Server | ✅ | ✅ | Semantic search |
-| **Chroma** | None | ✅ (file) | ✅ | Local prototyping |
-
----
+For memories that survive restarts, you pick a backend. There are six options, ranging from "zero setup, local file" to "distributed vector database with semantic search."
 
 ## In-Memory (Default)
 
-The simplest option. No setup required.
+The default. No configuration needed.
 
 ```python
 from syrin import Memory
 
-# Default - in-memory (RAM)
-memory = Memory()
-
-# Explicit
-memory = Memory(backend=MemoryBackend.MEMORY)
+memory = Memory()  # RAM only — fast, ephemeral
 ```
 
-### When to Use
-
-- **Testing** your agent logic
-- **Prototyping** before committing to persistence
-- **Short-lived** agents that don't need history
-
-### Trade-offs
-
-| Pros | Cons |
-|------|------|
-| Zero setup | Lost on restart |
-| Fastest speed | Can't share between processes |
-| No dependencies | Limited storage |
-
----
+RAM storage is ideal for testing your agent logic, running quick prototypes, or building short-lived agents that don't need history. It's the fastest option and has zero dependencies. The tradeoff: every restart wipes the slate clean, and you can't share memories between processes.
 
 ## SQLite
 
-Persistent storage in a single file. No server needed.
+Persistent storage in a single file. No server, no dependencies.
 
 ```python
 from syrin import Memory
 from syrin.enums import MemoryBackend
 
-# File path (optional - defaults to ~/.syrin/memory.db)
+# Defaults to ~/.syrin/memory.db if path is omitted
 memory = Memory(
     backend=MemoryBackend.SQLITE,
-    path="./data/memory.db"
+    path="./data/memory.db",
 )
 ```
 
-### When to Use
+SQLite is the right move for single-user apps, personal projects, or any situation where you need persistence but don't want to run a server. It's also completely portable — copy the file and your memories come with it.
 
-- **Single-user** applications
-- **Persistent** memory without servers
-- **Simple deployments** with one machine
-- **Starting out** with memory
-
-### Trade-offs
-
-| Pros | Cons |
-|------|------|
-| Persistent | Single machine |
-| Zero server setup | Basic search only |
-| Portable file | Not for high concurrency |
-
----
+The limitation is concurrency. SQLite works fine for one user, but starts struggling with high-volume parallel writes. If you're building a multi-user service, step up to Redis or PostgreSQL.
 
 ## Redis
 
-Ultra-fast, distributed memory with optional TTL.
+Ultra-fast distributed memory with optional TTL. Good for session-based memory that should expire.
 
 ```bash
-pip install syrin[vector]  # or pip install redis
+pip install syrin[vector]  # or: pip install redis
 ```
 
 ```python
@@ -102,35 +60,20 @@ memory = Memory(
         host="localhost",
         port=6379,
         db=0,
-        prefix="myapp:memory:",  # Key prefix for isolation
-        ttl=86400,  # Optional: expire after 24 hours
-    )
+        prefix="myapp:memory:",  # Namespace to avoid key collisions
+        ttl=86400,                # Expire memories after 24 hours (optional)
+    ),
 )
 ```
 
-### When to Use
-
-- **High-performance** applications
-- **Distributed systems** with multiple agents
-- **Session-based** memory with expiration
-- **Caching layer** in front of database
-
-### Trade-offs
-
-| Pros | Cons |
-|------|------|
-| Very fast | Requires Redis server |
-| Distributed | No semantic search |
-| TTL support | Extra infrastructure |
-
----
+Redis excels when you need sub-millisecond memory reads, when multiple agents or processes share the same memory pool, or when memories should naturally expire (TTL is built in). The tradeoff is infrastructure — you need a Redis server, and Redis doesn't support semantic (meaning-based) search.
 
 ## PostgreSQL
 
-Production-grade relational storage.
+Production-grade relational storage. The right choice for team environments, SQL-queryable memory, or situations where you want one database for everything.
 
 ```bash
-pip install syrin[postgres]  # or pip install psycopg2-binary
+pip install syrin[postgres]  # or: pip install psycopg2-binary
 ```
 
 ```python
@@ -146,14 +89,12 @@ memory = Memory(
         database="syrin",
         user="postgres",
         password="your-password",
-        table="memories",  # Optional table name
-    )
+        table="memories",  # Optional custom table name
+    ),
 )
 ```
 
-### With Vector Search (pgvector)
-
-For semantic search with PostgreSQL:
+If you want semantic search with PostgreSQL, install `pgvector` and add the `vector_size` parameter:
 
 ```bash
 pip install pgvector
@@ -165,37 +106,20 @@ memory = Memory(
     postgres=PostgresConfig(
         host="localhost",
         database="syrin",
-        vector_size=384,  # Enable pgvector with embedding size
-    )
+        vector_size=384,  # Enables pgvector with this embedding dimension
+    ),
 )
 ```
 
-### When to Use
-
-- **Production applications**
-- **Team environments** with shared memory
-- **Need SQL queries** on memory data
-- **Want one database** for everything
-
-### Trade-offs
-
-| Pros | Cons |
-|------|------|
-| Enterprise-grade | Requires PostgreSQL |
-| SQL support | Vector search needs pgvector |
-| Shared across processes | More complex setup |
-
----
-
 ## Qdrant
 
-Vector database for semantic search.
+A dedicated vector database — the best choice when semantic search (finding memories by meaning, not keywords) is important.
 
 ```bash
-pip install syrin[vector]  # or pip install qdrant-client
+pip install syrin[vector]  # or: pip install qdrant-client
 ```
 
-### Local Embedded (No Server)
+### Embedded (No Server)
 
 ```python
 from syrin import Memory
@@ -205,10 +129,10 @@ from syrin.memory import QdrantConfig
 memory = Memory(
     backend=MemoryBackend.QDRANT,
     qdrant=QdrantConfig(
-        path="./qdrant_data",  # Local storage
+        path="./qdrant_data",    # Local file storage
         collection="memories",
-        namespace="user-123",  # Per-user isolation
-    )
+        namespace="user-123",    # Isolate memories per user
+    ),
 )
 ```
 
@@ -219,14 +143,16 @@ memory = Memory(
     backend=MemoryBackend.QDRANT,
     qdrant=QdrantConfig(
         url="https://your-instance.qdrant.tech",
-        api_key="your-api-key",  # For cloud
+        api_key="your-api-key",
         collection="memories",
         namespace="tenant-abc",
-    )
+    ),
 )
 ```
 
-### With Custom Embeddings
+### Custom Embeddings
+
+By default, Qdrant uses Syrin's built-in embedding model. For OpenAI embeddings:
 
 ```python
 from syrin.memory import EmbeddingConfig
@@ -240,34 +166,19 @@ memory = Memory(
             provider="openai",
             model="text-embedding-3-small",
             dimensions=1536,
-        )
-    )
+        ),
+    ),
 )
 ```
 
-### When to Use
-
-- **Semantic search** (find by meaning, not keywords)
-- **RAG applications**
-- **Multi-tenant** with namespace isolation
-- **Production** vector search
-
-### Trade-offs
-
-| Pros | Cons |
-|------|------|
-| Semantic search | Requires Qdrant |
-| Namespace isolation | More complex |
-| Scalable | Extra infrastructure |
-
----
+Qdrant is the right choice for RAG applications, multi-tenant systems with namespace isolation, or any use case where "find the most relevant memory" matters more than "find the exact memory."
 
 ## Chroma
 
-Lightweight embedded vector database.
+A lightweight embedded vector database. Easier to set up than Qdrant, good for local development and prototyping with semantic search.
 
 ```bash
-pip install syrin[vector]  # or pip install chromadb
+pip install syrin[vector]  # or: pip install chromadb
 ```
 
 ```python
@@ -278,110 +189,65 @@ from syrin.memory import ChromaConfig
 memory = Memory(
     backend=MemoryBackend.CHROMA,
     chroma=ChromaConfig(
-        path="./chroma_db",  # Local persistent storage
+        path="./chroma_db",
         collection="memories",
-    )
+    ),
 )
 ```
 
-### When to Use
-
-- **Local prototyping**
-- **Quick experiments** with vector search
-- **Single-user** applications
-- **Zero-config** vector search
-
-### Trade-offs
-
-| Pros | Cons |
-|------|------|
-| Embedded (no server) | Less scalable than Qdrant |
-| Easy setup | Fewer features |
-| Good for dev | Production may need Qdrant |
-
----
-
-## Comparison Table
-
-| Backend | Setup | Persistence | Semantic Search | Scalability | Use Case |
-|---------|-------|-------------|----------------|-------------|----------|
-| Memory | None | ❌ | ❌ | Single process | Testing |
-| SQLite | None | ✅ | ❌ | Single machine | Simple apps |
-| Redis | Server | ✅ | ❌ | Distributed | Fast cache |
-| PostgreSQL | Server | ✅ | Optional (pgvector) | Enterprise | Production |
-| Qdrant | Server/Cloud | ✅ | ✅ | Scalable | Semantic search |
-| Chroma | None | ✅ | ✅ | Local only | Prototyping |
-
----
+Chroma shines for local semantic search without a server. The tradeoff compared to Qdrant is scalability and features — Chroma is great for one user, Qdrant is better for multi-tenant production systems.
 
 ## Choosing a Backend
 
-### Start Simple
-
-```python
-# 1. Begin with in-memory for testing
-memory = Memory()
-
-# 2. Switch to SQLite for persistence
-memory = Memory(backend=MemoryBackend.SQLITE, path="./memory.db")
-
-# 3. Choose production backend based on needs:
-#    - Need semantic search? → Qdrant or Chroma
-#    - Need distributed? → Redis or PostgreSQL
-#    - Need simplicity? → SQLite
-```
-
-### Decision Guide
-
-Choose your backend based on these questions:
-
-**Do you need persistence?**
-- No → Use `Memory` (in-memory)
-- Yes → Continue to Step 2
-
-**Do you need semantic search?**
-- Yes:
-  - Local/prototyping → Chroma
-  - Production → Qdrant
-- No:
-  - Simple app → SQLite
-  - Distributed system → Redis
-  - Enterprise/team → PostgreSQL
-
-## Multi-Tenant Isolation
-
-For applications with multiple users, use namespace isolation:
-
-```python
-# Redis with prefix
-memory = Memory(
-    backend=MemoryBackend.REDIS,
-    redis=RedisConfig(
-        prefix=f"tenant-{tenant_id}:",  # Isolate by tenant
-    )
-)
-
-# Qdrant with namespace
-memory = Memory(
-    backend=MemoryBackend.QDRANT,
-    qdrant=QdrantConfig(
-        namespace=f"user-{user_id}",  # Per-user collection
-    )
-)
-
-# PostgreSQL with tenant column
-# (Filter by tenant_id in queries)
-```
-
----
-
-## Migration Between Backends
-
-Export from one backend, import to another:
+Start simple and upgrade as your needs grow:
 
 ```python
 from syrin import Memory
 from syrin.enums import MemoryBackend
+
+# Stage 1: Testing — in-memory, zero setup
+memory = Memory()
+
+# Stage 2: Need persistence — SQLite, still no server
+memory = Memory(backend=MemoryBackend.SQLITE, path="./memory.db")
+
+# Stage 3: Production — choose based on your needs
+# Semantic search needed? → Qdrant (production) or Chroma (local)
+# Distributed, high concurrency? → Redis or PostgreSQL
+# SQL queries on memory? → PostgreSQL
+# Simple single-machine persistence? → SQLite still works
+```
+
+## Multi-Tenant Isolation
+
+For applications with multiple users, isolate memories by user:
+
+```python
+from syrin import Memory
+from syrin.enums import MemoryBackend
+from syrin.memory import RedisConfig, QdrantConfig
+
+# Redis: use a key prefix per user
+memory = Memory(
+    backend=MemoryBackend.REDIS,
+    redis=RedisConfig(prefix=f"user-{user_id}:"),
+)
+
+# Qdrant: use a namespace per user
+memory = Memory(
+    backend=MemoryBackend.QDRANT,
+    qdrant=QdrantConfig(namespace=f"user-{user_id}", collection="memories"),
+)
+```
+
+## Migrating Between Backends
+
+Export from one backend and import into another:
+
+```python
+from syrin import Memory
+from syrin.enums import MemoryBackend
+from syrin.memory import PostgresConfig
 
 # Export from SQLite
 sqlite_memory = Memory(backend=MemoryBackend.SQLITE, path="./old_memory.db")
@@ -390,46 +256,14 @@ snapshot = sqlite_memory.export()
 # Import to PostgreSQL
 pg_memory = Memory(
     backend=MemoryBackend.POSTGRES,
-    postgres=PostgresConfig(host="localhost", database="syrin")
+    postgres=PostgresConfig(host="localhost", database="syrin"),
 )
 count = pg_memory.import_from(snapshot)
 print(f"Migrated {count} memories")
 ```
 
----
-
-## Connection Management
-
-Close connections when done:
-
-```python
-memory = Memory(backend=MemoryBackend.REDIS, redis=RedisConfig(host="localhost"))
-
-# Use memory...
-
-# Close when done (important for Redis)
-memory.close()
-```
-
-Or use context manager (when supported):
-
-```python
-with Memory(backend=MemoryBackend.SQLITE, path="./memory.db") as memory:
-    memory.remember("User's name is Alice", memory_type=MemoryType.CORE)
-```
-
----
-
-## Backend Registry API
-
-For custom backend wiring, the public memory backend package exports `BACKENDS` and `get_backend()`, along with the concrete backend classes `InMemoryBackend`, `SQLiteBackend`, `QdrantBackend`, `ChromaBackend`, `RedisBackend`, and `PostgresBackend`.
-
 ## What's Next?
 
-- [Memory Overview](/agent-kit/core/memory) - Back to memory basics
-- [Memory Types](/agent-kit/core/memory-types) - Core, Episodic, Semantic, Procedural
-
-## See Also
-
-- [Agents](/agent-kit/agent/overview) - Building agents with memory
-- [Budget](/agent-kit/core/budget) - Control memory costs
+- [Memory Types](/core/memory-types) — Core, Episodic, Semantic, Procedural
+- [Memory Overview](/core/memory) — Back to memory basics
+- [Agent Configuration](/agent/agent-configuration) — Wire memory into your agent

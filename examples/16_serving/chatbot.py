@@ -96,7 +96,7 @@ def repeat_back(phrase: str) -> str:
 def _model_and_config():
     """Model list + RoutingConfig when OPENAI_API_KEY set; else single Almock."""
     if not os.getenv("OPENAI_API_KEY"):
-        return [Model.Almock()], None
+        return [Model.mock()], None
     gpt4_mini = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
     gpt4 = Model.OpenAI("gpt-4o", api_key=os.getenv("OPENAI_API_KEY"))
     models = [
@@ -135,10 +135,8 @@ gen_key = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").str
 
 
 class Chatbot(Agent):
-    _agent_name = "chatbot"
-    _agent_description = (
-        "Chatbot with memory, context, guardrails, routing, multimodal, image/video gen"
-    )
+    name = "chatbot"
+    description = "Chatbot with memory, context, guardrails, routing, multimodal, image/video gen"
     model, model_router = _model_and_config()
     input_media = {Media.TEXT, Media.IMAGE}
     output_media = {Media.TEXT, Media.IMAGE, Media.VIDEO}

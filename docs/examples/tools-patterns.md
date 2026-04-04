@@ -105,16 +105,16 @@ result = agent.run("John Doe, 35, john@example.com, San Francisco")
 
 # Access parsed data
 if result.structured.is_valid:
-    print(result.parsed.name)      # "John Doe"
-    print(result.parsed.email)     # "john@example.com"
-    print(result.parsed.age)      # 35
+    print(result.output.name)      # "John Doe"
+    print(result.output.email)     # "john@example.com"
+    print(result.output.age)      # 35
 ```
 
 **What just happened:**
 1. Defined a structured type with `@structured`
 2. Set `validation_retries=3` for automatic correction
 3. The agent output was parsed into a typed object
-4. Checked `is_valid` and accessed `.parsed` data
+4. Checked `is_valid` and accessed `.output` data
 
 ## Nested Structured Types
 
@@ -149,8 +149,8 @@ result = agent.run(
 )
 
 if result.structured.is_valid:
-    print(result.parsed.authorized_capital)  # "5 Cr"
-    for sh in result.parsed.shareholders:
+    print(result.output.authorized_capital)  # "5 Cr"
+    for sh in result.output.shareholders:
         print(f"{sh.name}: {sh.percentage}%")
 ```
 
@@ -193,7 +193,7 @@ agent = Agent(
 )
 
 result = agent.run("Product: Widget Pro, $299.99, in stock, electronics")
-print(result.parsed)  # ProductInfo(name='Widget Pro', price=299.99, ...)
+print(result.output)  # ProductInfo(name='Widget Pro', price=299.99, ...)
 ```
 
 **What just happened:**

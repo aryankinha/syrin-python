@@ -23,11 +23,6 @@ import json
 import sys
 import urllib.error
 import urllib.request
-from pathlib import Path
-
-_root = Path(__file__).resolve().parents[2]
-if str(_root) not in sys.path:
-    sys.path.insert(0, str(_root))
 
 BASE = "http://localhost:8000"
 CONFIG_URL = f"{BASE}/config"

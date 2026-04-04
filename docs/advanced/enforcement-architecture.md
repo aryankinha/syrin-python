@@ -185,13 +185,7 @@ async def dual_llm_pipeline(untrusted_content: str) -> str:
 
 **Key properties of this pattern:**
 
-| Property | Unprivileged model | Privileged model |
-|----------|--------------------|------------------|
-| Sees raw tool output | Yes | No |
-| Has tools / can act | No | Yes |
-| Budget | Small (summarization only) | Full |
-| Model tier | Fast/cheap (Haiku) | Capable (Sonnet) |
-| Trust boundary | Untrusted input | Trusted summary |
+The two models have complementary responsibilities. The unprivileged model sees raw tool output and operates within a small budget for summarization only — it runs on a fast, cheap tier (Haiku) and its trust boundary is untrusted input. The privileged model never sees raw tool output; it has access to tools and can take real-world actions, operates with a full budget on a capable tier (Sonnet), and only ever receives trusted summaries.
 
 **Applying the pattern in a research agent:**
 

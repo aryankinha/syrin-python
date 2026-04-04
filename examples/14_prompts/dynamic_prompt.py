@@ -33,9 +33,9 @@ def persona_prompt(
 
 
 class PersonaAgent(Agent):
-    _agent_name = "persona-agent"
-    _agent_description = "Agent with dynamic template_variables"
-    model = Model.Almock()
+    name = "persona-agent"
+    description = "Agent with dynamic template_variables"
+    model = Model.mock()
     system_prompt = persona_prompt
     template_variables = {"tone": "friendly"}
 

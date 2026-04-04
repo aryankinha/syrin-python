@@ -4,37 +4,35 @@ description: Manage API quotas with proactive threshold actions and multi-backen
 weight: 150
 ---
 
-## The Day the Bill Arrived
+## Why Rate Limiting Matters
 
-Your agent worked beautifully for weeks. Then the end of the month came. You opened the API bill and nearly fell out of your chair.
+API providers enforce rate limits for good reasons — they protect their infrastructure, ensure fair access for all customers, and help you from accidentally running up a massive bill. Without explicit limits on your end, one misconfigured script or runaway loop can hit the API's hard ceiling, causing throttling errors, or worse, a bill that ends your career.
 
-You'd sent 10 million tokens in a single day because a script ran wild. The budget that was supposed to last months was gone in hours.
+Syrin's rate limiting tracks your usage in rolling windows and fires threshold actions before you hit provider limits, not after.
 
-API providers have rate limits for good reasons:
-- Prevent abuse
-- Ensure fair access
-- Protect their infrastructure
-- Help you control costs
+## Basic Setup
 
-Without rate limiting, you're at the mercy of your own code. One bug, one misconfigured script, one runaway loop—and your API access is throttled (or your bill skyrockets).
+```python
+from syrin import Agent, Model
+from syrin.ratelimit import APIRateLimit
 
-## The Problem
+agent = Agent(
+    model=Model.mock(),
+    rate_limit=APIRateLimit(
+        rpm=500,     # 500 requests per minute
+        tpm=150000,  # 150k tokens per minute
+        rpd=10000,   # 10k requests per day
+    ),
+)
+```
 
-Managing API quotas is harder than it sounds:
-- **Hard limits** — Providers cut you off when exceeded
-- **Soft limits** — Providers warn, then cut off
-- **Burst traffic** — Sudden spikes can trigger limits
-- **Cost surprises** — Token counts add up fast
-- **No visibility** — You don't know you're close until you're blocked
+At least one of `rpm`, `tpm`, or `rpd` must be set. When a limit is reached, the request is blocked with a `RateLimitExceeded` error.
 
-Traditional approaches:
-- Simple counters (easy to misconfigure)
-- No threshold actions (no warning before limits hit)
-- No persistence (state lost on restart)
+The tracker uses rolling windows: RPM and TPM track a rolling 60-second window, RPD tracks a rolling 24-hour window. Old entries are pruned automatically.
 
-## The Solution
+## Threshold Actions
 
-Syrin's rate limiting gives you proactive control:
+The real power is in thresholds — actions that fire when you're getting close to a limit, before you actually hit it:
 
 ```python
 from syrin import Agent, Model
@@ -42,169 +40,78 @@ from syrin.ratelimit import APIRateLimit
 from syrin.threshold import RateLimitThreshold
 from syrin.enums import ThresholdMetric
 
-model = Model.OpenAI("gpt-4o", api_key="your-api-key")
+def warn_ops(ctx):
+    print(f"RPM at {ctx.percentage}% ({ctx.current_value}/{ctx.limit_value})")
 
-agent = Agent(
-    model=model,
-    rate_limit=APIRateLimit(
-        rpm=500,          # 500 requests per minute
-        tpm=150000,       # 150k tokens per minute
-        rpd=10000,        # 10k requests per day
-    ),
-)
-```
-
-**What just happened**: The agent now tracks requests and token usage against these limits. When limits are approached or exceeded, you get warnings (or can take action).
-
-## How It Works
-
-The rate limiter tracks usage in rolling windows. Each request is recorded with a timestamp, and entries older than the window (60 seconds for RPM/TPM, 24 hours for RPD) are automatically pruned.
-
-### Tracking Metrics
-
-| Metric | Tracks | Window |
-|--------|--------|--------|
-| RPM | Requests per minute | Rolling 60 seconds |
-| TPM | Tokens per minute | Rolling 60 seconds |
-| RPD | Requests per day | Rolling 24 hours |
-
-## Threshold Actions
-
-The real power comes from threshold actions—functions that run when you hit a percentage of a limit:
-
-```python
-from syrin.threshold import RateLimitThreshold
-from syrin.enums import ThresholdMetric
-
-
-def warn_rpm(ctx):
-    print(f"⚠️  RPM at {ctx.percentage}% ({ctx.current_value}/{ctx.limit_value})")
-    send_alert_to_ops(f"RPM usage: {ctx.percentage}%")
-
-
-def warn_tpm(ctx):
-    print(f"⚠️  TPM at {ctx.percentage}%")
+def switch_model(ctx):
     if ctx.percentage >= 90:
-        # Switch to a more efficient model
-        model_manager.switch_to_efficient_model()
-
+        print("Switching to more efficient model")
 
 agent = Agent(
-    model=model,
+    model=Model.mock(),
     rate_limit=APIRateLimit(
         rpm=500,
         tpm=150000,
         thresholds=[
-            RateLimitThreshold(
-                at=80,
-                action=warn_rpm,
-                metric=ThresholdMetric.RPM,
-            ),
-            RateLimitThreshold(
-                at=80,
-                action=warn_tpm,
-                metric=ThresholdMetric.TPM,
-            ),
+            RateLimitThreshold(at=80, action=warn_ops, metric=ThresholdMetric.RPM),
+            RateLimitThreshold(at=80, action=warn_ops, metric=ThresholdMetric.TPM),
+            RateLimitThreshold(at=90, action=switch_model, metric=ThresholdMetric.TPM),
         ],
     ),
 )
 ```
 
-**What just happened**: At 80% RPM, you get a warning and can alert ops. At 90% TPM, you switch to a more efficient model.
+Threshold actions execute the callback but don't block the request — only hitting the hard limit blocks. Use `at=80` to warn, `at=95` to take emergency action.
 
-## Threshold Reference
-
-### Threshold Types
+You can also trigger within a specific range instead of at a fixed percentage:
 
 ```python
-from syrin.threshold import RateLimitThreshold
-from syrin.enums import ThresholdMetric
-
-# Warn at 80%
-RateLimitThreshold(at=80, action=warn, metric=ThresholdMetric.RPM)
-
-# Warn at specific range (70-75%)
 RateLimitThreshold(
-    at_range=(70, 75),
+    at_range=(70, 80),
     action=alert,
-    metric=ThresholdMetric.TPM,
+    metric=ThresholdMetric.RPM,
 )
-
-# Critical at 95%
-RateLimitThreshold(at=95, action=critical_alert, metric=ThresholdMetric.RPD)
 ```
 
-### Trigger Conditions
+## Auto-Detecting Limits
 
-| Threshold | Triggers When |
-|-----------|---------------|
-| `at=80` | Usage >= 80% |
-| `at_range=(70, 80)` | 70% to 80% usage |
-
-## Blocking Behavior
-
-When limits are reached, requests are blocked:
-
-```python
-allowed, reason = rate_limit_manager.check(tokens_used=500)
-
-if not allowed:
-    raise RateLimitExceeded(f"Rate limit: {reason}")
-```
-
-### Default Behavior
-
-- **Threshold actions** (at %): Execute callbacks but don't block
-- **Hard limits** (rpm, tpm, rpd): Block when exceeded
-
-## Auto-Detection
-
-Let Syrin auto-detect limits for your model:
+Let Syrin look up known limits for your model:
 
 ```python
 from syrin.ratelimit import APIRateLimit
 
-# Auto-detect limits for gpt-4o
 rate_limit = APIRateLimit.auto_detect_for_model("openai/gpt-4o")
 print(f"RPM: {rate_limit.rpm}, TPM: {rate_limit.tpm}")
 ```
 
-**What just happened**: Syrin looked up the known limits for this model and configured them automatically.
+Or enable auto-detection directly in the config:
+
+```python
+rate_limit = APIRateLimit(auto_detect=True)
+```
 
 ## Persistence Backends
 
-For multi-instance deployments, use persistent backends:
+By default, rate limit state lives in memory and resets when your process restarts. For production deployments that need state across restarts or across multiple instances, choose a backend.
 
-### Memory (Default)
-
-```python
-from syrin.ratelimit import APIRateLimit
-
-rate_limit = APIRateLimit(rpm=500)  # In-memory only
-```
-
-State is lost on restart. Good for single-instance deployments.
-
-### SQLite
+### SQLite — Single-Instance Persistence
 
 ```python
-from syrin.ratelimit import APIRateLimit
+from syrin.ratelimit import APIRateLimit, DefaultRateLimitManager
 from syrin.ratelimit.backends import SQLiteRateLimitBackend
 
 backend = SQLiteRateLimitBackend(path="/var/data/ratelimits.db")
-manager = DefaultRateLimitManager(
-    config=APIRateLimit(rpm=500),
-)
+manager = DefaultRateLimitManager(config=APIRateLimit(rpm=500))
 manager.set_backend(backend)
 manager.load()  # Restore state from disk
 ```
 
-### Redis
+### Redis — Distributed Rate Limiting
 
-For distributed rate limiting across multiple instances:
+For multi-instance deployments where you need shared rate limit state across pods:
 
 ```python
-from syrin.ratelimit import APIRateLimit
+from syrin.ratelimit import APIRateLimit, DefaultRateLimitManager
 from syrin.ratelimit.backends import RedisRateLimitBackend
 
 backend = RedisRateLimitBackend(
@@ -219,44 +126,23 @@ manager.set_backend(backend)
 
 ```python
 from syrin.ratelimit import APIRateLimit
-from syrin.threshold import RateLimitThreshold
-from syrin.enums import ThresholdMetric
 
 rate_limit = APIRateLimit(
-    rpm=500,                # Requests per minute limit
-    tpm=150000,             # Tokens per minute limit
-    rpd=10000,              # Requests per day limit
-    thresholds=[
-        RateLimitThreshold(at=80, action=warn, metric=ThresholdMetric.RPM),
-        RateLimitThreshold(at=80, action=warn, metric=ThresholdMetric.TPM),
-    ],
-    wait_backoff=1.0,       # Seconds to wait on WAIT action
-    auto_switch=True,       # Auto-switch model on exceeded
-    auto_detect=False,      # Auto-detect limits from model_id
-    retry_on_429=True,      # Retry on 429 response
-    max_retries=3,          # Max retries on 429
+    rpm=500,             # Requests per minute
+    tpm=150000,          # Tokens per minute
+    rpd=10000,           # Requests per day
+    thresholds=[...],    # Threshold actions (default: [])
+    wait_backoff=1.0,    # Seconds to wait when WAIT action triggers
+    auto_switch=True,    # Auto-switch model on limit exceeded
+    auto_detect=False,   # Auto-detect limits from model ID
+    retry_on_429=True,   # Retry automatically on 429 responses
+    max_retries=3,       # Max retries on 429
 )
 ```
 
-### Parameter Reference
+## Monitoring Usage
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `rpm` | `int` | `None` | Requests per minute limit |
-| `tpm` | `int` | `None` | Tokens per minute limit |
-| `rpd` | `int` | `None` | Requests per day limit |
-| `thresholds` | `list` | `[]` | Threshold actions |
-| `wait_backoff` | `float` | `1.0` | Seconds to wait on WAIT |
-| `auto_switch` | `bool` | `True` | Auto-switch model on exceeded |
-| `auto_detect` | `bool` | `False` | Auto-detect from model_id |
-| `retry_on_429` | `bool` | `True` | Retry on 429 response |
-| `max_retries` | `int` | `3` | Max retries on 429 |
-
-**Note**: At least one of `rpm`, `tpm`, or `rpd` must be set (or `auto_detect=True`).
-
-## Getting Statistics
-
-Monitor your rate limit usage:
+Check current usage at any time:
 
 ```python
 from syrin.ratelimit import RateLimitStats
@@ -268,54 +154,22 @@ print(f"RPD: {stats.rpd_used}/{stats.rpd_limit}")
 print(f"Thresholds triggered: {stats.thresholds_triggered}")
 ```
 
-## Real-World Patterns
+## Production Patterns
 
-### Cost Control
+### Alert Before Limits Hit
 
 ```python
-from syrin import Agent, Model, Budget
+from syrin import Agent, Model
 from syrin.ratelimit import APIRateLimit
 from syrin.threshold import RateLimitThreshold
 from syrin.enums import ThresholdMetric
 
-
-def switch_to_cheaper(ctx):
-    if ctx.percentage >= 90:
-        # Force cheaper model
-        agent.model = Model.OpenAI("gpt-3.5-turbo", api_key="your-api-key")
-        notify_ops("Switched to gpt-3.5 due to rate limit pressure")
-
-
-agent = Agent(
-    model=Model.OpenAI("gpt-4o", api_key="your-api-key"),
-    budget=Budget(max_cost=100.00),  # Cap total spend
-    rate_limit=APIRateLimit(
-        rpm=500,
-        thresholds=[
-            RateLimitThreshold(at=80, action=switch_to_cheaper, metric=ThresholdMetric.RPM),
-        ],
-    ),
-)
-```
-
-### Alert Before Limits
-
-```python
-import logging
-import slack_sdk
-
-slack = slack_sdk.WebhookClient(os.environ["SLACK_WEBHOOK_URL"])
-logger = logging.getLogger(__name__)
-
-
 def alert_ops(ctx):
-    message = f"🚨 Rate limit alert: {ctx.metric} at {ctx.percentage}%"
-    slack.send(text=message)
-    logger.warning(message)
-
+    # Send to Slack, PagerDuty, etc.
+    print(f"Rate limit alert: {ctx.metric} at {ctx.percentage}%")
 
 agent = Agent(
-    model=model,
+    model=Model.mock(),
     rate_limit=APIRateLimit(
         rpm=500,
         thresholds=[
@@ -329,20 +183,19 @@ agent = Agent(
 
 ### Multi-Tenant Rate Limiting
 
+Per-tenant limits with shared Redis backend:
+
 ```python
 from syrin.ratelimit import DefaultRateLimitManager, APIRateLimit
 from syrin.ratelimit.backends import RedisRateLimitBackend
 
-# Shared Redis backend for multi-tenant
 backend = RedisRateLimitBackend(url="redis://redis:6379", prefix="ratelimit:")
 
-
-def create_tenant_manager(tenant_id: str) -> DefaultRateLimitManager:
-    limits = tenant_rate_config[tenant_id]  # Per-tenant limits
+def create_tenant_manager(tenant_id: str, tenant_config: dict) -> DefaultRateLimitManager:
     manager = DefaultRateLimitManager(
         config=APIRateLimit(
-            rpm=limits["rpm"],
-            tpm=limits["tpm"],
+            rpm=tenant_config["rpm"],
+            tpm=tenant_config["tpm"],
         ),
     )
     manager.set_backend(backend, key=f"tenant:{tenant_id}")
@@ -350,41 +203,35 @@ def create_tenant_manager(tenant_id: str) -> DefaultRateLimitManager:
     return manager
 ```
 
-## Hooks and Events
+## Hooks
 
-Rate limit events emit lifecycle hooks:
+Subscribe to rate limit events:
 
 ```python
-def on_exceeded(ctx):
-    print(f"Rate limit exceeded: {ctx.metric}")
-    print(f"  Used: {ctx.used}, Limit: {ctx.limit}")
+from syrin.enums import Hook
 
-agent.events.on(Hook.RATELIMIT_EXCEEDED, on_exceeded)
+agent.events.on(Hook.RATELIMIT_EXCEEDED, lambda ctx: print(
+    f"Rate limit exceeded: {ctx.get('metric')} — {ctx.get('used')}/{ctx.get('limit')}"
+))
 
-def on_threshold(ctx):
-    print(f"Threshold reached: {ctx.percentage}%")
-
-agent.events.on(Hook.RATELIMIT_THRESHOLD, on_threshold)
+agent.events.on(Hook.RATELIMIT_THRESHOLD, lambda ctx: print(
+    f"Threshold reached: {ctx.get('percentage')}%"
+))
 ```
 
-## Comparison with Budget
+## Rate Limiting vs Budget
 
-| Feature | Rate Limiting | Budget |
-|---------|--------------|--------|
-| Scope | API provider limits | Your spending |
-| Units | RPM, TPM, RPD | USD |
-| Blocks on | Hard limit | Budget exhausted |
-| Use Case | Prevent API throttling | Control costs |
+Rate limiting and budget control different things and complement each other.
 
-Use both together: rate limiting prevents provider throttling, budget prevents runaway costs.
+Rate limiting protects against provider throttling. It tracks requests and tokens against API quotas (RPM, TPM, RPD). When a provider limit is hit, the request is rejected. Use it when you don't want 429 errors.
 
-## Public Rate-Limit Manager API
+Budget controls your spending. It tracks costs in USD against your own financial limits. When a budget is exceeded, the run stops (or warns, depending on configuration). Use it when you don't want surprise bills.
 
-The rate-limit package also exports `RateLimitManager`, `DefaultRateLimitManager`, `create_rate_limit_manager()`, `get_rate_limit_backend()`, `MemoryRateLimitBackend`, `SQLiteRateLimitBackend`, and `RedisRateLimitBackend` for custom manager and backend wiring.
+Use both together: rate limiting prevents API throttling, budget prevents runaway costs.
 
 ## See Also
 
-- [Budget](/agent-kit/core/budget) — Spending controls
-- [Circuit Breaker](/agent-kit/production/circuit-breaker) — Provider failure protection
-- [Debugging: Hooks](/agent-kit/debugging/hooks) — Lifecycle hooks reference
-- [Serving: Advanced](/agent-kit/production/serving-advanced) — Production deployment
+- [Budget](/core/budget) — Spending controls
+- [Budget Callbacks](/core/budget-callbacks) — Budget threshold actions
+- [Circuit Breaker](/production/circuit-breaker) — Provider failure protection
+- [Hooks Reference](/debugging/hooks-reference) — All lifecycle hooks

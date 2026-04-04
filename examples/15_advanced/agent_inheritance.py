@@ -18,7 +18,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from examples.models.models import almock
-from syrin import Agent, Budget, tool, warn_on_exceeded
+from syrin import Agent, Budget, tool
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
@@ -31,8 +31,8 @@ def repeat(text: str, count: int = 1) -> str:
 
 
 class BaseAgent(Agent):
-    _agent_name = "base-agent"
-    _agent_description = "Base agent with repeat tool"
+    name = "base-agent"
+    description = "Base agent with repeat tool"
     model = almock
     system_prompt = "You are a helpful assistant."
     tools = [repeat]
@@ -68,11 +68,11 @@ print(f"GreetingAgent tools: {[t.name for t in agent._tools]}")
 # 3. Budget override
 class BudgetBase(Agent):
     model = almock
-    budget = Budget(max_cost=10.0, on_exceeded=warn_on_exceeded)
+    budget = Budget(max_cost=10.0, exceed_policy=ExceedPolicy.WARN)
 
 
 class TightBudgetAgent(BudgetBase):
-    budget = Budget(max_cost=0.10, on_exceeded=warn_on_exceeded)
+    budget = Budget(max_cost=0.10, exceed_policy=ExceedPolicy.WARN)
 
 
 base = BudgetBase()

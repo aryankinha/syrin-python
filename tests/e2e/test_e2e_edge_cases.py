@@ -24,9 +24,9 @@ from syrin import (
     Model,
     ReactLoop,
     SingleShotLoop,
-    raise_on_exceeded,
 )
 from syrin.budget import BudgetTracker
+from syrin.enums import ExceedPolicy
 from syrin.events import EventContext
 from syrin.memory import Memory
 from syrin.threshold import BudgetThreshold
@@ -49,7 +49,7 @@ class TestBudgetEdgeCases:
 
     def test_budget_exact_at_limit(self) -> None:
         """Budget at exactly the limit — should process but next call may fail."""
-        budget = Budget(max_cost=100.0, on_exceeded=raise_on_exceeded)
+        budget = Budget(max_cost=100.0, exceed_policy=ExceedPolicy.STOP)
         agent = Agent(model=_almock(), budget=budget)
         # First call should succeed
         r = agent.run("Hello")
@@ -367,12 +367,12 @@ class TestLoopEdgeCases:
     """Loop strategy boundary conditions."""
 
     def test_react_loop_max_iterations_1(self) -> None:
-        agent = Agent(model=_almock(), custom_loop=ReactLoop(max_iterations=1))
+        agent = Agent(model=_almock(), loop=ReactLoop(max_iterations=1))
         r = agent.run("Hello")
         assert r.content is not None
 
     def test_react_loop_large_max_iterations(self) -> None:
-        agent = Agent(model=_almock(), custom_loop=ReactLoop(max_iterations=1000))
+        agent = Agent(model=_almock(), loop=ReactLoop(max_iterations=1000))
         r = agent.run("Hello")
         assert r.content is not None
 
@@ -385,7 +385,7 @@ class TestLoopEdgeCases:
             ReactLoop(max_iterations="abc")  # type: ignore
 
     def test_single_shot_no_tools(self) -> None:
-        agent = Agent(model=_almock(), custom_loop=SingleShotLoop())
+        agent = Agent(model=_almock(), loop=SingleShotLoop())
         r = agent.run("Simple question")
         assert r.content is not None
 

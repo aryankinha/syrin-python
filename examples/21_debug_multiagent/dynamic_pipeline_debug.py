@@ -50,24 +50,24 @@ def fact_check(claim: str) -> str:
 
 
 class ResearcherAgent(Agent):
-    _agent_name = "researcher"
-    _agent_description = "Researches a topic using web search"
+    name = "researcher"
+    description = "Researches a topic using web search"
     model = gpt4_mini
     system_prompt = "You research topics. Use web_search to find information."
     tools = [web_search]
 
 
 class FactCheckerAgent(Agent):
-    _agent_name = "fact_checker"
-    _agent_description = "Verifies claims and facts"
+    name = "fact_checker"
+    description = "Verifies claims and facts"
     model = gpt4_mini
     system_prompt = "You verify facts. Use fact_check to validate each claim."
     tools = [fact_check]
 
 
 class WriterAgent(Agent):
-    _agent_name = "writer"
-    _agent_description = "Writes clear summaries from research"
+    name = "writer"
+    description = "Writes clear summaries from research"
     model = gpt4_mini
     system_prompt = "You write clear, engaging summaries from research data."
 

@@ -9,11 +9,8 @@ from syrin import Agent
 from syrin.agent._run_context import DefaultAgentRunContext
 from syrin.enums import MessageRole
 from syrin.loop import (
-    HITL,
     MAX_TOOL_RESULT_DISPLAY_LENGTH,
     MAX_TOOL_RESULT_SAFETY_CAP,
-    REACT,
-    SINGLE_SHOT,
     HumanInTheLoop,
     LoopResult,
     ReactLoop,
@@ -529,19 +526,6 @@ class TestHumanInTheLoop:
         assert result.token_usage == {"input": 250, "output": 75, "total": 325}
 
 
-class TestConstants:
-    """Test module constants."""
-
-    def test_react_constant(self):
-        assert REACT is ReactLoop
-
-    def test_single_shot_constant(self):
-        assert SINGLE_SHOT is SingleShotLoop
-
-    def test_hitl_constant(self):
-        assert HITL is HumanInTheLoop
-
-
 class TestCustomLoop:
     """Test custom loop implementation."""
 
@@ -560,7 +544,7 @@ class TestCustomLoop:
         # Works with Agent - pass the instance
         agent = Agent(
             model=ModelConfig(name="test", provider="openai", model_id="gpt-4o"),
-            custom_loop=loop,  # Pass instance
+            loop=loop,  # Pass instance
         )
         assert agent._loop.name == "mine"
 
@@ -571,14 +555,14 @@ class TestAgentIntegration:
     def test_agent_accepts_loop_instance(self):
         agent = Agent(
             model=ModelConfig(name="test", provider="openai", model_id="gpt-4o"),
-            custom_loop=ReactLoop(),
+            loop=ReactLoop(),
         )
         assert agent._loop is not None
 
     def test_agent_accepts_loop_class(self):
         agent = Agent(
             model=ModelConfig(name="test", provider="openai", model_id="gpt-4o"),
-            custom_loop=SingleShotLoop,
+            loop=SingleShotLoop,
         )
         assert agent._loop is not None
 
@@ -613,7 +597,7 @@ class TestAgentRunLoopResponse:
 
         agent = Agent(
             model=ModelConfig(name="test", provider="openai", model_id="gpt-4o-mini"),
-            custom_loop=TestLoop(),
+            loop=TestLoop(),
         )
 
         result = agent.run("test")
@@ -640,7 +624,7 @@ class TestAgentRunLoopResponse:
 
         agent = Agent(
             model=ModelConfig(name="test", provider="openai", model_id="gpt-4o-mini"),
-            custom_loop=TestLoop(),
+            loop=TestLoop(),
         )
 
         result = agent.run("test")
@@ -669,7 +653,7 @@ class TestAgentRunLoopResponse:
 
         agent = Agent(
             model=ModelConfig(name="test", provider="openai", model_id="gpt-4o-mini"),
-            custom_loop=TestLoop(),
+            loop=TestLoop(),
         )
 
         result = agent.run("test")
@@ -698,7 +682,7 @@ class TestAgentRunLoopResponse:
 
         agent = Agent(
             model=ModelConfig(name="test", provider="openai", model_id="gpt-4o-mini"),
-            custom_loop=TestLoop(),
+            loop=TestLoop(),
         )
 
         result = agent.run("test")
@@ -725,7 +709,7 @@ class TestAgentRunLoopResponse:
 
         agent = Agent(
             model=ModelConfig(name="test", provider="openai", model_id="gpt-4o-mini"),
-            custom_loop=TestLoop(),
+            loop=TestLoop(),
         )
 
         result = agent.run("test")

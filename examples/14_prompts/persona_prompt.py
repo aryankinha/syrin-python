@@ -14,9 +14,9 @@ from syrin import Agent, Model, system_prompt
 
 
 class PersonaAgent(Agent):
-    _agent_name = "persona-agent"
-    _agent_description = "Agent with @system_prompt in-class"
-    model = Model.Almock(latency_seconds=0.01, lorem_length=60)
+    name = "persona-agent"
+    description = "Agent with @system_prompt in-class"
+    model = Model.mock(latency_seconds=0.01, lorem_length=60)
 
     @system_prompt
     def my_prompt(self, user_name: str = "", tone: str = "professional") -> str:

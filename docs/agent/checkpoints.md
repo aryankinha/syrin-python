@@ -126,15 +126,7 @@ if success:
 
 ## What's Saved
 
-Each checkpoint captures:
-
-| Component | Description |
-|-----------|-------------|
-| `iteration` | Current loop iteration count |
-| `messages` | Full conversation history |
-| `budget_state` | Spent amount, remaining budget, tracker state |
-| `context_snapshot` | Token usage, utilization, context breakdown |
-| `checkpoint_reason` | Why this checkpoint was created |
+Each checkpoint captures five components. `iteration` records the current loop iteration count. `messages` preserves the full conversation history. `budget_state` holds the spent amount, remaining budget, and tracker state. `context_snapshot` captures token usage, utilization, and context breakdown. `checkpoint_reason` stores why this checkpoint was created.
 
 ## Hooks for Observability
 

@@ -12,13 +12,6 @@ Covers: Media.FILE, InputFileRules, allowed_mime_types, max_size_mb, validation.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-_root = Path(__file__).resolve().parents[2]
-if str(_root) not in sys.path:
-    sys.path.insert(0, str(_root))
-
 from syrin import Agent, Model
 from syrin.capabilities import InputFileRules
 from syrin.enums import Media
@@ -32,7 +25,7 @@ def main() -> None:
     )
 
     agent = Agent(
-        model=Model.Almock(latency_min=0, latency_max=0),
+        model=Model.mock(latency_min=0, latency_max=0),
         system_prompt="You accept PDF and image uploads. Summarize or describe them.",
         input_media={Media.TEXT, Media.FILE},
         output_media={Media.TEXT},
@@ -49,7 +42,7 @@ def main() -> None:
     # Demonstrate validation: FILE in input_media without rules would raise
     try:
         Agent(
-            model=Model.Almock(),
+            model=Model.mock(),
             system_prompt="x",
             input_media={Media.TEXT, Media.FILE},
             # missing input_file_rules

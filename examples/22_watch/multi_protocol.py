@@ -65,7 +65,7 @@ class StartupProtocol:
 
 
 class OpsAgent(Agent):
-    _agent_name = "ops_agent"
+    name = "ops_agent"
     model = almock
     system_prompt = "You are an operations agent. Respond with a brief status update."
 

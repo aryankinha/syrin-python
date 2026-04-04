@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -34,6 +35,15 @@ _log = logging.getLogger(__name__)
 
 # SEC1/B4: Fields that must never appear in hook payloads.
 # Scrubbed before dispatching to any handler, trace, or log.
+
+# Patterns for detecting secret values in strings (API keys, tokens, etc.)
+_SECRET_VALUE_PATTERNS = re.compile(
+    r"sk-ant-[A-Za-z0-9\-_]+"  # Anthropic
+    r"|sk-[A-Za-z0-9\-_]{10,}"  # OpenAI
+    r"|AKIA[0-9A-Z]{16}"  # AWS access key
+    r"|Bearer\s+[A-Za-z0-9\-_\.]{20,}"  # Bearer token
+)
+
 _REDACTED_FIELDS = frozenset(
     {
         "api_key",
@@ -89,6 +99,10 @@ class EventContext(dict[str, object]):
         for key in list(self.keys()):
             if key in _REDACTED_FIELDS:
                 self[key] = _REDACTED
+            else:
+                val = self[key]
+                if isinstance(val, str) and _SECRET_VALUE_PATTERNS.search(val):
+                    self[key] = _REDACTED
 
 
 class Events:

@@ -6,15 +6,13 @@ weight: 66
 
 ## Every Dial You Can Turn
 
-You built your first agent. It works. Now you need to configure it for production. How do you set a budget? What about memory? Guardrails? Rate limiting? Checkpointing?
+You built your first agent. It works. Now you want to tune it for real usage. Budget limits, memory, guardrails, debug hooks, context compaction — where does all of this go?
 
-This page is your complete reference for everything you can configure on an agent. Think of it as the manual for your control panel.
+This page walks through every configuration option and when to actually use it.
 
 ## The Configuration Menu
 
-Here's every category of configuration you can use:
-
-**Core** — The essentials that define your agent:
+**Core** — The essentials that define what your agent is:
 - `model` — The AI brain (required)
 - `system_prompt` — Instructions for behavior
 - `tools` — What the agent can do
@@ -22,30 +20,29 @@ Here's every category of configuration you can use:
 **Control** — How the agent operates:
 - `budget` — Cost limits and thresholds
 - `context` — Token management and compaction
-- `loop_strategy` — How the agent thinks
+- `loop` — Which loop strategy the agent uses (e.g. `ReactLoop`, `PlanExecuteLoop`)
 
 **Safety** — Protection and compliance:
 - `guardrails` — Input/output validation
 - `rate_limit` — API rate limiting
 
 **Observability** — See what's happening:
-- `debug` — Console output
-- `tracer` — Structured traces
-- `events` — Hooks for everything
+- `debug` — Console output of every event
+- `tracer` — Structured traces (OpenTelemetry-compatible)
+- `events` — Hooks you subscribe to
 
 **Persistence** — Remember across sessions:
-- `memory` — Persistent memory
-- `checkpoint` — Save/restore state
+- `memory` — Persistent memory with four types
+- `checkpoint` — Save/restore agent state
 
-**Output** — Response configuration:
-- `output` — Structured responses
-- `output_config` — File formats, templates, citations
+**Output** — Response format:
+- `output` — Structured responses (typed Python objects)
 
 ## Core Configuration
 
 ### Model (Required)
 
-The brain of your agent. Choose wisely—it's the biggest factor in quality and cost.
+The brain of your agent. This is the only required parameter.
 
 ```python
 from syrin import Agent, Model
@@ -54,63 +51,45 @@ from syrin import Agent, Model
 agent = Agent(model=Model.OpenAI("gpt-4o", api_key="your-key"))
 
 # Anthropic
-agent = Agent(model=Model.Anthropic("claude-3-5-sonnet", api_key="your-key"))
+agent = Agent(model=Model.Anthropic("claude-sonnet-4-6-20251001", api_key="your-key"))
 
-# Ollama (local)
-agent = Agent(model=Model.Ollama("llama3"))
+# Ollama (local, no API key)
+agent = Agent(model=Model.Ollama("llama3.2"))
 
-# Multiple models for automatic routing
-agent = Agent(model=[
-    Model.OpenAI("gpt-4o-mini"),  # Fast, cheap
-    Model.OpenAI("gpt-4o"),        # Slow, expensive
-])
+# Mock (for testing — always returns lorem ipsum, no API calls)
+agent = Agent(model=Model.mock())
 ```
-
-**Why it matters:** Different models have different capabilities and costs. GPT-4o is smarter but pricier. Routing lets you use the right model for each task.
 
 ### System Prompt
 
-How your agent behaves. This is sent with every request.
+The instructions your agent follows for every request. Keep it short and specific — the LLM ignores walls of text just like humans do.
 
 ```python
-# Simple prompt
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
-    system_prompt="You are a helpful assistant.",
-)
-
-# Detailed prompt
-agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
-    system_prompt="""
-        You are a customer support agent for Acme Corp.
-        - Be friendly and professional
-        - Apologize when appropriate
-        - Escalate to humans for refunds over $100
-        - Never share internal system information
-    """,
+    model=Model.mock(),
+    system_prompt="You are a customer support agent for Acme Corp. Be friendly, professional, and escalate billing issues over $100 to a human.",
 )
 ```
 
-**Pro tip:** Use dynamic prompts with `@system_prompt` decorator for context-aware behavior:
+For context-aware prompts that change based on runtime data, use the `@system_prompt` decorator:
 
 ```python
+from syrin import Agent, Model
 from syrin.prompt import system_prompt, PromptContext
 
 class PersonalizedAgent(Agent):
-    model = Model.OpenAI("gpt-4o")
-    
+    model = Model.mock()
+
     @system_prompt
     def greeting(self, ctx: PromptContext) -> str:
-        """Build prompt based on user context."""
         hour = ctx.builtins.get("hour", 12)
-        greeting = "Good evening" if hour > 17 else "Good morning"
-        return f"You are a helpful assistant. Use a {greeting} tone."
+        tone = "evening" if hour > 17 else "morning"
+        return f"You are a helpful assistant. It is {tone} — adjust your tone accordingly."
 ```
 
 ### Tools
 
-What your agent can actually *do*. Without tools, it's just a fancy text generator.
+What your agent can actually *do*. Without tools, it's just a chatbot. With tools, it can search the web, call APIs, query databases, run code — whatever you wire up.
 
 ```python
 from syrin import Agent, Model
@@ -119,17 +98,18 @@ from syrin.tool import tool
 @tool
 def search(query: str) -> str:
     """Search the web for information."""
-    # Real implementation: call search API
     return f"Results for: {query}"
 
 @tool
 def calculate(expression: str) -> str:
-    """Evaluate a mathematical expression."""
-    return str(eval(expression))
+    """Evaluate a mathematical expression safely."""
+    import ast
+    return str(ast.literal_eval(expression))
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
-    tools=[search, calculate],  # Agent can use these
+    model=Model.mock(),
+    system_prompt="You help users with research and calculations.",
+    tools=[search, calculate],
 )
 ```
 
@@ -137,63 +117,43 @@ agent = Agent(
 
 ### Budget
 
-This is where production gets serious. Set a budget or wake up to a surprise bill.
+This is the most important configuration for production. Set a budget, or wake up to a surprise cloud bill.
 
 ```python
 from syrin import Agent, Model, Budget
-from syrin.enums import ExceedPolicy, RateLimit
+from syrin.enums import ExceedPolicy
 
 # Simple: $1 per request
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
+    model=Model.mock(),
     budget=Budget(max_cost=1.00),
 )
 
-# Per-period limits: $5 per day
+# Strict: stop immediately when exceeded
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
-    budget=Budget(
-        max_cost=0.50,                      # $0.50 per request
-        rate_limits=RateLimit(day=5.00),   # $5 per day
-        exceed_policy=ExceedPolicy.STOP,         # Stop when exceeded
-    ),
+    model=Model.mock(),
+    budget=Budget(max_cost=0.50, exceed_policy=ExceedPolicy.STOP),
 )
 ```
 
-**What happens when budget is exceeded?**
+When the budget is exceeded, `ExceedPolicy.STOP` raises `BudgetExceededError`. `ExceedPolicy.WARN` logs a warning and lets the run continue. `ExceedPolicy.IGNORE` silently continues. For production customer-facing agents, use `STOP` — silent overruns are worse than failed requests.
 
-| `on_exceeded` | Behavior |
-|----------------|----------|
-| `ExceedPolicy.STOP` | Raises `BudgetExceededError` |
-| `ExceedPolicy.WARN` | Logs warning, continues |
-| `ExceedPolicy.ERROR` | Logs error, continues |
-
-**Budget thresholds for proactive alerts:**
+**Budget thresholds** let you react before the budget is exhausted:
 
 ```python
-from syrin import Agent, Model, Budget, Hook
+from syrin import Agent, Model, Budget
+from syrin.budget import BudgetThreshold
+
+def send_alert(ctx):
+    print(f"Warning: {ctx.get('percentage', 0):.0f}% of budget used")
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
+    model=Model.mock(),
     budget=Budget(
         max_cost=1.00,
         thresholds=[
-            BudgetThreshold(at=50, action=lambda ctx: print("50% spent!")),
-            BudgetThreshold(at=80, action=lambda ctx: print("80% spent!")),
-        ],
-    ),
-)
-
-# Or switch to a cheaper model
-def switch_to_cheap(ctx):
-    ctx.parent.switch_model(Model.OpenAI("gpt-4o-mini"))
-
-agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
-    budget=Budget(
-        max_cost=1.00,
-        thresholds=[
-            BudgetThreshold(at=75, action=switch_to_cheap),
+            BudgetThreshold(at=50, action=send_alert),
+            BudgetThreshold(at=80, action=send_alert),
         ],
     ),
 )
@@ -201,17 +161,17 @@ agent = Agent(
 
 ### Budget Persistence
 
-Don't lose your budget state when the server restarts:
+Budget resets when your server restarts — unless you use a persistent store:
 
 ```python
 from syrin import Agent, Model, Budget
-from syrin.budget_store import FileBudgetStore
+from syrin.budget import FileBudgetStore
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
+    model=Model.mock(),
     budget=Budget(max_cost=1.00),
-    budget_store=FileBudgetStore("/tmp/budgets.json"),
-    budget_store_key="user-123",  # Isolate per user
+    budget_store=FileBudgetStore("~/.syrin/budgets.json"),
+    budget_store_key="user-123",  # One budget per user
 )
 ```
 
@@ -219,45 +179,36 @@ agent = Agent(
 
 ### Context
 
-The agent's "working memory"—how much it can fit in a single request.
+The agent's working memory for a single conversation. Every message you send and receive takes tokens. Long conversations eventually fill the context window and fail.
 
 ```python
 from syrin import Agent, Model, Context
-from syrin.threshold import ContextThreshold
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
-    config=AgentConfig(
-        context=Context(
-            max_tokens=80000,  # Context window
-            reserve=2000,        # Room for response
-            thresholds=[
-                # Warn at 50%
-                ContextThreshold(at=50, action=lambda ctx: print("50% tokens used")),
-                # Compact at 75%
-                ContextThreshold(at=75, action=lambda ctx: ctx.compact()),
-            ],
-        )
+    model=Model.mock(),
+    context=Context(
+        max_tokens=80000,      # Match your model's context window
+        auto_compact_at=0.75,  # Summarize conversation at 75% full
     ),
 )
 ```
 
-**Why this matters:** Long conversations grow unbounded. Without context management, you'll hit token limits or waste money sending the same history repeatedly.
+With `auto_compact_at`, Syrin automatically summarizes older messages when you approach the limit — so long conversations never fail, they just get compacted.
 
-### Proactive Compaction
-
-Let Syrin handle context pressure automatically:
+To react to specific utilization levels:
 
 ```python
 from syrin import Agent, Model, Context
+from syrin.context import ContextThreshold
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
-    config=AgentConfig(
-        context=Context(
-            max_tokens=80000,
-            auto_compact_at=0.6,  # Compact when 60% full
-        )
+    model=Model.mock(),
+    context=Context(
+        max_tokens=80000,
+        thresholds=[
+            ContextThreshold(at=50, action=lambda ctx: print("50% full")),
+            ContextThreshold(at=80, action=lambda ctx: print("80% — compacting soon")),
+        ],
     ),
 )
 ```
@@ -266,311 +217,190 @@ agent = Agent(
 
 ### Guardrails
 
-Validate input and output. Block harmful content before it reaches the model or your users.
+Guardrails run before and after the LLM. Input guardrails catch bad requests before the model sees them. Output guardrails catch bad responses before users see them.
 
 ```python
 from syrin import Agent, Model
-from syrin.guardrails import ContentFilter, Guardrail
+from syrin.guardrails import ContentFilter, PIIScanner, LengthGuardrail
 
-# Built-in content filter
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
+    model=Model.mock(),
     guardrails=[
-        ContentFilter(
-            blocked_words=["hack", "steal", "password"],
-            action="block",
-        ),
+        ContentFilter(blocked_words=["password", "secret", "admin"]),
+        LengthGuardrail(min_length=1, max_length=5000),
+        PIIScanner(redact=True),
     ],
 )
 
-# Custom guardrail
-def no_sensitive_data(text: str) -> GuardrailResult:
-    """Block requests with sensitive data."""
-    sensitive_patterns = ["ssn", "credit card", "password"]
-    for pattern in sensitive_patterns:
-        if pattern in text.lower():
-            return GuardrailResult(
-                passed=False,
-                reason=f"Contains sensitive data: {pattern}",
-            )
-    return GuardrailResult(passed=True)
-
-agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
-    guardrails=[
-        Guardrail(
-            name="no_sensitive_data",
-            description="Block sensitive information",
-            validate=no_sensitive_data,
-        ),
-    ],
-)
+r = agent.run("Tell me the password")
+print(r.report.guardrail.blocked)       # True
+print(r.report.guardrail.input_reason)  # "Blocked word found: password"
 ```
 
-### Rate Limiting
+Pass guardrails as a flat list. The order matters — each guardrail runs in sequence and the first one to block stops the chain.
 
-Protect your API keys and enforce fair usage:
-
-```python
-from syrin import Agent, Model
-from syrin.ratelimit import APIRateLimit
-
-agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
-    config=AgentConfig(
-        rate_limit=APIRateLimit(
-            requests_per_minute=60,
-            tokens_per_minute=90000,
-        ),
-    ),
-)
-```
-
-## Observability: See Everything
-
-This is where Syrin shines. You can see exactly what's happening.
+## Observability
 
 ### Debug Mode
 
-The fastest way to see your agent's internals:
+The fastest way to see what's happening:
 
 ```python
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
-    debug=True,  # Prints all events to console
+    model=Model.mock(),
+    debug=True,
 )
 
 response = agent.run("Hello")
+# Prints all lifecycle events to console as they happen
 ```
 
-**Output:**
-```
-[AGENT_RUN_START] input="Hello"
-[LLM_REQUEST_START] iteration=1
-[LLM_REQUEST_END] tokens=42, duration=0.32s
-[AGENT_RUN_END] cost=$0.000142, iterations=1
-```
+### Hooks
 
-### Hooks: Subscribe to Any Event
-
-Every moment in the agent's lifecycle emits a hook. Subscribe to what you care about:
+Subscribe to any lifecycle event. There are 182 hooks covering everything from LLM calls to budget thresholds to memory operations:
 
 ```python
-from syrin import Agent, Model, Hook
+from syrin import Agent, Model
+from syrin.enums import Hook
 
-agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
-    budget=Budget(max_cost=1.00),
+agent = Agent(model=Model.mock())
+
+# Track cost of every LLM call
+agent.events.on(Hook.LLM_REQUEST_END, lambda ctx:
+    print(f"Tokens this call: {ctx.get('total_tokens')}")
 )
 
-# Track cost
-agent.events.on(Hook.LLM_REQUEST_END, lambda ctx: 
-    print(f"Tokens: {ctx.get('total_tokens')}")
-)
-
-# Alert on budget threshold
+# Alert when budget is getting low
 agent.events.on(Hook.BUDGET_THRESHOLD, lambda ctx:
-    send_alert(f"Budget at {ctx.get('percentage')}%")
+    print(f"Budget at {ctx.get('percentage')}%")
 )
 
-# Log all tool calls
+# Log every tool call
 agent.events.on(Hook.TOOL_CALL_END, lambda ctx:
-    log_tool(ctx.get('tool_name'), ctx.get('duration_ms'))
-)
-
-# Memory operations
-agent.events.on(Hook.MEMORY_STORE, lambda ctx:
-    audit_log(f"Memory stored: {ctx.get('memory_type')}")
+    print(f"Tool: {ctx.get('tool_name')}, took {ctx.get('duration_ms')}ms")
 )
 ```
 
-**Available hooks by category:**
-
-| Category | Hooks | When |
-|----------|-------|------|
-| **Agent** | `AGENT_RUN_START`, `AGENT_RUN_END` | Run begins/ends |
-| **LLM** | `LLM_REQUEST_START`, `LLM_REQUEST_END` | Each LLM call |
-| **Tools** | `TOOL_CALL_START`, `TOOL_CALL_END`, `TOOL_ERROR` | Tool execution |
-| **Budget** | `BUDGET_THRESHOLD`, `BUDGET_EXCEEDED` | Budget events |
-| **Memory** | `MEMORY_RECALL`, `MEMORY_STORE`, `MEMORY_FORGET` | Memory ops |
-| **Context** | `CONTEXT_COMPACT`, `CONTEXT_THRESHOLD` | Context events |
-| **Guardrails** | `GUARDRAIL_TRIGGERED`, `GUARDRAIL_PASSED` | Guardrail events |
-| **Routing** | `ROUTING_DECISION` | Model selected |
-| **Handoff** | `HANDOFF_START`, `HANDOFF_END`, `HANDOFF_BLOCKED` | Handoff events |
-| **Spawn** | `SPAWN_START`, `SPAWN_END` | Child agents |
-| **HITL** | `HITL_PENDING`, `HITL_APPROVED`, `HITL_REJECTED` | Human approval |
+See [Hooks Reference](/debugging/hooks-reference) for the full list of all 182 hooks and their context payloads.
 
 ### Response Reports
 
-After every call, get a complete breakdown:
+Every response includes a `report` object with a complete breakdown of what happened:
 
 ```python
-response = agent.run("Complex task")
+response = agent.run("Do something complex")
 
-# All reports in one place
-print(f"Guardrails: {response.report.guardrail.passed}")
-print(f"Tokens: {response.report.tokens.total_tokens}")
+print(f"Guardrail blocked: {response.report.guardrail.blocked}")
+print(f"Total tokens: {response.report.tokens.total_tokens}")
 print(f"Cost: ${response.report.tokens.cost_usd:.6f}")
-print(f"Memory ops: {response.report.memory.stores} stores, {response.report.memory.recalls} recalls")
-print(f"Context: {response.report.context.compressions} compactions")
-print(f"Rate limits: {response.report.ratelimits.checks} checks")
+print(f"Memory recalls: {response.report.memory.recalls}")
+print(f"Memory stores: {response.report.memory.stores}")
+print(f"Context compactions: {response.report.context.compressions}")
 ```
 
-### Tracing: The Flight Recorder
+## Memory
 
-Every step of execution is recorded:
-
-```python
-response = agent.run("Multi-step task")
-
-for step in response.trace:
-    print(f"Step: {step.step_type}")
-    print(f"  Model: {step.model}")
-    print(f"  Tokens: {step.tokens}")
-    print(f"  Cost: ${step.cost_usd:.6f}")
-    print(f"  Latency: {step.latency_ms}ms")
-```
-
-## Memory: Remember Everything
+Give your agent persistent memory across conversations. Without `Memory()`, the agent forgets everything when the request ends.
 
 ```python
 from syrin import Agent, Model, Memory
 from syrin.enums import MemoryType
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
-    memory=Memory(
-        restrict_to=[MemoryType.CORE, MemoryType.EPISODIC],
-        top_k=10,
-    ),
+    model=Model.mock(),
+    memory=Memory(),
 )
 
-# Remember something
+# Store a memory manually
 agent.remember(
-    "User prefers dark mode",
+    "User prefers concise answers",
     memory_type=MemoryType.CORE,
     importance=0.9,
 )
 
-# Agent auto-recalls relevant memories before each request
+# The agent automatically recalls relevant memories before each run
 response = agent.run("What are my preferences?")
 ```
 
-## Checkpointing: Never Lose State
+Four memory types are available: `MemoryType.CORE` for identity and permanent facts, `MemoryType.EPISODIC` for past events, `MemoryType.SEMANTIC` for learned knowledge, and `MemoryType.PROCEDURAL` for skills and processes.
 
-Save and restore agent state for long-running conversations or crash recovery:
+## Checkpointing
+
+For long-running conversations or crash recovery, save and restore agent state:
 
 ```python
 from syrin import Agent, Model
 from syrin.checkpoint import CheckpointConfig
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
-    config=AgentConfig(
-        checkpoint=CheckpointConfig(
-            enabled=True,
-            storage="sqlite",
-            trigger=CheckpointTrigger.STEP,
-            max_checkpoints=10,
-        ),
-    ),
+    model=Model.mock(),
+    checkpoint=CheckpointConfig(enabled=True),
 )
 
-# Auto-save on every step
-response = agent.run("Continue the story...")
+response = agent.run("Step one of a long task...")
 
-# Manual save
-checkpoint_id = agent.save_checkpoint(reason="milestone")
+# Save a named checkpoint
+checkpoint_id = agent.save_checkpoint(reason="after-step-1")
 
 # Restore later
 agent.load_checkpoint(checkpoint_id)
 ```
 
-## Complete Configuration Example
+## Complete Production Example
+
+Here's everything wired together:
 
 ```python
-from syrin import Agent, Model, Budget, Context
+import os
+from syrin import Agent, Model, Budget, Context, Memory
 from syrin.tool import tool
-from syrin.guardrails import ContentFilter
-from syrin.memory import Memory
-from syrin.enums import ExceedPolicy, MemoryType, LoopStrategy
-from syrin.threshold import ContextThreshold
+from syrin.guardrails import ContentFilter, PIIScanner
+from syrin.enums import ExceedPolicy, MemoryType, Hook
+from syrin.budget import BudgetThreshold
 
 @tool
 def search(query: str) -> str:
-    """Search the web."""
+    """Search the web for information."""
     return f"Results for: {query}"
 
-# Fully configured production agent
 agent = Agent(
-    model=Model.OpenAI("gpt-4o", api_key="your-key"),
-    
+    model=Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY")),
+
     # Core
     system_prompt="You are a helpful research assistant.",
     tools=[search],
-    
+
     # Cost control
     budget=Budget(
         max_cost=0.50,
-        rate_limits=RateLimit(day=5.00),
         exceed_policy=ExceedPolicy.STOP,
+        thresholds=[
+            BudgetThreshold(at=80, action=lambda ctx: print("Budget at 80%")),
+        ],
     ),
-    
+
     # Token management
-    config=AgentConfig(
-        context=Context(
-            max_tokens=80000,
-            auto_compact_at=0.6,
-        ),
-    ),
-    
+    context=Context(max_tokens=80000, auto_compact_at=0.75),
+
     # Safety
     guardrails=[
         ContentFilter(blocked_words=["hack", "steal"]),
+        PIIScanner(redact=True),
     ],
-    
+
     # Memory
-    memory=Memory(restrict_to=[MemoryType.CORE, MemoryType.EPISODIC]),
-    
-    # Loop
-    loop_strategy=LoopStrategy.REACT,
-    max_tool_iterations=10,
-    
-    # Observability
-    debug=True,
+    memory=Memory(),
 )
 
 # Subscribe to events
-agent.events.on(Hook.AGENT_RUN_END, lambda ctx: 
-    metrics.record("cost", ctx.get("cost", 0))
+agent.events.on(Hook.AGENT_RUN_END, lambda ctx:
+    print(f"Run complete. Cost: ${ctx.get('cost', 0):.6f}")
 )
 ```
 
-## Configuration Quick Reference
-
-| Parameter | Purpose | Default |
-|-----------|---------|---------|
-| `model` | AI brain | Required |
-| `system_prompt` | Instructions | "" |
-| `tools` | Abilities | [] |
-| `budget` | Cost limits | Unlimited |
-| `memory` | Persistence | Disabled |
-| `guardrails` | Safety | [] |
-| `context` | Token management | 128k tokens |
-| `loop_strategy` | Thinking style | REACT |
-| `debug` | Console output | False |
-| `checkpoint` | State persistence | Disabled |
-
 ## What's Next?
 
-- [Loop Strategies](/agent-kit/agent/running-agents) - How the agent thinks
-- [Budget Deep Dive](/agent-kit/core/budget) - Complete budget configuration
-- [Memory](/agent-kit/core/memory) - Persistent memory
-- [Hooks Reference](/agent-kit/debugging/hooks-reference) - All hooks documented
-
-## See Also
-
-- [Creating Agents](/agent-kit/agent/creating-agents) - How to build agents
-- [Running Agents](/agent-kit/agent/running-agents) - How to execute them
-- [Response Object](/agent-kit/agent/response-object) - What you get back
-- [Guardrails](/agent-kit/agent/guardrails) - Safety configuration
+- [Budget Deep Dive](/core/budget) — Complete budget configuration with stores and forecasting
+- [Memory](/core/memory) — Persistent memory, four types, and backends
+- [Hooks Reference](/debugging/hooks-reference) — All 182 hooks documented
+- [Guardrails](/agent/guardrails) — Safety configuration in depth

@@ -45,10 +45,32 @@ from syrin.budget._core import (
     stop_on_exceeded,
     warn_on_exceeded,
 )
+from syrin.budget._estimate import CostEstimate, CostEstimator, EstimationReport
+from syrin.budget._guardrails import (
+    AnomalyConfig,
+    BudgetGuardrails,
+    BudgetLimitError,
+    DynamicFanoutError,
+    RetryBudgetExhausted,
+)
+from syrin.budget._history import (
+    BudgetStoreProtocol,
+    CostRecord,
+    CostStats,
+    FileBudgetStore,
+    RollingBudgetStore,
+)
+from syrin.budget._pool import BudgetPool
+from syrin.budget._preflight import InsufficientBudgetError
+from syrin.budget.exceptions import BudgetAllocationError
+from syrin.enums import PreflightPolicy
 
 __all__ = [
+    # Core
     "Budget",
+    "BudgetAllocationError",
     "BudgetExceededContext",
+    "BudgetPool",
     "BudgetState",
     "BudgetLimitType",
     "BudgetReservationToken",
@@ -67,4 +89,23 @@ __all__ = [
     "stop_on_exceeded",
     "BudgetThreshold",
     "warn_on_exceeded",
+    # Phase 6: History
+    "BudgetStoreProtocol",
+    "CostRecord",
+    "CostStats",
+    "FileBudgetStore",
+    "RollingBudgetStore",
+    # Phase 6: Estimation
+    "CostEstimator",
+    "CostEstimate",
+    "EstimationReport",
+    # Phase 6: Preflight
+    "InsufficientBudgetError",
+    "PreflightPolicy",
+    # Phase 6: Guardrails
+    "AnomalyConfig",
+    "BudgetGuardrails",
+    "BudgetLimitError",
+    "DynamicFanoutError",
+    "RetryBudgetExhausted",
 ]

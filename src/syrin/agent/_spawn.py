@@ -95,13 +95,12 @@ def spawn(
                     "Pocket money must be less than or equal to parent's available funds."
                 )
         agent_kwargs["budget"] = budget
-    elif agent._budget is not None and agent._budget.shared:
+    elif agent._budget is not None:
         borrowed_budget = Budget(
             max_cost=agent._budget.remaining,
             rate_limits=agent._budget.rate_limits,
             on_exceeded=agent._budget.on_exceeded,
             thresholds=agent._budget.thresholds,
-            shared=True,
         )
         borrowed_budget._parent_budget = agent._budget
         agent_kwargs["budget"] = borrowed_budget

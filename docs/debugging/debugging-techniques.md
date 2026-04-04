@@ -456,7 +456,7 @@ def test_agent_with_mock():
 
 ```python
 def test_agent_traces_llm_calls():
-    agent = Agent(model=Model.Almock())
+    agent = Agent(model=Model.mock())
     result = agent.run("Test")
     
     llm_steps = [s for s in result.trace if s.step_type == "llm"]
@@ -466,15 +466,7 @@ def test_agent_traces_llm_calls():
 
 ## Common Issues Quick Reference
 
-| Problem | Quick Fix |
-|---------|-----------|
-| Agent ignores prompt | Check context size, shorten prompt |
-| High costs | Set Budget, use cheaper model |
-| Slow responses | Reduce context, use faster model |
-| Memory not working | Check Memory types configured |
-| Tool called incorrectly | Improve tool descriptions |
-| Inconsistent output | Set temperature=0, use structured output |
-| Context overflow | Set thresholds, compact early |
+When an agent ignores its prompt, check whether the context size is too small and shorten the prompt if needed. For high costs, set a `Budget` and switch to a cheaper model for simpler tasks. For slow responses, reduce context size and use a faster model. If memory is not working, verify that the correct `MemoryType` values are configured. When a tool is called incorrectly, improve its description to be more specific about when it should be used. For inconsistent output, set `temperature=0` and use structured output to enforce a fixed response shape. For context overflow, add threshold actions to compact early before the window is exhausted.
 
 ## What's Next?
 

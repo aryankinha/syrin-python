@@ -52,32 +52,32 @@ def analyze_risks(data: str) -> str:
 
 
 class TechAnalyst(Agent):
-    _agent_name = "tech_analyst"
-    _agent_description = "Analyzes technology sector"
+    name = "tech_analyst"
+    description = "Analyzes technology sector"
     model = gpt4_mini
     system_prompt = "Analyze the technology sector."
     tools = [fetch_market_data, analyze_risks]
 
 
 class FinanceAnalyst(Agent):
-    _agent_name = "finance_analyst"
-    _agent_description = "Analyzes financial markets"
+    name = "finance_analyst"
+    description = "Analyzes financial markets"
     model = gpt4_mini
     system_prompt = "Analyze the financial sector."
     tools = [fetch_market_data]
 
 
 class HealthAnalyst(Agent):
-    _agent_name = "health_analyst"
-    _agent_description = "Analyzes healthcare sector"
+    name = "health_analyst"
+    description = "Analyzes healthcare sector"
     model = gpt4_mini
     system_prompt = "Analyze the healthcare sector."
     tools = [fetch_market_data, analyze_risks]
 
 
 class OrchestratorAgent(Agent):
-    _agent_name = "orchestrator"
-    _agent_description = "Spawns sector analysts in parallel and synthesizes results"
+    name = "orchestrator"
+    description = "Spawns sector analysts in parallel and synthesizes results"
     model = gpt4_mini
     system_prompt = "You orchestrate sector analysis. Spawn analysts and synthesize their reports."
 

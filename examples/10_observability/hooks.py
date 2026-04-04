@@ -28,8 +28,8 @@ def track_cost(ctx):
 
 
 class HooksDemoAgent(Agent):
-    _agent_name = "hooks-demo"
-    _agent_description = "Agent with lifecycle event hooks"
+    name = "hooks-demo"
+    description = "Agent with lifecycle event hooks"
     model = almock
     system_prompt = "You are helpful."
 

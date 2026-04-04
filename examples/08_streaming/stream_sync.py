@@ -14,9 +14,9 @@ from syrin import Agent, Model
 
 
 class StreamAgent(Agent):
-    _agent_name = "stream-agent"
-    _agent_description = "Streams token-by-token output"
-    model = Model.Almock()
+    name = "stream-agent"
+    description = "Streams token-by-token output"
+    model = Model.mock()
     system_prompt = "You are a helpful assistant."
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 import re
+import warnings
 from collections.abc import Callable
 from typing import Union, get_type_hints
 
@@ -409,14 +410,32 @@ def tool(  # type: ignore[explicit-any]
         )
         final_returns = returns if returns is not None else doc_returns
 
+        # Warn if the tool has no description — the LLM needs this to decide when to call it.
+        if not final_desc:
+            warnings.warn(
+                f"@tool '{tool_name}' has no description. "
+                "The LLM uses the description to decide when to call the tool. "
+                "Add a docstring or pass description= to @tool(description=...).",
+                UserWarning,
+                stacklevel=3,
+            )
+
         params_schema, inject_run_context = _parameters_schema_from_function(
             f, param_descriptions=final_param_descs or None
         )
 
-        # Resolve depends_on — accept ToolSpec objects or strings
+        # Resolve depends_on — accept ToolSpec objects or strings.
+        # String form is deprecated; pass the ToolSpec object directly for compile-time safety.
         _depends: list[str] = []
         for d in depends_on or []:
             if isinstance(d, str):
+                warnings.warn(
+                    f"depends_on=['{d}'] uses a raw string. "
+                    f"Pass the ToolSpec object directly (depends_on=[{d}]) to catch "
+                    "renames and deletions at import time.",
+                    DeprecationWarning,
+                    stacklevel=3,
+                )
                 _depends.append(d)
             elif hasattr(d, "name"):
                 _depends.append(d.name)

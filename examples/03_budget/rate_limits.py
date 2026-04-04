@@ -15,13 +15,13 @@ Run:
 
 from __future__ import annotations
 
-from syrin import Agent, AgentConfig, Budget, Model, RateLimit, warn_on_exceeded
+from syrin import Agent, AgentConfig, Budget, Model, RateLimit
 from syrin.enums import ThresholdMetric
 from syrin.ratelimit import APIRateLimit
 from syrin.threshold import RateLimitThreshold, ThresholdContext
 
 # Create a mock model — no API key needed
-model = Model.Almock()
+model = Model.mock()
 
 # ---------------------------------------------------------------------------
 # 1. Budget with rate limits (USD caps per window)
@@ -35,7 +35,7 @@ agent = Agent(
     budget=Budget(
         max_cost=0.05,
         rate_limits=RateLimit(hour=2.00, day=10.00, month=100.00, month_days=30),
-        on_exceeded=warn_on_exceeded,
+        exceed_policy=ExceedPolicy.WARN,
     ),
 )
 result = agent.run("What is AI?")
@@ -148,13 +148,13 @@ print("=" * 60)
 class RateLimitedAgent(Agent):
     """Agent with rate limits (hour/day/month)."""
 
-    _agent_name = "rate-limited"
-    _agent_description = "Agent with rate limits (hour, day, month)"
+    name = "rate-limited"
+    description = "Agent with rate limits (hour, day, month)"
     model = model
     budget = Budget(
         max_cost=0.05,
         rate_limits=RateLimit(hour=2.00, day=10.00, month=100.00),
-        on_exceeded=warn_on_exceeded,
+        exceed_policy=ExceedPolicy.WARN,
     )
 
 

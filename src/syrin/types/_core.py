@@ -150,11 +150,31 @@ class Message(BaseModel):  # type: ignore[explicit-any]
 
 
 class TokenUsage(BaseModel):  # type: ignore[explicit-any]
-    """Token counts for a completion. Used for cost estimation and budgeting."""
+    """Token counts for a completion. Used for cost estimation and budgeting.
+
+    Attributes:
+        input_tokens: Prompt/input tokens consumed.
+        output_tokens: Completion/output tokens generated.
+        total_tokens: Total tokens (input + output).
+        cached_tokens: Input tokens served from the provider's prompt cache.
+            Reduces cost on supported providers (e.g. Anthropic, OpenAI).
+            Default 0 (caching not used or not reported).
+        reasoning_tokens: Tokens used for internal chain-of-thought reasoning
+            (e.g. OpenAI o1/o3 extended thinking). These are billed separately
+            on some providers. Default 0.
+    """
 
     input_tokens: int = Field(default=0, description="Prompt/input tokens consumed")
     output_tokens: int = Field(default=0, description="Completion/output tokens generated")
     total_tokens: int = Field(default=0, description="Total tokens (input + output)")
+    cached_tokens: int = Field(
+        default=0,
+        description="Input tokens served from the provider's prompt cache (reduces cost).",
+    )
+    reasoning_tokens: int = Field(
+        default=0,
+        description="Tokens used for internal reasoning (e.g. o1/o3 extended thinking).",
+    )
 
 
 class CostInfo(BaseModel):  # type: ignore[explicit-any]

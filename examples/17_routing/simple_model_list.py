@@ -21,8 +21,8 @@ from syrin.router import RoutingConfig, RoutingMode
 def main() -> None:
     # All models treated as GENERAL-capable; router picks by cost/priority
     models = [
-        Model.Almock(pricing_tier="low", latency_min=0, latency_max=0),
-        Model.Almock(pricing_tier="high", latency_min=0, latency_max=0),
+        Model.mock(pricing_tier="low", latency_min=0, latency_max=0),
+        Model.mock(pricing_tier="high", latency_min=0, latency_max=0),
     ]
 
     use_trace = "--trace" in sys.argv

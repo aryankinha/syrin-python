@@ -1,420 +1,296 @@
 ---
 title: Running Agents
-description: Four ways to execute your agent—sync, async, and streaming
+description: How to run your Syrin agent — sync, async, and streaming
 weight: 64
 ---
 
-## Making Your Agent Work
+## Four Ways to Get a Response
 
-You've built your agent. You've configured its brain, given it tools, set a budget. Now what?
+Syrin gives you four execution modes: synchronous, asynchronous, synchronous streaming, and asynchronous streaming. The right choice depends on your context — not on the agent itself. The same agent class works with all four.
 
-This page is about *execution*—how to tell your agent "go do this" and get results back. But here's the thing: not all execution patterns are created equal. The choice between sync, async, and streaming isn't just technical trivia—it's the difference between a responsive UI and a frozen one, between getting full tool support and... not.
+## Synchronous: `agent.run()`
 
-Let's make sure you pick the right tool for the job.
-
-## The Four Execution Modes
-
-| Method | Returns | Tools Run? | Use When |
-|--------|---------|------------|----------|
-| `response()` | `Response` | ✅ Yes | Scripts, CLI, blocking code |
-| `arun()` | `Response` | ✅ Yes | FastAPI, async apps |
-| `stream()` | `Iterator[StreamChunk]` | ❌ No | ChatGPT-style UI (no tools) |
-| `astream()` | `AsyncIterator[StreamChunk]` | ❌ No | Async streaming (WebSockets) |
-
-**The critical distinction:** `response()` and `arun()` run the full REACT loop—including tool execution, memory, guardrails, everything. `stream()` and `astream()` do exactly one LLM call. No tools. Choose wisely.
-
-## response(): The Workhorse
-
-This is what you'll use 90% of the time. It's synchronous, which means your code waits until the agent finishes before moving on.
+The simplest and most common mode. Blocks until the agent finishes and returns a `Response` object.
 
 ```python
 from syrin import Agent, Model
 
-class Assistant(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-    system_prompt = "You are a helpful assistant."
+agent = Agent(model=Model.mock(), system_prompt="You are helpful.")
 
-agent = Assistant()
-response = agent.run("What is the capital of France?")
+response = agent.run("What is Python?")
 print(response.content)
+print(f"Cost: ${response.cost:.6f}")
 ```
 
-**Output:**
-```
-Paris is the capital and largest city of France, with a population of over 2 million people in its urban area.
-```
-
-### What Just Happened?
+Output:
 
 ```
-1. Your code called response()
-2. Agent ran guardrails (input validation)
-3. Agent built messages (system prompt + memory + history)
-4. Agent ran the REACT loop:
-   - Called the LLM
-   - Got a text response (no tools needed here)
-5. Agent ran guardrails (output validation)
-6. Response returned to your code
-7. Your print() executed
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore
+Cost: $0.000040
 ```
 
-### When to Use response()
+Use `run()` when:
+- You are writing a script or CLI tool
+- You are in a sync web framework (Flask, Django with sync views)
+- You want the simplest possible code
 
-- **Scripts** that run and exit
-- **CLI tools** where blocking is fine
-- **Anything with tools** (this is the only mode that runs tools)
+## Asynchronous: `agent.arun()`
 
-### The Problem response() Solves
-
-```python
-# Without response():
-# - How do you get structured data back?
-# - How do you know how much it cost?
-# - How do you handle budget limits?
-# - How do you trace what happened?
-
-# With response():
-response = agent.run("Extract user info: John, 30")
-print(response.content)      # "Name: John, Age: 30"
-print(response.cost)         # 0.00015
-print(response.stop_reason)  # END_TURN
-```
-
-One call. Full visibility. That's the promise.
-
-## arun(): When You Can't Block
-
-Sometimes you *can't* block. Your web server needs to handle thousands of requests. Your voice pipeline can't pause everything. That's where `arun()` comes in—it's the async version of `response()`.
+The async version. Use inside `async def` functions with `await`. Returns the same `Response` object.
 
 ```python
 import asyncio
 from syrin import Agent, Model
 
-class Assistant(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-
-async def handle_request(user_input: str):
-    agent = Assistant()
-    response = await agent.arun(user_input)
-    return response.content
-
-# Run it
-result = asyncio.run(handle_request("Hello!"))
-print(result)
-```
-
-### Real-World Use Case: FastAPI
-
-```python
-from fastapi import FastAPI
-from syrin import Agent, Model
-
-app = FastAPI()
-
-class Assistant(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-
-agent = Assistant()
-
-@app.post("/chat")
-async def chat(message: str):
-    response = await agent.arun(message)
-    return {
-        "content": response.content,
-        "cost": response.cost,
-        "tokens": response.tokens.total_tokens,
-    }
-```
-
-**Why not just use response()?** FastAPI runs on an async event loop. Blocking with `response()` would freeze the entire server for each request. With `await agent.arun()`, other requests can be processed while waiting.
-
-### What Just Happened?
-
-```
-1. FastAPI received a POST /chat request
-2. The async function started executing
-3. await agent.arun() yielded control back to FastAPI
-4. FastAPI handled other requests
-5. LLM responded
-6. arun() resumed, returned Response
-7. FastAPI sent the JSON response
-```
-
-## stream(): Real-Time Feedback (No Tools)
-
-Imagine you're building a ChatGPT clone. Users expect to see words appear letter by letter, like the AI is "thinking." That's streaming.
-
-```python
-from syrin import Agent, Model
-
-class Assistant(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-
-agent = Assistant()
-
-print("Agent: ", end="", flush=True)
-for chunk in agent.stream("Write a haiku about coding"):
-    print(chunk.text, end="", flush=True)
-print()
-```
-
-**Output:**
-```
-Agent: Code flows like streams
-Logic builds on logic blocks
-The bug finds its host
-```
-
-### StreamChunk: The Building Block
-
-Each chunk contains:
-- `text` — New characters (the delta)
-- `accumulated_text` — Everything so far
-- `cost_so_far` — Running cost
-- `tokens_so_far` — Running token count
-- `index` — Chunk number
-
-```python
-for chunk in agent.stream("Hello"):
-    print(f"Chunk #{chunk.index}: '{chunk.text}'")
-    print(f"  Total so far: '{chunk.accumulated_text}'")
-    print(f"  Cost: ${chunk.cost_so_far:.6f}")
-```
-
-**Output:**
-```
-Chunk #0: 'Hello'
-  Total so far: 'Hello'
-  Cost: $0.000000
-Chunk #1: ','
-  Total so far: 'Hello,'
-  Cost: $0.000010
-Chunk #2: ' how'
-  Total so far: 'Hello, how'
-  Cost: $0.000020
-```
-
-### The Caveat: No Tool Execution
-
-This is crucial. `stream()` does **one LLM call** and yields tokens as they arrive. It does NOT run tools.
-
-```python
-@tool
-def search(query: str) -> str:
-    """Search the web."""
-    return f"Results for: {query}"
-
-class ResearchAgent(Agent):
-    model = Model.OpenAI("gpt-4o")
-    tools = [search]
-
-agent = ResearchAgent()
-
-# DON'T DO THIS:
-for chunk in agent.stream("What's the weather?"):
-    print(chunk.text, end="")
-# You'll get a raw response, but no tools will execute
-
-# DO THIS INSTEAD:
-response = agent.run("What's the weather?")
-print(response.content)
-# Tools execute, you get the real answer
-```
-
-**Why does this limitation exist?** Streaming is a low-level LLM feature. The model generates tokens; Syrin passes them through. Implementing tool execution in a streaming context requires complex state management. The solution: use `arun()` for full functionality, then stream the result if needed.
-
-## astream(): Async Streaming
-
-The async version of `stream()`. Use with WebSockets, async frameworks, or anywhere you can't block but need streaming.
-
-```python
-import asyncio
-from syrin import Agent, Model
-
-class Assistant(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-
-async def stream_response(user_input: str):
-    agent = Assistant()
-    async for chunk in agent.astream(user_input):
-        yield chunk.text
+agent = Agent(model=Model.mock(), system_prompt="You are helpful.")
 
 async def main():
-    async for text in stream_response("Write a story"):
-        print(text, end="", flush=True)
+    response = await agent.arun("Hello async!")
+    print(f"Async response: {response.content[:50]}")
+    print(f"Cost: ${response.cost:.6f}")
 
 asyncio.run(main())
 ```
 
-## Choosing the Right Mode
+Output:
 
-### Decision Guide
-
-Here's how to pick the right execution method:
-
-**Step 1: Do you need tools to execute?**
-- Yes → Do you need async? → Yes: `arun()` / No: `response()`
-- No → Continue to Step 2
-
-**Step 2: Do you need streaming (real-time output)?**
-- Yes → Do you need async? → Yes: `astream()` / No: `stream()`
-- No → Use `response()` (simpler, returns full Response)
-
-### Quick Reference
-
-| Scenario | Method |
-|----------|--------|
-| Simple script | `response()` |
-| CLI tool | `response()` |
-| FastAPI endpoint | `arun()` |
-| WebSocket handler | `astream()` |
-| ChatGPT clone | `astream()` (or `arun()` + custom streaming) |
-| Background job | `arun()` |
-| Agent with tools | `response()` or `arun()` |
-| Simple Q&A | `response()` |
-
-## Per-Call Overrides
-
-All four methods accept optional parameters for one-off customization:
-
-```python
-# Override context for this call
-response = agent.run(
-    "Complex query",
-    context=Context(max_tokens=8000),  # Different context for this call
-)
-
-# Dynamic template variables
-response = agent.run(
-    "Help me with {task}",
-    template_variables={"task": "coding"},
-)
-
-# Inject context (RAG results, etc.)
-response = agent.run(
-    "What does the docs say?",
-    inject=[{"role": "system", "content": "[RAG] Python is a language..."}],
-    inject_source_detail="rag",
-)
-
-# Override task type for routing
-response = agent.run(
-    "Write a function",
-    task_type=TaskType.CODE,
-)
+```
+Async response: Lorem ipsum dolor sit amet, consectetur adipiscing
+Cost: $0.000041
 ```
 
-## Error Handling
+Use `arun()` when:
+- You are in an async framework like FastAPI or aiohttp
+- You want to run multiple agents concurrently with `asyncio.gather()`
+- You are building a high-throughput system
 
-Things go wrong. Here's how to handle it:
-
-### Budget Exceeded
-
-```python
-from syrin import Agent, Model, Budget
-from syrin.exceptions import BudgetExceededError, BudgetThresholdError
-
-class ExpensiveAgent(Agent):
-    model = Model.OpenAI("gpt-4o")
-    budget = Budget(max_cost=0.01)  # Very small budget
-
-agent = ExpensiveAgent()
-
-try:
-    response = agent.run("Explain quantum computing")
-except BudgetExceededError as e:
-    print(f"Budget exceeded at ${e.current_cost:.4f}")
-    print(f"Limit was ${e.limit:.4f}")
-except BudgetThresholdError as e:
-    print(f"Threshold reached: {e.threshold}")
-```
-
-### Tool Errors
+### Running multiple agents concurrently
 
 ```python
-from syrin.exceptions import ToolExecutionError
-
-try:
-    response = agent.run("Do something")
-except ToolExecutionError as e:
-    print(f"Tool '{e.tool_name}' failed: {e.message}")
-```
-
-### Complete Error Handling Example
-
-```python
-from syrin.exceptions import BudgetExceededError, BudgetThresholdError, ToolExecutionError
-
-try:
-    response = agent.run(user_input)
-    
-    # Check if it completed successfully
-    if response.stop_reason == StopReason.END_TURN:
-        print("Success!")
-        print(response.content)
-    elif response.stop_reason == StopReason.BUDGET:
-        print("Stopped due to budget")
-    elif response.stop_reason == StopReason.MAX_ITERATIONS:
-        print("Hit iteration limit")
-    else:
-        print(f"Stopped for: {response.stop_reason}")
-        
-except BudgetExceededError:
-    print("Budget limit reached!")
-except ToolExecutionError as e:
-    print(f"Tool failed: {e}")
-except Exception as e:
-    print(f"Unexpected error: {e}")
-```
-
-## Budget Reset Behavior
-
-Every call to `response()`, `arun()`, `stream()`, or `astream()` resets the **run budget** to zero. This ensures each request is tracked independently.
-
-```python
-# First request: $0.0001
-response1 = agent.run("Hello")
-print(agent.budget_state.spent)  # 0.0001
-
-# Second request: starts fresh at $0
-response2 = agent.run("Hi")
-print(agent.budget_state.spent)  # 0.0002 (new request's cost)
-```
-
-**Period limits (day, week, month) persist across calls.** Only `run` resets per request.
-
-## Response Timeouts
-
-Long-running agents can hit timeouts. Configure at the application level:
-
-```python
-# Using asyncio with timeout
 import asyncio
+from syrin import Agent, Model
 
-async def run_with_timeout():
-    try:
-        response = await asyncio.wait_for(
-            agent.arun("Complex task"),
-            timeout=30.0  # 30 seconds
-        )
-        return response.content
-    except asyncio.TimeoutError:
-        return "Request timed out"
+model = Model.mock()
+agent1 = Agent(model=model, system_prompt="You summarize text.")
+agent2 = Agent(model=model, system_prompt="You translate text.")
+agent3 = Agent(model=model, system_prompt="You classify text.")
 
-# Or use the built-in timeout parameter (if supported)
-response = agent.run("Task", timeout=30)
+async def main():
+    text = "Python is a great programming language for AI."
+    results = await asyncio.gather(
+        agent1.arun(f"Summarize: {text}"),
+        agent2.arun(f"Translate to French: {text}"),
+        agent3.arun(f"Classify the topic of: {text}"),
+    )
+    for i, r in enumerate(results, 1):
+        print(f"Agent {i}: {r.content[:50]}")
+
+asyncio.run(main())
 ```
 
-## What's Next?
+Output:
 
-- [Response Object](/agent-kit/agent/response-object) - Everything you get back
-- [Loop Strategies](/agent-kit/agent/running-agents) - How the agent thinks
-- [Structured Output](/agent-kit/agent/structured-output) - Get typed responses
-- [Streaming](/agent-kit/agent/streaming) - Deep dive into streaming
+```
+Agent 1: Lorem ipsum dolor sit amet, consectetur adipiscing
+Agent 2: Lorem ipsum dolor sit amet, consectetur adipiscing
+Agent 3: Lorem ipsum dolor sit amet, consectetur adipiscing
+```
 
-## See Also
+All three agents run at the same time. With real models, this dramatically reduces latency compared to running them sequentially.
 
-- [Agent Anatomy](/agent-kit/agent/anatomy) - Components overview
-- [Creating Agents](/agent-kit/agent/creating-agents) - Build your agent
-- [Budget](/agent-kit/core/budget) - Cost control
-- [Serving](/agent-kit/production/serving) - Serve over HTTP
+## Streaming: `agent.stream()`
+
+Returns an iterator of `StreamChunk` objects. Each chunk has a piece of the response as it arrives — token by token or in batches.
+
+```python
+from syrin import Agent, Model
+
+agent = Agent(model=Model.mock(), system_prompt="You are helpful.")
+
+print("Response: ", end="")
+for chunk in agent.stream("Tell me about Python"):
+    print(chunk.text, end="", flush=True)
+print()
+```
+
+Output:
+
+```
+Response: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore
+```
+
+The `StreamChunk` object has:
+- `chunk.text` — the text in this chunk (may be a single token or several)
+- `chunk.accumulated_text` — everything streamed so far
+- `chunk.is_final` — `True` on the last chunk
+- `chunk.cost_so_far` — running cost estimate
+- `chunk.tokens_so_far` — token counts so far
+- `chunk.response` — the full `Response` object (only on the final chunk)
+
+Use `stream()` when:
+- You are building a chat interface and want text to appear as it is generated
+- You are doing long document generation and want to show progress
+
+## Async Streaming: `agent.astream()`
+
+The async version of streaming. Use inside `async def` functions:
+
+```python
+import asyncio
+from syrin import Agent, Model
+
+agent = Agent(model=Model.mock(), system_prompt="You are helpful.")
+
+async def main():
+    print("Response: ", end="")
+    async for chunk in agent.astream("Tell me about Python"):
+        print(chunk.text, end="", flush=True)
+    print()
+
+asyncio.run(main())
+```
+
+Use `astream()` when you are in an async framework and want to stream responses to clients (e.g., Server-Sent Events in FastAPI).
+
+## The Response Object
+
+All non-streaming modes return a `Response`. Here is everything it contains:
+
+```python
+from syrin import Agent, Budget, Model
+from syrin.enums import ExceedPolicy
+
+agent = Agent(
+    model=Model.mock(),
+    system_prompt="You are helpful.",
+    budget=Budget(max_cost=1.00, exceed_policy=ExceedPolicy.WARN),
+)
+response = agent.run("What is 2 + 2?")
+
+print(f"content:          {response.content[:40]}")
+print(f"cost:             ${response.cost:.6f}")
+print(f"tokens.input:     {response.tokens.input_tokens}")
+print(f"tokens.output:    {response.tokens.output_tokens}")
+print(f"tokens.total:     {response.tokens.total_tokens}")
+print(f"model:            {response.model}")
+print(f"stop_reason:      {response.stop_reason}")
+print(f"duration:         {response.duration:.2f}s")
+print(f"iterations:       {response.iterations}")
+print(f"budget_remaining: ${response.budget_remaining:.6f}")
+```
+
+Output:
+
+```
+content:          Lorem ipsum dolor sit amet, consectetur
+cost:             $0.000041
+tokens.input:     7
+tokens.output:    25
+tokens.total:     32
+model:            mock/default
+stop_reason:      end_turn
+duration:         1.66s
+iterations:       1
+budget_remaining: $0.999959
+```
+
+Key properties:
+- `response.content` — the text response
+- `response.cost` — USD cost of this run
+- `response.tokens` — token counts (input, output, total, cached)
+- `response.model` — the model that was used (may differ from configured model if routing or fallback occurred)
+- `response.stop_reason` — why the agent stopped (`end_turn` = finished normally, `budget` = hit limit, `max_iterations` = tool loop limit reached)
+- `response.duration` — wall-clock seconds
+- `response.iterations` — number of LLM calls made (1 for simple responses, more when tools are used)
+- `response.budget_remaining` — how much budget is left after this run
+- `response.tool_calls` — list of tools called during this run
+- `response.trace` — observability spans for the entire run
+
+For structured output responses, `response.output` holds the parsed Pydantic model instance. See [Structured Output](/agent-kit/agent/structured-output).
+
+## Conversation History
+
+Each `run()` call on the same agent instance is part of the same conversation. The agent remembers previous turns:
+
+```python
+from syrin import Agent, Model
+
+agent = Agent(model=Model.mock(), system_prompt="You are helpful.")
+
+agent.run("My name is Alex.")
+agent.run("I like Python programming.")
+response = agent.run("What do you know about me?")
+print(response.content[:80])
+# With a real model: "Your name is Alex and you like Python programming."
+```
+
+To start a fresh conversation, call `agent.reset()`:
+
+```python
+agent.reset()
+# Now the agent has no memory of the previous conversation
+```
+
+## Passing Input Media
+
+For multimodal models, you can pass images, files, and audio alongside text:
+
+```python
+from syrin import Agent, Media, Model
+from syrin.enums import Media as MediaType
+
+agent = Agent(
+    model=Model.mock(),
+    system_prompt="You analyze images.",
+    input_media={MediaType.IMAGE, MediaType.TEXT},
+)
+
+# Pass an image URL with your text
+response = agent.run(
+    "What is in this image?",
+    attachments=["https://example.com/image.png"],
+)
+```
+
+More on multimodal input in [Input and Output Media](/agent-kit/agent/input-output-media).
+
+## Loop Strategies
+
+The `loop=` parameter controls how the agent reasons through a request. It is a first-class parameter on `Agent`, not an advanced override.
+
+```python
+from syrin import Agent, Model
+from syrin.loop import ReactLoop, PlanExecuteLoop, SingleShotLoop, CodeActionLoop
+from syrin.hitl import HumanInTheLoop
+from syrin import ApprovalGate
+
+# SingleShotLoop — one LLM call, no tool iteration (fastest, cheapest)
+agent = Agent(model=Model.mock(), system_prompt="You answer questions.", loop=SingleShotLoop())
+
+# ReactLoop — default: reason → act (call tools) → observe → repeat
+agent = Agent(model=Model.mock(), system_prompt="You research and act.", loop=ReactLoop())
+
+# PlanExecuteLoop — first plans all steps, then executes them in order
+agent = Agent(model=Model.mock(), system_prompt="You decompose and execute.", loop=PlanExecuteLoop())
+
+# CodeActionLoop — writes and runs Python code as its action mechanism
+agent = Agent(model=Model.mock(), system_prompt="You write and run code.", loop=CodeActionLoop())
+
+# HumanInTheLoop — pauses before each tool call to request human approval
+gate = ApprovalGate(callback=lambda msg, timeout, ctx: input("Approve? [y/n]: ") == "y")
+agent = Agent(
+    model=Model.mock(),
+    system_prompt="You take actions with human oversight.",
+    approval_gate=gate,
+    loop=HumanInTheLoop(approval_gate=gate),
+)
+```
+
+All five loop strategies implement the same `Loop` protocol — you can write your own by subclassing it. The loop you choose determines the shape of `response.iterations` and what hooks fire during a run.
+
+## What's Next
+
+- [Response Object](/agent-kit/agent/response-object) — The full `Response` reference
+- [Structured Output](/agent-kit/agent/structured-output) — Get typed, validated responses
+- [Streaming](/agent-kit/agent/streaming) — Streaming in depth
+- [Tools](/agent-kit/agent/tools) — How tool calls work inside the agent loop

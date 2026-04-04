@@ -39,8 +39,8 @@ from syrin.watch import TriggerEvent, WebhookProtocol  # noqa: E402
 
 
 class WebhookAgent(Agent):
-    _agent_name = "webhook_agent"
-    _agent_description = "Processes webhook payloads"
+    name = "webhook_agent"
+    description = "Processes webhook payloads"
     model = almock
     system_prompt = "You process incoming webhook requests and provide concise responses."
 

@@ -45,7 +45,7 @@ B) ISSUED, SUBSCRIBED AND PAID-UP SHARE CAPITAL
     )
 
     agent = Agent(
-        model=Model.Almock(
+        model=Model.mock(
             response_mode="custom",
             custom_response='{"authorized_shares": 5000000, "face_value": "10", '
             '"authorized_capital": "5,00,00,000", "issued_shares": 2000000, '

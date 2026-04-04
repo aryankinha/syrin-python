@@ -1,324 +1,171 @@
 ---
 title: Pipeline
-description: Run multiple agents in sequence, passing output from one to the next
+description: Run multiple agents in sequence or in parallel — each agent's output feeds the next
 weight: 92
 ---
 
-## When One Agent Isn't Enough
+## What Is a Pipeline?
 
-Your task has a natural flow. Research first, then analyze, then write. A single agent trying to do everything does each step okay—but never great.
+A pipeline is the simplest form of multi-agent coordination: agents run one after another. Each agent receives the previous agent's output as its input (or as additional context). The last agent's output becomes the final result.
 
-You could chain prompts manually:
+Think of a content creation team: a researcher finds facts, a writer turns them into prose, an editor polishes the prose. Each step depends on the previous step's work. That is a pipeline.
 
-```python
-# The manual approach - tedious and error-prone
-researcher = Researcher()
-analyst = Analyst()
-writer = Writer()
+## Sequential Pipeline
 
-research = researcher.run(f"Research: {topic}")
-analysis = analyst.run(f"Analyze: {research}")
-final = writer.run(f"Write: {analysis}")
-```
-
-This works. But now you have three agents with three budgets, no shared context, no observability, and no way to add a fourth step without more manual wiring.
-
-Pipelines solve this. One declaration, one shared budget, full visibility.
-
-## The Pipeline Pattern
-
-A pipeline runs agents **in sequence**. Each agent's output becomes context for the next. The pipeline manages the handoff, budgets, and observability for you.
+The `Pipeline` class runs agents in sequence:
 
 ```python
 from syrin import Agent, Model, Pipeline
 
-# Define specialized agents
-class Researcher(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key="your-key")
-    system_prompt = "You research topics thoroughly. Cite your sources."
+model = Model.mock()
 
-class Analyst(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key="your-key")
-    system_prompt = "You analyze data and identify key insights."
+class ResearchAgent(Agent):
+    model = model
+    system_prompt = "You research topics thoroughly."
 
-class Writer(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-key")  # Best model for final output
-    system_prompt = "You write clear, engaging content."
+class WriterAgent(Agent):
+    model = model
+    system_prompt = "You write clear, engaging summaries."
 
-# Create pipeline
+class EditorAgent(Agent):
+    model = model
+    system_prompt = "You edit and polish content."
+
 pipeline = Pipeline()
-
-# Run sequentially - each agent gets previous output
 result = pipeline.run([
-    (Researcher, f"Research {topic}"),
-    (Analyst, f"Analyze the research findings"),
-    (Writer, f"Write an article about the analysis"),
+    (ResearchAgent, "Research the history of Python programming language"),
+    (WriterAgent, "Write a summary of Python's history"),
+    (EditorAgent, "Polish and finalize the Python history article"),
 ])
 
-print(result.content)  # Writer's final output
+print(f"Result: {result.content[:80]}")
+print(f"Cost: ${result.cost:.6f}")
 ```
 
-**What just happened:**
-1. Researcher runs first, produces research findings
-2. Analyst receives those findings + its task, produces analysis
-3. Writer receives the analysis + its task, produces final article
-4. Pipeline returns Writer's output, but tracks all costs
+Output:
 
-The output from each agent is automatically prepended with "Previous context:" and passed to the next agent.
+```
+Result: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor i
+Cost: $0.000062
+```
 
-## Why Sequential?
+Each step in the `run()` list is a tuple of `(AgentClass, task_description)`. The pipeline creates an instance of each class, runs it with the task, and passes the result forward to the next agent.
 
-Sequential execution matters when:
+The `result` is the final agent's `Response` object: it has `content`, `cost`, `tokens`, and all the usual fields. The `cost` reflects the total cost of all agents in the pipeline combined.
 
-1. **Each step depends on the previous** — You can't analyze until you've researched
-2. **Quality compounds** — A great writer needs great research
-3. **Specialization saves money** — Smaller models for research, best model for final output
-4. **Context must flow** — Each step builds on what came before
+## Parallel Utilities
 
-## Shared Budget Across All Agents
-
-Every agent in the pipeline shares one budget. Spend accumulates across agents.
+Sometimes agents in a step do not depend on each other and can run at the same time. Syrin provides two utility functions:
 
 ```python
-from syrin import Budget
+import asyncio
+from syrin import Agent, Model
+from syrin import parallel
+
+model = Model.mock()
+
+class ResearchAgent(Agent):
+    model = model
+    system_prompt = "You research topics."
+
+class SummaryAgent(Agent):
+    model = model
+    system_prompt = "You summarize information."
+
+async def main():
+    results = await parallel([
+        (ResearchAgent(), "Research quantum computing"),
+        (SummaryAgent(), "Summarize AI trends"),
+    ])
+    print(f"Parallel results: {len(results)} responses")
+    for r in results:
+        print(f"  - {r.content[:50]}")
+
+asyncio.run(main())
+```
+
+Output:
+
+```
+Parallel results: 2 responses
+  - Lorem ipsum dolor sit amet, consectetur adipiscing
+  - Lorem ipsum dolor sit amet, consectetur adipiscing
+```
+
+Note: `parallel()` takes **instances** (not classes), and requires `asyncio` because it runs agents concurrently. The return is a list of `Response` objects.
+
+The `sequential()` utility does the same but with instance pairs, useful when you have agents already constructed:
+
+```python
+from syrin import sequential
+
+result = sequential([
+    (ResearchAgent(), "Research the topic"),
+    (WriterAgent(), "Write about the topic"),
+], pass_previous=True)
+# pass_previous=True appends the previous output to each agent's input
+```
+
+## Pipeline With a Shared Budget
+
+Add a budget to the pipeline to track total cost and enforce limits:
+
+```python
+from syrin import Agent, Budget, Model, Pipeline
+from syrin.enums import ExceedPolicy
+
+model = Model.mock()
+
+class ResearchAgent(Agent):
+    model = model
+    system_prompt = "You research topics."
+
+class WriterAgent(Agent):
+    model = model
+    system_prompt = "You write summaries."
 
 pipeline = Pipeline(
-    budget=Budget(max_cost=1.00),  # $1 total for all agents
+    budget=Budget(max_cost=5.00, exceed_policy=ExceedPolicy.WARN)
 )
 
 result = pipeline.run([
-    (Researcher, "Research AI trends"),
-    (Writer, "Write the article"),
+    (ResearchAgent, "Research renewable energy"),
+    (WriterAgent, "Write about renewable energy"),
 ])
 
-# Combined cost from both agents
-print(f"Total spent: ${result.cost:.4f}")
-
-# Check remaining budget
-print(f"Remaining: ${pipeline._budget.remaining:.4f}")
+print(f"Result: {result.content[:60]}")
+print(f"Total cost: ${result.cost:.6f}")
 ```
 
-This is powerful. You set one budget limit, and all agents share it. The pipeline stops if any agent's cost would exceed the limit.
+The pipeline enforces the budget across all agents. If the accumulated cost hits the limit, the remaining agents are skipped.
 
-## The Fluent API
+## When to Use Pipeline vs. Swarm
 
-Pipeline uses a fluent builder pattern:
+Use **Pipeline** when:
+- Each step genuinely depends on the previous step's output
+- You want the simplest possible sequential workflow
+- You do not need conditional logic or branching
 
-```python
-# Default: sequential execution
-result = pipeline.run([Agent1, Agent2, Agent3])
+Use **Swarm** (PARALLEL topology) when:
+- Agents can work on the same goal independently
+- Faster completion matters more than sequential dependency
+- You need shared budget with per-agent limits
 
-# Explicit sequential
-result = pipeline.run([Agent1, Agent2, Agent3]).sequential()
+Use **Workflow** when:
+- You need conditional logic ("if this, then route to agent A, else route to agent B")
+- You need a mix of sequential and parallel steps
+- You need a visualizable execution graph
 
-# Parallel execution
-results = pipeline.run([Agent1, Agent2, Agent3]).parallel()
-```
+## GitHub Examples
 
-The `run()` method returns a `PipelineBuilder`. By default it executes sequentially. Call `.parallel()` when agents can run independently.
+Full working examples with more patterns are in the GitHub repository:
 
-## Real-World Example: Market Research Pipeline
+- [`examples/07_multi_agent/pipeline.py`](https://github.com/syrin-labs/syrin-python/blob/main/examples/07_multi_agent/pipeline.py) — Basic pipeline with dynamic prompts
+- [`examples/07_multi_agent/workflow_sequential.py`](https://github.com/syrin-labs/syrin-python/blob/main/examples/07_multi_agent/workflow_sequential.py) — Sequential workflow pattern
+- [`examples/07_multi_agent/workflow_parallel.py`](https://github.com/syrin-labs/syrin-python/blob/main/examples/07_multi_agent/workflow_parallel.py) — Parallel within a workflow
 
-Here's a production-grade pipeline for market research:
+## What's Next
 
-```python
-from syrin import Agent, Model, Pipeline, Budget
-from syrin.tool import tool
-
-@tool
-def search_web(query: str) -> str:
-    """Search for current information online."""
-    # Real implementation: call your search API
-    return f"Search results for: {query}"
-
-@tool
-def fetch_financials(company: str) -> str:
-    """Get financial data for a company."""
-    # Real implementation: call financial data API
-    return f"Financial data for {company}"
-
-class IndustryResearcher(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key="your-key")
-    system_prompt = "You research industry trends and market dynamics."
-    tools = [search_web]
-
-class FinancialAnalyst(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key="your-key")
-    system_prompt = "You analyze financial data and identify risks."
-    tools = [fetch_financials]
-
-class CompetitorResearcher(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key="your-key")
-    system_prompt = "You research competitor landscape and positioning."
-    tools = [search_web]
-
-class ReportWriter(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-key")  # Best model for final output
-    system_prompt = """
-        You write executive-level market research reports.
-        Structure: Executive Summary, Market Analysis, Competitive Landscape,
-        Financial Insights, Recommendations.
-    """
-
-# Budget: $0.50 for research (divided among researchers), 
-# $0.50 for final report
-pipeline = Pipeline(
-    budget=Budget(max_cost=1.00),
-)
-
-company = "Acme Corp"
-result = pipeline.run([
-    (IndustryResearcher, f"Research the {company} industry"),
-    (FinancialAnalyst, f"Get and analyze {company} financials"),
-    (CompetitorResearcher, f"Research {company} competitors"),
-    (ReportWriter, f"Compile all research into an executive report on {company}"),
-])
-
-print(result.content)
-```
-
-**Why this structure works:**
-- Each researcher uses a smaller model (cost savings)
-- Report writer uses the best model (quality)
-- All share the $1 budget
-- Sequential ensures the writer has all research before writing
-
-## Accessing Intermediate Results
-
-Sometimes you need the output from every step, not just the final one:
-
-```python
-# Run each agent manually for access to intermediate results
-pipeline = Pipeline()
-
-researcher = Researcher()
-analyst = Analyst()
-writer = Writer()
-
-# Run each step explicitly
-research = researcher.run(f"Research: {topic}")
-analysis = analyst.run(f"Analyze: {research.content}\n\nTask: {topic}")
-final = writer.run(f"Write: {analysis.content}\n\nTask: {topic}")
-
-# Now you have everything
-print(f"Research: {research.content[:100]}...")
-print(f"Analysis: {analysis.content[:100]}...")
-print(f"Final: {final.content[:100]}...")
-print(f"Total cost: ${research.cost + analysis.cost + final.cost:.4f}")
-```
-
-The declarative `pipeline.run()` is cleaner, but manual execution gives you access to every intermediate result.
-
-## Pipeline Hooks for Observability
-
-Every pipeline emits hooks for monitoring:
-
-```python
-from syrin.enums import Hook
-
-pipeline = Pipeline()
-
-# What runs when
-pipeline.events.on(Hook.PIPELINE_START, lambda ctx: 
-    print(f"Starting pipeline with {ctx['agents']} agents")
-)
-
-pipeline.events.on(Hook.PIPELINE_AGENT_START, lambda ctx:
-    print(f"  Running {ctx['agent_type']}: {ctx['task'][:50]}...")
-)
-
-pipeline.events.on(Hook.PIPELINE_AGENT_COMPLETE, lambda ctx:
-    print(f"    Completed {ctx['agent_type']} - Cost: ${ctx['cost']:.6f}")
-)
-
-pipeline.events.on(Hook.PIPELINE_END, lambda ctx:
-    print(f"Pipeline complete - Total cost: ${ctx['total_cost']:.6f}")
-)
-```
-
-**Sample output:**
-```
-Starting pipeline with 3 agents
-  Running Researcher: Research AI trends in healthcare...
-    Completed Researcher - Cost: $0.0023
-  Running Analyst: Analyze the research findings...
-    Completed Analyst - Cost: $0.0018
-  Running Writer: Write an article about the analysis...
-    Completed Writer - Cost: $0.0156
-Pipeline complete - Total cost: $0.0197
-```
-
-## Serving Your Pipeline
-
-Pipelines are servable—just like single agents:
-
-```python
-# Serve with HTTP API
-pipeline.serve(port=8000, enable_playground=True)
-
-# Or mount as a router in your FastAPI app
-from fastapi import FastAPI
-
-app = FastAPI()
-router = pipeline.as_router()
-app.include_router(router, prefix="/pipeline")
-```
-
-## Debug Mode
-
-Enable debug output to see everything happening:
-
-```python
-pipeline = Pipeline(debug=True)
-
-result = pipeline.run([
-    (Researcher, "Research AI"),
-    (Writer, "Write article"),
-])
-```
-
-**Debug output shows:**
-- Each agent starting and completing
-- Tokens used per agent
-- Costs accumulating
-- Any errors that occur
-
-## Traditional vs Fluent API
-
-The fluent API (`pipeline.run(...).sequential()`) is cleaner, but traditional methods exist:
-
-```python
-# Fluent (recommended)
-result = pipeline.run([A1, A2, A3]).sequential()
-results = pipeline.run([A1, A2, A3]).parallel()
-
-# Traditional
-result = pipeline.run_sequential([A1, A2, A3])
-results = pipeline.run_parallel([A1, A2, A3])
-
-# Async versions
-result = await pipeline.run_sequential_async([A1, A2, A3])
-results = await pipeline.run_parallel_async([A1, A2, A3])
-```
-
-## When to Use Pipeline
-
-| Use Case | Why Pipeline Works |
-|----------|-------------------|
-| Research → Analyze → Write | Each step builds on the previous |
-| Extract → Transform → Load | Data flows through stages |
-| Draft → Review → Edit | Quality improves with each pass |
-| Gather → Summarize → Present | Data aggregation pipeline |
-
-## What's Next?
-
-- [Pipeline: Parallel](/agent-kit/multi-agent/pipeline-parallel) — Run agents simultaneously
-- [Dynamic Pipeline](/agent-kit/multi-agent/dynamic-pipeline) — Let the LLM decide which agents to spawn
-- [Handoff](/agent-kit/multi-agent/handoff) — Transfer control between agents mid-conversation
-
-## See Also
-
-- [Multi-Agent: Overview](/agent-kit/multi-agent/overview) — Introduction to multi-agent patterns
-- [Multi-Agent: When to Use](/agent-kit/multi-agent/when-to-use) — Decision guide
-- [Core Concepts: Budget](/agent-kit/core/budget) — Shared budget across agents
-- [Agents: Handoff](/agent-kit/multi-agent/handoff) — Agent-to-agent transfer
+- [Workflow](/agent-kit/multi-agent/workflow) — Conditional routing, parallel steps, visualization
+- [Swarm](/agent-kit/multi-agent/swarm) — Shared goals, shared budgets, five topologies
+- [Budget Delegation](/agent-kit/multi-agent/budget-delegation) — Cost control across multi-agent systems

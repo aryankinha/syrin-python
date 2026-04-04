@@ -7,10 +7,10 @@ Run:
     python examples/10_observability/events_and_hooks.py
 """
 
-from syrin import Agent, Budget, Hook, Memory, Model, warn_on_exceeded
+from syrin import Agent, Budget, Hook, Memory, Model
 from syrin.enums import MemoryType
 
-model = Model.Almock()
+model = Model.mock()
 
 # ============================================================
 # 1. Basic event handlers — track what happens during a run
@@ -19,7 +19,7 @@ events_log: list[str] = []
 
 agent = Agent(
     model=model,
-    budget=Budget(max_cost=1.0, on_exceeded=warn_on_exceeded),
+    budget=Budget(max_cost=1.0, exceed_policy=ExceedPolicy.WARN),
     memory=Memory(),
 )
 agent.events.on(Hook.AGENT_RUN_START, lambda _: events_log.append("run_start"))

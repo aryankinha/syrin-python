@@ -23,11 +23,10 @@ from syrin import (
     Model,
     TokenLimits,
     TokenRateLimit,
-    warn_on_exceeded,
 )
 
 # Create a mock model — no API key needed
-model = Model.Almock()
+model = Model.mock()
 
 # ---------------------------------------------------------------------------
 # 1. TokenLimits — per-run token cap
@@ -39,7 +38,9 @@ print("=" * 60)
 agent = Agent(
     model=model,
     config=AgentConfig(
-        context=Context(token_limits=TokenLimits(max_tokens=15_000, on_exceeded=warn_on_exceeded))
+        context=Context(
+            token_limits=TokenLimits(max_tokens=15_000, exceed_policy=ExceedPolicy.WARN)
+        )
     ),
 )
 result = agent.run("What is machine learning?")
@@ -59,7 +60,7 @@ agent = Agent(
             token_limits=TokenLimits(
                 max_tokens=15_000,
                 rate_limits=TokenRateLimit(hour=50_000, day=200_000),
-                on_exceeded=warn_on_exceeded,
+                exceed_policy=ExceedPolicy.WARN,
             )
         )
     ),
@@ -77,13 +78,13 @@ print("=" * 60)
 agent = Agent(
     model=model,
     system_prompt="You are concise.",
-    budget=Budget(max_cost=0.05, on_exceeded=warn_on_exceeded),
+    budget=Budget(max_cost=0.05, exceed_policy=ExceedPolicy.WARN),
     config=AgentConfig(
         context=Context(
             token_limits=TokenLimits(
                 max_tokens=15_000,
                 rate_limits=TokenRateLimit(hour=50_000, day=200_000),
-                on_exceeded=warn_on_exceeded,
+                exceed_policy=ExceedPolicy.WARN,
             )
         )
     ),
@@ -104,16 +105,16 @@ print("=" * 60)
 class TokenLimitedAgent(Agent):
     """Agent with Budget + TokenLimits + TokenRateLimit."""
 
-    _agent_name = "token-limited"
-    _agent_description = "Agent with token limits (per-run, hourly, daily)"
+    name = "token-limited"
+    description = "Agent with token limits (per-run, hourly, daily)"
     model = model
     system_prompt = "You are concise."
-    budget = Budget(max_cost=0.05, on_exceeded=warn_on_exceeded)
+    budget = Budget(max_cost=0.05, exceed_policy=ExceedPolicy.WARN)
     context = Context(
         token_limits=TokenLimits(
             max_tokens=15_000,
             rate_limits=TokenRateLimit(hour=50_000, day=200_000),
-            on_exceeded=warn_on_exceeded,
+            exceed_policy=ExceedPolicy.WARN,
         )
     )
 

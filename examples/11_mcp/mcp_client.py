@@ -40,8 +40,8 @@ MCP_URL = "http://localhost:3000/mcp"
 class ProductAgent(Agent):
     """Agent that uses remote MCP tools via MCPClient."""
 
-    _agent_name = "product-agent"
-    _agent_description = "E-commerce product search (remote MCP tools)"
+    name = "product-agent"
+    description = "E-commerce product search (remote MCP tools)"
     model = almock
     system_prompt = "You help users find products. Use the search and get tools."
     tools = [MCPClient(MCP_URL)]

@@ -1,243 +1,198 @@
 ---
 title: Models
-description: Choose and configure AI models for your agents
+description: Every AI provider Syrin supports, how to configure them, and how to switch models at runtime
 weight: 10
 ---
 
-## The Brain of Your Agent (And Why It Matters)
+## The Brain of Your Agent
 
-Think of an AI model as the **brain** of your agent.
+A model is the intelligence behind your agent. It receives your messages and generates responses. The model you choose determines the quality of responses, the speed of execution, and the cost of each call.
 
-Just like a human brain decides how to think and respond, the model decides how your agent thinks, reasons, and answers. Choose a smart brain for complex tasks, a fast brain for simple ones, or a cheap brain when you're watching your budget.
+Syrin does not lock you in. You can use OpenAI, Anthropic, Google, Ollama, LiteLLM, or write your own provider — and switch between them with one line of code.
 
-The better the model, the better your agent's responses—but smart comes with a price tag.
+## The Mock Model (Start Here)
 
-## What Is a Model in Syrin?
-
-In Syrin, a **Model** is your gateway to AI. It's the component that:
-
-- Takes your messages and system prompt
-- Thinks (using the AI's reasoning)
-- Returns text, tool calls, or structured data
-
-Syrin doesn't lock you into one provider. Use OpenAI, Anthropic, Google, or even run models locally. Switch models with one line of code.
-
-## Your First Model
-
-Here's the simplest way to use a model:
+`Model.mock()` is a built-in mock that returns placeholder text. It costs nothing, needs no API key, and is perfect for testing everything — budget tracking, memory, hooks, the response object — without spending a cent.
 
 ```python
 from syrin import Agent, Model
 
-class MyAgent(Agent):
-    # One line to set your AI brain
-    model = Model.OpenAI("gpt-4o", api_key="your-key")
-    
-    system_prompt = "You are a helpful assistant."
-
-agent = MyAgent()
+agent = Agent(
+    model=Model.mock(),
+    system_prompt="You are helpful.",
+)
 response = agent.run("Hello!")
-print(response.content)
+print(f"Response: {response.content[:60]}")
+print(f"Cost:     ${response.cost:.6f}")
+print(f"Model:    {response.model}")
 ```
 
-**That's it.** No complex setup, no vendor lock-in.
+Output:
 
-## Quick Example: Comparing Models
+```
+Response: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed
+Cost:     $0.000040
+Model:    almock/default
+```
 
-Want to try different brains? Just change the model:
+The mock simulates real model behavior including latency, token counting, and cost tracking. You can customize it for specific testing scenarios:
 
 ```python
-# GPT-4o - The powerhouse (expensive but smart)
-gpt4 = Model.OpenAI("gpt-4o", api_key="your-key")
+# Control response latency for timing tests
+fast_mock = Model.mock(latency_min=0.1, latency_max=0.3)
 
-# GPT-4o-mini - The efficient one (cheaper, still smart)
-gpt_mini = Model.OpenAI("gpt-4o-mini", api_key="your-key")
+# Control the token count and cost tier
+expensive_mock = Model.mock(pricing_tier="high")
 
-# Claude - Anthropic's brain
-claude = Model.Anthropic("claude-sonnet-4-5", api_key="your-key")
-
-# Gemini - Google's brain
-gemini = Model.Google("gemini-2.0-flash", api_key="your-key")
+# Set a specific response for deterministic tests
+predictable_mock = Model.mock(custom_response="The answer is 42.")
 ```
 
-Same agent, different brains:
+## Real Model Providers
 
-```python
-class MyAgent(Agent):
-    model = Model.OpenAI("gpt-4o-mini", api_key="your-key")  # Change here
-    system_prompt = "You are a helpful assistant."
+When you are ready for actual AI responses, pick your provider:
 
-agent = MyAgent()
-```
-
-## Model Settings (The Knobs You Can Turn)
-
-Every model has settings you can tweak. Here's what each one does:
-
-| Setting | What It Does | Default | When to Tweak |
-|--------|-------------|---------|---------------|
-| `temperature` | Controls randomness | `1.0` | Lower = focused, Higher = creative |
-| `max_tokens` | Max response length | `None` (provider default) | When you need strict length limits |
-| `top_p` | Nucleus sampling | `None` | Rarely needed, leave default |
-| `top_k` | Top-k sampling | `None` | Rarely needed, leave default |
-| `stop` | Stop sequences | `None` | When you want early stopping |
-| `context_window` | Max input + output | Provider default | Match to your needs |
-
-### Understanding Temperature
-
-The most important setting. Think of it as "how wild is this AI's imagination?"
-
-| Temperature | Effect | Best For |
-|------------|--------|----------|
-| **0.0 - 0.3** | Focused, deterministic, reliable | Code, facts, instructions |
-| **0.4 - 0.7** | Balanced, natural | General conversation |
-| **0.8 - 1.5** | Creative, surprising, varied | Brainstorming, stories |
-| **1.6+** | Very random, chaotic | Experimental, rarely needed |
-
-**Examples:**
-
-```python
-# Focused and reliable (good for coding)
-model = Model.OpenAI("gpt-4o", api_key="your-key", temperature=0.3)
-
-# Creative and varied (good for brainstorming)
-model = Model.OpenAI("gpt-4o", api_key="your-key", temperature=0.9)
-
-# Balanced (default behavior)
-model = Model.OpenAI("gpt-4o", api_key="your-key", temperature=0.7)
-```
-
-### Understanding Max Tokens
-
-Controls how long the response can be.
-
-```python
-# Short, concise responses (max 100 tokens)
-model = Model.OpenAI("gpt-4o", api_key="your-key", max_tokens=100)
-
-# Longer responses (max 4000 tokens)
-model = Model.OpenAI("gpt-4o", api_key="your-key", max_tokens=4000)
-```
-
-**Tip:** If you need exactly 500 tokens, set `max_tokens=500`. The model will stop at 500 tokens even if it has more to say.
-
----
-
-## Complete Model Configuration
-
-Here's a fully configured model:
+**OpenAI:**
 
 ```python
 from syrin import Model
+import os
 
+model = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+# Or the larger model:
+model = Model.OpenAI("gpt-4o", api_key=os.getenv("OPENAI_API_KEY"))
+```
+
+**Anthropic (Claude):**
+
+```python
+model = Model.Anthropic(
+    "claude-3-haiku-20240307",
+    api_key=os.getenv("ANTHROPIC_API_KEY"),
+)
+# Or Claude Sonnet 4:
+model = Model.Anthropic("claude-sonnet-4-6-20251001", api_key=os.getenv("ANTHROPIC_API_KEY"))
+```
+
+**Google (Gemini):**
+
+```python
+model = Model.Google("gemini-2.0-flash", api_key=os.getenv("GOOGLE_API_KEY"))
+# Or the pro version:
+model = Model.Google("gemini-1.5-pro", api_key=os.getenv("GOOGLE_API_KEY"))
+```
+
+**Ollama (local, no API key):**
+
+```python
+# Runs models on your machine — completely free, completely private
+model = Model.Ollama("llama3.2")
+model = Model.Ollama("mistral")
+model = Model.Ollama("codellama")
+```
+
+Ollama must be running locally (`ollama serve`). Models are downloaded on first use.
+
+**LiteLLM (100+ providers via one interface):**
+
+```python
+# Any model accessible via LiteLLM
+model = Model.LiteLLM("openai/gpt-4o-mini")
+model = Model.LiteLLM("anthropic/claude-3-haiku-20240307")
+model = Model.LiteLLM("groq/llama-3-8b-8192")
+```
+
+## Model Parameters
+
+Every model accepts common tuning parameters:
+
+```python
 model = Model.OpenAI(
-    "gpt-4o",
-    api_key="your-key",
-    temperature=0.7,           # Balanced creativity
-    max_tokens=2000,           # Cap response at 2000 tokens
-    context_window=128000,     # Support up to 128k context
-    top_p=None,                # Use default
-    stop=None,                # No early stopping
+    "gpt-4o-mini",
+    api_key=os.getenv("OPENAI_API_KEY"),
+    temperature=0.3,       # 0 = deterministic, 1 = more varied, 2 = very creative
+    max_tokens=2000,       # Cap response length (in tokens)
+    context_window=128000, # Match to what the model supports
 )
 ```
 
-## Testing with Almock
+**Temperature** is the most important parameter. At `0.0`, the model always picks the most likely next token — responses are focused and predictable. At `1.0` (the default), there is more variation. At `2.0`, responses are highly creative but may be incoherent. For factual agents, use `0.1`–`0.3`. For creative writing, use `0.7`–`1.0`.
 
-No API key? No problem. Use `Almock` for testing:
+**max_tokens** caps how long a response can be. Without it, the model may generate up to its context window. Useful for cost control on short-answer tasks.
+
+## Switching Models at Runtime
+
+You can change the model on a running agent without recreating it. All context, memory, and budget state is preserved:
+
+```python
+from syrin import Agent, Model
+
+agent = Agent(model=Model.OpenAI("gpt-4o-mini", api_key="your-api-key"), system_prompt="You are helpful.")
+# model = Model.mock()  # no API key needed for testing
+
+print(f"Before: {agent.model_config.model_id}")
+agent.run("First question")
+
+# Switch to a different model
+agent.switch_model(Model.OpenAI("gpt-4o-mini", api_key="your-api-key"))  # Or Model.mock() for testing
+print(f"After: {agent.model_config.model_id}")
+agent.run("Second question")  # Uses the new model
+```
+
+This is useful for budget-based model routing: run expensive requests with GPT-4o, switch to GPT-4o-mini when the budget gets low.
+
+## Model Fallback
+
+Configure an automatic fallback if the primary model fails:
+
+```python
+import os
+from syrin import Model
+
+primary = Model.OpenAI("gpt-4o", api_key=os.getenv("OPENAI_API_KEY"))
+fallback = Model.OpenAI("gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"))
+
+model = primary.with_fallback(fallback)
+# If gpt-4o times out or errors, automatically retries with gpt-4o-mini
+```
+
+## Choosing a Model
+
+The right model depends on what you are building:
+
+For **general-purpose chat and Q&A** with good cost efficiency: `gpt-4o-mini` or `gemini-2.0-flash`.
+
+For **complex reasoning, long documents, or nuanced writing**: `gpt-4o` or `claude-sonnet-4-6-20251001`.
+
+For **code generation**: `gpt-4o` or `claude-sonnet-4-6-20251001` perform well. `codellama` (via Ollama) is free and runs locally.
+
+For **high-volume, cost-sensitive workloads**: `gemini-2.0-flash` is very fast and has a free tier.
+
+For **private or air-gapped deployments**: Ollama with a local model.
+
+For **testing and development**: `Model.mock()` — always.
+
+## Custom Models
+
+If your provider is not listed, inherit from `Model` and override `complete()`:
 
 ```python
 from syrin import Model
 
-# Almock returns lorem ipsum - perfect for testing
-model = Model.Almock()
+class MyCustomModel(Model):
+    def complete(self, messages, **kwargs):
+        # Call your model API here
+        response = my_api.generate(messages)
+        return response.text
 
-# Customize for different testing scenarios
-fast_mock = Model.Almock(latency_min=0.1, latency_max=0.3)
-expensive_mock = Model.Almock(pricing_tier="high")  # For budget testing
+agent = Agent(model=MyCustomModel(), system_prompt="You are helpful.")
 ```
 
----
+More on this in [Custom Models](/agent-kit/core/models-custom).
 
-## Model vs Provider
+## What's Next
 
-You might see these terms. Here's the difference:
-
-| Term | What It Means |
-|------|--------------|
-| **Model** | The AI brain (GPT-4, Claude, Gemini) |
-| **Provider** | The company/service hosting the AI (OpenAI, Anthropic, Google) |
-| **API Key** | Your access credential for the provider |
-
-Syrin abstracts the provider so you can switch models easily:
-
-```python
-# All these use the same agent code, just different brains
-agent1 = MyAgent(model=Model.OpenAI("gpt-4o", api_key="..."))
-agent2 = MyAgent(model=Model.Anthropic("claude-sonnet", api_key="..."))
-agent3 = MyAgent(model=Model.Google("gemini-2.0-flash", api_key="..."))
-```
-
-## Pricing Reference
-
-Different models have different costs. Here's a quick reference:
-
-### OpenAI
-
-| Model | Input ($/1M tokens) | Output ($/1M tokens) |
-|-------|---------------------|----------------------|
-| GPT-4o | $5.00 | $15.00 |
-| GPT-4o-mini | $0.15 | $0.60 |
-| GPT-4 Turbo | $10.00 | $30.00 |
-| GPT-3.5 Turbo | $0.50 | $1.50 |
-
-### Anthropic
-
-| Model | Input ($/1M tokens) | Output ($/1M tokens) |
-|-------|---------------------|----------------------|
-| Claude Opus 4 | $15.00 | $75.00 |
-| Claude Sonnet 4 | $3.00 | $15.00 |
-| Claude 3.5 Haiku | $1.00 | $5.00 |
-
-### Google
-
-| Model | Input ($/1M tokens) | Output ($/1M tokens) |
-|-------|---------------------|----------------------|
-| Gemini 2.0 Flash | $0.00 | $0.00 |
-| Gemini 1.5 Pro | $1.25 | $5.00 |
-| Gemini 1.5 Flash | $0.075 | $0.30 |
-
-**Tip:** Syrin automatically tracks these costs. Set a [Budget](/agent-kit/core/budget) to control spending.
-
-## Which Model Should You Use?
-
-Here's a quick decision guide:
-
-| Need | Recommended Model |
-|------|------------------|
-| General chat, fast responses | GPT-4o-mini |
-| Complex reasoning, long context | GPT-4o or Claude Opus |
-| Code generation | GPT-4o or Claude Sonnet |
-| Cost-sensitive, high volume | GPT-3.5 Turbo or Gemini 1.5 Flash |
-| Creative writing, brainstorming | Claude Sonnet or GPT-4o |
-| Local/private deployment | Ollama (local models) |
-
-## Public Cost Helpers
-
-The public cost package also exposes reusable pricing tables and calculators:
-
-- `EMBEDDING_PRICING`, `IMAGE_PRICING`, `VIDEO_PRICING`, and `VOICE_PRICING` for modality-specific pricing maps.
-- `calculate_cost()` and `estimate_cost_for_call()` for general model cost estimation.
-- `calculate_embedding_cost()`, `calculate_image_cost()`, `calculate_video_cost()`, and `calculate_voice_cost()` for modality-specific cost calculations.
-
-## What's Next?
-
-- [Providers](/agent-kit/core/models-providers) - Detailed guide for each provider
-- [Custom Models](/agent-kit/core/models-custom) - Create your own model
-- [Model Routing](/agent-kit/core/models-routing) - Automatically switch models based on task
-- [Budget](/agent-kit/core/budget) - Control your AI spending
-
-## See Also
-
-- [Tools](/agent-kit/agent/tools) - Give your agent abilities
-- [Prompts](/agent-kit/core/prompts) - Instruct your agent effectively
-- [Memory](/agent-kit/core/memory) - Make your agent remember
+- [Model Providers](/agent-kit/core/models-providers) — Detailed configuration for every provider
+- [Custom Models](/agent-kit/core/models-custom) — Inherit from Model to use any LLM
+- [Model Routing](/agent-kit/core/models-routing) — Route to different models based on cost and task type
+- [Budget](/agent-kit/core/budget) — Control spending across all model calls

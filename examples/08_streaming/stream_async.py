@@ -16,9 +16,9 @@ from syrin import Agent, Model
 
 
 class AsyncStreamAgent(Agent):
-    _agent_name = "async-stream-agent"
-    _agent_description = "Async token-by-token streaming"
-    model = Model.Almock()
+    name = "async-stream-agent"
+    description = "Async token-by-token streaming"
+    model = Model.mock()
     system_prompt = "You are a helpful assistant."
 
 

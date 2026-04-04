@@ -58,13 +58,7 @@ MCP uses **JSON-RPC 2.0** for communication. It's a simple request/response prot
 
 ### The Three Operations
 
-MCP defines three core operations:
-
-| Operation | Direction | Purpose |
-| --- | --- | --- |
-| `initialize` | Client to Server | Establish connection, negotiate protocol version |
-| `tools/list` | Client to Server | Discover available tools |
-| `tools/call` | Client to Server | Execute a specific tool |
+MCP defines three core operations, all sent from the client to the server. `initialize` establishes the connection and negotiates the protocol version. `tools/list` discovers the tools available on the server. `tools/call` executes a specific tool by name with the provided parameters.
 
 ### Transport Options
 
@@ -88,12 +82,7 @@ The key insight is that **MCP doesn't try to be everything**. It's a thin layer 
 
 ## Syrin's MCP Implementation
 
-Syrin provides two components for MCP:
-
-| Component | Purpose |
-| --- | --- |
-| `MCP` | Base class for creating MCP servers |
-| `MCPClient` | Client for connecting to remote MCP servers |
+Syrin provides two components for MCP. `MCP` is the base class for creating MCP servers — subclass it and decorate methods with `@tool` to expose them. `MCPClient` is the client for connecting to remote MCP servers, enabling your agents to use tools from any MCP-compatible endpoint.
 
 ### MCP Server
 

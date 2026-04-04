@@ -53,13 +53,7 @@ creative_agent = Agent(
 
 ## Media Types
 
-| Type | Description | Common Use Cases |
-|------|-------------|------------------|
-| `TEXT` | Plain text | All agents (default) |
-| `IMAGE` | Images (JPEG, PNG, GIF, WebP) | Vision analysis, image generation |
-| `AUDIO` | Audio files (MP3, WAV, etc.) | Voice assistants, transcription |
-| `VIDEO` | Video files or frames | Video analysis |
-| `FILE` | Generic attachments (PDF, docs) | Document processing |
+Five media types are available in the `Media` enum. `TEXT` is plain text and is the default for all agents. `IMAGE` covers JPEG, PNG, GIF, and WebP formats and is used for vision analysis and image generation. `AUDIO` covers MP3, WAV, and similar formats and powers voice assistants and transcription workflows. `VIDEO` handles video files or individual frames for video analysis. `FILE` represents generic attachments such as PDFs and Word documents for document processing workflows.
 
 ## Image Input
 

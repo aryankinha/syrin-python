@@ -165,11 +165,7 @@ Individual tools can force a format by using the standard `@tool` decorator.
 
 ## When to Use Each Format
 
-| Format | Best For | Tradeoff |
-|--------|----------|----------|
-| **TOON** | Most agents; token efficiency matters | Less familiar to some LLMs |
-| **JSON** | Complex nested schemas; debugging | More tokens |
-| **YAML** | Human-readable configs | Not sent to LLM directly |
+Three formats are available, each with a distinct purpose. **TOON** is the right choice for most agents where token efficiency matters — the tradeoff is that it may be less familiar to some LLMs. **JSON** suits complex nested schemas and debugging scenarios, at the cost of more tokens per request. **YAML** works well for human-readable configuration files but is not sent to the LLM directly.
 
 ## Observability: Tool Schema Hooks
 

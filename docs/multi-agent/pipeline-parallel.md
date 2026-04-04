@@ -76,12 +76,7 @@ Parallel execution is ideal when:
 
 ## Parallel vs Sequential: The Trade-off
 
-| Factor | Sequential | Parallel |
-|--------|------------|----------|
-| **Dependencies** | Required between steps | Not needed |
-| **Speed** | Sum of all agent times | Time of slowest agent |
-| **Cost visibility** | Combined total | Per-agent breakdown |
-| **Use when** | Steps build on each other | Steps are independent |
+Four factors distinguish the two modes. For dependencies, sequential pipelines require each step to feed into the next, while parallel pipelines have no such requirement. For speed, a sequential run takes the sum of all agent times whereas a parallel run takes only as long as the slowest agent. For cost visibility, sequential pipelines report a combined total while parallel pipelines give a per-agent cost breakdown. Choose sequential when steps build on each other and parallel when steps are independent.
 
 **Example timing:**
 
@@ -350,7 +345,7 @@ Ask yourself:
 
 - [Dynamic Pipeline](/agent-kit/multi-agent/dynamic-pipeline) — Let the LLM decide which agents to spawn
 - [Pipeline](/agent-kit/multi-agent/pipeline) — Sequential execution (the complement)
-- [Handoff](/agent-kit/multi-agent/handoff) — Transfer control between agents mid-conversation
+- [Spawn](/agent-kit/multi-agent/handoff) — Delegate tasks to specialized agents
 
 ## See Also
 

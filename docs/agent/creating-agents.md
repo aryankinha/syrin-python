@@ -1,422 +1,270 @@
 ---
 title: Creating Agents
-description: Four ways to build an agent—from minimalist to production-ready
+description: Class-based agents are the recommended pattern—here's everything you need to know
 weight: 62
 ---
 
-## Four Paths to the Same Destination
+## The Recommended Pattern: Class-Based Agents
 
-You wouldn't use a sledgehammer for a finishing nail. Similarly, Syrin gives you four ways to create agents—from quick scripts to enterprise-grade systems. Choose based on your needs.
+Syrin agents are Python classes. You define a class that inherits from `Agent`, set configuration as class attributes, and create instances. This is the canonical way to build agents — it gives you inheritance, reuse, testability, and clean multi-instance isolation.
 
-## The Four Patterns
+## Pattern 1: Class-Based (Recommended)
 
-| Pattern | Best For | Complexity |
-|---------|----------|------------|
-| **Direct Constructor** | One-off agents, scripts | Low |
-| **Class-based** | Named agent types, reuse | Medium |
-| **Builder** | Complex configs, fluent APIs | Medium |
-| **Presets** | Quick prototypes | Low |
-
-We'll cover each, starting with the simplest.
-
-## 1. Direct Constructor (The Quick Script)
-
-For one-off agents that don't need to be reused:
-
-```python
-from syrin import Agent, Model
-
-# All config inline—perfect for scripts
-agent = Agent(
-    model=Model.OpenAI("gpt-4o", api_key="your-api-key"),
-    system_prompt="You are a helpful assistant.",
-)
-
-response = agent.run("Hello!")
-print(response.content)
-```
-
-**When to use:** Scripts, one-off tasks, quick prototypes.
-
-**When to avoid:** When you need to reuse the agent, share code, or test it.
-
-### With Tools
-
-```python
-from syrin import Agent, Model
-from syrin.tool import tool
-
-@tool
-def search(query: str) -> str:
-    """Search the web."""
-    return f"Found results for: {query}"
-
-agent = Agent(
-    model=Model.OpenAI("gpt-4o", api_key="your-api-key"),
-    system_prompt="You are a research assistant.",
-    tools=[search],
-)
-
-response = agent.run("What's the latest news in AI?")
-```
-
-## 2. Class-based (The Production Standard)
-
-This is the **recommended approach** for anything you'll use more than once.
+This is the recommended pattern. You define a Python class that inherits from `Agent`, set configuration as class attributes, then create instances.
 
 ```python
 from syrin import Agent, Model
 
 class Assistant(Agent):
-    # Set defaults on the class
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-    system_prompt = "You are a helpful assistant. Be concise."
-```
+    model = Model.mock()
+    system_prompt = "You are a helpful assistant."
 
-Then instantiate and use:
-
-```python
-# Create an instance
-assistant = Assistant()
-
-# Use it
-response = assistant.run("What is Python?")
+agent = Assistant()
+response = agent.run("Hello!")
 print(response.content)
+print(f"Cost: ${response.cost:.6f}")
 ```
+
+Output:
+
+```
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod...
+Cost: $0.000042
+```
+
+That's the whole thing. Two attributes and you have a working agent.
 
 ### Why Classes?
 
-Classes give you:
+The class pattern looks like more work but pays off immediately:
 
-1. **Reusability** — Create multiple instances with same config
-2. **Inheritance** — Build specialized agents from base classes
-3. **Introspection** — Tools can inspect the agent class
-4. **IDE support** — Autocomplete and type checking
-
-### Complete Class Example
+**Reusability.** Create ten instances from the same class. Each instance gets its own state (conversation history, budget counter) but shares the same configuration.
 
 ```python
-from syrin import Agent, Model, Budget
-from syrin.tool import tool
-from syrin.memory import MemoryPreset
+agent_1 = Assistant()
+agent_2 = Assistant()  # Same config, independent state
+```
+
+**Inheritance.** Build specialized agents from a shared base without repeating yourself.
+
+**Testability.** Pass in a mock model without changing the class definition.
+
+```python
+test_agent = Assistant(model=Model.mock())  # Instance overrides class default
+```
+
+### Naming Your Agent
+
+By default, your agent's name is the class name. You can customize it with `name` and `description` class attributes:
+
+```python
+from syrin import Agent, Model
+
+class CustomerSupportAgent(Agent):
+    name = "CustomerSupport"
+    description = "Handles product and billing questions"
+    model = Model.mock()
+    system_prompt = "You are a friendly customer support agent."
+
+agent = CustomerSupportAgent()
+print(agent.name)         # "CustomerSupport"
+print(agent.description)  # "Handles product and billing questions"
+```
+
+Output:
+
+```
+CustomerSupport
+Handles product and billing questions
+```
+
+`name` and `description` are used in the serving playground, agent registries, and multi-agent topologies where agents identify themselves to each other.
+
+### Dynamic System Prompts
+
+Your system prompt can be a method instead of a string. This lets you inject runtime state — the user's name, the current date, external configuration — into the prompt without any string formatting at call time.
+
+```python
+from syrin import Agent, Model
+
+class PersonalizedAgent(Agent):
+    model = Model.mock()
+    _user_name: str = "friend"
+
+    def system_prompt(self) -> str:
+        return f"You are a helpful assistant. The user's name is {self._user_name}. Always greet them by name."
+
+agent = PersonalizedAgent()
+agent._user_name = "Alice"
+response = agent.run("Hello!")
+print(response.content[:50])
+```
+
+Output:
+
+```
+Lorem ipsum dolor sit amet, consectetur adipiscing
+```
+
+(With a real model, it would greet Alice by name. The mock model returns lorem ipsum regardless, but the system prompt is correctly wired up.)
+
+### Instance Overrides Class
+
+Every class attribute can be overridden at instantiation. The class sets the default; the constructor overrides it. This is how you test with mock models without changing your production class:
+
+```python
+from syrin import Agent, Budget, Model
 from syrin.enums import ExceedPolicy
 
-@tool
-def search(query: str) -> str:
-    """Search the web for information."""
-    return f"Web results for '{query}'"
+class ProductionAgent(Agent):
+    model = Model.mock()  # Would be Model.OpenAI in real code
+    system_prompt = "You are a production assistant."
+    budget = Budget(max_cost=5.00, exceed_policy=ExceedPolicy.WARN)
 
-@tool
-def calculate(expression: str) -> str:
-    """Evaluate a math expression."""
-    return str(eval(expression))
+# Use defaults
+prod = ProductionAgent()
 
-class ResearchAgent(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-    
-    system_prompt = """
-        You are a thorough research assistant.
-        Use tools when you need current information or calculations.
-        Cite your sources and be precise.
-    """
-    
-    tools = [search, calculate]
-    
-    budget = Budget(max_cost=1.00, exceed_policy=ExceedPolicy.STOP)
-
-    memory = MemoryPreset.STANDARD
-
-# Create instances
-researcher = ResearchAgent()
-
-# Use it
-response = researcher.run("What is 15 * 23?")
-print(response.content)
-print(f"Cost: ${response.cost:.4f}")
-```
-
-### Inheritance: Building Specialized Agents
-
-Here's where classes shine. Build a base agent, then specialize:
-
-```python
-from syrin import Agent, Model, Budget
-from syrin.tool import tool
-from syrin.enums import ExceedPolicy
-
-# Base agent with shared config
-class BaseAgent(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-    budget = Budget(max_cost=0.50, exceed_policy=ExceedPolicy.STOP)
-
-# Specialized researcher
-class Researcher(BaseAgent):
-    system_prompt = "You are a research specialist. Be thorough."
-    tools = []  # Add research tools here
-
-# Specialized writer
-class Writer(BaseAgent):
-    system_prompt = "You are a creative writer. Be engaging."
-    # Inherits budget limit from BaseAgent
-
-# Specialized code assistant
-class CodeAssistant(BaseAgent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")  # Override model
-    system_prompt = "You are a coding expert. Write clean, efficient code."
-    budget = Budget(max_cost=1.00, exceed_policy=ExceedPolicy.STOP)  # More budget for code
-```
-
-**What just happened:**
-- `Researcher` inherits `model` and `budget` from `BaseAgent`
-- `Writer` inherits everything, uses default system prompt
-- `CodeAssistant` overrides both `model` (upgrade to gpt-4o) and `budget` (increase limit)
-
-### Merge vs Override Behavior
-
-| Attribute | Behavior | Description |
-|-----------|----------|-------------|
-| `model` | Override | First defined in inheritance wins |
-| `system_prompt` | Override | First defined in inheritance wins |
-| `budget` | Override | First defined in inheritance wins |
-| `tools` | **Merge** | All tools concatenated |
-| `guardrails` | **Merge** | All guardrails concatenated |
-
-```python
-class BaseAgent(Agent):
-    tools = [search_tool]
-
-class SpecializedAgent(BaseAgent):
-    tools = [calculate_tool]  # Merges: [search_tool, calculate_tool]
-```
-
-### Constructor Override
-
-Even with class defaults, you can override at instantiation:
-
-```python
-# Class defaults
-class Assistant(Agent):
-    model = Model.OpenAI("gpt-4o-mini")  # Default
-    budget = Budget(max_cost=0.10)
-
-# Override at instantiation
-expensive_agent = Assistant(
-    model=Model.OpenAI("gpt-4o"),  # Override class default
-    budget=Budget(max_cost=1.00),  # Override class default
+# Override model for testing — no changes to the class needed
+test = ProductionAgent(
+    model=Model.mock(),
+    budget=Budget(max_cost=0.01, exceed_policy=ExceedPolicy.WARN),
 )
 ```
 
-## 3. Builder Pattern (The Fluent Alternative)
+## Pattern 2: The Constructor Pattern
 
-For agents with many options, the builder scales cleanly:
+Pass everything directly to `Agent()`. Good for one-off scripts where you don't need a named type.
 
 ```python
-from syrin import Agent, Model, Budget
-from syrin.tool import tool
-from syrin.enums import ExceedPolicy
+from syrin import Agent, Model
 
-agent = (
-    Agent.builder(Model.OpenAI("gpt-4o", api_key="your-api-key"))
-    .with_system_prompt("You are a helpful assistant.")
-    .with_tools([search, calculate])
-    .with_budget(Budget(max_cost=0.50, exceed_policy=ExceedPolicy.STOP))
-    .with_memory()  # Enable default memory
-    .with_context(Context(max_tokens=80000))
-    .with_debug(True)
-    .build()
+agent = Agent(
+    model=Model.mock(),
+    system_prompt="You summarize text in one sentence.",
 )
+
+response = agent.run("The weather today is sunny with a high of 75 degrees.")
+print(response.content[:60])
 ```
 
-**When to use:**
-- Complex configurations
-- When you prefer method chaining
-- Dynamic agent construction
-- Building agents in loops or from config
+Output:
 
-**Equivalent class-based:**
-
-```python
-class MyAgent(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-    system_prompt = "You are a helpful assistant."
-    tools = [search, calculate]
-    budget = Budget(max_cost=0.50, exceed_policy=ExceedPolicy.STOP)
-    memory = MemoryPreset.STANDARD
-    context = Context(max_tokens=80000)
-
-agent = MyAgent(debug=True)  # Note: debug is constructor-only
+```
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed
 ```
 
-### Builder Methods
+**When to use:** Quick scripts, one-time tasks, ad-hoc experiments.
 
-| Method | Description |
-|--------|-------------|
-| `with_system_prompt(str)` | Set instructions |
-| `with_tools([...])` | Add tools |
-| `with_budget(Budget)` | Set cost limits |
-| `with_memory(Memory)` | Enable memory |
-| `with_context(Context)` | Set context config |
-| `with_guardrails([...])` | Add safety |
-| `with_loop_strategy(LoopStrategy)` | Set thinking style |
-| `with_debug(True)` | Enable debug output |
-| `with_checkpoint(...)` | Enable state persistence |
-| `build()` | Create the agent |
+**When to avoid:** Anything you'll reuse, test, or put in a team codebase.
 
-## 4. Presets (The Quick Start)
+## Inheritance: Build a Family of Agents
 
-For common patterns, presets give you a running agent in one line:
+This is the most powerful feature of the class pattern. Define a base agent with shared configuration, then create specialized agents that inherit from it.
 
 ```python
-from syrin import Agent, Model
-
-# Minimal agent (no memory, no budget)
-agent = Agent.basic(Model.OpenAI("gpt-4o", api_key="your-api-key"))
-
-# Agent with conversation memory
-agent = Agent.with_memory(Model.OpenAI("gpt-4o", api_key="your-api-key"))
-
-# Agent with cost control
-agent = Agent.with_budget(Model.OpenAI("gpt-4o", api_key="your-api-key"))
-```
-
-**When to use:** Quick prototyping, when you just need *something* working fast.
-
-**When to avoid:** Production code where you need specific configurations.
-
-## Comparison: All Four Patterns
-
-### Direct Constructor
-```python
-Agent(model=m, system_prompt="Hi", tools=[t])
-```
-✅ Quick, inline
-❌ No reuse, hard to test
-
-### Class-based
-```python
-class MyAgent(Agent):
-    model = m
-    system_prompt = "Hi"
-    tools = [t]
-```
-✅ Reusable, inheritable, introspectable
-❌ Slightly more code
-
-### Builder
-```python
-Agent.builder(m).with_system_prompt("Hi").with_tools([t]).build()
-```
-✅ Fluent, readable for complex configs
-❌ No class-level defaults
-
-### Presets
-```python
-Agent.basic(m)
-```
-✅ Fastest to write
-❌ Limited customization
-
-## Adding Tools to Your Agent
-
-Tools are how agents interact with the world:
-
-```python
-from syrin import Agent, Model
-from syrin.tool import tool
-
-@tool
-def search(query: str) -> str:
-    """Search the web for information.
-    
-    Args:
-        query: The search query (e.g., "latest AI news")
-    
-    Returns:
-        Search results as a string
-    """
-    # Real implementation would call search API
-    return f"Results for '{query}'"
-
-class ResearchAgent(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-    system_prompt = "Use the search tool when asked about current events."
-    tools = [search]
-
-agent = ResearchAgent()
-response = agent.run("What's happening in tech today?")
-# Agent decides to call search() internally
-```
-
-## Adding Memory
-
-```python
-from syrin import Agent, Model
-from syrin.memory import Memory, MemoryPreset, MemoryType
-
-class RememberingAgent(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-    memory = MemoryPreset.STANDARD
-
-agent = RememberingAgent()
-
-# Remember something
-agent.remember("User's name is Alice", memory_type=MemoryType.CORE)
-
-# Later conversations remember this
-response = agent.run("What's my name?")
-# Agent recalls and responds appropriately
-```
-
-## Complete Example: Research Assistant
-
-```python
-from syrin import Agent, Model, Budget
-from syrin.tool import tool
-from syrin.memory import MemoryPreset
+from syrin import Agent, Budget, Model, tool
 from syrin.enums import ExceedPolicy
 
 @tool
-def search_web(query: str) -> str:
+def web_search(query: str) -> str:
     """Search the web for current information."""
-    return f"Web results for '{query}'"
+    return f"Results for: {query}"
 
 @tool
-def calculate(expression: str) -> str:
-    """Evaluate a mathematical expression."""
-    return str(eval(expression))
+def run_code(code: str) -> str:
+    """Execute Python code and return the result."""
+    return f"Code executed: {code[:30]}..."
 
-class ResearchAssistant(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-    
-    system_prompt = """
-        You are a thorough research assistant.
-        - Use tools when you need current information
-        - Be precise and cite sources
-        - Ask clarifying questions when needed
-    """
-    
-    tools = [search_web, calculate]
-    
-    budget = Budget(max_cost=1.00, exceed_policy=ExceedPolicy.STOP)
+# The shared base — every agent in this system gets this budget and model
+class CompanyAgent(Agent):
+    model = Model.mock()
+    budget = Budget(max_cost=0.50, exceed_policy=ExceedPolicy.WARN)
 
-    memory = MemoryPreset.STANDARD
+# Researcher inherits model and budget, adds its own prompt and tools
+class Researcher(CompanyAgent):
+    system_prompt = "You are a thorough research specialist. Use web_search for current facts."
+    tools = [web_search]
 
-# Create and use
-assistant = ResearchAssistant()
-response = assistant.run("Compare GPT-4 and Claude 2")
-print(response.content)
+# Engineer inherits model and budget, gets different prompt and tools
+class Engineer(CompanyAgent):
+    system_prompt = "You are a software engineer. Use run_code to verify solutions."
+    tools = [run_code]
+
+researcher = Researcher()
+engineer = Engineer()
+
+r1 = researcher.run("Summarize today's AI news")
+r2 = engineer.run("Write a function to reverse a string")
+print(f"Researcher: {r1.content[:50]}")
+print(f"Engineer: {r2.content[:50]}")
 ```
 
-## What's Next?
+Output:
 
-- [Builder Pattern](/agent-kit/agent/builder-pattern) - Fluent agent construction in depth
-- [Running Agents](/agent-kit/agent/running-agents) - Execute your agent
-- [Tools](/agent-kit/agent/tools) - Create powerful tools
-- [Memory](/agent-kit/core/memory) - Persistent memory
+```
+Researcher: Lorem ipsum dolor sit amet, consectetur adipiscing
+Engineer: Lorem ipsum dolor sit amet, consectetur adipiscing
+```
 
-## See Also
+Both agents share the `model` and `budget` from `CompanyAgent`. If you change the model in `CompanyAgent`, all subclasses update automatically.
 
-- [Agent Anatomy](/agent-kit/agent/anatomy) - Understanding each component
-- [Response Object](/agent-kit/agent/response-object) - What you get back
-- [Budget](/agent-kit/core/budget) - Cost control
-- [Loop Strategies](/agent-kit/agent/running-agents) - Control thinking behavior
+### How Tool Inheritance Works
+
+Tools are the one attribute that **merges** instead of overrides. Every other attribute (model, system prompt, budget) follows "most specific class wins." Tools concatenate from parent to child:
+
+```python
+from syrin import Agent, Model
+from syrin.tool import tool
+
+@tool
+def base_search(query: str) -> str:
+    """Search across all company data."""
+    return f"Base results: {query}"
+
+@tool
+def advanced_filter(results: str, min_date: str) -> str:
+    """Filter results by date."""
+    return f"Filtered: {results}"
+
+class BaseResearcher(Agent):
+    model = Model.mock()
+    system_prompt = "You are a researcher."
+    tools = [base_search]
+
+class AdvancedResearcher(BaseResearcher):
+    tools = [advanced_filter]
+
+researcher = AdvancedResearcher()
+tool_names = [t.name for t in researcher._tools]
+print(f"Tools: {tool_names}")
+```
+
+Output:
+
+```
+Tools: ['advanced_filter', 'base_search']
+```
+
+The child's tools come first (they take priority in tool selection), followed by the parent's tools. This means `AdvancedResearcher` has access to both `advanced_filter` AND `base_search`.
+
+**Guardrails** follow the same merge behavior — child guardrails run first, then parent guardrails.
+
+## Choosing a Pattern
+
+Use the **class pattern** when:
+- You will create more than one instance
+- You want to use inheritance
+- You are writing production code
+- You want IDE autocomplete and type checking
+
+Use the **constructor pattern** when:
+- You are writing a quick script
+- You need the agent exactly once
+- You are exploring the API
+
+## What's Next
+
+- [Running Agents](/agent-kit/agent/running-agents) — `run()`, `arun()`, streaming, and the Response object
+- [Tools](/agent-kit/agent/tools) — Give your agents capabilities
+- [Budget](/agent-kit/core/budget) — Control what your agents spend
+- [Memory](/agent-kit/core/memory) — Make your agents remember things

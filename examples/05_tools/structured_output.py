@@ -3,7 +3,7 @@
 Demonstrates:
 - @structured decorator for output schemas
 - Nested types (list[Shareholder]) and Annotated descriptions
-- response.parsed convenience property
+- response.output for typed structured output
 - Output(output_type, validation_retries) configuration
 - Pydantic models as output types
 - Custom OutputValidator with ValidationResult
@@ -44,11 +44,11 @@ class UserInfo:
     city: str
 
 
-agent = Agent(model=Model.Almock(), output=Output(UserInfo, validation_retries=3))
+agent = Agent(model=Model.mock(), output=Output(UserInfo, validation_retries=3))
 result = agent.run("Extract: John Doe, 35, john@example.com, San Francisco")
 print(f"  is_valid: {result.structured.is_valid}")
-if result.parsed:
-    print(f"  parsed.name: {result.parsed.name}")
+if result.output:
+    print(f"  parsed.name: {result.output.name}")
 
 
 # --- 1b. Nested types and Annotated ---
@@ -73,15 +73,15 @@ class CapitalStructure:
     missing_fields: Annotated[list[str], "Data not found"] = []
 
 
-agent = Agent(model=Model.Almock(), output=Output(CapitalStructure, validation_retries=3))
+agent = Agent(model=Model.mock(), output=Output(CapitalStructure, validation_retries=3))
 result = agent.run(
     "Extract: authorized capital 5 Cr, Promoter 62.5% (12.5L shares), Public 37.5% (7.5L)"
 )
 print(f"  is_valid: {result.structured.is_valid}")
-if result.parsed:
-    print(f"  parsed.authorized_capital: {result.parsed.authorized_capital}")
-    if result.parsed.shareholders:
-        print(f"  parsed.shareholders[0].name: {result.parsed.shareholders[0].name}")
+if result.output:
+    print(f"  parsed.authorized_capital: {result.output.authorized_capital}")
+    if result.output.shareholders:
+        print(f"  parsed.shareholders[0].name: {result.output.shareholders[0].name}")
 
 
 # --- 2. Pydantic model as output ---
@@ -98,11 +98,11 @@ class ProductInfo(BaseModel):
     category: str
 
 
-agent = Agent(model=Model.Almock(), output=Output(ProductInfo, validation_retries=3))
+agent = Agent(model=Model.mock(), output=Output(ProductInfo, validation_retries=3))
 result = agent.run("Product: Widget, $29.99, in stock, electronics")
 print(f"  is_valid: {result.structured.is_valid}")
-if result.structured.parsed:
-    print(f"  parsed: {result.structured.parsed}")
+if result.output:
+    print(f"  output: {result.output}")
 
 
 # --- 3. Validation hooks ---
@@ -119,7 +119,7 @@ class SentimentResult:
     explanation: str
 
 
-agent = Agent(model=Model.Almock(), output=Output(SentimentResult, validation_retries=3))
+agent = Agent(model=Model.mock(), output=Output(SentimentResult, validation_retries=3))
 
 
 def on_start(ctx: object) -> None:
@@ -185,7 +185,7 @@ class RatingValidator(OutputValidator):
 
 
 agent = Agent(
-    model=Model.Almock(),
+    model=Model.mock(),
     output=Output(ReviewResult, validator=RatingValidator(), validation_retries=3),
 )
 result = agent.run("Review: 'Terrible product.' rating 1, negative")
@@ -214,7 +214,7 @@ class RestrictedUser(BaseModel):
 
 
 agent = Agent(
-    model=Model.Almock(),
+    model=Model.mock(),
     output=Output(
         RestrictedUser,
         validation_retries=3,
@@ -229,9 +229,9 @@ print(f"  is_valid: {result.structured.is_valid}")
 
 
 class StructuredOutputAgent(Agent):
-    _agent_name = "structured-output"
-    _agent_description = "Agent with structured output (UserInfo extraction)"
-    model = Model.Almock()
+    name = "structured-output"
+    description = "Agent with structured output (UserInfo extraction)"
+    model = Model.mock()
     system_prompt = "You extract user information from text. Return valid UserInfo."
     output = Output(UserInfo, validation_retries=3)
 

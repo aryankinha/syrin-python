@@ -58,6 +58,32 @@ class BudgetThresholdError(SyrinError):
         self.action_taken = action_taken
 
 
+class ForecastAbortError(BudgetExceededError):
+    """Raised when ``Budget(abort_on_forecast_exceeded=True)`` aborts a run.
+
+    Fires when the real-time cost forecast predicts the budget will be exceeded
+    by more than ``abort_forecast_multiplier`` × ``max_cost`` before the run
+    completes.
+
+    Attributes:
+        forecast_p50: The p50 projected total cost at time of abort (USD).
+        max_cost: The configured budget limit (USD).
+        multiplier: The ``abort_forecast_multiplier`` that was applied.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        forecast_p50: float = 0.0,
+        max_cost: float = 0.0,
+        multiplier: float = 1.0,
+    ) -> None:
+        super().__init__(message, current_cost=forecast_p50, limit=max_cost)
+        self.forecast_p50 = forecast_p50
+        self.max_cost = max_cost
+        self.multiplier = multiplier
+
+
 class ModelNotFoundError(SyrinError):
     """Raised when a requested model is not found in the registry.
 

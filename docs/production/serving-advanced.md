@@ -275,12 +275,7 @@ agent = Agent(
 
 **Backend options by feature:**
 
-| Feature | Single Worker | Multi-Worker |
-|---------|---------------|--------------|
-| Memory | In-memory (default) | Redis, Postgres, file |
-| Budget | In-process | Distributed tracking |
-| Checkpoints | File (default) | Database, Redis |
-| Context map | File (default) | Database |
+Four features require different backends depending on your deployment topology. Memory defaults to in-memory for a single worker but must use Redis, Postgres, or a file backend in a multi-worker setup. Budget tracking is in-process for a single worker and requires distributed tracking across workers. Checkpoints default to the filesystem for a single worker but should use a database or Redis when workers are shared. Context maps default to a file for a single worker and should use a database for multi-worker deployments.
 
 ### Workers with Gunicorn
 

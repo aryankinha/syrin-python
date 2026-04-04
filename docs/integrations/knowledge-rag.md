@@ -39,12 +39,7 @@ result = agent.run("How do I install the software?")
 
 ## Understanding the Search Pipeline
 
-When an agent uses `search_knowledge`:
-
-1. **Embed Query** — Convert the user query to a vector
-2. **Vector Search** — Find chunks with similar vectors
-3. **Score & Filter** — Keep results above the threshold
-4. **Return Results** — Pass chunks to the agent
+When an agent uses `search_knowledge`, it embeds the query into a vector, performs a vector search to find similar chunks, scores and filters results to keep only those above the threshold, then returns the chunks to the agent.
 
 ## Search Configuration
 
@@ -58,11 +53,7 @@ knowledge = Knowledge(
 )
 ```
 
-| top_k | Use Case |
-| --- | --- |
-| 3-5 | Precise questions, small chunks |
-| 5-10 | General questions, medium chunks |
-| 10-20 | Complex queries, large chunks |
+The right `top_k` depends on your question type. For precise questions with small chunks, 3–5 results is usually sufficient. For general questions with medium chunks, 5–10 works better. For complex queries with large chunks, 10–20 gives the agent enough material to synthesize from.
 
 ### Score Threshold: Minimum Relevance
 
@@ -74,14 +65,7 @@ knowledge = Knowledge(
 )
 ```
 
-Scores range from 0 (no match) to 1 (identical). Typical thresholds:
-
-| Threshold | Meaning |
-| --- | --- |
-| 0.7+ | Very similar |
-| 0.5-0.7 | Likely relevant |
-| 0.3-0.5 | Possibly relevant |
-| <0.3 | Probably noise |
+Scores range from 0 (no match) to 1 (identical). A score of 0.7 or higher means very similar content — you can trust these results. Scores between 0.5 and 0.7 are likely relevant. Scores between 0.3 and 0.5 are possibly relevant but may include noise. Anything below 0.3 is probably noise and should be filtered out.
 
 ## Agentic RAG: Beyond Simple Retrieval
 
@@ -105,13 +89,7 @@ knowledge = Knowledge(
 
 ### What Agentic RAG Adds
 
-When `agentic=True`, the agent gets three tools:
-
-| Tool | Purpose |
-| --- | --- |
-| `search_knowledge` | Single semantic search |
-| `search_knowledge_deep` | Multi-step retrieval |
-| `verify_knowledge` | Fact verification |
+When `agentic=True`, the agent gets three tools. `search_knowledge` performs a single semantic search. `search_knowledge_deep` does multi-step retrieval — it decomposes the query, searches from multiple angles, and synthesizes the results. `verify_knowledge` runs fact verification against sources before returning results.
 
 ### Query Decomposition
 
@@ -134,8 +112,7 @@ AgenticRAGConfig(
 )
 ```
 
-**Without grading:** Retrieval based on vector similarity alone.
-**With grading:** LLM evaluates semantic relevance.
+Without grading, retrieval is based on vector similarity alone. With grading, the LLM evaluates semantic relevance — catching cases where a chunk is mathematically similar but doesn't actually answer the question.
 
 ### Query Refinement
 
@@ -148,21 +125,11 @@ AgenticRAGConfig(
 )
 ```
 
-**Flow:**
-1. Search with original query
-2. Grade results
-3. If poor: refine query and retry
-4. Repeat until good results or max iterations
+The flow is: search with original query, grade results, if poor — refine query and retry. Repeat until results are good or max iterations is reached.
 
 ### When to Use Agentic RAG
 
-| Scenario | Use Agentic RAG? |
-| --- | --- |
-| Simple factual questions | No (overkill) |
-| Multi-part questions | Yes |
-| Comparative analysis | Yes |
-| Research tasks | Yes |
-| Simple lookups | No |
+For simple factual questions, standard RAG is fine — agentic is overkill and burns more tokens. For multi-part questions, comparative analysis, and research tasks, agentic RAG earns its keep. For simple lookups, just use plain retrieval.
 
 ## Metadata Filtering
 
@@ -186,10 +153,7 @@ results = await knowledge.search(
 )
 ```
 
-Common filters:
-- `source`: Specific file
-- `source_type`: "pdf", "markdown", etc.
-- Custom metadata from loaders
+Common filters include `source` for a specific file, `source_type` for document format like "pdf" or "markdown", and any custom metadata you attached via loaders.
 
 ## Context Injection
 
@@ -344,27 +308,11 @@ await knowledge.remove_source(loader)
 
 ## Best Practices
 
-### Retrieval Quality
+**Retrieval quality:** Chunk size matters more than anything else — test with your specific documents. Adjust the score threshold based on whether you need precision (higher threshold) or recall (lower threshold). Keep top_k in the range that gives the agent enough material without burying the signal in noise.
 
-1. **Chunk size matters** — Test with your specific documents
-2. **Score threshold** — Adjust based on precision vs recall needs
-3. **Top-k** — Balance between breadth and noise
+**Performance:** Pre-load on startup so the first query isn't slow. Use SQLite for development and PostgreSQL for production. Cache embeddings so unchanged documents don't get re-embedded on every restart.
 
-### Performance
-
-1. **Pre-load on startup** — Don't wait for first search
-```python
-await knowledge.ingest()  # Load at startup
-```
-
-2. **Use appropriate backend** — SQLite for dev, Postgres for prod
-3. **Cache embeddings** — Don't re-embed unchanged documents
-
-### Accuracy
-
-1. **Use metadata** — Include source, page, section in context
-2. **Agentic for complex** — Use agentic RAG for multi-part questions
-3. **Ground facts** — Enable grounding for hallucination prevention
+**Accuracy:** Include source, page, and section in chunk metadata — the agent can use these in citations. Use agentic RAG for multi-part questions. Enable grounding for any use case where hallucinations would be costly.
 
 ## What's Next?
 

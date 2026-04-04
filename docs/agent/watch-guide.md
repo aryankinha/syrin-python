@@ -108,14 +108,7 @@ This flow is demonstrated in `examples/22_watch/queue_trigger.py`.
 
 ## TriggerEvent
 
-Every trigger—regardless of protocol—delivers a `TriggerEvent` to the agent. The dataclass has four fields:
-
-| Field | Type | Description |
-|---|---|---|
-| `input` | `str` | The text payload to send to the agent as its user message. |
-| `source` | `str` | The origin of the trigger (`"webhook"`, `"cron"`, `"queue"`, or a custom label). |
-| `metadata` | `dict[str, str]` | Arbitrary key/value pairs from the protocol (headers, queue attributes, etc.). |
-| `trigger_id` | `str` | A unique ID for this trigger event. Auto-generated if not set. |
+Every trigger—regardless of protocol—delivers a `TriggerEvent` to the agent. The dataclass has four fields. `input` is a `str` containing the text payload sent to the agent as its user message. `source` is a `str` identifying the origin of the trigger (for example `"webhook"`, `"cron"`, `"queue"`, or a custom label). `metadata` is a `dict[str, str]` holding arbitrary key/value pairs from the protocol such as headers or queue attributes. `trigger_id` is a `str` providing a unique ID for the trigger event, auto-generated if not explicitly set.
 
 ```python
 from syrin.watch import TriggerEvent
@@ -253,14 +246,7 @@ handler = agent.watch_handler()
 
 ## Which Watch Pattern Should You Use?
 
-| Situation | Pattern |
-|---|---|
-| Run a report every hour | `CronProtocol` |
-| Receive external trigger calls | `WebhookProtocol` |
-| Consume jobs from a queue | `QueueProtocol` |
-| Reuse an existing web framework | `watch_handler()` |
-| Trigger the same logic from code/tests | `agent.trigger()` |
-| Coordinate multiple sources | `multi_protocol.py` |
+The right pattern depends on what triggers the agent. Use `CronProtocol` when you need to run a report or task on a fixed schedule such as every hour. Use `WebhookProtocol` when the agent should respond to inbound HTTP calls from external systems. Use `QueueProtocol` when consuming jobs from a message queue like Redis or RabbitMQ. Use `watch_handler()` when your application already runs its own web framework such as FastAPI and you want to wire the agent into an existing server. Use `agent.trigger()` when you want to fire the same watch-style logic from your own code or tests without starting a persistent listener. Use the `multi_protocol.py` example as a starting point when you need to coordinate multiple trigger sources simultaneously.
 
 ## Protocol Interfaces
 

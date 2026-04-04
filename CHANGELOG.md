@@ -9,6 +9,106 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.11.0] - 2026-04-03
+
+### Theme: Multi-Agent Swarms & Budget Intelligence
+
+This release delivers first-class multi-agent orchestration (5 topologies), a full Budget Intelligence layer, AgentRegistry, security hardening, and a live TUI debugger for multi-agent workflows.
+
+---
+
+### Added
+
+#### Multi-Agent Swarms — 5 Topologies
+- `Swarm` class with `SwarmConfig(topology=SwarmTopology.*)` — the entry point for all multi-agent coordination
+- **PARALLEL** — all agents run concurrently; results merged; `SKIP_AND_CONTINUE` and `ABORT_SWARM` failure strategies
+- **CONSENSUS** — multiple agents vote; `ConsensusConfig(min_agreement=0.67, voting_strategy=VotingStrategy.MAJORITY)`
+- **REFLECTION** — writer/critic loop; `ReflectionConfig(producer=Cls, critic=Cls, max_rounds=3, score_threshold=7.0)`
+- **ORCHESTRATOR** — first agent routes work to the rest dynamically
+- **WORKFLOW** — swarm wraps a `Workflow` for complex multi-step coordination
+- `SwarmResult` — unified result: `content`, `cost_breakdown`, `agent_results`, `partial_results`, `budget_report`
+- `SwarmBudgetReport` — per-agent budget summaries, `total_spent`, `was_within_p95`
+- `cancel_agent(name)` — cancel a specific agent mid-run without aborting the swarm
+- A2A (Agent-to-Agent) messaging — `A2ARouter` with direct, topic broadcast, and audit log; `MemoryBus` backend protocol
+
+#### Budget Intelligence
+- Pre-flight budget estimation — `Budget.estimate(agent, input)` before committing to a run
+- `EstimationPolicy` — `FAIL_IF_OVER`, `WARN_IF_OVER`, `ALWAYS_PROCEED`
+- Custom `CostEstimator` protocol — plug in your own token-counting or pricing logic
+- Budget forecasting — `Budget.forecast(history_key=...)` predicts future cost from historical runs
+- `FileBudgetStore` — persistent cross-run budget history in JSON
+- Four budget guardrails: hard stop, soft warning, per-agent cap, dynamic reallocation (`allow_reallocation=True`)
+- Anomaly detection — `Budget(anomaly_detection=True)` flags calls that exceed p95 of recent history
+- Shared budget pool — `Budget(shared=True, max_cost=N)` with `BudgetPool` for fair allocation across agents
+
+#### Workflow Visualization
+- `Workflow.visualize()` — Rich ASCII tree showing step types (sequential, parallel, branch, dynamic)
+- `Workflow.to_mermaid(direction="TD"|"LR")` — Mermaid `graph TD` string for docs and GitHub READMEs
+- `Workflow.to_dict()` — `{"nodes": [...], "edges": [...]}` for custom rendering
+- `Workflow.run(show_graph=True)` — live Rich table that refreshes per step with status, cost, elapsed time
+- Branch and dynamic steps are represented in Mermaid output
+
+#### AgentRegistry
+- `AgentRegistry` — central registry for discovering and instantiating agents by name or capability tag
+- `@registry.register(tags=["finance", "analysis"])` decorator
+- `registry.get(name)`, `registry.find(tag=...)`, `registry.all()` — typed lookups
+- Supports per-registry and global singleton patterns
+
+#### Security Hardening
+- `PIIGuardrail` — scan inputs and outputs for PII (email, phone, SSN, credit card via Luhn)
+- `ToolOutputValidator` — validate tool output against a Pydantic schema before the agent sees it
+- `AgentIdentity` — cryptographic identity for agents (signing + verification)
+- Decision provenance — every LLM decision can carry a `ProvenanceRecord` with model, timestamp, and hash
+- `@structured` decorator — `@dataclass` applied internally; `A2ARouter.send()` accepts both Pydantic models and `@structured` dataclasses
+
+#### Multi-Agent Pry Debugger (TUI)
+- `SwarmPryTUI` — Rich Live compositor for debugging multiple simultaneously-paused agents
+- `GraphPanel` — per-agent status (PENDING / RUNNING / COMPLETE / FAILED / SKIPPED / PAUSED) with cost
+- `BudgetPanel` — recursive budget tree: pool → per-agent allocated/spent
+- `MessagePanel` — chronological A2A / MemoryBus timeline with bounded history
+- `SwarmNav` — keyboard navigation across paused agents (`n` next, `p` prev, `s` step focused)
+- `preview_dynamic()` — evaluate a `.dynamic()` lambda without spawning agents
+
+---
+
+### Changed
+
+- `rich>=13.0` promoted to core dependency (was optional; required for `visualize()` and Pry TUI)
+- `requests>=2.33.0` minimum enforced (CVE-2026-25645 fix via tiktoken transitive dep)
+- `Swarm` constructor: `reflection_config` and `consensus_config` are top-level params, not nested in `SwarmConfig`
+
+---
+
+### Fixed
+
+- `@structured` decorator now applies `@dataclass` internally — classes are instantiable without manual decoration
+- Pre-existing bug in `_has_default()` helper: used `dataclasses.MISSING` check instead of broken `is not type(None)` comparison
+- `_AgentMeta` metaclass blocks `object.__setattr__` on agent instances — swarm context injection now falls back to plain `setattr`
+
+---
+
+### Documentation
+
+- Full Budget Intelligence guide (`docs/budget/`)
+- Multi-agent concepts and topology guides (`docs/multi-agent/`)
+- Workflow visualization guide
+- Multi-agent Pry debugger guide (`docs/debugging/pry-multi-agent.md`)
+- AgentRegistry guide (`docs/agent-registry.md`)
+- Security decision provenance guide (`docs/security/decision-provenance.md`)
+- Remote config guide (`docs/remote-config.md`)
+- Migration guide: v0.10 → v0.11 (`docs/migration/v0.10-to-v0.11.md`)
+- Updated API reference with all v0.11.0 additions
+
+### Examples (all in `examples/` subdirectories)
+
+- `examples/07_multi_agent/` — 18 examples: all 5 swarm topologies, workflow variants, visualization, agent router, budget delegation, A2A broadcast, hierarchical swarm, monitor loop
+- `examples/03_budget/` — budget estimation, guardrails, forecasting, anomaly detection
+- `examples/12_remote_config/` — remote config with SSE overrides
+- `examples/21_debug_multiagent/` — Pry debugger for workflows and swarms
+- `examples/23_agent_registry/` — AgentRegistry patterns
+
+---
+
 ## [0.10.0] - 2026-03-30
 
 ### Theme: Observability, Triggers, and Production Stability

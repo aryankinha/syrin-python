@@ -6,22 +6,9 @@ weight: 103
 
 ## Agents as Subprocesses
 
-Sometimes your agent needs to run as a subprocess. Maybe you're:
-- Building an MCP server that hosts your agent
-- Spawning agents from a parent process
-- Running agents in a background worker
-- Integrating with shell scripts or CI pipelines
+Sometimes your agent needs to run as a subprocess. Maybe you're building an MCP server that hosts your agent, spawning agents from a parent process, running agents in a background worker, or integrating with shell scripts or CI pipelines.
 
 STDIO mode turns your agent into a JSON line processor: read JSON from stdin, write JSON to stdout.
-
-## The Problem
-
-Integrating agents into existing systems is awkward:
-- HTTP servers add network overhead and complexity
-- Custom IPC mechanisms require boilerplate
-- Shell scripts need a simple interface
-
-STDIO provides the simplest possible integration: one JSON in, one JSON out.
 
 ## How It Works
 
@@ -34,11 +21,7 @@ stdout: {"content": "Hello! How can I help you?", "cost": 0.0001, "tokens": 15}
         {"content": "I'm doing well, thank you!", "cost": 0.0002, "tokens": 28}
 ```
 
-The agent:
-1. Reads one JSON object per line from stdin
-2. Processes the message
-3. Writes the response as JSON to stdout
-4. Repeats until EOF on stdin
+The agent reads one JSON object per line from stdin, processes the message, writes the response as JSON to stdout, and repeats until EOF.
 
 ## Quick Start
 
@@ -69,22 +52,7 @@ echo '{"input": "Hello"}' | python my_agent.py
 
 ### Input Format (stdin)
 
-Each line must be valid JSON:
-
-```json
-{"input": "Your message here"}
-```
-
-**Supported fields:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `input` | `string` | Yes* | Message to send to agent |
-| `message` | `string` | Yes* | Alias for input |
-| `content` | `string` | Yes* | Alias for input |
-| `conversation_id` | `string` | No | Session identifier for context |
-
-*At least one of `input`, `message`, or `content` is required.
+Each line must be valid JSON with at least one message field. `input` is the primary field for the message to send. `message` and `content` are aliases — use whichever matches your data model. `conversation_id` is optional and identifies a session for context tracking.
 
 ### Output Format (stdout)
 
@@ -92,15 +60,7 @@ Each line must be valid JSON:
 {"content": "Agent response", "cost": 0.00015, "tokens": 12, "conversation_id": "session-1"}
 ```
 
-**Response fields:**
-
-| Field | Type | Always Present | Description |
-|-------|------|----------------|-------------|
-| `content` | `string` | Yes | Agent's response |
-| `cost` | `float` | Yes | Cost in USD |
-| `tokens` | `int` | Yes | Total tokens used |
-| `conversation_id` | `string` | If provided | Echoes input conversation_id |
-| `error` | `string` | On error | Error message |
+Every response includes `content` (the agent's text), `cost` (USD), and `tokens` (total tokens used). `conversation_id` is echoed back if it was provided in the input. On errors, an `error` field appears instead of `content`.
 
 ## Examples
 
@@ -297,7 +257,7 @@ import io
 import json
 from syrin import Agent, Model
 
-agent = Agent(model=Model.Almock())
+agent = Agent(model=Model.mock())
 
 # Simulate input
 stdin = io.StringIO('{"input": "Hello"}\n{"input": "How are you?"}')
@@ -349,23 +309,11 @@ agent = Agent(
 
 ### Input Validation
 
-| Input | Result |
-|-------|--------|
-| Valid JSON with message | Processes request |
-| Invalid JSON | `{"error": "Invalid JSON: ..."}` |
-| JSON without message field | `{"error": "Missing 'input', 'message', or 'content'"}` |
-| Empty line | Skipped |
-| Whitespace-only line | Skipped |
+Valid JSON with a message field processes normally. Invalid JSON returns `{"error": "Invalid JSON: ..."}`. JSON without any message field (`input`, `message`, or `content`) returns `{"error": "Missing 'input', 'message', or 'content'"}`. Empty lines and whitespace-only lines are silently skipped.
 
 ### Output Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `content` | `string` | Agent's response text |
-| `cost` | `float` | USD cost of the request |
-| `tokens` | `int` | Total tokens used |
-| `conversation_id` | `string \| null` | Echoed from input if provided |
-| `error` | `string` | Error message (on failure) |
+`content` (string) is the agent's response text. `cost` (float) is the USD cost of the request. `tokens` (int) is the total token count. `conversation_id` (string or null) echoes the value from input if one was provided. `error` (string) appears only on failure, in place of `content`.
 
 ### Conversation Context
 
@@ -392,17 +340,9 @@ For streaming or concurrent requests, use HTTP mode instead.
 
 ## When to Use STDIO vs HTTP
 
-| Scenario | Use STDIO | Use HTTP |
-|----------|-----------|----------|
-| Subprocess spawning | ✅ | |
-| MCP servers | ✅ | |
-| Background workers | ✅ | |
-| Shell scripts | ✅ | |
-| Frontend integration | | ✅ |
-| Webhooks | | ✅ |
-| Streaming responses | | ✅ |
-| Concurrent requests | | ✅ |
-| Playground testing | | ✅ |
+Use STDIO when spawning the agent as a subprocess, running it inside an MCP server, processing messages in a background worker, or calling it from shell scripts and CI pipelines. These scenarios all benefit from the simplicity of one JSON line in, one JSON line out.
+
+Use HTTP when you need frontend integration, webhooks, streaming responses, concurrent request handling, or playground testing. HTTP handles multiple simultaneous requests and supports server-sent events for streaming.
 
 ## See Also
 

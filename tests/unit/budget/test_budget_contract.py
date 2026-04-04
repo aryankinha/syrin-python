@@ -32,6 +32,7 @@ from syrin.budget import (
     raise_on_exceeded,
     warn_on_exceeded,
 )
+from syrin.enums import ExceedPolicy
 from syrin.exceptions import BudgetExceededError
 from syrin.types import CostInfo, TokenUsage
 
@@ -141,7 +142,7 @@ class TestApplyBudgetExceeded:
 class TestPreCallBudgetCheck:
     def test_under_limit_no_raise(self) -> None:
         """No exception when estimated cost is under the limit."""
-        budget = Budget(max_cost=10.0, on_exceeded=raise_on_exceeded)
+        budget = Budget(max_cost=10.0, exceed_policy=ExceedPolicy.STOP)
         agent = _make_agent(budget=budget, run_cost=1.0, estimate=0.001)
         pre_call_budget_check(agent, [])  # should not raise
 
@@ -152,20 +153,20 @@ class TestPreCallBudgetCheck:
 
     def test_no_max_cost_no_raise(self) -> None:
         """Budget with no max_cost → no check."""
-        budget = Budget(on_exceeded=raise_on_exceeded)
+        budget = Budget(exceed_policy=ExceedPolicy.STOP)
         agent = _make_agent(budget=budget, estimate=99.0)
         pre_call_budget_check(agent, [])  # should not raise
 
     def test_exceeded_with_raise_handler_raises(self) -> None:
         """When run usage + estimate >= max_cost and handler raises → BudgetExceededError."""
-        budget = Budget(max_cost=5.0, on_exceeded=raise_on_exceeded)
+        budget = Budget(max_cost=5.0, exceed_policy=ExceedPolicy.STOP)
         agent = _make_agent(budget=budget, run_cost=4.99, estimate=0.02)
         with pytest.raises(BudgetExceededError):
             pre_call_budget_check(agent, [])
 
     def test_exceeded_with_warn_handler_continues(self) -> None:
         """When run usage + estimate >= max_cost and handler returns → no exception."""
-        budget = Budget(max_cost=5.0, on_exceeded=warn_on_exceeded)
+        budget = Budget(max_cost=5.0, exceed_policy=ExceedPolicy.WARN)
         agent = _make_agent(budget=budget, run_cost=4.99, estimate=0.02)
         pre_call_budget_check(agent, [])  # warn returns, should not raise
 
@@ -178,14 +179,14 @@ class TestPreCallBudgetCheck:
 
     def test_zero_max_cost_blocks_any_call(self) -> None:
         """Budget(max_cost=0.0) blocks all calls — any estimate exceeds."""
-        budget = Budget(max_cost=0.0, on_exceeded=raise_on_exceeded)
+        budget = Budget(max_cost=0.0, exceed_policy=ExceedPolicy.STOP)
         agent = _make_agent(budget=budget, run_cost=0.0, estimate=0.0001)
         with pytest.raises(BudgetExceededError):
             pre_call_budget_check(agent, [])
 
     def test_exactly_at_limit_blocks(self) -> None:
         """run_usage + estimate == max_cost → exceeded (>= comparison)."""
-        budget = Budget(max_cost=5.0, on_exceeded=raise_on_exceeded)
+        budget = Budget(max_cost=5.0, exceed_policy=ExceedPolicy.STOP)
         agent = _make_agent(budget=budget, run_cost=4.9, estimate=0.1)
         with pytest.raises(BudgetExceededError):
             pre_call_budget_check(agent, [])
@@ -204,20 +205,20 @@ class TestCheckAndApplyBudget:
 
     def test_under_limit_no_raise(self) -> None:
         """Under budget limit → no exception."""
-        budget = Budget(max_cost=10.0, on_exceeded=raise_on_exceeded)
+        budget = Budget(max_cost=10.0, exceed_policy=ExceedPolicy.STOP)
         agent = _make_agent(budget=budget, run_cost=1.0)
         check_and_apply_budget(agent)  # should not raise
 
     def test_exceeded_with_raise_handler_raises(self) -> None:
         """Run cost >= max_cost and handler raises → BudgetExceededError."""
-        budget = Budget(max_cost=5.0, on_exceeded=raise_on_exceeded)
+        budget = Budget(max_cost=5.0, exceed_policy=ExceedPolicy.STOP)
         agent = _make_agent(budget=budget, run_cost=6.0)
         with pytest.raises(BudgetExceededError):
             check_and_apply_budget(agent)
 
     def test_exceeded_with_warn_handler_continues(self) -> None:
         """Run cost >= max_cost and warn handler returns → no exception (continue)."""
-        budget = Budget(max_cost=5.0, on_exceeded=warn_on_exceeded)
+        budget = Budget(max_cost=5.0, exceed_policy=ExceedPolicy.WARN)
         agent = _make_agent(budget=budget, run_cost=6.0)
         check_and_apply_budget(agent)  # should not raise
 
@@ -235,7 +236,7 @@ class TestCheckAndApplyBudget:
         def token_handler(ctx: BudgetExceededContext) -> None:
             called.append(ctx)
 
-        budget = Budget(max_cost=100.0, on_exceeded=raise_on_exceeded)
+        budget = Budget(max_cost=100.0, exceed_policy=ExceedPolicy.STOP)
         token_limits = TokenLimits(max_tokens=100, on_exceeded=token_handler)
         agent = _make_agent(budget=budget, token_limits=token_limits, run_tokens=200)
         check_and_apply_budget(agent)  # token_handler returns, so no raise
@@ -261,7 +262,7 @@ class TestCheckAndApplyBudget:
         budget = Budget(
             max_cost=100.0,
             rate_limits=RateLimit(hour=1.0),
-            on_exceeded=raise_on_exceeded,
+            exceed_policy=ExceedPolicy.STOP,
         )
         agent = _make_agent(budget=budget, run_cost=2.0)
         with pytest.raises(BudgetExceededError):

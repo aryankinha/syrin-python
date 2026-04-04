@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from syrin.checkpoint import CheckpointConfig, Checkpointer
+from syrin.enums import ToolErrorMode
 
 if TYPE_CHECKING:
     from syrin.audit import AuditLog
@@ -49,6 +50,7 @@ class AgentConfig:
         "dependencies",
         "spotlight_tool_outputs",
         "normalize_inputs",
+        "tool_error_mode",
     )
 
     def __init__(  # type: ignore[explicit-any]
@@ -65,6 +67,7 @@ class AgentConfig:
         dependencies: object | None = None,
         spotlight_tool_outputs: bool = False,
         normalize_inputs: bool = False,
+        tool_error_mode: ToolErrorMode = ToolErrorMode.PROPAGATE,
     ) -> None:
         """Create AgentConfig with optional advanced options.
 
@@ -84,6 +87,9 @@ class AgentConfig:
                 risk from tool outputs. Default: False.
             normalize_inputs: 6.1: Apply NFKC normalization + control-char stripping
                 to user input before processing. Default: False.
+            tool_error_mode: How tool exceptions are handled. PROPAGATE (default) re-raises
+                immediately. RETURN_AS_STRING returns error message to LLM. STOP raises
+                ToolExecutionError to the caller.
         """
         self.context = context
         self.rate_limit = rate_limit
@@ -96,3 +102,4 @@ class AgentConfig:
         self.dependencies = dependencies
         self.spotlight_tool_outputs = spotlight_tool_outputs
         self.normalize_inputs = normalize_inputs
+        self.tool_error_mode = tool_error_mode

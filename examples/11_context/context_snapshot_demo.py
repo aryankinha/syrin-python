@@ -18,7 +18,7 @@ from syrin.context import Context
 from syrin.context.snapshot import ContextSegmentSource
 from syrin.model import Model
 
-_model = Model.Almock()
+_model = Model.mock()
 
 
 @tool

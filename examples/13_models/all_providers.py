@@ -22,7 +22,7 @@ from syrin import Agent, Model
 # ---------------------------------------------------------------------------
 print("-- 1. Almock (mock model) --")
 
-mock = Model.Almock(latency_seconds=0.01, lorem_length=50)
+mock = Model.mock(latency_seconds=0.01, lorem_length=50)
 agent = Agent(model=mock, system_prompt="You are helpful.")
 r = agent.run("Hello!")
 print(f"  Response: {r.content[:80]}...")
@@ -107,5 +107,5 @@ print(f"  Primary: {primary.model_id}, fallbacks: {len(primary.fallback)}")
 # ---------------------------------------------------------------------------
 # Optional: serve with playground UI (requires syrin[serve])
 # ---------------------------------------------------------------------------
-# agent = Agent(model=Model.Almock(), system_prompt="You are helpful.")
+# agent = Agent(model=Model.mock(), system_prompt="You are helpful.")
 # agent.serve(port=8000, enable_playground=True, debug=True)

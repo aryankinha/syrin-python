@@ -10,46 +10,21 @@ You've loaded a 500-page PDF. Now what?
 
 LLMs have limited context windows. You can't feed them entire documents. You need to **chunk** — split documents into smaller, self-contained pieces that can be retrieved and understood independently.
 
-But chunking isn't just "cut every 500 characters." Do it wrong and you get:
-
-- Chunks with incomplete thoughts
-- Lost context between chunks
-- Retrieval misses because relevant info is split across chunks
-
-Do it right and each chunk is a **complete unit of meaning** that can stand alone.
+But chunking isn't just "cut every 500 characters." Do it wrong and you get chunks with incomplete thoughts, lost context between chunks, and retrieval misses because relevant info is split across boundaries. Do it right and each chunk is a **complete unit of meaning** that can stand alone.
 
 ## Why Chunking Matters
 
-### The Context Window Problem
+A typical LLM context window is 8,192 tokens, but a 500-page document might contain 50,000 tokens. The document won't fit, so you need to chunk it. If chunks are too big, irrelevant content dilutes the signal. If chunks are too small, context is lost.
 
-A typical LLM context window is 8,192 tokens, but a 500-page document might contain 50,000 tokens. The document won't fit, so you need to chunk it.
-
-If chunks are too big, irrelevant content dilutes the signal.
-If chunks are too small, context is lost.
-
-### The Retrieval Quality Problem
-
-Good retrieval requires chunks that:
-
-1. **Contain complete thoughts** — Not half a sentence
-2. **Have enough context** — Understandable alone
-3. **Are semantically dense** — Not mostly whitespace
-4. **Overlap boundaries** — Related content stays connected
+Good retrieval requires chunks that contain complete thoughts, have enough context to be understandable alone, are semantically dense rather than mostly whitespace, and overlap boundaries so related content stays connected.
 
 ## Chunking Strategies
 
-Syrin provides multiple chunking strategies, each optimized for different content:
+Syrin provides eight chunking strategies, each optimized for different content.
 
-| Strategy | Best For | How It Works |
-| --- | --- | --- |
-| `AUTO` | Mixed docs | Detects type, picks best strategy |
-| `RECURSIVE` | General text | Splits at paragraphs, sentences, words |
-| `MARKDOWN` | Markdown | Preserves headers, tables, code |
-| `CODE` | Source code | Respects syntax, functions, classes |
-| `PAGE` | PDFs | One chunk per page |
-| `SENTENCE` | Simple text | Groups sentences together |
-| `TOKEN` | Fixed sizes | Splits by token count |
-| `SEMANTIC` | Dense content | Splits at meaning boundaries |
+`AUTO` is the recommended starting point — it detects the document type and picks the best strategy automatically. `RECURSIVE` is the workhorse for general text, splitting at paragraphs, then sentences, then words if needed. `MARKDOWN` preserves headers, tables, and code blocks so the document structure survives intact. `CODE` respects syntax boundaries — functions, classes, and modules stay together instead of being cut mid-definition.
+
+`PAGE` creates one chunk per page, which works well for PDFs where pages are natural units. `SENTENCE` groups sentences together for simple prose. `TOKEN` splits by exact token count for strict size control. `SEMANTIC` uses embeddings to find where meaning changes significantly and splits there.
 
 ### AUTO Strategy (Recommended)
 
@@ -67,12 +42,7 @@ knowledge = Knowledge(
 )
 ```
 
-| Document Type | Selected Strategy |
-| --- | --- |
-| Markdown | `MARKDOWN` |
-| Code | `CODE` |
-| PDF | `PAGE` |
-| Plain text | `RECURSIVE` |
+AUTO maps document types to strategies automatically. Markdown files get `MARKDOWN`. Source code gets `CODE`. PDFs get `PAGE`. Plain text gets `RECURSIVE`.
 
 ### RECURSIVE Strategy
 
@@ -184,22 +154,13 @@ This splits at places where meaning changes significantly.
 
 ### Chunk Size
 
-Target tokens per chunk:
+Target tokens per chunk depend on your model's context window. For 4k-context models, 256–512 tokens per chunk works well. For 8k models, 512–1024 is a good range. For 32k models, you can go 1024–2048, and for 128k models, 2048–4096 is reasonable.
 
 ```python
 ChunkConfig(
     chunk_size=512,  # 512 tokens (adjust for your model)
 )
 ```
-
-**Guidelines:**
-
-| Model Context | Recommended Chunk |
-| --- | --- |
-| 4k | 256-512 tokens |
-| 8k | 512-1024 tokens |
-| 32k | 1024-2048 tokens |
-| 128k | 2048-4096 tokens |
 
 ### Chunk Overlap
 
@@ -225,15 +186,7 @@ ChunkConfig(
 
 ## Choosing a Strategy
 
-### Decision Guide
-
-Choose based on your document type:
-
-- Mixed documents → AUTO
-- Markdown docs → MARKDOWN
-- Source code → CODE
-- PDFs → PAGE or RECURSIVE
-- Other text → RECURSIVE
+Choose based on your document type. Mixed documents get AUTO. Markdown docs get MARKDOWN. Source code gets CODE. PDFs get PAGE or RECURSIVE. Any other text gets RECURSIVE.
 
 ### Content-Specific Tips
 
@@ -298,21 +251,9 @@ class MyChunker(CustomChunker):
 
 ## Performance Considerations
 
-### Chunk Size vs. Speed
+Chunk size involves a trade-off between cost and quality. Small chunks (256 tokens) create more vectors — higher embedding cost — but allow fine-grained retrieval. The downside is they may lack enough context to be useful alone. Medium chunks (512 tokens) balance cost and quality well and are the right default for most use cases. Large chunks (1024 tokens) minimize embedding cost and preserve more surrounding context, but retrieval precision suffers because each chunk contains more noise.
 
-| Chunk Size | Embedding Cost | Retrieval Quality |
-| --- | --- | --- |
-| Small (256) | More vectors | Fine-grained, may miss context |
-| Medium (512) | Balanced | Good balance |
-| Large (1024) | Fewer vectors | More context, less precise |
-
-### Storage Considerations
-
-| Chunk Size | Approx. Chunks/Doc | Vector DB Size |
-| --- | --- | --- |
-| 256 tokens | ~100 | ~100KB vectors |
-| 512 tokens | ~50 | ~50KB vectors |
-| 1024 tokens | ~25 | ~25KB vectors |
+On storage, smaller chunks mean more vectors. A 256-token chunk strategy on a typical document yields roughly 100 vectors per document; 512 tokens yields around 50; 1024 yields around 25. Plan your vector DB size accordingly.
 
 ## Testing Your Chunking
 

@@ -14,7 +14,7 @@ from syrin import Agent, AgentConfig, Context
 from syrin.memory import Memory
 from syrin.model import Model
 
-_model = Model.Almock()
+_model = Model.mock()
 
 
 def _main() -> None:

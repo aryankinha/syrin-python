@@ -6,122 +6,101 @@ weight: 175
 
 ## What Happened While You Weren't Looking?
 
-When your agent is running in production, you need to know what's happening. Not just the final response—but the entire journey. Which model was called? How many tokens? What tools ran? What cost accumulated?
+When your agent is running in production, you need to know what's happening. Not just the final response — but the entire journey. Which model was called? How many tokens? What tools ran? What cost accumulated?
 
-Syrin provides two complementary logging systems: **standard Python logging** for framework operations and **AuditLog** for high-level event tracking. Together, they give you full visibility into agent behavior.
+Syrin gives you two complementary systems: **Python logging** for framework internals and **AuditLog** for high-level event tracking. Together, they give you full visibility into agent behavior.
 
 ## Python Logging: Framework Internals
 
-Syrin uses Python's standard `logging` module throughout the codebase. Each module creates its own logger, so you can control granularity.
+Syrin uses Python's standard `logging` module throughout the codebase. Each subsystem has its own logger, so you can control granularity independently.
 
-### Logger Hierarchy
+The logger hierarchy:
 
-Syrin loggers follow this hierarchy:
+`syrin` — Root logger for all Syrin modules.
 
-| Logger Name | Covers |
-|-------------|--------|
-| `syrin` | Root logger for all Syrin modules |
-| `syrin.agent` | Agent lifecycle, loop execution |
-| `syrin.llm` | LLM calls and responses |
-| `syrin.tool` | Tool execution |
-| `syrin.memory` | Memory operations |
-| `syrin.budget` | Budget tracking |
-| `syrin.context` | Context management |
-| `syrin.serve` | HTTP server |
-| `syrin.observability` | Tracing and metrics |
+`syrin.agent` — Agent lifecycle and loop execution.
+
+`syrin.llm` — LLM calls and responses.
+
+`syrin.tool` — Tool execution.
+
+`syrin.memory` — Memory operations.
+
+`syrin.budget` — Budget tracking.
+
+`syrin.context` — Context management.
+
+`syrin.serve` — HTTP server.
+
+`syrin.observability` — Tracing and metrics.
 
 ### Basic Configuration
 
 ```python
 import logging
 
-# Configure root logger
+# Enable INFO for everything
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-# Or configure specific loggers
-logging.getLogger("syrin.agent").setLevel(logging.DEBUG)
-logging.getLogger("syrin.budget").setLevel(logging.WARNING)  # Quiet budget logs
+# Fine-grained control
+logging.getLogger("syrin.agent").setLevel(logging.DEBUG)   # Verbose
+logging.getLogger("syrin.budget").setLevel(logging.WARNING) # Quiet
 ```
 
-**What just happened?** You set up logging to see agent operations at DEBUG level (verbose) while keeping budget logs quiet (WARNING and above).
-
-### Output Example
+### Example Output
 
 ```
-2026-03-21 10:30:00 | syrin.agent | INFO | Starting agent.run for "What is Python?"
-2026-03-21 10:30:00 | syrin.agent | DEBUG | Memory recall: 3 items retrieved
-2026-03-21 10:30:01 | syrin.llm | INFO | LLM call: gpt-4o, tokens=45/120, cost=$0.0025
-2026-03-21 10:30:01 | syrin.agent | INFO | Agent run completed in 800ms
+2026-04-03 10:30:00 | syrin.agent | INFO | Starting agent.run for "What is Python?"
+2026-04-03 10:30:00 | syrin.agent | DEBUG | Memory recall: 3 items retrieved
+2026-04-03 10:30:01 | syrin.llm | INFO | LLM call: gpt-4o, tokens=45/120, cost=$0.0025
+2026-04-03 10:30:01 | syrin.agent | INFO | Agent run completed in 800ms
 ```
-
-### Log Levels Reference
-
-| Level | When to Use |
-|-------|-------------|
-| **DEBUG** | Detailed tracing, variable values, internal decisions |
-| **INFO** | Normal operations, completed steps, metrics |
-| **WARNING** | Recoverable issues, approaching limits |
-| **ERROR** | Failed operations that need attention |
-| **CRITICAL** | System-level failures |
 
 ### Development vs Production
 
-**Development** — verbose logging to understand behavior:
+For development, turn everything up to DEBUG:
 
 ```python
 logging.getLogger("syrin").setLevel(logging.DEBUG)
 ```
 
-**Production** — info only, focused on key operations:
+For production, keep it at INFO and suppress noisy subsystems:
 
 ```python
 logging.getLogger("syrin").setLevel(logging.INFO)
-logging.getLogger("syrin.observability").setLevel(logging.WARNING)  # Reduce noise
+logging.getLogger("syrin.observability").setLevel(logging.WARNING)
 ```
 
 ## AuditLog: High-Level Event Tracking
 
-While Python logging captures framework internals, AuditLog captures the events that matter for compliance, debugging, and cost attribution. It's designed for structured analysis.
+Where Python logging captures framework internals, AuditLog captures the events that matter for compliance, debugging, and cost attribution. Every LLM call, tool invocation, handoff, spawn, budget event, and error is recorded as a structured JSON line.
 
-### What Gets Audited
-
-AuditLog tracks these event types:
-
-- **llm_call** — LLM invocation with model, tokens, cost, latency
-- **tool_call** — Tool execution with input, output, duration, errors
-- **handoff** — Agent-to-agent transfers
-- **spawn** — New agent spawning
-- **budget_exceeded** — Budget limit reached
-- **error** — Run failures
-
-### Basic Audit Setup
+### Setup
 
 ```python
-from syrin import Agent, AgentConfig, AuditLog, Model
+from syrin import Agent, AuditLog, Model
 
 audit = AuditLog(path="./audit.jsonl")
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o", api_key="your-api-key"),
+    model=Model.mock(),
     config=AgentConfig(audit=audit),
 )
 
 result = agent.run("Analyze this data")
 ```
 
-**What just happened?** Every event during agent execution is written to `./audit.jsonl` as JSON lines. Each entry includes timestamps, model info, token counts, costs, and more.
-
-### Audit Entry Structure
+### Audit Entry Format
 
 Each line in the audit file is a JSON object:
 
 ```json
 {
-  "timestamp": "2026-03-21T10:30:00.000Z",
+  "timestamp": "2026-04-03T10:30:00.000Z",
   "source": "MyAgent",
   "event": "llm_call",
   "model": "gpt-4o",
@@ -136,38 +115,37 @@ Each line in the audit file is a JSON object:
 }
 ```
 
-### Filtering Events
+Six event types are audited: `llm_call`, `tool_call`, `handoff`, `spawn`, `budget_exceeded`, and `error`.
 
-AuditLog lets you control what gets logged:
+### Filtering What Gets Logged
 
 ```python
+from syrin import AuditLog
+
 audit = AuditLog(
     path="./audit.jsonl",
-    include_llm_calls=True,      # Default: True
-    include_tool_calls=True,     # Default: True
-    include_handoff_spawn=True,  # Default: True
-    include_budget=False,         # Default: False
-    include_user_input=False,     # Default: False
-    include_model_output=True,    # Default: True
+    include_llm_calls=True,       # Default: True
+    include_tool_calls=True,      # Default: True
+    include_handoff_spawn=True,   # Default: True
+    include_budget=False,          # Default: False
+    include_user_input=False,      # Default: False (don't store raw user input)
+    include_model_output=True,     # Default: True
 )
 ```
 
-For compliance, you might want to exclude user input and model output:
+For compliance scenarios where you shouldn't store PII:
 
 ```python
 audit = AuditLog(
     path="./compliance_audit.jsonl",
     include_llm_calls=True,
-    include_tool_calls=False,
-    include_handoff_spawn=False,
-    include_user_input=False,
-    include_model_output=False,  # Don't store PII in outputs
+    include_tool_calls=True,
+    include_user_input=False,      # Don't store raw user messages
+    include_model_output=False,    # Don't store LLM outputs
 )
 ```
 
 ### Querying Audit Entries
-
-The JSONL backend supports basic querying:
 
 ```python
 from datetime import datetime, timedelta
@@ -190,38 +168,36 @@ llm_calls = backend.query(AuditFilters(
 ))
 ```
 
-### Analyzing Audit Data
+### Analyzing Cost Data
 
 ```python
 import json
 from collections import defaultdict
 
-# Load and analyze audit data
 total_cost = 0.0
 tokens_by_model = defaultdict(int)
-duration_by_event = defaultdict(list)
+durations = []
 
 with open("./audit.jsonl") as f:
     for line in f:
         entry = json.loads(line)
-        
         if entry["event"] == "llm_call":
             total_cost += entry.get("cost_usd", 0)
             tokens_by_model[entry["model"]] += entry["tokens"]["total"]
-            duration_by_event["llm_call"].append(entry["duration_ms"])
+            durations.append(entry["duration_ms"])
 
 print(f"Total cost: ${total_cost:.4f}")
 print(f"Tokens by model: {dict(tokens_by_model)}")
-print(f"Avg LLM latency: {sum(duration_by_event['llm_call']) / len(duration_by_event['llm_call']):.0f}ms")
+if durations:
+    print(f"Avg LLM latency: {sum(durations) / len(durations):.0f}ms")
 ```
 
 ## Custom Audit Backend
 
-For production systems, implement the `AuditBackendProtocol` to send audit data to your data warehouse, SIEM, or analytics platform:
+Send audit data to your data warehouse, SIEM, or analytics platform:
 
 ```python
 from syrin.audit import AuditBackendProtocol, AuditEntry, AuditFilters
-from syrin.audit.models import AuditEntry
 
 class CustomAuditBackend(AuditBackendProtocol):
     def __init__(self, api_endpoint: str, api_key: str):
@@ -229,7 +205,7 @@ class CustomAuditBackend(AuditBackendProtocol):
         self.api_key = api_key
 
     def write(self, entry: AuditEntry) -> None:
-        # Send to your analytics platform
+        import requests
         requests.post(
             self.api_endpoint,
             json=entry.model_dump(),
@@ -237,10 +213,8 @@ class CustomAuditBackend(AuditBackendProtocol):
         )
 
     def query(self, filters: AuditFilters) -> list[AuditEntry]:
-        # Implement if you need to read back
         raise NotImplementedError("Query not supported for this backend")
 
-# Use custom backend
 audit = AuditLog(
     custom_backend=CustomAuditBackend(
         api_endpoint="https://analytics.example.com/audit",
@@ -249,42 +223,22 @@ audit = AuditLog(
 )
 ```
 
-## Combining Logging and Audit
+## Adding Custom Context to Hooks
 
-For complete observability, use both systems together:
-
-**Python logging** — Framework operations, debugging, real-time monitoring
+Hook callbacks let you add custom fields to structured logs:
 
 ```python
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
-)
-```
-
-**AuditLog** — Structured event tracking for compliance and analysis
-
-```python
-audit = AuditLog(path="./audit.jsonl")
-```
-
-Together, they give you real-time visibility (logging) plus long-term analysis capability (audit).
-
-## Logging with Hooks
-
-Hooks let you add custom logging alongside Syrin's built-in logging:
-
-```python
+import logging
+from syrin.enums import Hook
 from syrin.observability import current_span
 
-
 def log_llm_details(ctx):
+    # Add to the active tracing span
     span = current_span()
     if span:
-        span.set_attribute("custom.user_tier", get_user_tier())
-        span.set_attribute("custom.request_source", get_request_source())
+        span.set_attribute("custom.user_tier", "premium")
 
-    # Also write to your logging system
+    # Write to your logging system with structured fields
     logging.getLogger("myapp.llm").info(
         "LLM call completed",
         extra={
@@ -294,13 +248,12 @@ def log_llm_details(ctx):
         }
     )
 
-
 agent.events.on(Hook.LLM_REQUEST_END, log_llm_details)
 ```
 
-## Structured Logging Best Practices
+## Structured JSON Logging
 
-For production systems, use structured logging (JSON format) for easier parsing:
+For log ingestion systems (Datadog, Splunk, ELK), emit JSON:
 
 ```python
 import logging
@@ -321,18 +274,8 @@ handler.setFormatter(JSONFormatter())
 logging.getLogger("syrin").addHandler(handler)
 ```
 
-## Built-In Logging Helpers
-
-If you prefer Syrin's built-in logging surface, use `LogFormat` to choose formatting mode and `SyrinHandler` as the library-provided handler implementation.
-
 ## What's Next?
 
-- [Debugging Techniques](/agent-kit/debugging/debugging-techniques) — Real-world debugging patterns
-- [Tracing Exporters](/agent-kit/debugging/tracing-exporters) — Route traces to observability platforms
-- [Hooks Reference](/agent-kit/debugging/hooks-reference) — Complete hooks reference
-
-## See Also
-
-- [Tracing Overview](/agent-kit/debugging/tracing) — Understanding spans and sessions
-- [Hooks System](/agent-kit/debugging/hooks) — Reacting to agent lifecycle events
-- [Audit Logging Examples](https://github.com/anomalyco/syrin-python/tree/main/examples/10_observability) — Working code examples
+- [Tracing](/debugging/tracing) — Span-based tracing with OpenTelemetry exporters
+- [Hooks Reference](/debugging/hooks-reference) — All 182 lifecycle hooks
+- [Pry](/debugging/pry) — Interactive step-through debugger

@@ -190,8 +190,8 @@ if __name__ == "__main__":
     from syrin.guardrails import ContentFilter
 
     class IntelligenceDemoAgent(Agent):
-        _agent_name = "intelligence-demo"
-        _agent_description = "Agent with ContentFilter (intelligence layer demo)"
+        name = "intelligence-demo"
+        description = "Agent with ContentFilter (intelligence layer demo)"
         model = almock
         system_prompt = "You are a helpful assistant."
         guardrails = [ContentFilter(blocked_words=["password"])]

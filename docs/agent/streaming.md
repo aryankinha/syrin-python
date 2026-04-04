@@ -4,428 +4,227 @@ description: Real-time token-by-token responses for ChatGPT-style UIs
 weight: 82
 ---
 
-## Real-Time Responses
+## The Wait Problem
 
-You've built a great agent. It works. But when you add it to your app, something feels off.
+You've built a great agent. Users type a question. They wait. And wait. And wait. Then — suddenly — the entire response appears.
 
-Users type a question. They wait. And wait. And wait. Then—suddenly—the entire response appears.
+It's jarring. Modern AI apps don't work like that. Users want to see words appear as they're generated, like they're watching someone type. That's streaming.
 
-It's jarring. It's not what users expect from modern AI apps. They want to see words appear as they're generated. They want that ChatGPT feel.
+## Basic Streaming
 
-**This is the streaming problem.** You need to stream tokens as they arrive, not wait for the complete response.
-
-## The Solution: Tokens as They Arrive
-
-Syrin's streaming API lets you yield response chunks in real-time:
+Use `agent.stream()` instead of `agent.run()`. It returns an iterator of `StreamChunk` objects:
 
 ```python
 from syrin import Agent, Model
 
 agent = Agent(
-    model=Model.OpenAI("gpt-4o", api_key="your-api-key"),
-)
-
-# Stream tokens as they arrive
-for chunk in agent.stream("Write a haiku about coding"):
-    print(chunk.text, end="", flush=True)
-```
-
-**Output:**
-```
-Code flows like streams
-Logic builds on logic blocks
-The bug finds its host
-```
-
-Words appear letter by letter, just like users expect.
-
-## Why Streaming Matters
-
-### The Wait Problem
-
-Without streaming, users stare at a blank screen:
-
-1. User asks a question
-2. Agent thinks... (5-30 seconds)
-3. Complete response appears
-
-**This feels slow, even if it isn't.** Users don't know if anything is happening.
-
-### The Streaming Solution
-
-With streaming, users see progress:
-
-1. User asks a question
-2. First tokens appear immediately
-3. Words keep flowing
-4. Complete response arrives
-
-**This feels fast.** Users see the agent working.
-
-## Two Streaming Methods
-
-Syrin provides two streaming APIs:
-
-| Method | Use Case |
-|--------|----------|
-| `stream()` | Synchronous streaming (CLI, scripts) |
-| `astream()` | Async streaming (FastAPI, WebSockets) |
-
-## Synchronous Streaming
-
-For scripts and CLI tools, use `stream()`:
-
-```python
-from syrin import Agent, Model
-
-agent = Agent(
-    model=Model.OpenAI("gpt-4o", api_key="your-api-key"),
+    model=Model.mock(),
     system_prompt="You are a helpful assistant.",
 )
 
-print("Agent: ", end="", flush=True)
-for chunk in agent.stream("What is Python?"):
+for chunk in agent.stream("Write a haiku about coding"):
     print(chunk.text, end="", flush=True)
 print()
 ```
 
-### How It Works
+Output:
 
-Each `chunk` is a `StreamChunk` with:
-
-```python
-for chunk in agent.stream("Hello"):
-    print(f"Index: {chunk.index}")
-    print(f"Text: '{chunk.text}'")          # Delta (new text)
-    print(f"Accumulated: '{chunk.accumulated_text}'")  # Full text so far
-    print(f"Cost so far: ${chunk.cost_so_far:.6f}")
+```
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor...
 ```
 
-**Output:**
+With a real model, words would arrive one by one. With the mock model, they all come in one chunk (the mock doesn't stream token by token). The API is the same either way.
+
+## The StreamChunk Object
+
+Each chunk you receive has these fields:
+
+**`chunk.text`** — the new text in this chunk (the delta — just what arrived since the last chunk).
+
+**`chunk.accumulated_text`** — all text received so far in this stream.
+
+**`chunk.cost_so_far`** — running USD cost.
+
+**`chunk.tokens_so_far`** — running `TokenUsage` object with `.input_tokens`, `.output_tokens`, `.total_tokens`.
+
+**`chunk.is_final`** — `True` on the last chunk.
+
+**`chunk.response`** — the complete `Response` object, available only on the final chunk.
+
+**`chunk.index`** — which chunk this is (0-based).
+
+```python
+from syrin import Agent, Model
+
+agent = Agent(model=Model.mock(), system_prompt="You are helpful.")
+
+for chunk in agent.stream("Hello!"):
+    print(f"Index: {chunk.index}")
+    print(f"Text: {chunk.text!r}")
+    print(f"Accumulated: {chunk.accumulated_text[:30]!r}")
+    print(f"Cost so far: ${chunk.cost_so_far:.6f}")
+    print(f"Is final: {chunk.is_final}")
+```
+
+Output (mock model returns everything in one chunk):
+
 ```
 Index: 0
-Text: 'Hello'
-Accumulated: 'Hello'
+Text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod...'
+Accumulated: 'Lorem ipsum dolor sit amet, co'
 Cost so far: $0.000000
-
-Index: 1
-Text: ','
-Accumulated: 'Hello,'
-Cost so far: $0.000010
-
-Index: 2
-Text: ' how'
-Accumulated: 'Hello, how'
-Cost so far: $0.000020
+Is final: False
 ```
 
-### Collecting the Full Response
-
-```python
-chunks = list(agent.stream("Tell me a story"))
-full_text = "".join(chunk.text for chunk in chunks)
-
-print(f"Total chunks: {len(chunks)}")
-print(f"Full text: {full_text[:100]}...")
-```
+With a real model like `Model.OpenAI("gpt-4o-mini")`, you'd see many chunks arrive one after another, each with a few tokens of text, and `is_final=True` on the last one.
 
 ## Async Streaming
 
-For web applications, use `astream()`:
+For web applications, use `agent.astream()` — the async version:
 
 ```python
 import asyncio
 from syrin import Agent, Model
 
-agent = Agent(
-    model=Model.OpenAI("gpt-4o", api_key="your-api-key"),
-)
-
-async def stream_response():
-    async for chunk in agent.astream("Write a poem"):
-        yield chunk.text
+agent = Agent(model=Model.mock(), system_prompt="You are helpful.")
 
 async def main():
-    async for text in stream_response():
-        print(text, end="", flush=True)
+    async for chunk in agent.astream("Write a poem"):
+        print(chunk.text, end="", flush=True)
+    print()
 
 asyncio.run(main())
 ```
 
-### With FastAPI
-
-```python
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
-from syrin import Agent, Model
-
-app = FastAPI()
-
-agent = Agent(
-    model=Model.OpenAI("gpt-4o", api_key="your-api-key"),
-)
-
-@app.post("/stream")
-async def stream_chat(message: str):
-    async def generate():
-        async for chunk in agent.astream(message):
-            yield f"data: {chunk.text}\n\n"
-    
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-    )
-```
-
-## The StreamChunk Object
-
-Each chunk contains everything you need for a real-time UI:
-
-```python
-@dataclass
-class StreamChunk:
-    index: int              # Chunk number (0, 1, 2, ...)
-    text: str              # New text in this chunk (delta)
-    accumulated_text: str   # Full text received so far
-    cost_so_far: float     # Running cost in USD
-    tokens_so_far: TokenUsage  # Running token count
-    is_final: bool        # True for the last chunk
-    response: Response    # Final Response object (last chunk only)
-```
-
-### Building a Progress Indicator
-
-```python
-for chunk in agent.stream("Long response here..."):
-    # Update progress bar
-    progress = f"Tokens: {chunk.tokens_so_far.total_tokens}"
-    cost = f"Cost: ${chunk.cost_so_far:.4f}"
-    print(f"\r{progress} | {cost}", end="", flush=True)
-    
-print()  # New line after streaming completes
-```
-
-## Streaming with the Playground
-
-The easiest way to see streaming in action is the built-in playground:
-
-```python
-from syrin import Agent, Model
-
-class StreamingAgent(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-    system_prompt = "You are a helpful assistant."
-
-agent = StreamingAgent()
-agent.serve(port=8000, enable_playground=True, debug=True)
-```
-
-Visit **http://localhost:8000/playground** to chat with your agent and see tokens stream in real-time.
-
-## Important: Streaming vs Full Execution
-
-**Critical difference:** `stream()` and `astream()` do **one LLM call only**. No tools execute during streaming.
-
-| Feature | `response()` / `arun()` | `stream()` / `astream()` |
-|---------|--------------------------|-------------------------|
-| Tool execution | ✅ Full loop | ❌ None |
-| Memory ops | ✅ | ❌ |
-| Guardrails | ✅ | ❌ |
-| Returns | `Response` object | `Iterator[StreamChunk]` |
-
-### Why No Tools During Streaming?
-
-Streaming is a low-level LLM feature. The model generates tokens; Syrin passes them through. Tool execution requires state management between calls.
-
-**For full functionality, use `response()` or `arun()`.** If you also want streaming, build your UI to progressively display the response.
-
-## Observability: Streaming Hooks
-
-Track streaming with hooks:
-
-```python
-from syrin import Agent, Model, Hook
-
-agent = Agent(
-    model=Model.OpenAI("gpt-4o"),
-)
-
-def on_llm_start(ctx: dict) -> None:
-    print("Streaming started...")
-
-def on_llm_stream(ctx: dict) -> None:
-    print(f"Chunk {ctx.get('index', 0)}: {ctx.get('text', '')}")
-
-def on_llm_end(ctx: dict) -> None:
-    print(f"Streaming ended. Total cost: ${ctx.get('cost', 0):.6f}")
-
-agent.events.on(Hook.LLM_REQUEST_START, on_llm_start)
-agent.events.on(Hook.LLM_STREAM_CHUNK, on_llm_stream)
-agent.events.on(Hook.LLM_REQUEST_END, on_llm_end)
-```
-
-## Complete Example: Chat Interface
-
-```python
-from syrin import Agent, Model
-
-class ChatAgent(Agent):
-    model = Model.OpenAI("gpt-4o", api_key="your-api-key")
-    system_prompt = "You are a helpful assistant. Be concise."
-
-agent = ChatAgent()
-
-print("Chat with your agent (type 'quit' to exit)")
-print("-" * 40)
-
-while True:
-    user_input = input("\nYou: ")
-    if user_input.lower() == "quit":
-        break
-    
-    print("\nAgent: ", end="")
-    
-    total_cost = 0
-    for chunk in agent.stream(user_input):
-        print(chunk.text, end="", flush=True)
-        total_cost = chunk.cost_so_far
-    
-    print(f"\n[Cost: ${total_cost:.6f}]")
-```
-
-**Output:**
-```
-Chat with your agent (type 'quit' to exit)
-----------------------------------------
-
-You: What is AI?
-
-Agent: AI, or Artificial Intelligence, is the simulation of human 
-intelligence by machines. It enables computers to learn from 
-experience, understand language, recognize images, and make decisions.
-[Cost: $0.000142]
-```
-
-## Server-Sent Events (SSE)
-
-For web clients, stream using Server-Sent Events:
+### Streaming in FastAPI
 
 ```python
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 import json
+from syrin import Agent, Model
 
 app = FastAPI()
+agent = Agent(model=Model.OpenAI("gpt-4o-mini", api_key="your-key"), system_prompt="You are helpful.")
 
 @app.post("/chat/stream")
 async def chat_stream(message: str):
     async def event_generator():
         async for chunk in agent.astream(message):
-            # SSE format: "data: <message>\n\n"
             yield f"data: {json.dumps({'text': chunk.text})}\n\n"
-        # Send completion signal
-        yield "data: {\"done\": true}\n\n"
-    
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-    )
+        yield 'data: {"done": true}\n\n'
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 ```
 
-**Client-side JavaScript:**
-```javascript
-const response = await fetch('/chat/stream', {
-    method: 'POST',
-    body: JSON.stringify({ message: 'Hello!' }),
-});
+## Getting the Final Response
 
-const reader = response.body.getReader();
-const decoder = new TextDecoder();
-
-while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    
-    const text = decoder.decode(value);
-    const data = JSON.parse(text.replace('data: ', ''));
-    
-    if (data.done) {
-        console.log('Stream complete!');
-    } else {
-        document.getElementById('output').textContent += data.text;
-    }
-}
-```
-
-## Budget Tracking During Streaming
-
-Costs accumulate during streaming. Track them with each chunk:
+After streaming, the last chunk's `.response` field contains the complete `Response` object with all the usual fields (cost, tokens, stop_reason, etc.):
 
 ```python
-for chunk in agent.stream("Expensive query"):
-    # Update UI with current cost
-    update_cost_display(chunk.cost_so_far)
-    
-    # Check if approaching budget limit
-    if chunk.cost_so_far > 0.10:
-        print("\n⚠️ Approaching budget limit!")
+from syrin import Agent, Model
+
+agent = Agent(model=Model.mock(), system_prompt="You are helpful.")
+full_text = ""
+final_response = None
+
+for chunk in agent.stream("Tell me something"):
+    full_text += chunk.text
+    if chunk.is_final and chunk.response:
+        final_response = chunk.response
+
+if final_response:
+    print(f"Total cost: ${final_response.cost:.6f}")
+    print(f"Stop reason: {final_response.stop_reason}")
+else:
+    # Mock model doesn't set is_final=True, so collect from accumulated_text
+    chunks = list(agent.stream("Tell me something"))
+    full_text = chunks[-1].accumulated_text
+    print(f"Text: {full_text[:40]}")
+```
+
+## Important: No Tools During Streaming
+
+`agent.stream()` and `agent.astream()` make one LLM call and yield tokens. That's it. Tool execution, memory operations, and guardrails do not run during streaming.
+
+If you need tools to execute, use `agent.run()` or `agent.arun()`. For UIs that need both functionality and a streaming feel, run the agent normally and progressively display the `response.content` as it arrives — or design your tools to run before the final response step.
+
+## Streaming Hooks
+
+Subscribe to `Hook.LLM_STREAM_CHUNK` to observe chunks from within the hook system:
+
+```python
+from syrin import Agent, Model
+from syrin.enums import Hook
+
+agent = Agent(model=Model.mock(), system_prompt="You are helpful.")
+
+agent.events.on(
+    Hook.LLM_STREAM_CHUNK,
+    lambda ctx: print(f"Chunk: {ctx.get('text', '')!r}")
+)
+
+list(agent.stream("Hello!"))
+```
+
+## Tracking Cost During a Stream
+
+Use `chunk.cost_so_far` to update a UI budget indicator in real time:
+
+```python
+from syrin import Agent, Model
+
+agent = Agent(model=Model.OpenAI("gpt-4o-mini", api_key="your-key"), system_prompt="You are helpful.")
+
+for chunk in agent.stream("Explain machine learning"):
+    print(chunk.text, end="", flush=True)
+    if chunk.cost_so_far > 0.05:
+        print("\n[Budget warning: approaching $0.05]")
         break
 
-# After streaming: check final budget state
-print(f"Final cost: ${agent.budget_state.spent:.6f}")
+print()
 ```
 
-## Troubleshooting
+## Chat Loop with Streaming
 
-### Streaming is slow to start
-
-The first token depends on the model's time-to-first-token. Large models like GPT-4 are slower than GPT-4o-mini.
+A simple terminal chat interface using streaming:
 
 ```python
-# Faster: gpt-4o-mini starts outputting faster
-agent = Agent(model=Model.OpenAI("gpt-4o-mini"))
+from syrin import Agent, Model
 
-# Or: Reduce latency by lowering max_tokens
-result = list(agent.stream("Short answer", max_tokens=100))
+class ChatAgent(Agent):
+    model = Model.mock()
+    system_prompt = "You are a helpful assistant. Be concise."
+
+agent = ChatAgent()
+
+print("Chat with your agent (type 'quit' to exit)")
+
+while True:
+    user_input = input("\nYou: ")
+    if user_input.lower() == "quit":
+        break
+
+    print("Agent: ", end="")
+    total_cost = 0
+    for chunk in agent.stream(user_input):
+        print(chunk.text, end="", flush=True)
+        total_cost = chunk.cost_so_far
+    print(f"\n[${total_cost:.6f}]")
 ```
 
-### Chunks are too large/small
+Output:
 
-Chunk sizes depend on the model and provider. Some models buffer more than others.
+```
+Chat with your agent (type 'quit' to exit)
 
-```python
-# Accumulate chunks for smoother display
-buffer = ""
-buffer_size = 5  # Words per update
-
-for chunk in agent.stream("Text"):
-    buffer += chunk.text
-    if len(buffer.split()) >= buffer_size:
-        print(buffer, end="", flush=True)
-        buffer = ""
+You: Hello!
+Agent: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed...
+[$0.000000]
 ```
 
-### Handling disconnection
+## What's Next
 
-If the client disconnects mid-stream:
-
-```python
-async def safe_stream(message: str):
-    try:
-        async for chunk in agent.astream(message):
-            yield chunk.text
-    except Exception as e:
-        print(f"Stream interrupted: {e}")
-```
-
-## What's Next?
-
-- [Structured Output](/agent-kit/agent/structured-output) — Get typed responses
-- [Tools](/agent-kit/agent/tools) — Extend agent capabilities
-- [Serving](/agent-kit/production/serving) — Serve agents over HTTP
-
-## See Also
-
-- [Running Agents](/agent-kit/agent/running-agents) — All execution modes
-- [Response Object](/agent-kit/agent/response-object) — Full Response breakdown
-- [Agent Configuration](/agent-kit/agent/agent-configuration) — All options
+- [Running Agents](/agent-kit/agent/running-agents) — `run()`, `arun()`, and the Response object
+- [Serving](/agent-kit/production/serving) — Serve your agent as an HTTP API with built-in streaming
+- [Response Object](/agent-kit/agent/response-object) — What you get after the stream completes

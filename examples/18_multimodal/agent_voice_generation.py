@@ -13,12 +13,6 @@ Requires: OPENAI_API_KEY for both chat and TTS, or ELEVENLABS_API_KEY for Eleven
 from __future__ import annotations
 
 import os
-import sys
-from pathlib import Path
-
-_root = Path(__file__).resolve().parents[2]
-if str(_root) not in sys.path:
-    sys.path.insert(0, str(_root))
 
 from syrin import Agent, Budget, Model, VoiceGenerator
 from syrin.enums import Media
@@ -39,7 +33,7 @@ def main() -> None:
     model = (
         Model.OpenAI("gpt-4o-mini", api_key=openai_key)
         if openai_key
-        else Model.Almock(latency_min=0, latency_max=0)
+        else Model.mock(latency_min=0, latency_max=0)
     )
 
     agent = Agent(

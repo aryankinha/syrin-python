@@ -5,16 +5,27 @@ from __future__ import annotations
 import logging
 import threading
 import time
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from syrin.budget._estimate import CostEstimator
 
 from pydantic import BaseModel, Field, PrivateAttr, model_validator
 
 from syrin.cost import ModelPricing, Pricing
-from syrin.enums import BudgetLimitType, ExceedPolicy, ThresholdMetric, ThresholdWindow
+from syrin.enums import (
+    BudgetLimitType,
+    EstimationPolicy,
+    ExceedPolicy,
+    PreflightPolicy,
+    ThresholdMetric,
+    ThresholdWindow,
+)
 from syrin.exceptions import BudgetExceededError, BudgetThresholdError
 from syrin.threshold import BudgetThreshold, ThresholdContext
 from syrin.types import CostInfo, TokenUsage
@@ -255,6 +266,13 @@ class TokenLimits(BaseModel):  # type: ignore[explicit-any]
 
     @model_validator(mode="after")
     def _resolve_exceed_policy(self) -> TokenLimits:
+        if self.on_exceeded is not None and self.exceed_policy is None:
+            warnings.warn(
+                "TokenLimits(on_exceeded=...) is deprecated. "
+                "Use TokenLimits(exceed_policy=ExceedPolicy.STOP/WARN/IGNORE) instead.",
+                DeprecationWarning,
+                stacklevel=4,
+            )
         if self.on_exceeded is None and self.exceed_policy is not None:
             self.on_exceeded = _policy_to_handler(self.exceed_policy)
         return self
@@ -266,29 +284,37 @@ class TokenLimits(BaseModel):  # type: ignore[explicit-any]
 
 
 class Budget(BaseModel):  # type: ignore[explicit-any]
-    """Cost limits in USD. Budget = how much the agent can spend; Context = token limits and formation policy.
+    """Cost limits in USD for an agent run.
 
-    Budget configuration: max cost per run, rate limits, on_exceeded callback, thresholds, sharing.
+    Use ``exceed_policy`` to control what happens when the budget is exceeded.
+    ``ExceedPolicy.STOP`` (raises ``BudgetExceededError``) is the recommended default
+    for production — it prevents runaway spend. ``WARN`` continues with a log warning.
 
     Args:
-        max_cost: Max cost per run in USD
-        rate_limits: Rate limits (hourly, daily, weekly, monthly)
-        on_exceeded: Called when a limit is exceeded. Receives BudgetExceededContext.
-            Raise to stop the run; return to continue. Use raise_on_exceeded or warn_on_exceeded.
-        thresholds: List of BudgetThreshold (only BudgetThreshold allowed)
-        shared: Whether budget is shared with child agents
+        max_cost: Max cost per run in USD. Checked *before* each LLM call; the call
+            is blocked (not made) when this limit would be exceeded.
+        rate_limits: Rolling rate limits (hourly, daily, weekly, monthly) in USD.
+        exceed_policy: What to do when a limit is hit. Use ``ExceedPolicy.STOP`` to
+            raise ``BudgetExceededError`` (default for production), ``WARN`` to log
+            and continue, or ``IGNORE`` to silently continue.
+        thresholds: Ordered list of ``BudgetThreshold`` actions — e.g. log at 80%,
+            switch model at 90%.
 
     Example:
-        >>> from syrin import Budget, raise_on_exceeded
+        >>> from syrin import Budget
+        >>> from syrin.enums import ExceedPolicy
         >>> from syrin.threshold import BudgetThreshold
         >>>
         >>> budget = Budget(
         ...     max_cost=10.0,
-        ...     on_exceeded=raise_on_exceeded,
+        ...     exceed_policy=ExceedPolicy.STOP,
         ...     thresholds=[
-        ...         BudgetThreshold(at=80, action=lambda ctx: print(f"At {ctx.percentage}%"))
+        ...         BudgetThreshold(at=80, action=lambda ctx: print(f"80% used"))
         ...     ]
         ... )
+
+    Note:
+        ``on_exceeded=`` (callback form) is deprecated. Use ``exceed_policy=`` instead.
     """
 
     model_config = {"str_strip_whitespace": True, "arbitrary_types_allowed": True}
@@ -324,10 +350,78 @@ class Budget(BaseModel):  # type: ignore[explicit-any]
         description="If False (default), only the closest (highest) crossed threshold runs. "
         "If True, all crossed thresholds run, like switch-case fallthrough.",
     )
-    shared: bool = Field(
+    # --- v0.11.0: Simplified Estimation API ---
+    estimation: bool = Field(
         default=False,
-        description="If True, this budget is shared with child agents (borrow mechanism)",
+        description=(
+            "If True, compute a pre-flight cost estimate before the run. "
+            "The result is available via agent.estimated_cost, swarm.estimated_cost, etc. "
+            "Fires Hook.ESTIMATION_COMPLETE with the result."
+        ),
     )
+    estimation_policy: EstimationPolicy = Field(
+        default=EstimationPolicy.WARN_ONLY,
+        description=(
+            "What to do when budget appears insufficient for the estimated p95 cost. "
+            "WARN_ONLY (default): log a warning. RAISE: raise InsufficientBudgetError. "
+            "Only applies when estimation=True."
+        ),
+    )
+    estimator: object | None = Field(
+        default=None,
+        description=(
+            "Optional custom CostEstimator. Inherit CostEstimator and override "
+            "estimate_agent() to provide custom per-agent cost estimates. "
+            "When None, the default estimator is used."
+        ),
+    )
+
+    # --- Budget Intelligence: Preflight fields ---
+    preflight: bool = Field(
+        default=False,
+        description=(
+            "If True, run a pre-flight budget check before the first LLM call. "
+            "Uses historical p95 from the budget store to validate the configured budget. "
+            "The action taken when budget < p95 is controlled by preflight_fail_on."
+        ),
+    )
+    preflight_fail_on: PreflightPolicy = Field(
+        default=PreflightPolicy.WARN_ONLY,
+        description=(
+            "Policy applied when preflight=True and budget < p95 estimate. "
+            "BELOW_P95: raise InsufficientBudgetError. "
+            "WARN_ONLY (default): log a warning and continue."
+        ),
+    )
+
+    # --- Budget Intelligence: Forecast abort fields ---
+    abort_on_forecast_exceeded: bool = Field(
+        default=False,
+        description=(
+            "If True, abort the run when the spend forecast predicts the budget "
+            "will be exceeded before completion."
+        ),
+    )
+    abort_forecast_multiplier: float = Field(
+        default=1.0,
+        ge=0,
+        description=(
+            "Multiplier applied to the current spend rate when forecasting. "
+            "1.0 = abort exactly at budget (default). "
+            "1.1 = abort when forecast is 10% over budget."
+        ),
+    )
+
+    # --- Budget Intelligence: Anomaly detection ---
+    anomaly_detection: object | None = Field(
+        default=None,
+        description=(
+            "Optional AnomalyConfig to enable spend anomaly detection. "
+            "When set, fires Hook.BUDGET_ANOMALY when actual cost exceeds "
+            "threshold_multiplier × p95_cost. None disables anomaly detection."
+        ),
+    )
+
     _parent_budget: Budget | None = PrivateAttr(default=None)
     _spent: float = PrivateAttr(default=0.0)
     _consume_callback: Callable[[float], None] | None = PrivateAttr(default=None)
@@ -352,6 +446,16 @@ class Budget(BaseModel):  # type: ignore[explicit-any]
                 raise ValueError(
                     f"Budget thresholds only support {valid_metrics}, got {metric_val}"
                 )
+        if self.on_exceeded is not None and self.exceed_policy is None:
+            warnings.warn(
+                "Budget(on_exceeded=...) is deprecated. "
+                "Use Budget(exceed_policy=ExceedPolicy.STOP) to raise on exceeded, "
+                "Budget(exceed_policy=ExceedPolicy.WARN) to log and continue, or "
+                "Budget(exceed_policy=ExceedPolicy.IGNORE) to silently continue. "
+                "on_exceeded= still works but will be removed in a future major version.",
+                DeprecationWarning,
+                stacklevel=4,
+            )
         if self.on_exceeded is None and self.exceed_policy is not None:
             self.on_exceeded = _policy_to_handler(self.exceed_policy)
         return self
@@ -377,6 +481,41 @@ class Budget(BaseModel):  # type: ignore[explicit-any]
     def _set_spent(self, amount: float) -> None:
         """Internal method to track spent amount. Called by BudgetTracker."""
         self._spent = amount
+
+    def _record_run_cost(self, agent_name: str, cost: float) -> None:
+        """Record a completed run's cost to the default store.
+
+        No-op when ``estimation=False`` or ``cost <= 0``.
+
+        Args:
+            agent_name: The agent's class name.
+            cost: Actual USD cost of the run.
+        """
+        if not self.estimation or cost <= 0:
+            return
+        from syrin.budget._history import _get_default_store  # noqa: PLC0415
+
+        _get_default_store().record(agent_name=agent_name, cost=cost)
+
+    def _effective_estimator(self) -> CostEstimator:
+        """Return the effective CostEstimator for this Budget.
+
+        Returns the custom ``estimator`` when set; otherwise returns a default
+        :class:`~syrin.budget._estimate.CostEstimator` backed by the shared
+        rolling store.
+
+        Returns:
+            :class:`~syrin.budget._estimate.CostEstimator` instance.
+        """
+        from typing import cast  # noqa: PLC0415
+
+        from syrin.budget._estimate import CostEstimator as _CostEstimator  # noqa: PLC0415
+
+        if self.estimator is not None:
+            return cast(_CostEstimator, self.estimator)
+        from syrin.budget._history import _get_default_store  # noqa: PLC0415
+
+        return _CostEstimator(store=_get_default_store())
 
     def get_remote_config_schema(self, section_key: str) -> tuple[Any, dict[str, object]]:  # type: ignore[explicit-any]
         """RemoteConfigurable: return (schema, current_values) for the budget section."""
@@ -407,8 +546,8 @@ class Budget(BaseModel):  # type: ignore[explicit-any]
     def __str__(self) -> str:
         if self.max_cost is not None:
             remaining = self.remaining if self.remaining is not None else self.max_cost
-            return f"Budget(${self.max_cost:.2f}, remaining=${remaining:.2f}, shared={self.shared})"
-        return f"Budget(unlimited, shared={self.shared})"
+            return f"Budget(${self.max_cost:.2f}, remaining=${remaining:.2f})"
+        return "Budget(unlimited)"
 
 
 @dataclass

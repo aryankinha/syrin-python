@@ -50,9 +50,9 @@ class CartesiaVoiceProvider(BaseVoiceProvider):
         response = client.tts.generate(
             model_id=model_id,
             transcript=text,
-            voice=vid,  # type: ignore[arg-type]
-            output_format=output_format,  # type: ignore[arg-type]
-            **{**self._kwargs, **kwargs},  # type: ignore[arg-type]
+            voice=vid,
+            output_format=output_format,
+            **{**self._kwargs, **kwargs},
         )
         content_bytes = response.parse()  # BinaryAPIResponse.parse() returns bytes
         mime = "audio/mpeg" if output_format == "mp3" else f"audio/{output_format}"

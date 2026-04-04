@@ -17,13 +17,13 @@ from syrin.router import (
 
 
 def main() -> None:
-    a = Model.Almock(
+    a = Model.mock(
         latency_min=0, latency_max=0, profile_name="a", strengths=[TaskType.GENERAL], priority=90
     )
-    b = Model.Almock(
+    b = Model.mock(
         latency_min=0, latency_max=0, profile_name="b", strengths=[TaskType.CODE], priority=100
     )
-    forced = Model.Almock(latency_min=0, latency_max=0)
+    forced = Model.mock(latency_min=0, latency_max=0)
 
     models_list = [a, b]
     router = ModelRouter(

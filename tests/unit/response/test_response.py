@@ -122,14 +122,14 @@ def test_response_repr() -> None:
     assert "Hello world" in repr(r)
 
 
-def test_response_parsed_convenience_when_no_structured() -> None:
-    """response.parsed is None when no structured output configured."""
+def test_response_output_is_none_when_no_structured() -> None:
+    """response.output is None when no structured output configured."""
     r = Response(content="plain text")
-    assert r.parsed is None
+    assert r.output is None
 
 
-def test_response_parsed_returns_structured_parsed() -> None:
-    """response.parsed returns structured.parsed when structured is set."""
+def test_response_output_returns_structured_parsed() -> None:
+    """response.output returns structured.parsed when structured is set."""
     from syrin.response import StructuredOutput
 
     mock_parsed = type("MockParsed", (), {"name": "Alice"})()
@@ -141,4 +141,14 @@ def test_response_parsed_returns_structured_parsed() -> None:
             _data={"name": "Alice"},
         ),
     )
-    assert r.parsed is mock_parsed
+    assert r.output is mock_parsed
+
+
+def test_response_total_tokens_convenience() -> None:
+    """response.total_tokens is shortcut for response.tokens.total_tokens."""
+    from syrin.types import TokenUsage
+
+    r = Response(
+        content="hi", tokens=TokenUsage(input_tokens=10, output_tokens=20, total_tokens=30)
+    )
+    assert r.total_tokens == 30

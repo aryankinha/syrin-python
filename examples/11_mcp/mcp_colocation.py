@@ -65,8 +65,8 @@ class ProductMCP(MCP):
 
 
 class ProductAgent(Agent):
-    _agent_name = "product-agent"
-    _agent_description = "E-commerce product search and cart management"
+    name = "product-agent"
+    description = "E-commerce product search and cart management"
     model = almock
     system_prompt = "You help users find products."
     tools = [ProductMCP()]

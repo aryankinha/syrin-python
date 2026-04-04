@@ -23,7 +23,7 @@ from syrin.loop import (
     SingleShotLoop,
 )
 
-model = Model.Almock()
+model = Model.mock()
 
 
 def example_single_shot() -> None:
@@ -31,7 +31,7 @@ def example_single_shot() -> None:
     print("\n--- SingleShotLoop ---")
     print("Use case: Simple Q&A without tools")
 
-    agent = Agent(model=model, custom_loop=SingleShotLoop())
+    agent = Agent(model=model, loop=SingleShotLoop())
     result = agent.run("What is the capital of France?")
     print("Q: What is the capital of France?")
     print(f"A: {result.content[:80]}...")
@@ -42,7 +42,7 @@ def example_react() -> None:
     print("\n--- ReactLoop ---")
     print("Use case: Multi-step tasks with tools")
 
-    agent = Agent(model=model, custom_loop=ReactLoop(max_iterations=5))
+    agent = Agent(model=model, loop=ReactLoop(max_iterations=5))
     result = agent.run("What is 5 + 3?")
     print("Q: What is 5 + 3?")
     print(f"A: {result.content[:80]}...")
@@ -61,7 +61,7 @@ def example_human_in_the_loop() -> None:
         print(f"  Tool '{tool_name}' requested — auto-approved")
         return True
 
-    agent = Agent(model=model, custom_loop=HumanInTheLoop(approve=approve, max_iterations=5))
+    agent = Agent(model=model, loop=HumanInTheLoop(approve=approve, max_iterations=5))
     result = agent.run("What is the square root of 144?")
     print(f"A: {result.content[:80]}...")
     print(f"Tools evaluated: {approved_count}")
@@ -74,7 +74,7 @@ def example_plan_execute() -> None:
 
     agent = Agent(
         model=model,
-        custom_loop=PlanExecuteLoop(max_plan_iterations=3, max_execution_iterations=10),
+        loop=PlanExecuteLoop(max_plan_iterations=3, max_execution_iterations=10),
     )
     result = agent.run("Research programming languages and summarize pros/cons")
     print(f"A: {result.content[:100]}...")
@@ -86,13 +86,13 @@ def example_code_action() -> None:
     print("\n--- CodeActionLoop ---")
     print("Use case: Math, data processing, code execution")
 
-    agent = Agent(model=model, custom_loop=CodeActionLoop(max_iterations=5, timeout_seconds=30))
+    agent = Agent(model=model, loop=CodeActionLoop(max_iterations=5, timeout_seconds=30))
     result = agent.run("What is the sum of even numbers from 1 to 100?")
     print(f"A: {result.content[:80]}...")
     print(f"Iterations: {result.iterations}")
 
 
-def example_custom_loop() -> None:
+def example_custom_loop_strategy() -> None:
     """Custom loop — your own strategy."""
     print("\n--- Custom Loop ---")
     print("Use case: Specialized execution patterns")
@@ -114,7 +114,7 @@ def example_custom_loop() -> None:
                 iterations=1,
             )
 
-    agent = Agent(model=model, custom_loop=MyLoop())
+    agent = Agent(model=model, loop=MyLoop())
     result = agent.run("Hello!")
     print(f"A: {result.content[:80]}...")
 
@@ -122,9 +122,9 @@ def example_custom_loop() -> None:
 class LoopDemoAgent(Agent):
     """Agent subclass with ReactLoop — for serving via playground."""
 
-    _agent_name = "loop-demo"
-    _agent_description = "Agent with ReactLoop (Think, Act, Observe)"
-    model = Model.Almock()
+    name = "loop-demo"
+    description = "Agent with ReactLoop (Think, Act, Observe)"
+    model = Model.mock()
     system_prompt = "You are a helpful assistant. Use tools when needed."
     loop = ReactLoop(max_iterations=5)
 
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     example_human_in_the_loop()
     example_plan_execute()
     example_code_action()
-    example_custom_loop()
+    example_custom_loop_strategy()
 
     # Optional: serve for interactive playground
     # agent = LoopDemoAgent()

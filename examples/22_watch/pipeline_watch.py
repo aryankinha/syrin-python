@@ -34,13 +34,13 @@ from syrin.watch import CronProtocol, TriggerEvent  # noqa: E402
 
 
 class ResearchAgent(Agent):
-    _agent_name = "researcher"
+    name = "researcher"
     model = almock
     system_prompt = "You research topics and return key findings in 1-2 sentences."
 
 
 class SummaryAgent(Agent):
-    _agent_name = "summarizer"
+    name = "summarizer"
     model = almock
     system_prompt = "You condense research into a 1-sentence executive brief."
 

@@ -37,29 +37,27 @@ model = MyCustomModel("my-model")
 print(f"Custom model: {model}, provider: {model.provider}")
 
 # 2. Almock for testing
-mock_model = Model.Almock(latency_seconds=0.01, lorem_length=50)
+mock_model = Model.mock(latency_seconds=0.01, lorem_length=50)
 agent = Agent(model=mock_model, system_prompt="You are helpful.")
 result = agent.run("Hello!")
 print(f"Response: {result.content[:60]}..., cost: ${result.cost:.6f}")
 
 # 3. Almock with latency range
-mock_model = Model.Almock(latency_min=0, latency_max=0, lorem_length=80)
+mock_model = Model.mock(latency_min=0, latency_max=0, lorem_length=80)
 agent = Agent(model=mock_model)
 result = agent.run("Fast response")
 
 # 4. Fallback chains
-primary = Model.Almock(latency_seconds=0.01)
-model = primary.with_fallback(
-    Model.Almock(latency_seconds=0.01), Model.Almock(latency_seconds=0.01)
-)
+primary = Model.mock(latency_seconds=0.01)
+model = primary.with_fallback(Model.mock(latency_seconds=0.01), Model.mock(latency_seconds=0.01))
 agent = Agent(model=model)
 result = agent.run("Hello with fallback!")
 
 
 # 5. Class-level model
 class MyAgent(Agent):
-    _agent_name = "custom-model"
-    _agent_description = "Agent with custom Model subclass"
+    name = "custom-model"
+    description = "Agent with custom Model subclass"
     model = almock
     system_prompt = "You are a specialized assistant."
 

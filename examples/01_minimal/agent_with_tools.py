@@ -8,7 +8,7 @@ Run:
 
 from syrin import Agent, Model, tool
 
-model = Model.Almock()
+model = Model.mock()
 
 
 # Define tools as regular Python functions with @tool

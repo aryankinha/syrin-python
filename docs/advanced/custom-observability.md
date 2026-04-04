@@ -8,13 +8,7 @@ weight: 230
 
 Syrin ships with Console, JSONL, OTLP, Langfuse, and Phoenix exporters out of the box. But if your company runs an internal APM, a proprietary audit system, or a specialized cost tracking database — you need to plug in your own backend.
 
-Syrin gives you three extension points:
-
-| What | How | Use When |
-|------|-----|----------|
-| **Custom hook handler** | Subscribe to lifecycle events | You want to react to agent behavior (alert, log, modify) |
-| **Custom span exporter** | Implement `SpanExporter` protocol | You want traces in your own backend |
-| **Custom audit sink** | Implement `AuditSink` protocol | You need immutable audit logs for compliance |
+Syrin gives you three extension points. A **custom hook handler** subscribes to lifecycle events — use this when you want to react to agent behavior, send alerts, write logs, or modify context. A **custom span exporter** implements the `SpanExporter` protocol — use this when you want traces in your own backend. A **custom audit sink** implements the `AuditSink` protocol — use this when you need immutable audit logs for compliance.
 
 ---
 
@@ -251,19 +245,7 @@ class AuditSink(Protocol):
         ...
 ```
 
-`AuditRecord` fields:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `event_type` | str | `"llm_call"`, `"tool_call"`, `"memory_write"`, `"handoff"` |
-| `agent_id` | str | Which agent produced this record |
-| `session_id` | str \| None | Session context |
-| `timestamp` | datetime | When the event occurred |
-| `input` | dict | What was sent (prompt, tool args) |
-| `output` | dict | What was returned (response, tool result) |
-| `cost_usd` | float | Cost in USD |
-| `model` | str \| None | Model used, if applicable |
-| `metadata` | dict | Any extra context |
+`AuditRecord` has nine fields. `event_type` (str) is one of `"llm_call"`, `"tool_call"`, `"memory_write"`, or `"handoff"`. `agent_id` (str) identifies which agent produced the record. `session_id` (str or None) provides session context. `timestamp` (datetime) records when the event occurred. `input` (dict) holds what was sent — the prompt or tool arguments. `output` (dict) holds what was returned — the response or tool result. `cost_usd` (float) is the cost in USD. `model` (str or None) is the model used, if applicable. `metadata` (dict) holds any extra context you want to attach.
 
 ### Example: Append-Only Compliance Log
 

@@ -12,13 +12,6 @@ Covers: Media enum, input_media, output_media, capability discovery.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-_root = Path(__file__).resolve().parents[2]
-if str(_root) not in sys.path:
-    sys.path.insert(0, str(_root))
-
 from syrin import Agent, Model
 from syrin.enums import Media
 
@@ -26,7 +19,7 @@ from syrin.enums import Media
 def main() -> None:
     # Text-only agent (default)
     text_agent = Agent(
-        model=Model.Almock(latency_min=0, latency_max=0),
+        model=Model.mock(latency_min=0, latency_max=0),
         system_prompt="You are a text-only assistant.",
     )
     print("Text-only agent:")
@@ -35,7 +28,7 @@ def main() -> None:
 
     # Agent that accepts text + images and can produce text
     vision_agent = Agent(
-        model=Model.Almock(latency_min=0, latency_max=0),
+        model=Model.mock(latency_min=0, latency_max=0),
         system_prompt="You can see images and answer questions about them.",
         input_media={Media.TEXT, Media.IMAGE},
         output_media={Media.TEXT},
@@ -46,7 +39,7 @@ def main() -> None:
 
     # Agent that can also produce images (generation tools when GOOGLE_API_KEY set)
     full_agent = Agent(
-        model=Model.Almock(latency_min=0, latency_max=0),
+        model=Model.mock(latency_min=0, latency_max=0),
         system_prompt="You can chat, see images, and generate images/videos when asked.",
         input_media={Media.TEXT, Media.IMAGE},
         output_media={Media.TEXT, Media.IMAGE, Media.VIDEO},

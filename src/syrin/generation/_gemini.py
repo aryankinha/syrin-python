@@ -65,7 +65,7 @@ def _generate_images_impl(
         number_of_images=number_of_images,
         aspect_ratio=aspect_ratio,
         output_mime_type=output_mime_type,
-        **{  # type: ignore[arg-type]
+        **{
             k: v
             for k, v in kwargs.items()
             if k in ("negative_prompt", "person_generation", "safety_filter_level")
@@ -123,7 +123,7 @@ def _generate_video_impl(
     client = _get_client(api_key)
     config = types.GenerateVideosConfig(
         aspect_ratio=aspect_ratio,
-        **{k: v for k, v in kwargs.items() if k in ("number_of_videos",)},  # type: ignore[arg-type]
+        **{k: v for k, v in kwargs.items() if k in ("number_of_videos",)},
     )
     try:
         operation = client.models.generate_videos(  # type: ignore[attr-defined]
@@ -217,7 +217,7 @@ async def _generate_video_impl_async(
     client = _get_client(api_key)
     config = types.GenerateVideosConfig(
         aspect_ratio=aspect_ratio,
-        **{k: v for k, v in kwargs.items() if k in ("number_of_videos",)},  # type: ignore[arg-type]
+        **{k: v for k, v in kwargs.items() if k in ("number_of_videos",)},
     )
     try:
         operation = client.models.generate_videos(  # type: ignore[attr-defined]

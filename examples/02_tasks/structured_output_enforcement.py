@@ -14,19 +14,13 @@ Run:
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 from typing import Literal
 
-_ROOT = Path(__file__).resolve().parent.parent.parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+from pydantic import BaseModel, Field, field_validator
 
-from pydantic import BaseModel, Field, field_validator  # noqa: E402
-
-from syrin import Agent, Model, Output  # noqa: E402
-from syrin.enums import Hook  # noqa: E402
-from syrin.exceptions import OutputValidationError  # noqa: E402
+from syrin import Agent, Model, Output
+from syrin.enums import Hook
+from syrin.exceptions import OutputValidationError
 
 # ---------------------------------------------------------------------------
 # Pydantic models — these are what result.output will always be
@@ -74,18 +68,18 @@ _trend_json = (
     '"summary": "AI chips are driving massive investment across the tech sector."}'
 )
 
-sentiment_model = Model.Almock(
+sentiment_model = Model.mock(
     response_mode="custom",
     custom_response=_sentiment_json,
 )
-trend_model = Model.Almock(
+trend_model = Model.mock(
     response_mode="custom",
     custom_response=_trend_json,
 )
 
 
 class SentimentAgent(Agent):
-    _agent_name = "sentiment_agent"
+    name = "sentiment_agent"
     model = sentiment_model
     system_prompt = (
         "You perform sentiment analysis. Always respond with structured JSON "
@@ -95,7 +89,7 @@ class SentimentAgent(Agent):
 
 
 class TrendAgent(Agent):
-    _agent_name = "trend_agent"
+    name = "trend_agent"
     model = trend_model
     system_prompt = "You analyze market trends. Respond with structured JSON."
     output = Output(TrendReport, validation_retries=3)
@@ -161,7 +155,7 @@ def main() -> None:
     print("\n4. OutputValidationError — raised when all retries exhausted")
 
     class StrictAgent(Agent):
-        model = Model.Almock()  # Returns lorem ipsum — invalid for SentimentAnalysis
+        model = Model.mock()  # Returns lorem ipsum — invalid for SentimentAnalysis
         system_prompt = "Always output a valid JSON with 'value' field."
         output = Output(SentimentAnalysis, validation_retries=0)  # No retries
 

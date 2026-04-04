@@ -30,14 +30,14 @@ def vip_routing_callback(
 
 
 def main() -> None:
-    standard = Model.Almock(
+    standard = Model.mock(
         latency_min=0,
         latency_max=0,
         profile_name="standard",
         strengths=[TaskType.GENERAL, TaskType.CODE],
         priority=90,
     )
-    premium = Model.Almock(
+    premium = Model.mock(
         latency_min=0,
         latency_max=0,
         profile_name="premium",

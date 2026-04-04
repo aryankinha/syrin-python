@@ -27,7 +27,7 @@ from syrin.context import (
 from syrin.context.counter import TokenCounter
 from syrin.threshold import ContextThreshold
 
-model = Model.Almock()
+model = Model.mock()
 
 
 def section(title: str) -> None:

@@ -23,9 +23,8 @@ What to import from here:
   configuration.
 - ``Budget``, ``Memory``, ``Knowledge``, and ``Guardrail`` primitives for
   runtime control.
-- ``Pipeline``, ``DynamicPipeline``, and related multi-agent orchestration
-  helpers.
-- ``tool`` and ``task`` for agent capabilities and structured entry points.
+- ``Swarm``, ``Workflow``, and related multi-agent orchestration helpers.
+- ``tool`` for agent capabilities.
 - ``run`` for a one-shot convenience call when you do not want to instantiate
   an ``Agent`` manually.
 
@@ -71,8 +70,9 @@ __all__ = _public_exports
 _MODULE_BY_NAME: dict[str, str] = {
     "Agent": "syrin.agent",
     "AgentConfig": "syrin.agent.config",
-    "AgentTeam": "syrin.agent.multi_agent",
-    "AlmockPricing": "syrin.enums",
+    "AgentRouter": "syrin.agent.agent_router",
+    "MockPricing": "syrin.enums",
+    "MockResponseMode": "syrin.enums",
     "Anthropic": "syrin.model",
     "ApprovalGate": "syrin.hitl",
     "ApprovalGateProtocol": "syrin.hitl",
@@ -108,7 +108,6 @@ _MODULE_BY_NAME: dict[str, str] = {
     "DecayStrategy": "syrin.enums",
     "Document": "syrin.knowledge",
     "DocumentLoader": "syrin.knowledge",
-    "DynamicPipeline": "syrin.agent.multi_agent",
     "EventContext": "syrin.events",
     "Events": "syrin.events",
     "ExceedPolicy": "syrin.enums",
@@ -121,7 +120,6 @@ _MODULE_BY_NAME: dict[str, str] = {
     "GuardrailMode": "syrin.enums",
     "GuardrailResult": "syrin.guardrails",
     "GuardrailStage": "syrin.enums",
-    "HITL": "syrin.loop",
     "HandoffBlockedError": "syrin.exceptions",
     "HandoffRetryRequested": "syrin.exceptions",
     "Hook": "syrin.enums",
@@ -165,22 +163,18 @@ _MODULE_BY_NAME: dict[str, str] = {
     "OutputMimeType": "syrin.generation",
     "OutputType": "syrin.model",
     "OutputValidationError": "syrin.exceptions",
-    "Pipeline": "syrin.agent.multi_agent",
-    "PipelineRun": "syrin.agent.multi_agent",
     "PlanExecuteLoop": "syrin.loop",
     "Prompt": "syrin.prompt",
     "PromptContext": "syrin.prompt",
     "PromptInjectionGuardrail": "syrin.guardrails.injection",
     "QueueBackend": "syrin.watch",
     "QueueProtocol": "syrin.watch",
-    "REACT": "syrin.loop",
     "RateLimit": "syrin.budget",
     "RateLimitThreshold": "syrin.threshold",
     "ReactLoop": "syrin.loop",
     "RemoteConfigurable": "syrin.remote._protocol",
     "Response": "syrin.response",
     "RunContext": "syrin.run_context",
-    "SINGLE_SHOT": "syrin.loop",
     "SemanticAttributes": "syrin.observability",
     "ServeConfig": "syrin.serve",
     "Session": "syrin.observability",
@@ -224,6 +218,35 @@ _MODULE_BY_NAME: dict[str, str] = {
     "normalize_input": "syrin.guardrails.injection",
     "output": "syrin.model",
     "parallel": "syrin.agent.multi_agent",
+    # Multi-agent: Swarm
+    "Swarm": "syrin.swarm",
+    "SwarmConfig": "syrin.swarm",
+    "SwarmResult": "syrin.swarm",
+    "SwarmController": "syrin.swarm",
+    "MemoryBus": "syrin.swarm",
+    "AgentRegistry": "syrin.swarm",
+    "AgentSummary": "syrin.swarm",
+    "A2ARouter": "syrin.swarm",
+    "MonitorLoop": "syrin.swarm",
+    "ConsensusConfig": "syrin.swarm",
+    "ReflectionConfig": "syrin.swarm",
+    "SpawnSpec": "syrin.swarm",
+    "BroadcastBus": "syrin.swarm",
+    # Multi-agent: Workflow
+    "Workflow": "syrin.workflow",
+    "HandoffContext": "syrin.workflow",
+    "WorkflowStep": "syrin.workflow",
+    "SequentialStep": "syrin.workflow",
+    "ParallelStep": "syrin.workflow",
+    "BranchStep": "syrin.workflow",
+    "DynamicStep": "syrin.workflow",
+    # Swarm/Workflow enums
+    "SwarmTopology": "syrin.enums",
+    "ToolErrorMode": "syrin.enums",
+    "ConsensusStrategy": "syrin.enums",
+    "A2AChannel": "syrin.enums",
+    "WorkflowStatus": "syrin.enums",
+    "PauseMode": "syrin.enums",
     "prompt": "syrin.prompt",
     "raise_on_exceeded": "syrin.budget",
     "replay_trace": "syrin._replay",
@@ -239,7 +262,6 @@ _MODULE_BY_NAME: dict[str, str] = {
     "stop_on_exceeded": "syrin.budget",
     "structured": "syrin.model",
     "system_prompt": "syrin.prompt",
-    "task": "syrin.task",
     "tool": "syrin.tool",
     "trace": "syrin.observability",
     "validated": "syrin.prompt",
@@ -263,7 +285,50 @@ def _import_public(name: str) -> object:
     return value
 
 
+_REMOVED_IN_V0_11: dict[str, str] = {
+    "DynamicPipeline": (
+        "'DynamicPipeline' was removed in v0.11.0. Use 'AgentRouter' instead:\n"
+        "    from syrin import AgentRouter"
+    ),
+    "Pipeline": (
+        "'Pipeline' was removed in v0.11.0. Use 'Workflow' for sequential multi-agent runs:\n"
+        "    from syrin import Workflow\n"
+        "    wf = Workflow('name').step(AgentA).step(AgentB)\n"
+        "    result = await wf.run('input')"
+    ),
+    "AgentTeam": (
+        "'AgentTeam' was removed in v0.11.0. Use 'Swarm' for multi-agent coordination:\n"
+        "    from syrin import Swarm, SwarmConfig\n"
+        "    swarm = Swarm(agents=[...], goal='...', config=SwarmConfig())"
+    ),
+    "PipelineRun": (
+        "'PipelineRun' was removed in v0.11.0. Use 'Workflow' instead:\n"
+        "    from syrin import Workflow"
+    ),
+    "task": (
+        "'@task' was removed in v0.11.0. Define agent entry points as plain methods:\n"
+        "    class MyAgent(Agent):\n"
+        "        def research(self, topic: str) -> str:\n"
+        "            return self.run(f'Research: {topic}').content"
+    ),
+    "REACT": (
+        "'REACT' alias was removed in v0.11.0. Use 'ReactLoop' directly:\n"
+        "    from syrin import ReactLoop"
+    ),
+    "SINGLE_SHOT": (
+        "'SINGLE_SHOT' alias was removed in v0.11.0. Use 'SingleShotLoop' directly:\n"
+        "    from syrin import SingleShotLoop"
+    ),
+    "HITL": (
+        "'HITL' alias was removed in v0.11.0. Use 'HumanInTheLoop' directly:\n"
+        "    from syrin import HumanInTheLoop"
+    ),
+}
+
+
 def __getattr__(name: str) -> object:
+    if name in _REMOVED_IN_V0_11:
+        raise ImportError(_REMOVED_IN_V0_11[name])
     if name not in __all__:
         raise AttributeError(f"module {__name__} has no attribute {name!r}")
     return globals().get(name) or _import_public(name)

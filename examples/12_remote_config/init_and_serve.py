@@ -30,7 +30,7 @@ if os.getenv("SYRIN_API_KEY"):
 
 # Agent with budget so we can override budget.max_cost via PATCH /config
 agent = Agent(
-    model=Model.Almock(),
+    model=Model.mock(),
     name="my_agent",
     budget=Budget(max_cost=1.0),
     system_prompt="You are a helpful assistant.",
